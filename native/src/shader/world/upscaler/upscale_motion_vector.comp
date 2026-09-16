@@ -1,0 +1,50 @@
+#version 460
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 2, rg16f) uniform readonly image2D motionVectorIn;
+layout(set = 0, binding = 4, rg16f) uniform writeonly image2D motionVectorOut;
+
+layout(push_constant) uniform MotionParams {
+    float scaleX;
+    float scaleY;
+    uint srcWidth;
+    uint srcHeight;
+    uint dstWidth;
+    uint dstHeight;
+} params;
+
+vec2 loadMotion(ivec2 coord) {
+    coord = clamp(coord, ivec2(0), ivec2(int(params.srcWidth) - 1, int(params.srcHeight) - 1));
+    return imageLoad(motionVectorIn, coord).xy;
+}
+
+vec2 sampleBilinear(vec2 srcPixel) {
+    vec2 clamped = clamp(srcPixel - 0.5, vec2(0.0), vec2(params.srcWidth - 1u, params.srcHeight - 1u));
+    ivec2 p0 = ivec2(floor(clamped));
+    ivec2 p1 = min(p0 + ivec2(1), ivec2(int(params.srcWidth) - 1, int(params.srcHeight) - 1));
+    vec2 f = fract(clamped);
+
+    vec2 c00 = loadMotion(p0);
+    vec2 c10 = loadMotion(ivec2(p1.x, p0.y));
+    vec2 c01 = loadMotion(ivec2(p0.x, p1.y));
+    vec2 c11 = loadMotion(p1);
+
+    vec2 cx0 = mix(c00, c10, f.x);
+    vec2 cx1 = mix(c01, c11, f.x);
+    return mix(cx0, cx1, f.y);
+}
+
+void main() {
+    uvec2 coord = gl_GlobalInvocationID.xy;
+    if (coord.x >= params.dstWidth || coord.y >= params.dstHeight) {
+        return;
+    }
+
+    vec2 uv = (vec2(coord) + 0.5) / vec2(params.dstWidth, params.dstHeight);
+    vec2 srcPixel = uv * vec2(params.srcWidth, params.srcHeight);
+    vec2 motion = sampleBilinear(srcPixel);
+    motion *= vec2(params.scaleX, params.scaleY);
+
+    imageStore(motionVectorOut, ivec2(coord), vec4(motion, 0.0, 0.0));
+}

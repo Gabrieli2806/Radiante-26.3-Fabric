@@ -1,0 +1,55 @@
+#version 460
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 5, rgba16f) uniform readonly image2D normalRoughnessIn;
+layout(set = 0, binding = 6, rgba16f) uniform writeonly image2D normalRoughnessOut;
+
+layout(push_constant) uniform NormalRoughnessUpscaleParams {
+    float scaleX;
+    float scaleY;
+    uint srcWidth;
+    uint srcHeight;
+    uint dstWidth;
+    uint dstHeight;
+} params;
+
+vec4 loadNormalRoughness(ivec2 coord) {
+    coord = clamp(coord, ivec2(0), ivec2(int(params.srcWidth) - 1, int(params.srcHeight) - 1));
+    return imageLoad(normalRoughnessIn, coord);
+}
+
+vec4 sampleBilinear(vec2 srcPixel) {
+    vec2 clamped = clamp(srcPixel - 0.5, vec2(0.0), vec2(params.srcWidth - 1u, params.srcHeight - 1u));
+    ivec2 p0 = ivec2(floor(clamped));
+    ivec2 p1 = min(p0 + ivec2(1), ivec2(int(params.srcWidth) - 1, int(params.srcHeight) - 1));
+    vec2 f = fract(clamped);
+
+    vec4 c00 = loadNormalRoughness(p0);
+    vec4 c10 = loadNormalRoughness(ivec2(p1.x, p0.y));
+    vec4 c01 = loadNormalRoughness(ivec2(p0.x, p1.y));
+    vec4 c11 = loadNormalRoughness(p1);
+
+    vec4 cx0 = mix(c00, c10, f.x);
+    vec4 cx1 = mix(c01, c11, f.x);
+    return mix(cx0, cx1, f.y);
+}
+
+void main() {
+    uvec2 coord = gl_GlobalInvocationID.xy;
+    if (coord.x >= params.dstWidth || coord.y >= params.dstHeight) {
+        return;
+    }
+
+    vec2 uv = (vec2(coord) + 0.5) / vec2(params.dstWidth, params.dstHeight);
+    vec2 srcPixel = uv * vec2(params.srcWidth, params.srcHeight);
+    vec4 normalRoughness = sampleBilinear(srcPixel);
+
+    float normalLen = length(normalRoughness.xyz);
+    if (normalLen > 1e-5) {
+        normalRoughness.xyz /= normalLen;
+    }
+    normalRoughness.w = clamp(normalRoughness.w, 0.0, 1.0);
+
+    imageStore(normalRoughnessOut, ivec2(coord), normalRoughness);
+}

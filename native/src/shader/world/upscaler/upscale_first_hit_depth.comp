@@ -1,0 +1,50 @@
+#version 460
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, r16f) uniform readonly image2D firstHitDepthIn;
+layout(set = 0, binding = 1, r16f) uniform writeonly image2D firstHitDepthOut;
+
+layout(push_constant) uniform DepthUpscaleParams {
+    float scaleX;
+    float scaleY;
+    uint srcWidth;
+    uint srcHeight;
+    uint dstWidth;
+    uint dstHeight;
+} params;
+
+float loadDepth(ivec2 coord) {
+    coord = clamp(coord, ivec2(0), ivec2(int(params.srcWidth) - 1, int(params.srcHeight) - 1));
+    return imageLoad(firstHitDepthIn, coord).r;
+}
+
+void main() {
+    uvec2 coord = gl_GlobalInvocationID.xy;
+    if (coord.x >= params.dstWidth || coord.y >= params.dstHeight) {
+        return;
+    }
+
+    vec2 uv = (vec2(coord) + 0.5) / vec2(params.dstWidth, params.dstHeight);
+    vec2 srcPixel = uv * vec2(params.srcWidth, params.srcHeight) - 0.5;
+    ivec2 p0 = ivec2(floor(srcPixel));
+    ivec2 p1 = p0 + ivec2(1);
+    vec2 f = fract(srcPixel);
+
+    float d00 = loadDepth(p0);
+    float d10 = loadDepth(ivec2(p1.x, p0.y));
+    float d01 = loadDepth(ivec2(p0.x, p1.y));
+    float d11 = loadDepth(p1);
+
+    float minDepth = min(min(d00, d10), min(d01, d11));
+    float maxDepth = max(max(d00, d10), max(d01, d11));
+
+    float bilinearX0 = mix(d00, d10, f.x);
+    float bilinearX1 = mix(d01, d11, f.x);
+    float bilinearDepth = mix(bilinearX0, bilinearX1, f.y);
+
+    float edgeThreshold = max(0.5, minDepth * 0.02);
+    float outputDepth = (maxDepth - minDepth) > edgeThreshold ? minDepth : bilinearDepth;
+
+    imageStore(firstHitDepthOut, ivec2(coord), vec4(outputDepth, 0.0, 0.0, 0.0));
+}

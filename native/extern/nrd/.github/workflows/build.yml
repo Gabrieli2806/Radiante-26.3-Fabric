@@ -1,0 +1,45 @@
+name: NRD SDK
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs:
+  Build-Windows:
+    runs-on: windows-latest
+    steps:
+      - name : Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Deploy
+        run: .\1-Deploy.bat
+
+      - name: Build
+        run: .\2-Build.bat
+
+  Build-Ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name : Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: 'latest'
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Deploy
+        run: bash 1-Deploy.sh
+
+      - name: Build
+        run: bash 2-Build.sh

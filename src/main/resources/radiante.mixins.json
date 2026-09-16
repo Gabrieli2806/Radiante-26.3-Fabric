@@ -1,0 +1,32 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.g2806.radiante.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "backend.PreferredGraphicsApiMixin",
+    "backend.TextureTrackingMixins$DeviceMixin",
+    "backend.TextureTrackingMixins$EncoderMixin",
+    "backend.TextureTrackingMixins$TextureMixin",
+    "backend.VulkanBackendMixin",
+    "backend.VulkanCommandEncoderAccessor",
+    "backend.VulkanDeviceMixin",
+    "backend.VulkanInstanceMixin",
+    "backend.VulkanQueueLockMixins$QueueMixin",
+    "backend.VulkanQueueLockMixins$SubmissionMixin",
+    "backend.VulkanQueueLockMixins$SurfaceMixin",
+    "gui.VideoSettingsScreenMixin",
+    "render.RenderTypeAccessors$RenderSetupAccessor",
+    "render.RenderTypeAccessors$RenderTypeAccessor",
+    "render.RenderTypeAccessors$TextureBindingAccessor",
+    "texture.SpriteContentsMixin",
+    "texture.TextureAtlasMixin",
+    "world.GameRendererMixin",
+    "world.LevelExtractorMixin",
+    "world.LevelRendererMixin",
+    "world.SectionUpdateTrackerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

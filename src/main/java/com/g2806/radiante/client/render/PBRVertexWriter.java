@@ -1,0 +1,256 @@
+package com.g2806.radiante.client.render;
+
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import org.lwjgl.system.MemoryUtil;
+
+/**
+ * Writes vertices in the renderer's 128-byte {@code PBRVertex} layout (see native common/shared.hpp) into
+ * a growable off-heap buffer. Quads are expected (4 vertices per face).
+ */
+public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
+
+    public static final int STRIDE = 128;
+
+    public static final int ALPHA_MODE_OPAQUE = 0;
+    public static final int ALPHA_MODE_CUTOUT = 1;
+    public static final int ALPHA_MODE_TRANSPARENT = 2;
+
+    private static final int OFF_POS = 0;
+    private static final int OFF_USE_NORM = 12;
+    private static final int OFF_NORM = 16;
+    private static final int OFF_USE_COLOR = 28;
+    private static final int OFF_COLOR = 32;
+    private static final int OFF_USE_TEXTURE = 48;
+    private static final int OFF_USE_OVERLAY = 52;
+    private static final int OFF_TEXTURE_UV = 56;
+    private static final int OFF_OVERLAY_UV = 64;
+    private static final int OFF_USE_GLINT = 72;
+    private static final int OFF_TEXTURE_ID = 76;
+    private static final int OFF_GLINT_UV = 80;
+    private static final int OFF_GLINT_TEXTURE = 88;
+    private static final int OFF_USE_LIGHT = 92;
+    private static final int OFF_LIGHT_UV = 96;
+    private static final int OFF_COORDINATE = 104;
+    private static final int OFF_ALBEDO_EMISSION = 108;
+    private static final int OFF_POST_BASE = 112;
+    private static final int OFF_ALPHA_MODE = 124;
+
+    private long address;
+    private long capacity;
+    private int vertexCount;
+    private long current = -1L;
+
+    private int textureId;
+    private int glintTextureId;
+    private int alphaMode;
+    private int coordinate;
+    private float albedoEmission;
+    private boolean computeQuadNormals;
+    private boolean overlayEnabled;
+
+    public PBRVertexWriter(int initialVertices) {
+        this.capacity = Math.max(4, initialVertices) * (long) STRIDE;
+        this.address = MemoryUtil.nmemAllocChecked(this.capacity);
+    }
+
+    public PBRVertexWriter textureId(int textureId) {
+        this.textureId = textureId;
+        return this;
+    }
+
+    public PBRVertexWriter glintTextureId(int glintTextureId) {
+        this.glintTextureId = glintTextureId;
+        return this;
+    }
+
+    public PBRVertexWriter alphaMode(int alphaMode) {
+        this.alphaMode = alphaMode;
+        return this;
+    }
+
+    public PBRVertexWriter coordinate(int coordinate) {
+        this.coordinate = coordinate;
+        return this;
+    }
+
+    public PBRVertexWriter albedoEmission(float albedoEmission) {
+        this.albedoEmission = albedoEmission;
+        return this;
+    }
+
+    /**
+     * Terrain has no overlay colour, and flagging it would make the shaders blend against the (empty) overlay
+     * texture. Entities that flash red or white when hurt turn this on.
+     */
+    public PBRVertexWriter overlayEnabled(boolean overlayEnabled) {
+        this.overlayEnabled = overlayEnabled;
+        return this;
+    }
+
+    /** Derives face normals from quad positions instead of the values the caller supplies. */
+    public PBRVertexWriter computeQuadNormals(boolean computeQuadNormals) {
+        this.computeQuadNormals = computeQuadNormals;
+        return this;
+    }
+
+    public int vertexCount() {
+        return this.vertexCount;
+    }
+
+    public long address() {
+        return this.address;
+    }
+
+    public void reset() {
+        this.vertexCount = 0;
+        this.current = -1L;
+    }
+
+    private void ensureCapacity(long required) {
+        if (required <= this.capacity) {
+            return;
+        }
+        long newCapacity = this.capacity;
+        while (newCapacity < required) {
+            newCapacity *= 2;
+        }
+        this.address = MemoryUtil.nmemReallocChecked(this.address, newCapacity);
+        this.capacity = newCapacity;
+    }
+
+    private void finishQuadIfComplete() {
+        if (!this.computeQuadNormals || this.vertexCount % 4 != 0 || this.vertexCount == 0) {
+            return;
+        }
+        long v0 = this.address + (long) (this.vertexCount - 4) * STRIDE;
+        long v1 = v0 + STRIDE;
+        long v2 = v1 + STRIDE;
+        float ax = MemoryUtil.memGetFloat(v1) - MemoryUtil.memGetFloat(v0);
+        float ay = MemoryUtil.memGetFloat(v1 + 4) - MemoryUtil.memGetFloat(v0 + 4);
+        float az = MemoryUtil.memGetFloat(v1 + 8) - MemoryUtil.memGetFloat(v0 + 8);
+        float bx = MemoryUtil.memGetFloat(v2) - MemoryUtil.memGetFloat(v0);
+        float by = MemoryUtil.memGetFloat(v2 + 4) - MemoryUtil.memGetFloat(v0 + 4);
+        float bz = MemoryUtil.memGetFloat(v2 + 8) - MemoryUtil.memGetFloat(v0 + 8);
+        float nx = ay * bz - az * by;
+        float ny = az * bx - ax * bz;
+        float nz = ax * by - ay * bx;
+        float length = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (length < 1.0E-8f) {
+            return;
+        }
+        nx /= length;
+        ny /= length;
+        nz /= length;
+        for (int i = 0; i < 4; i++) {
+            long v = v0 + (long) i * STRIDE;
+            MemoryUtil.memPutInt(v + OFF_USE_NORM, 1);
+            MemoryUtil.memPutFloat(v + OFF_NORM, nx);
+            MemoryUtil.memPutFloat(v + OFF_NORM + 4, ny);
+            MemoryUtil.memPutFloat(v + OFF_NORM + 8, nz);
+        }
+    }
+
+    @Override
+    public VertexConsumer addVertex(float x, float y, float z) {
+        finishQuadIfComplete();
+        ensureCapacity((long) (this.vertexCount + 1) * STRIDE);
+        long v = this.address + (long) this.vertexCount * STRIDE;
+        this.vertexCount++;
+        this.current = v;
+
+        MemoryUtil.memSet(v, 0, STRIDE);
+        boolean invalid = Float.isNaN(x) || Float.isNaN(y) || Float.isNaN(z);
+        MemoryUtil.memPutFloat(v + OFF_POS, invalid ? 0 : x);
+        MemoryUtil.memPutFloat(v + OFF_POS + 4, invalid ? 0 : y);
+        MemoryUtil.memPutFloat(v + OFF_POS + 8, invalid ? 0 : z);
+        MemoryUtil.memPutInt(v + OFF_TEXTURE_ID, this.textureId);
+        MemoryUtil.memPutInt(v + OFF_GLINT_TEXTURE, this.glintTextureId);
+        MemoryUtil.memPutInt(v + OFF_COORDINATE, this.coordinate);
+        MemoryUtil.memPutFloat(v + OFF_ALBEDO_EMISSION, this.albedoEmission);
+        MemoryUtil.memPutInt(v + OFF_ALPHA_MODE, this.alphaMode);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setColor(int r, int g, int b, int a) {
+        MemoryUtil.memPutInt(this.current + OFF_USE_COLOR, 1);
+        MemoryUtil.memPutFloat(this.current + OFF_COLOR, r / 255.0f);
+        MemoryUtil.memPutFloat(this.current + OFF_COLOR + 4, g / 255.0f);
+        MemoryUtil.memPutFloat(this.current + OFF_COLOR + 8, b / 255.0f);
+        MemoryUtil.memPutFloat(this.current + OFF_COLOR + 12, a / 255.0f);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setColor(int color) {
+        return setColor(color >> 16 & 0xFF, color >> 8 & 0xFF, color & 0xFF, color >>> 24);
+    }
+
+    @Override
+    public VertexConsumer setUv(float u, float v) {
+        MemoryUtil.memPutInt(this.current + OFF_USE_TEXTURE, 1);
+        MemoryUtil.memPutFloat(this.current + OFF_TEXTURE_UV, u);
+        MemoryUtil.memPutFloat(this.current + OFF_TEXTURE_UV + 4, v);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setUv1(int u, int v) {
+        if (!this.overlayEnabled) {
+            return this;
+        }
+        MemoryUtil.memPutInt(this.current + OFF_USE_OVERLAY, 1);
+        MemoryUtil.memPutInt(this.current + OFF_OVERLAY_UV, u);
+        MemoryUtil.memPutInt(this.current + OFF_OVERLAY_UV + 4, v);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setUv2(int u, int v) {
+        MemoryUtil.memPutInt(this.current + OFF_USE_LIGHT, 1);
+        MemoryUtil.memPutInt(this.current + OFF_LIGHT_UV, u);
+        MemoryUtil.memPutInt(this.current + OFF_LIGHT_UV + 4, v);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setUv3(float u, float v) {
+        MemoryUtil.memPutInt(this.current + OFF_USE_GLINT, 1);
+        MemoryUtil.memPutFloat(this.current + OFF_GLINT_UV, u);
+        MemoryUtil.memPutFloat(this.current + OFF_GLINT_UV + 4, v);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setNormal(float x, float y, float z) {
+        MemoryUtil.memPutInt(this.current + OFF_USE_NORM, 1);
+        MemoryUtil.memPutFloat(this.current + OFF_NORM, x);
+        MemoryUtil.memPutFloat(this.current + OFF_NORM + 4, y);
+        MemoryUtil.memPutFloat(this.current + OFF_NORM + 8, z);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setLineWidth(float width) {
+        return this;
+    }
+
+    public void setPostBase(float x, float y, float z) {
+        MemoryUtil.memPutFloat(this.current + OFF_POST_BASE, x);
+        MemoryUtil.memPutFloat(this.current + OFF_POST_BASE + 4, y);
+        MemoryUtil.memPutFloat(this.current + OFF_POST_BASE + 8, z);
+    }
+
+    /** Call once all vertices are written so a trailing quad gets its computed normal. */
+    public void finish() {
+        finishQuadIfComplete();
+    }
+
+    @Override
+    public void close() {
+        if (this.address != 0L) {
+            MemoryUtil.nmemFree(this.address);
+            this.address = 0L;
+        }
+    }
+}

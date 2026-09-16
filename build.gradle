@@ -1,0 +1,64 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	mavenCentral()
+}
+
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	implementation "org.yaml:snakeyaml:2.5"
+	include "org.yaml:snakeyaml:2.5"
+}
+
+processResources {
+	def version = project.version
+	def mcVersion = project.minecraft_version
+	inputs.property "version", version
+	inputs.property "minecraft_version", mcVersion
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version, "minecraft_version": mcVersion
+	}
+}
+
+// JNI headers for the native renderer
+compileJava {
+	options.compilerArgs += ['-h', "${projectDir}/native/include"]
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = "UTF-8"
+	it.options.release = 25
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.named("runClient", JavaExec) {
+	args "--width", "1920", "--height", "1080"
+	if (project.hasProperty("quickPlay")) {
+		args "--quickPlaySingleplayer", project.property("quickPlay")
+	}
+	if (project.hasProperty("vulkanValidation")) {
+		args "--vulkanValidation", "--renderDebugLabels"
+	}
+}
+
+jar {
+	archiveFileName.set("${project.archives_base_name}-${project.version}+${project.minecraft_version}.jar")
+}
