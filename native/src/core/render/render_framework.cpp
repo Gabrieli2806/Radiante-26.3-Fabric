@@ -4,6 +4,9 @@
 #include <atomic>
 #include "core/render/render_framework.hpp"
 
+#include "core/render/framegen/frame_generation.hpp"
+#include "core/render/framegen/streamline.hpp"
+
 #include "common/shared.hpp"
 #include "core/render/buffers.hpp"
 #include "core/render/chunks.hpp"
@@ -129,6 +132,9 @@ void Framework::init(const SharedDeviceHandles &handles) {
     frameResourceRetainer_ = FrameResourceRetainer::create(shared_from_this());
     worldAsyncCommandBuffer_ = vk::CommandBuffer::create(device_, asyncCommandPool_);
 
+    framegen::Streamline::setVulkanInfo(handles.instance, handles.physicalDevice, handles.device,
+                                        handles.mainQueueFamily, 0, handles.secondaryQueueFamily, 0);
+
     createContexts();
     pipeline_ = Pipeline::create(shared_from_this());
 }
@@ -188,6 +194,21 @@ std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t wid
     auto pipelineContext = pipeline_->acquirePipelineContext(context);
     if (Renderer::instance().world()->shouldRender() && pipelineContext->worldPipelineContext != nullptr) {
         pipelineContext->worldPipelineContext->render();
+
+        // Frame generation reads the finished world image plus the depth and motion vectors behind it.
+        auto worldPipeline = pipeline_->worldPipeline();
+        if (worldPipeline != nullptr) {
+            int depthSlot = framegen::FrameGeneration::depthSlot();
+            int motionSlot = framegen::FrameGeneration::motionVectorSlot();
+            if (depthSlot >= 0 && motionSlot >= 0) {
+                framegen::FrameGeneration::beginFrame(
+                    pipelineContext->worldPipelineContext->outputImage,
+                    worldPipeline->sharedImage(context->frameIndex, static_cast<uint32_t>(depthSlot)),
+                    worldPipeline->sharedImage(context->frameIndex, static_cast<uint32_t>(motionSlot)),
+                    context->worldCommandBuffer->vkCommandBuffer());
+            }
+        }
+
         context->fuseInto(vk::ExternalImage::create(target, width, height, format));
     }
 

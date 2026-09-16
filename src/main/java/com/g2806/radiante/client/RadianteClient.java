@@ -34,7 +34,17 @@ public class RadianteClient implements ClientModInitializer {
     private static final String NATIVE_RESOURCE_ROOT = "/radiante-native";
 
     public static Path radianceDir;
+    private static boolean streamlineLoaded;
     private static boolean nativeLoaded = false;
+
+    /** True when Streamline was loaded before Minecraft created its Vulkan instance. */
+    public static boolean streamlineLoaded() {
+        return streamlineLoaded;
+    }
+
+    public static void setStreamlineLoaded(boolean loaded) {
+        streamlineLoaded = loaded;
+    }
 
     @Override
     public void onInitializeClient() {
@@ -78,6 +88,7 @@ public class RadianteClient implements ClientModInitializer {
         copyFile("core.dll");
         copyFolder("shaders", radianceDir.resolve("shaders"));
         copyFolder(null, radianceDir.resolve("modules"), "/modules");
+        copyFolder("streamline", radianceDir.resolve("streamline"));
 
         Path xess = radianceDir.resolve("libxess.dll");
         if (Files.exists(xess)) {

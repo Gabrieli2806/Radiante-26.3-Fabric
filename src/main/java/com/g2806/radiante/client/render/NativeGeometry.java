@@ -9,6 +9,10 @@ public final class NativeGeometry {
     public static final int GEOMETRY_TYPE_WORLD_SOLID = 1;
     public static final int GEOMETRY_TYPE_WORLD_TRANSPARENT = 2;
     public static final int GEOMETRY_TYPE_WORLD_NO_REFLECT = 3;
+    public static final int GEOMETRY_TYPE_WORLD_CLOUD = 4;
+    public static final int GEOMETRY_TYPE_BOAT_WATER_MASK = 5;
+    public static final int GEOMETRY_TYPE_END_PORTAL = 6;
+    public static final int GEOMETRY_TYPE_END_GATEWAY = 7;
 
     public static final int COORDINATE_WORLD = 0;
     public static final int COORDINATE_CAMERA = 1;

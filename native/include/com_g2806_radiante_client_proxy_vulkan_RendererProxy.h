@@ -111,6 +111,62 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_shouldRenderWorld
   (JNIEnv *, jclass, jboolean);
 
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    initFrameGeneration
+ * Signature: (Ljava/lang/String;)Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_initFrameGeneration
+  (JNIEnv *, jclass, jstring);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    maxGeneratedFrames
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_maxGeneratedFrames
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    setGeneratedFrames
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setGeneratedFrames
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    presentedFrameRate
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_presentedFrameRate
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    setFrameGenerationImages
+ * Signature: (II)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setFrameGenerationImages
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    beginFrameGenerationFrame
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_beginFrameGenerationFrame
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    frameGenerationMarker
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_frameGenerationMarker
+  (JNIEnv *, jclass, jint);
+
 #ifdef __cplusplus
 }
 #endif

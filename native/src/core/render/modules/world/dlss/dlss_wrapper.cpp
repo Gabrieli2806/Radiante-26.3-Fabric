@@ -134,9 +134,19 @@ NVSDK_NGX_Result NgxContext::init(const NgxInitInfo &initInfo) {
     info.LoggingInfo.MinimumLoggingLevel = initInfo.loggingLevel;
     // The game runs from java.exe, so NGX would only look for the DLSS feature DLLs next to the JVM. Point it at
     // the dlss folder where players drop nvngx_dlss.dll / nvngx_dlssd.dll.
-    const wchar_t *featureSearchPaths[] = {applicationPath_.c_str()};
-    info.PathListInfo.Path = featureSearchPaths;
-    info.PathListInfo.Length = 1;
+    searchPaths_.clear();
+    searchPaths_.push_back(applicationPath_);
+    for (const std::string &extra : initInfo.extraSearchPaths) {
+        if (extra.empty()) continue;
+        searchPaths_.emplace_back(extra.begin(), extra.end());
+    }
+    std::vector<const wchar_t *> featureSearchPaths;
+    featureSearchPaths.reserve(searchPaths_.size());
+    for (const std::wstring &searchPath : searchPaths_) {
+        featureSearchPaths.push_back(searchPath.c_str());
+    }
+    info.PathListInfo.Path = featureSearchPaths.data();
+    info.PathListInfo.Length = static_cast<unsigned int>(featureSearchPaths.size());
 
     // Init NGX API
     NGX_RETURN_ON_FAIL(NVSDK_NGX_VULKAN_Init(g_ApplicationID, applicationPath_.c_str(), initInfo.instance->vkInstance(),
@@ -199,7 +209,8 @@ NVSDK_NGX_Result NgxContext::queryDlssRRAvailable() {
     NVSDK_NGX_Result resDlssSupported =
         NGX_CHECK(ngxParams_->Get(NVSDK_NGX_Parameter_SuperSamplingDenoising_Available, &DLSS_Supported));
     if (NVSDK_NGX_FAILED(resDlssSupported) || !DLSS_Supported) {
-        LOGW << "not available on this hardware/platform" << std::endl;
+        LOGW << "not available on this hardware/platform (query=" << static_cast<int>(resDlssSupported)
+             << ", supported=" << DLSS_Supported << ")" << std::endl;
         return NVSDK_NGX_Result_FAIL_FeatureNotSupported;
     }
     resDlssSupported =

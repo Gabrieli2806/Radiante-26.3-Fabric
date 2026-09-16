@@ -69,6 +69,18 @@ if(MCVR_ENABLE_XESS)
         message(WARNING "XeSS headers were found but no XeSS runtime library was found; building without XeSS backend.")
     endif()
 endif()
+if(MCVR_ENABLE_STREAMLINE)
+    target_include_directories(core PUBLIC ${STREAMLINE_DIR}/include)
+    # Not linked: sl.interposer.lib also exports the Vulkan entry points volk defines, so the interposer is loaded
+    # at runtime and only the sl* functions are resolved from it.
+    target_compile_definitions(core PUBLIC MCVR_ENABLE_STREAMLINE)
+
+    # Shipped next to the renderer; the mod extracts them into run/radiante/streamline.
+    file(GLOB STREAMLINE_RUNTIME_DLLS "${STREAMLINE_DIR}/bin/x64/*.dll")
+    install(FILES ${STREAMLINE_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_LIB_DIR}/streamline)
+    install(FILES ${STREAMLINE_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_BIN_DIR}/streamline)
+endif()
+
 if(MSVC)
     target_compile_definitions(core PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
     target_compile_options(core PRIVATE /utf-8)

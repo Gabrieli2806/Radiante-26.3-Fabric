@@ -1,6 +1,7 @@
 package com.g2806.radiante.client.render;
 
 import com.g2806.radiante.client.RadianteClient;
+import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.pipeline.Pipeline;
 import com.g2806.radiante.client.proxy.vulkan.BufferProxy;
 import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
@@ -18,6 +19,7 @@ import com.mojang.renderpearl.backend.vulkan.VulkanGpuTexture;
 import com.mojang.renderpearl.frontend.FrontendCommandEncoder;
 import java.nio.ByteBuffer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.blockentity.AbstractEndPortalRenderer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.fog.FogData;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
@@ -102,6 +104,7 @@ public final class RadianteRenderer {
         }
 
         active = true;
+        FrameGeneration.setGeneratedFrames(Options.frameGeneration ? Options.generatedFrames : 0);
         reserveFallbackTexture();
         Pipeline.loadPipeline();
         Pipeline.build();
@@ -197,7 +200,9 @@ public final class RadianteRenderer {
         BufferProxy.updateWorldUniform(new BufferProxy.WorldUniform(view, effectedView, projection,
             glintTextureMatrix(minecraft), levelRenderState.gameTime + levelRenderState.worldPartialTicks,
             TextureTracker.idOf(gameRenderer.overlayTexture().getTextureView().texture()),
-            cameraState.isFirstPerson, fogStart, fogEnd, new Vector4f(fog.color), skyType, 0, 0,
+            cameraState.isFirstPerson, fogStart, fogEnd, new Vector4f(fog.color), skyType,
+            TextureTracker.idOf(AbstractEndPortalRenderer.END_SKY_LOCATION),
+            TextureTracker.idOf(AbstractEndPortalRenderer.END_PORTAL_LOCATION),
             TextureTracker.idOf(gameRenderer.levelLightmap().texture())));
 
         SkyRenderState sky = levelRenderState.skyRenderState;

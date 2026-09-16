@@ -4,15 +4,27 @@
   "version": "${version}",
   "name": "Radiante",
   "description": "Hardware ray-traced renderer with DLSS, FSR and XeSS running on Minecraft's native Vulkan backend.",
-  "authors": ["Gabrieli2806"],
-  "contributors": ["LJIONG", "Interstellarss"],
+  "authors": [
+    "Gabrieli2806"
+  ],
+  "contributors": [
+    "LJIONG",
+    "Interstellarss"
+  ],
   "license": "GPL-3.0",
   "icon": "assets/radiante/icon.png",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.g2806.radiante.client.RadianteClient"]
+    "client": [
+      "com.g2806.radiante.client.RadianteClient"
+    ],
+    "preLaunch": [
+      "com.g2806.radiante.client.RadiantePreLaunch"
+    ]
   },
-  "mixins": ["radiante.mixins.json"],
+  "mixins": [
+    "radiante.mixins.json"
+  ],
   "depends": {
     "fabricloader": "*",
     "fabric-api": "*",

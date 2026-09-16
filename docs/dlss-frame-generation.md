@@ -22,6 +22,25 @@ integration has to hook Minecraft's instance, device, swapchain and present call
 | Runtime files | `sl.interposer.dll`, `sl.common.dll`, `sl.dlss_g.dll`, `sl.reflex.dll`, `nvngx_dlssg.dll` in `run/radiante/dlss` |
 | Reflex | Mandatory with frame generation (latency markers every frame) |
 
+## Status
+
+Done:
+- Streamline 2.14.1 in `native/extern/streamline` (headers, `sl.interposer.lib`, runtime DLLs), CMake option
+  `MCVR_ENABLE_STREAMLINE`, DLLs extracted into `run/radiante/streamline` at startup.
+- `framegen::Streamline`: loads `sl.interposer.dll` at runtime and resolves only the `sl*` entry points, so volk keeps
+  owning the Vulkan symbols.
+- Minecraft loads Streamline's loader (`org.lwjgl.vulkan.libname` set in the pre-launch entrypoint), and the shared
+  instance and device are created through Streamline's `vkCreateInstance` / `vkCreateDevice`.
+- Streamline's instance and device extensions are merged into the shared device.
+- **Verified on an RTX 5070: `frame generation available, up to 6x`.**
+
+Notes found while integrating:
+- `slSetVulkanInfo` is only for hand-hooked integrations; calling it after using the creation proxies fails with
+  `eErrorInvalidIntegration`.
+- `Preferences::projectId` must be a real GUID. With any other string DLSS-G reports `eErrorFeatureNotSupported`.
+
+Left to do: per frame constants and tags, `slDLSSGSetOptions`, Reflex/PCL markers, and the F6 option.
+
 ## Design
 
 Everything lives behind a compile flag (`MCVR_ENABLE_STREAMLINE`) and a runtime check, so builds without the

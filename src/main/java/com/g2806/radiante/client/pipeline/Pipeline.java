@@ -1,6 +1,7 @@
 package com.g2806.radiante.client.pipeline;
 
 import com.g2806.radiante.client.RadianteClient;
+import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
 import com.g2806.radiante.client.constant.VulkanConstants;
 import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.pipeline.config.AttributeConfig;
@@ -801,6 +802,37 @@ public class Pipeline {
         }
 
         buildNative(sortedModules, imageFormatList, configToImageIdMap, moduleAttributes);
+        publishFrameGenerationImages(sortedModules, configToImageIdMap);
+    }
+
+    /**
+     * Tells the renderer which pipeline images frame generation reads. Upscaled variants win, so frame generation
+     * works at the presented resolution when DLSS, FSR or XeSS is in the pipeline.
+     */
+    private static void publishFrameGenerationImages(List<Module> modules, Map<ImageConfig, Integer> imageIds) {
+        int depth = -1;
+        int motionVectors = -1;
+        for (Module module : modules) {
+            if (module == null || module.outputImageConfigs == null) {
+                continue;
+            }
+            for (ImageConfig config : module.outputImageConfigs) {
+                Integer id = imageIds.get(config);
+                if (id == null || config.name == null) {
+                    continue;
+                }
+                switch (config.name) {
+                    case "first_hit_depth" -> depth = depth < 0 ? id : depth;
+                    case "motion_vector" -> motionVectors = motionVectors < 0 ? id : motionVectors;
+                    case "upscaled_first_hit_depth" -> depth = id;
+                    case "upscaled_motion_vector" -> motionVectors = id;
+                    default -> {
+                    }
+                }
+            }
+        }
+
+        RendererProxy.setFrameGenerationImages(depth, motionVectors);
     }
 
     private static boolean isPipelineCompatibilityFailure(Exception e) {

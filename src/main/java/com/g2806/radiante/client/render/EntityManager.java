@@ -30,6 +30,7 @@ public final class EntityManager {
     private static final PoseStack POSE_STACK = new PoseStack();
     private static final List<PendingEntity> PENDING = new ArrayList<>();
     private static boolean queued;
+    private static int DEBUG_BLOCK_ENTITIES;
 
     /** Masks the ray tracing shaders select geometry with. */
     private static final int RAY_TRACING_WORLD = 0b00000001;
@@ -110,7 +111,19 @@ public final class EntityManager {
         }
 
         BlockPos pos = state.blockPos;
+        int before = PENDING.size();
         addPending(pos.hashCode() ^ 0x5BD1E995, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_WORLD);
+        if (DEBUG_BLOCK_ENTITIES < 20) {
+            for (RenderType type : COLLECTOR.layers().keySet()) {
+                RenderTypeInfo info = RenderTypeInfo.of(type);
+                if (!info.groupName().equals("Entity")) {
+                    DEBUG_BLOCK_ENTITIES++;
+                    RadianteRenderer.LOGGER.info("special block entity at {}: group={} geometry={} vertices={} added={}",
+                        pos, info.groupName(), info.geometryType(), COLLECTOR.layers().get(type).vertexCount(),
+                        PENDING.size() - before);
+                }
+            }
+        }
     }
 
     /** Particles arrive already positioned relative to the camera and facing it. */
@@ -186,7 +199,7 @@ public final class EntityManager {
 
             RenderTypeInfo info = RenderTypeInfo.of(entry.getKey());
             layers.add(new PendingLayer(info.geometryType(), info.textureId(), writer.vertexCount(),
-                copyVertices(writer), "Entity"));
+                copyVertices(writer), info.groupName()));
         }
 
         if (!layers.isEmpty()) {

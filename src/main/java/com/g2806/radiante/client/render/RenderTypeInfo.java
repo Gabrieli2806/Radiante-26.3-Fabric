@@ -17,16 +17,21 @@ public final class RenderTypeInfo {
 
     private static final Map<RenderType, RenderTypeInfo> CACHE = new IdentityHashMap<>();
 
+    /** A lightning bolt is the brightest thing in the world while it lasts. */
+    private static final float LIGHTNING_EMISSION = 20.0f;
+
     private final Identifier texture;
     private final boolean useOverlay;
     private final boolean blending;
     private final boolean solid;
+    private final String name;
 
-    private RenderTypeInfo(Identifier texture, boolean useOverlay, boolean blending, boolean solid) {
+    private RenderTypeInfo(Identifier texture, boolean useOverlay, boolean blending, boolean solid, String name) {
         this.texture = texture;
         this.useOverlay = useOverlay;
         this.blending = blending;
         this.solid = solid;
+        this.name = name == null ? "" : name;
     }
 
     public static synchronized RenderTypeInfo of(RenderType renderType) {
@@ -43,7 +48,7 @@ public final class RenderTypeInfo {
         // Only fully opaque types are traced as solid. Cut out layers (villager hats, zombie heads, skin overlays)
         // keep their alpha test, otherwise their transparent texels render black on top of the face.
         boolean solid = !renderType.hasBlending() && name != null && name.contains("solid");
-        info = new RenderTypeInfo(texture, access.radiante$useOverlay(), renderType.hasBlending(), solid);
+        info = new RenderTypeInfo(texture, access.radiante$useOverlay(), renderType.hasBlending(), solid, name);
         CACHE.put(renderType, info);
         return info;
     }
@@ -53,12 +58,39 @@ public final class RenderTypeInfo {
         return this.texture == null ? 0 : TextureTracker.idOf(this.texture);
     }
 
+    /**
+     * Layers that are light themselves rather than lit surfaces. They carry no texture and are drawn additively in
+     * vanilla, so without this they would trace as dark geometry.
+     */
+    public float emission() {
+        if (this.name.contains("lightning")) {
+            return LIGHTNING_EMISSION;
+        }
+        return 0.0f;
+    }
+
     public boolean useOverlay() {
         return this.useOverlay;
     }
 
+    private boolean isEndPortal() {
+        return this.name.equals("end_portal");
+    }
+
+    private boolean isEndGateway() {
+        return this.name.equals("end_gateway");
+    }
+
+    /** Hit group the shader packs shade this geometry with; portals have their own, everything else the default. */
+    public String groupName() {
+        if (isEndPortal() || isEndGateway()) {
+            return this.name;
+        }
+        return "Entity";
+    }
+
     public int alphaMode() {
-        if (this.solid) {
+        if (this.solid || isEndPortal() || isEndGateway()) {
             return PBRVertexWriter.ALPHA_MODE_OPAQUE;
         }
         return this.blending ? PBRVertexWriter.ALPHA_MODE_TRANSPARENT : PBRVertexWriter.ALPHA_MODE_CUTOUT;
@@ -69,6 +101,12 @@ public final class RenderTypeInfo {
      * shaders never terminate when an opaque hit asks them to continue past a cut out texel.
      */
     public int geometryType() {
+        if (isEndPortal()) {
+            return NativeGeometry.GEOMETRY_TYPE_END_PORTAL;
+        }
+        if (isEndGateway()) {
+            return NativeGeometry.GEOMETRY_TYPE_END_GATEWAY;
+        }
         return this.solid ? NativeGeometry.GEOMETRY_TYPE_WORLD_SOLID : NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT;
     }
 }

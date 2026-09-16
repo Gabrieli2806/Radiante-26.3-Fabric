@@ -5,6 +5,8 @@
 #include "core/render/buffers.hpp"
 #include "core/render/pipeline.hpp"
 #include "core/render/render_framework.hpp"
+#include "core/render/framegen/frame_generation.hpp"
+#include "core/render/framegen/streamline.hpp"
 #include "core/render/renderer.hpp"
 #include "core/render/textures.hpp"
 #include "core/render/world.hpp"
@@ -177,5 +179,45 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
     auto world = Renderer::instance().world();
     if (world == nullptr) return;
     world->shouldRender() = shouldRenderWorld;
+}
+
+JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_initFrameGeneration(
+    JNIEnv *env, jclass, jstring folder) {
+    if (folder == nullptr) return JNI_FALSE;
+    const char *chars = env->GetStringUTFChars(folder, nullptr);
+    if (chars == nullptr) return JNI_FALSE;
+    bool loaded = framegen::Streamline::init(chars);
+    env->ReleaseStringUTFChars(folder, chars);
+    return loaded ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_maxGeneratedFrames(JNIEnv *, jclass) {
+    return static_cast<jint>(framegen::Streamline::maxGeneratedFrames());
+}
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setGeneratedFrames(JNIEnv *,
+                                                                                                   jclass,
+                                                                                                   jint frames) {
+    framegen::Streamline::setGeneratedFrames(static_cast<uint32_t>(frames < 0 ? 0 : frames));
+}
+
+JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_presentedFrameRate(JNIEnv *, jclass) {
+    return static_cast<jint>(framegen::FrameGeneration::presentedFrameRate());
+}
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setFrameGenerationImages(
+    JNIEnv *, jclass, jint depthSlot, jint motionVectorSlot) {
+    framegen::FrameGeneration::setImageSlots(depthSlot, motionVectorSlot);
+}
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_beginFrameGenerationFrame(JNIEnv *,
+                                                                                                          jclass) {
+    framegen::FrameGeneration::beginClientFrame();
+}
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_frameGenerationMarker(JNIEnv *,
+                                                                                                      jclass,
+                                                                                                      jint marker) {
+    framegen::FrameGeneration::marker(marker);
 }
 }

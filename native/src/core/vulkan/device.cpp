@@ -1,5 +1,7 @@
 #include "core/vulkan/device.hpp"
 
+#include "core/render/framegen/streamline.hpp"
+
 #include "core/render/modules/world/dlss/dlss_wrapper.hpp"
 #include "core/render/modules/world/xess_upscaler/xess_wrapper.hpp"
 #include "core/vulkan/instance.hpp"
@@ -103,6 +105,11 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
              VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
              VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME,
          }) {
+        requested.emplace_back(ext);
+    }
+
+    // DLSS Frame Generation asks for its own extensions (Reflex low latency among them).
+    for (const std::string &ext : framegen::Streamline::requiredDeviceExtensions()) {
         requested.emplace_back(ext);
     }
 
@@ -363,13 +370,76 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
     }
 #endif
 
+    // DLSS Frame Generation does its work on queues of its own. Unless the device is created with them Streamline
+    // accepts every call, reports no error, and silently never generates a frame.
+    std::vector<VkDeviceQueueCreateInfo> queueInfos(baseInfo->pQueueCreateInfos,
+                                                    baseInfo->pQueueCreateInfos + baseInfo->queueCreateInfoCount);
+    std::vector<std::vector<float>> queuePriorities;
+    queuePriorities.reserve(queueInfos.size() + 2);
+    for (const VkDeviceQueueCreateInfo &info : queueInfos) {
+        queuePriorities.emplace_back(info.pQueuePriorities, info.pQueuePriorities + info.queueCount);
+    }
+
+    uint32_t extraCompute = framegen::Streamline::requiredExtraComputeQueues();
+    uint32_t extraGraphics = framegen::Streamline::requiredExtraGraphicsQueues();
+    if (extraCompute > 0 || extraGraphics > 0) {
+        uint32_t familyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceHandle, &familyCount, nullptr);
+        std::vector<VkQueueFamilyProperties> families(familyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceHandle, &familyCount, families.data());
+
+        auto reserveQueues = [&](VkQueueFlagBits flag, uint32_t wanted) {
+            uint32_t added = 0;
+            for (uint32_t family = 0; family < familyCount && added < wanted; family++) {
+                if ((families[family].queueFlags & flag) == 0) continue;
+
+                size_t slot = queueInfos.size();
+                for (size_t i = 0; i < queueInfos.size(); i++) {
+                    if (queueInfos[i].queueFamilyIndex == family) {
+                        slot = i;
+                        break;
+                    }
+                }
+                uint32_t taken = slot < queueInfos.size() ? queueInfos[slot].queueCount : 0;
+                uint32_t room = families[family].queueCount > taken ? families[family].queueCount - taken : 0;
+                uint32_t grantable = std::min(room, wanted - added);
+                if (grantable == 0) continue;
+
+                if (slot == queueInfos.size()) {
+                    VkDeviceQueueCreateInfo info{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+                    info.queueFamilyIndex = family;
+                    queueInfos.push_back(info);
+                    queuePriorities.emplace_back();
+                }
+                queuePriorities[slot].resize(taken + grantable, 1.0f);
+                queueInfos[slot].queueCount = taken + grantable;
+                added += grantable;
+            }
+            return added;
+        };
+
+        uint32_t gotCompute = reserveQueues(VK_QUEUE_COMPUTE_BIT, extraCompute);
+        uint32_t gotGraphics = reserveQueues(VK_QUEUE_GRAPHICS_BIT, extraGraphics);
+        deviceCout() << "reserved extra queues for frame generation (compute " << gotCompute << "/" << extraCompute
+                     << ", graphics " << gotGraphics << "/" << extraGraphics << ")" << std::endl;
+    }
+
+    for (size_t i = 0; i < queueInfos.size(); i++) {
+        queueInfos[i].pQueuePriorities = queuePriorities[i].data();
+    }
+
     VkDeviceCreateInfo createInfo = *baseInfo;
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size());
+    createInfo.pQueueCreateInfos = queueInfos.data();
     createInfo.pNext = &features2;
     createInfo.pEnabledFeatures = nullptr;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(selected.size());
     createInfo.ppEnabledExtensionNames = selected.data();
 
-    VkResult result = vkCreateDevice(physicalDeviceHandle, &createInfo, allocator, outDevice);
+    PFN_vkCreateDevice createDevice = framegen::Streamline::createDeviceProxy(instance->vkInstance());
+    VkResult result = createDevice != nullptr
+                          ? createDevice(physicalDeviceHandle, &createInfo, allocator, outDevice)
+                          : vkCreateDevice(physicalDeviceHandle, &createInfo, allocator, outDevice);
     if (result != VK_SUCCESS) {
         deviceCerr() << "vkCreateDevice failed: " << result << std::endl;
         return result;

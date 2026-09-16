@@ -187,5 +187,6 @@
   "options.radiante.collect_chunk_emission": "Block Emission",
   "key.radiante.open_settings": "Open Radiante Settings",
   "render_pipeline.module.dlss.attribute.mode.ultra_performance": "Ultra Performance",
-  "options.radiante.dlss_mode": "DLSS Mode"
+  "options.radiante.dlss_mode": "DLSS Mode",
+  "options.radiante.frame_generation": "Frame Generation"
 }

@@ -36,4 +36,24 @@ public class RendererProxy {
     public static native void close();
 
     public static native void shouldRenderWorld(boolean renderWorld);
+
+    /** Loads NVIDIA Streamline from `folder`; must run before Minecraft creates its Vulkan instance. */
+    public static native boolean initFrameGeneration(String folder);
+
+    /** Frames DLSS can generate per rendered frame, 0 when frame generation is unavailable. */
+    public static native int maxGeneratedFrames();
+
+    public static native void setGeneratedFrames(int frames);
+
+    /** Frames put on screen per second, real plus generated; 0 while frame generation is off. */
+    public static native int presentedFrameRate();
+
+    /** Pipeline image slots holding the depth and motion vectors frame generation reads. */
+    public static native void setFrameGenerationImages(int depthSlot, int motionVectorSlot);
+
+    /** Opens the Streamline frame; called once per client frame. */
+    public static native void beginFrameGenerationFrame();
+
+    /** Latency marker for Reflex (see FrameGeneration.Marker). */
+    public static native void frameGenerationMarker(int marker);
 }

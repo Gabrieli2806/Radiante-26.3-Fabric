@@ -87,6 +87,9 @@ class NgxContext : public SharedObject<NgxContext> {
         NVSDK_NGX_Logging_Level loggingLevel = NVSDK_NGX_LOGGING_LEVEL_ON;
 #endif
         std::string applicationPath; // directory to store temporary files and logs in
+        // Extra folders NGX should search for the feature DLLs. NGX is a process singleton, so when Streamline has
+        // already initialised it the snippets have to be findable from its folder too.
+        std::vector<std::string> extraSearchPaths;
     };
 
     // Initialize the NGX context on the given Vulkan device
@@ -138,6 +141,7 @@ class NgxContext : public SharedObject<NgxContext> {
     std::shared_ptr<vk::Device> device_;
     NVSDK_NGX_Parameter *ngxParams_ = nullptr;
     std::wstring applicationPath_;
+    std::vector<std::wstring> searchPaths_;
 };
 
 

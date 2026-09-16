@@ -57,6 +57,8 @@ class WorldPipeline : public SharedObject<WorldPipeline> {
     void init(std::shared_ptr<Framework> framework, std::shared_ptr<Pipeline> pipeline);
 
     std::vector<std::shared_ptr<WorldModule>> &worldModules();
+    // Image the pipeline blueprint assigned to `index` for the frame slot, or null when there is none.
+    std::shared_ptr<vk::DeviceLocalImage> sharedImage(uint32_t frameIndex, uint32_t index);
     std::vector<std::shared_ptr<WorldPipelineContext>> &contexts();
     std::shared_ptr<ShaderPack> shaderPack();
 

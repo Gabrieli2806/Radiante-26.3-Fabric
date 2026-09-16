@@ -68,6 +68,10 @@ public class Options {
     public static int chunkBuildingTotalBatches = 12;
     public static int chunkBuildingThreads = getDefaultChunkBuildingThreads();
     public static boolean collectChunkEmission = true;
+    /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
+    public static boolean frameGeneration = false;
+    /** Frames DLSS generates per rendered frame: 0 is off, 1 is 2x, up to 5 for 6x. */
+    public static int generatedFrames = 1;
 
     public static int getMaxChunkBuildingThreads() {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
@@ -114,6 +118,10 @@ public class Options {
             setCollectChunkEmission(Boolean.parseBoolean(props.getProperty("collectChunkEmission",
                     String.valueOf(collectChunkEmission))),
                 false);
+            frameGeneration = Boolean.parseBoolean(props.getProperty("frameGeneration",
+                String.valueOf(frameGeneration)));
+            generatedFrames = Integer.parseInt(props.getProperty("generatedFrames",
+                String.valueOf(generatedFrames)));
 
             overwriteConfig();
 //            System.out.println("Successfully read options: " + path);
@@ -137,6 +145,8 @@ public class Options {
         props.setProperty("chunkBuildingTotalBatches", String.valueOf(chunkBuildingTotalBatches));
         props.setProperty("chunkBuildingThreads", String.valueOf(chunkBuildingThreads));
         props.setProperty("collectChunkEmission", String.valueOf(collectChunkEmission));
+        props.setProperty("frameGeneration", String.valueOf(frameGeneration));
+        props.setProperty("generatedFrames", String.valueOf(generatedFrames));
 
         try {
             Files.createDirectories(path.getParent());

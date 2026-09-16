@@ -163,6 +163,11 @@ std::vector<std::shared_ptr<WorldModule>> &WorldPipeline::worldModules() {
     return worldModules_;
 }
 
+std::shared_ptr<vk::DeviceLocalImage> WorldPipeline::sharedImage(uint32_t frameIndex, uint32_t index) {
+    if (frameIndex >= sharedImages_.size() || index >= sharedImages_[frameIndex].size()) return nullptr;
+    return sharedImages_[frameIndex][index];
+}
+
 std::vector<std::shared_ptr<WorldPipelineContext>> &WorldPipeline::contexts() {
     return contexts_;
 }

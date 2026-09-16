@@ -57,6 +57,11 @@ tasks.named("runClient", JavaExec) {
 	if (project.hasProperty("vulkanValidation")) {
 		args "--vulkanValidation", "--renderDebugLabels"
 	}
+	// Prints which Vulkan library LWJGL ends up loading, which is how we tell whether frame generation can hook
+	// Minecraft's presentation at all.
+	if (project.hasProperty("lwjglDebug")) {
+		jvmArgs "-Dorg.lwjgl.util.DebugLoader=true", "-Dorg.lwjgl.util.Debug=true"
+	}
 }
 
 jar {

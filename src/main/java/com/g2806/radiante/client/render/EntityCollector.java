@@ -93,7 +93,7 @@ public final class EntityCollector implements SubmitNodeCollector {
             .glintTextureId(0)
             .alphaMode(info.alphaMode())
             .coordinate(NativeGeometry.COORDINATE_CAMERA)
-            .albedoEmission(0.0f)
+            .albedoEmission(info.emission())
             .overlayEnabled(info.useOverlay())
             .computeQuadNormals(false);
         this.writers.put(renderType, writer);

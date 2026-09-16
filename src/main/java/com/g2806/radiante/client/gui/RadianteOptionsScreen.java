@@ -1,6 +1,9 @@
 package com.g2806.radiante.client.gui;
 
+import com.g2806.radiante.client.RadianteClient;
 import com.g2806.radiante.client.option.Options;
+import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
+import com.g2806.radiante.client.render.FrameGeneration;
 import com.g2806.radiante.client.pipeline.Pipeline;
 import com.g2806.radiante.client.pipeline.Pipeline.ShaderPackChoice;
 import com.g2806.radiante.client.pipeline.Presets;
@@ -25,6 +28,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private Presets pendingPreset;
     private ShaderPackChoice pendingShaderPack;
     private String pendingDlssMode;
+    private int pendingGeneratedFrames = Options.frameGeneration ? Options.generatedFrames : 0;
     private int pendingChunkThreads = Options.chunkBuildingThreads;
     private int pendingChunkBatchSize = Options.chunkBuildingBatchSize;
     private int pendingChunkTotalBatches = Options.chunkBuildingTotalBatches;
@@ -110,6 +114,32 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             value -> this.pendingDlssMode = value);
     }
 
+    /**
+     * Streamline has to be loaded before Minecraft creates its Vulkan device, so turning frame generation on for the
+     * first time only takes effect after a restart.
+     */
+    private OptionInstance<Integer> frameGenerationOption() {
+        int max = RendererProxy.maxGeneratedFrames();
+        if (max <= 0 && !RadianteClient.streamlineLoaded()) {
+            // Offer 2x so the player can switch it on; the real maximum shows up after the restart.
+            max = 1;
+        }
+        if (max <= 0) {
+            return null;
+        }
+
+        List<Integer> values = new ArrayList<>();
+        for (int frames = 0; frames <= max; frames++) {
+            values.add(frames);
+        }
+
+        return new OptionInstance<>("options.radiante.frame_generation", OptionInstance.noTooltip(),
+            (caption, value) -> value == 0 ? Component.translatable("options.off")
+                : Component.literal((value + 1) + "x"),
+            new OptionInstance.Enum<>(values, Codec.intRange(0, max)),
+            Math.min(this.pendingGeneratedFrames, max), value -> this.pendingGeneratedFrames = value);
+    }
+
     @Override
     protected void addOptions() {
         if (this.list == null) {
@@ -127,8 +157,13 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
 
         OptionInstance<String> dlssMode = dlssModeOption();
-        if (dlssMode != null) {
+        OptionInstance<Integer> frameGeneration = frameGenerationOption();
+        if (dlssMode != null && frameGeneration != null) {
+            this.list.addSmall(dlssMode, frameGeneration);
+        } else if (dlssMode != null) {
             this.list.addSmall(dlssMode);
+        } else if (frameGeneration != null) {
+            this.list.addSmall(frameGeneration);
         }
 
         this.list.addSmall(
@@ -167,6 +202,12 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingCollectEmission != Options.collectChunkEmission) {
             Options.setCollectChunkEmission(this.pendingCollectEmission, false);
+        }
+        boolean wantsFrameGeneration = this.pendingGeneratedFrames > 0;
+        if (wantsFrameGeneration != Options.frameGeneration || this.pendingGeneratedFrames != Options.generatedFrames) {
+            Options.frameGeneration = wantsFrameGeneration;
+            Options.generatedFrames = Math.max(1, this.pendingGeneratedFrames);
+            FrameGeneration.setGeneratedFrames(this.pendingGeneratedFrames);
         }
         Options.overwriteConfig();
 
