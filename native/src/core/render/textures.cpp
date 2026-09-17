@@ -178,15 +178,22 @@ void Textures::queueUpload(uint8_t *srcPointer,
     }
 
     auto cache = cacheIter->second;
-    size_t offset = cache->append(srcPointer, srcSizeInBytes);
-
 
     auto format = dstTexture->vkFormat();
     uint32_t bytePerPixel = vk::formatToByte(format);
 
+    // Only the rows the copy reads are staged. Taking the whole source meant a glyph of eight by eight texels
+    // dragged its entire sheet along, sixty four kilobytes at a time, once per letter.
+    size_t rowStride = static_cast<size_t>(srcRowPixels) * bytePerPixel;
+    size_t skipRows = static_cast<size_t>(srcOffsetY) * rowStride;
+    size_t neededBytes = skipRows + static_cast<size_t>(height) * rowStride;
+    if (neededBytes > srcSizeInBytes) { neededBytes = srcSizeInBytes; }
+    size_t stagedBytes = neededBytes - skipRows;
+    size_t offset = cache->append(srcPointer + skipRows, stagedBytes);
+
     VkBufferImageCopy region = {};
     region.bufferRowLength = srcRowPixels;
-    region.bufferOffset = offset + srcOffsetY * srcRowPixels * bytePerPixel + srcOffsetX * bytePerPixel;
+    region.bufferOffset = offset + srcOffsetX * bytePerPixel;
     region.imageSubresource = {
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .mipLevel = 0,

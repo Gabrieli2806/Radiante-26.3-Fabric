@@ -71,6 +71,8 @@ public final class EntityManager {
 
         CameraRenderState cameraState = levelRenderState.cameraRenderState;
         PENDING.clear();
+        // Last frame's vertex copies were consumed by the upload below; the arena starts over.
+        ARENA.reset();
 
         for (EntityRenderState state : levelRenderState.entityRenderStates) {
             collect(minecraft, cameraState, state);
@@ -308,15 +310,119 @@ public final class EntityManager {
     }
 
     /**
-     * The collector reuses its buffers between entities, so each layer keeps its own copy until the native
-     * renderer has consumed it.
+     * The collector reuses its buffers between entities, so each layer keeps its own copy until the native renderer
+     * has consumed it. Those copies used to be one allocation each, which in a busy world meant hundreds of
+     * malloc and free calls every frame; they all live for exactly one frame, so one arena serves them all.
+     * An offset is returned rather than an address because growing the arena moves it.
      */
     private static long copyVertices(PBRVertexWriter writer) {
         long size = (long) writer.vertexCount() * PBRVertexWriter.STRIDE;
-        long copy = MemoryUtil.nmemAllocChecked(size);
-        MemoryUtil.memCopy(writer.address(), copy, size);
-        return copy;
+        return ARENA.append(writer.address(), size);
     }
+
+    /** A bump allocator for everything that lives for one frame and is then handed to the renderer. */
+    private static final class Arena {
+
+        private long address;
+        private long capacity;
+        private long used;
+
+        long append(long source, long size) {
+            reserve(this.used + size);
+            long offset = this.used;
+            MemoryUtil.memCopy(source, this.address + offset, size);
+            this.used += size;
+            return offset;
+        }
+
+        long addressOf(long offset) {
+            return this.address + offset;
+        }
+
+        void reset() {
+            this.used = 0L;
+        }
+
+        private void reserve(long required) {
+            if (required <= this.capacity) {
+                return;
+            }
+            long grown = Math.max(required, Math.max(this.capacity * 2L, 1L << 16));
+            this.address = this.address == 0L ? MemoryUtil.nmemAllocChecked(grown)
+                : MemoryUtil.nmemReallocChecked(this.address, grown);
+            this.capacity = grown;
+        }
+    }
+
+    private static final Arena ARENA = new Arena();
+
+    /**
+     * Group names are a handful of fixed strings, but a native copy of one was being allocated for every layer of
+     * every entity every frame. They never change, so each is encoded once and kept.
+     */
+    private static long groupNameAddress(String name) {
+        Long cached = GROUP_NAMES.get(name);
+        if (cached != null) {
+            return cached;
+        }
+        long address = MemoryUtil.memAddress(MemoryUtil.memUTF8(name, true));
+        GROUP_NAMES.put(name, address);
+        return address;
+    }
+
+    private static final Map<String, Long> GROUP_NAMES = new java.util.HashMap<>();
+
+    /**
+     * The fixed set of native arrays the upload hands over. Each slot keeps its buffer between frames and only
+     * ever grows, so a frame costs no allocation at all once the world has settled.
+     */
+    private static final class Scratch {
+
+        private static final int SLOTS = 17;
+
+        private final long[] addresses = new long[SLOTS];
+        private final long[] sizes = new long[SLOTS];
+
+        long ints(int slot, int count) {
+            return reserve(slot, (long) count * Integer.BYTES);
+        }
+
+        long longs(int slot, int count) {
+            return reserve(slot, (long) count * Long.BYTES);
+        }
+
+        long doubles(int slot, int count) {
+            return reserve(slot, (long) count * Double.BYTES);
+        }
+
+        /** For the arrays the upload never writes: they have to read as zero, as a fresh allocation did. */
+        long zeroedInts(int slot, int count) {
+            long size = (long) count * Integer.BYTES;
+            long address = reserve(slot, size);
+            MemoryUtil.memSet(address, 0, size);
+            return address;
+        }
+
+        long zeroedLongs(int slot, int count) {
+            long size = (long) count * Long.BYTES;
+            long address = reserve(slot, size);
+            MemoryUtil.memSet(address, 0, size);
+            return address;
+        }
+
+        private long reserve(int slot, long size) {
+            if (size <= this.sizes[slot] && this.addresses[slot] != 0L) {
+                return this.addresses[slot];
+            }
+            long grown = Math.max(size, Math.max(this.sizes[slot] * 2L, 256L));
+            this.addresses[slot] = this.addresses[slot] == 0L ? MemoryUtil.nmemAllocChecked(grown)
+                : MemoryUtil.nmemReallocChecked(this.addresses[slot], grown);
+            this.sizes[slot] = grown;
+            return this.addresses[slot];
+        }
+    }
+
+    private static final Scratch SCRATCH = new Scratch();
 
     private static void upload(int coordinate) {
         if (PENDING.isEmpty()) {
@@ -330,25 +436,25 @@ public final class EntityManager {
             layerCount += entity.layers().size();
         }
 
-        long hashCodes = MemoryUtil.nmemCalloc(entityCount, Integer.BYTES);
-        long posXs = MemoryUtil.nmemCalloc(entityCount, Double.BYTES);
-        long posYs = MemoryUtil.nmemCalloc(entityCount, Double.BYTES);
-        long posZs = MemoryUtil.nmemCalloc(entityCount, Double.BYTES);
-        long rayTracingFlags = MemoryUtil.nmemCalloc(entityCount, Integer.BYTES);
-        long postRenderFlags = MemoryUtil.nmemCalloc(entityCount, Integer.BYTES);
-        long prebuiltBlas = MemoryUtil.nmemCalloc(entityCount, Integer.BYTES);
-        long posts = MemoryUtil.nmemCalloc(entityCount, Integer.BYTES);
-        long layerCounts = MemoryUtil.nmemCalloc(entityCount, Integer.BYTES);
-        long geometryTypes = MemoryUtil.nmemCalloc(layerCount, Integer.BYTES);
-        long geometryGroupNames = MemoryUtil.nmemCalloc(layerCount, Long.BYTES);
-        long geometryContentNames = MemoryUtil.nmemCalloc(layerCount, Long.BYTES);
-        long geometryTextures = MemoryUtil.nmemCalloc(layerCount, Integer.BYTES);
-        long vertexFormats = MemoryUtil.nmemCalloc(layerCount, Integer.BYTES);
-        long indexFormats = MemoryUtil.nmemCalloc(layerCount, Integer.BYTES);
-        long vertexCounts = MemoryUtil.nmemCalloc(layerCount, Integer.BYTES);
-        long vertices = MemoryUtil.nmemCalloc(layerCount, Long.BYTES);
-        long[] names = new long[layerCount];
-        long[] vertexBuffers = new long[layerCount];
+        // These seventeen arrays are the same shape every frame and only ever grow, so they are kept between
+        // frames. Allocating and freeing them per frame was pure overhead on the render thread.
+        long hashCodes = SCRATCH.ints(0, entityCount);
+        long posXs = SCRATCH.doubles(1, entityCount);
+        long posYs = SCRATCH.doubles(2, entityCount);
+        long posZs = SCRATCH.doubles(3, entityCount);
+        long rayTracingFlags = SCRATCH.ints(4, entityCount);
+        long postRenderFlags = SCRATCH.zeroedInts(5, entityCount);
+        long prebuiltBlas = SCRATCH.ints(6, entityCount);
+        long posts = SCRATCH.zeroedInts(7, entityCount);
+        long layerCounts = SCRATCH.ints(8, entityCount);
+        long geometryTypes = SCRATCH.ints(9, layerCount);
+        long geometryGroupNames = SCRATCH.longs(10, layerCount);
+        long geometryContentNames = SCRATCH.zeroedLongs(11, layerCount);
+        long geometryTextures = SCRATCH.ints(12, layerCount);
+        long vertexFormats = SCRATCH.ints(13, layerCount);
+        long indexFormats = SCRATCH.ints(14, layerCount);
+        long vertexCounts = SCRATCH.ints(15, layerCount);
+        long vertices = SCRATCH.longs(16, layerCount);
 
         try {
             int layerIndex = 0;
@@ -364,10 +470,9 @@ public final class EntityManager {
                 MemoryUtil.memPutInt(prebuiltBlas + (long) i * Integer.BYTES, -1);
 
                 for (PendingLayer layer : entity.layers()) {
-                    names[layerIndex] = MemoryUtil.memAddress(MemoryUtil.memUTF8(layer.name(), true));
-                    vertexBuffers[layerIndex] = layer.vertices();
                     MemoryUtil.memPutInt(geometryTypes + (long) layerIndex * Integer.BYTES, layer.geometryType());
-                    MemoryUtil.memPutAddress(geometryGroupNames + (long) layerIndex * Long.BYTES, names[layerIndex]);
+                    MemoryUtil.memPutAddress(geometryGroupNames + (long) layerIndex * Long.BYTES,
+                        groupNameAddress(layer.name()));
                     MemoryUtil.memPutAddress(geometryContentNames + (long) layerIndex * Long.BYTES, 0L);
                     MemoryUtil.memPutInt(geometryTextures + (long) layerIndex * Integer.BYTES, layer.textureId());
                     MemoryUtil.memPutInt(vertexFormats + (long) layerIndex * Integer.BYTES,
@@ -375,7 +480,8 @@ public final class EntityManager {
                     MemoryUtil.memPutInt(indexFormats + (long) layerIndex * Integer.BYTES,
                         NativeGeometry.DRAW_MODE_QUADS);
                     MemoryUtil.memPutInt(vertexCounts + (long) layerIndex * Integer.BYTES, layer.vertexCount());
-                    MemoryUtil.memPutAddress(vertices + (long) layerIndex * Long.BYTES, layer.vertices());
+                    MemoryUtil.memPutAddress(vertices + (long) layerIndex * Long.BYTES,
+                        ARENA.addressOf(layer.vertices()));
                     layerIndex++;
                 }
             }
@@ -385,33 +491,6 @@ public final class EntityManager {
                 geometryGroupNames, geometryContentNames, geometryTextures, vertexFormats, indexFormats,
                 vertexCounts, vertices);
         } finally {
-            MemoryUtil.nmemFree(hashCodes);
-            MemoryUtil.nmemFree(posXs);
-            MemoryUtil.nmemFree(posYs);
-            MemoryUtil.nmemFree(posZs);
-            MemoryUtil.nmemFree(rayTracingFlags);
-            MemoryUtil.nmemFree(postRenderFlags);
-            MemoryUtil.nmemFree(prebuiltBlas);
-            MemoryUtil.nmemFree(posts);
-            MemoryUtil.nmemFree(layerCounts);
-            MemoryUtil.nmemFree(geometryTypes);
-            MemoryUtil.nmemFree(geometryGroupNames);
-            MemoryUtil.nmemFree(geometryContentNames);
-            MemoryUtil.nmemFree(geometryTextures);
-            MemoryUtil.nmemFree(vertexFormats);
-            MemoryUtil.nmemFree(indexFormats);
-            MemoryUtil.nmemFree(vertexCounts);
-            MemoryUtil.nmemFree(vertices);
-            for (long name : names) {
-                if (name != 0L) {
-                    MemoryUtil.nmemFree(name);
-                }
-            }
-            for (long buffer : vertexBuffers) {
-                if (buffer != 0L) {
-                    MemoryUtil.nmemFree(buffer);
-                }
-            }
             PENDING.clear();
         }
     }

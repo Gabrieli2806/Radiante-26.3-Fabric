@@ -3,7 +3,6 @@ package com.g2806.radiante.client.render;
 import com.g2806.radiante.mixin.render.RenderTypeAccessors.RenderSetupAccessor;
 import com.g2806.radiante.mixin.render.RenderTypeAccessors.RenderTypeAccessor;
 import com.g2806.radiante.mixin.render.RenderTypeAccessors.TextureBindingAccessor;
-import java.util.IdentityHashMap;
 import java.util.Map;
 import com.mojang.renderpearl.api.GpuFormat;
 import net.minecraft.client.Minecraft;
@@ -18,7 +17,12 @@ import net.minecraft.resources.Identifier;
  */
 public final class RenderTypeInfo {
 
-    private static final Map<RenderType, RenderTypeInfo> CACHE = new IdentityHashMap<>();
+    /**
+     * Read on the render thread for every layer of every entity, every frame. A plain map behind a lock made that
+     * a contended call for what is almost always a hit, so lookups go straight at a concurrent map and only a miss
+     * pays anything. Building the same entry twice is harmless: the values are immutable and identical.
+     */
+    private static final Map<RenderType, RenderTypeInfo> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** A lightning bolt is the brightest thing in the world while it lasts. */
     private static final float LIGHTNING_EMISSION = 20.0f;
@@ -47,7 +51,7 @@ public final class RenderTypeInfo {
         this.name = name == null ? "" : name;
     }
 
-    public static synchronized RenderTypeInfo of(RenderType renderType) {
+    public static RenderTypeInfo of(RenderType renderType) {
         RenderTypeInfo info = CACHE.get(renderType);
         if (info != null) {
             return info;
