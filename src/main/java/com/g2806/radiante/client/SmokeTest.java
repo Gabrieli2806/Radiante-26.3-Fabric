@@ -91,65 +91,39 @@ public final class SmokeTest {
             command("gamerule doMobSpawning false");
             command("gamerule sendCommandFeedback false");
             command("weather clear");
-            command("time set midnight");
+            command("time set noon");
         });
         STEPS.add(() -> {
             command("fill -10 198 -10 10 198 10 minecraft:stone");
             command("fill -10 199 -10 10 206 10 minecraft:air");
             command("fill -8 199 6 8 205 6 minecraft:stone");
+            command("setblock -6 200 5 minecraft:glowstone");
+            command("setblock 6 200 5 minecraft:glowstone");
             command("tp @s 0 199 0 0 0");
         });
         STEPS.add(() -> {
-            // A wall sign is attached to the wall behind it, so it survives; a standing sign would pop off.
-            command("setblock 0 201 5 minecraft:oak_wall_sign[facing=north]"
-                + "{front_text:{has_glowing_text:1b,color:\"white\","
-                + "messages:['{\"text\":\"RADIANTE\"}','{\"text\":\"SIGN TEXT\"}',"
+            // A wall sign hangs off the wall behind it; a standing sign would pop off with air underneath.
+            command("setblock -2 201 5 minecraft:oak_wall_sign[facing=north]"
+                + "{front_text:{messages:['{\"text\":\"RADIANTE\"}','{\"text\":\"SIGN TEXT\"}',"
                 + "'{\"text\":\"LINE THREE\"}','{\"text\":\"LINE FOUR\"}']}}");
-            command("setblock -4 200 5 minecraft:torch");
-            command("setblock 4 200 5 minecraft:glowstone");
-            command("setblock 2 200 5 minecraft:end_portal");
-            command("setblock -2 200 5 minecraft:nether_portal[axis=x]");
+            // A painting is the control: it uses the same render layer as an item frame and already works.
+            command("summon minecraft:painting 2 201 5.4 "
+                + "{facing:2,variant:\"minecraft:alban\"}");
         });
-        STEPS.add(() -> command("tp @s 0 200 2 0 0"));
-        STEPS.add(() -> shot("01-wall-night"));
-        STEPS.add(() -> command("tp @s 0 200.6 3 0 0"));
-        STEPS.add(() -> shot("02-sign-closeup"));
-        STEPS.add(() -> command("time set noon"));
-        STEPS.add(() -> shot("02b-sign-daylight"));
-        STEPS.add(() -> command("tp @s 0 200.75 4.2 0 0"));
-        STEPS.add(() -> shot("02c-sign-very-close"));
-        STEPS.add(() -> command("time set midnight"));
-        STEPS.add(() -> command("tp @s 2 200.6 3 0 0"));
-        STEPS.add(() -> shot("03-end-portal"));
         STEPS.add(() -> {
-            command("tp @s 0 199 0 0 0");
-            // Rotation 180 turns them to face the camera; spawned facing away, their eyes are simply not in shot.
-            command("summon minecraft:enderman 0 199 4 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Rotation:[180f,0f]}");
-            command("summon minecraft:spider 3 199 4 {NoAI:1b,PersistenceRequired:1b,Silent:1b,Rotation:[180f,0f]}");
+            command("summon minecraft:item_frame 0 201 5.4 "
+                + "{Facing:2b,Item:{id:\"minecraft:diamond\",count:1}}");
+            command("summon minecraft:glow_item_frame 1 201 5.4 {Facing:2b}");
         });
-        STEPS.add(() -> command("tp @s 0 200.8 1.5 0 -5"));
-        STEPS.add(() -> shot("04-enderman-eyes"));
-        STEPS.add(() -> command("tp @s 3 199.6 2.2 0 0"));
-        STEPS.add(() -> shot("04b-spider-eyes"));
-        STEPS.add(() -> {
-            command("kill @e[type=enderman]");
-            command("kill @e[type=spider]");
-            command("summon minecraft:zombie 0 199 4 {NoAI:1b,PersistenceRequired:1b,Fire:600s,Rotation:[180f,0f]}");
-            command("tp @s 0 199 0 0 0");
-        });
-        STEPS.add(() -> shot("05-burning-zombie"));
-        STEPS.add(() -> {
-            command("kill @e[type=zombie]");
-            command("item replace entity @s weapon.mainhand with minecraft:torch");
-            command("tp @s 0 199 -4 0 0");
-        });
-        STEPS.add(() -> shot("06-held-torch"));
-        STEPS.add(() -> {
-            command("time set noon");
-            command("tp @s 0 199 0 0 -50");
-        });
-        STEPS.add(() -> shot("07-sky-a"));
-        STEPS.add(() -> shot("08-sky-b"));
-        STEPS.add(() -> shot("09-sky-c"));
+        STEPS.add(() -> command("tp @s 0 200.6 2.5 0 0"));
+        STEPS.add(() -> shot("A-wide-sign-frame-painting"));
+        STEPS.add(() -> command("tp @s -2 200.9 4.2 0 0"));
+        STEPS.add(() -> shot("B-sign-closeup"));
+        STEPS.add(() -> command("tp @s 0 200.9 4.2 0 0"));
+        STEPS.add(() -> shot("C-item-frame-closeup"));
+        STEPS.add(() -> command("tp @s 1 200.9 4.2 0 0"));
+        STEPS.add(() -> shot("D-glow-frame-closeup"));
+        STEPS.add(() -> command("tp @s 2 200.9 4.2 0 0"));
+        STEPS.add(() -> shot("E-painting-closeup"));
     }
 }

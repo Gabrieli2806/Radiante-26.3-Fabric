@@ -23,7 +23,7 @@ Summary is 88 characters (Modrinth limit: 96).
 |---|---|
 | Version name | Radiante 0.1.0 |
 | Version number | `0.1.0+26.3` |
-| Release channel | **Beta** |
+| Release channel | **Alpha** |
 | Loaders | Fabric |
 | Game versions | 26.3 |
 | Dependencies | Fabric API — required |

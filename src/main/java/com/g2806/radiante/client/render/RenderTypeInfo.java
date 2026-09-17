@@ -5,6 +5,9 @@ import com.g2806.radiante.mixin.render.RenderTypeAccessors.RenderTypeAccessor;
 import com.g2806.radiante.mixin.render.RenderTypeAccessors.TextureBindingAccessor;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import com.mojang.renderpearl.api.GpuFormat;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
@@ -63,6 +66,38 @@ public final class RenderTypeInfo {
         return info;
     }
 
+    /** See util/text_mode.glsl: these share the alpha mode field, so they must not collide with its values. */
+    private int textMode() {
+        int mode = switch (this.name) {
+            case "text_background" -> 1;
+            case "text_intensity" -> 2;
+            case "text" -> 3;
+            case "text_background_see_through" -> 4;
+            case "text_intensity_see_through" -> 5;
+            case "text_see_through" -> 6;
+            case "text_intensity_polygon_offset" -> 7;
+            case "text_polygon_offset" -> 8;
+            default -> PBRVertexWriter.ALPHA_MODE_OPAQUE;
+        };
+
+        // Minecraft builds a font page with one channel unless the font needs colour, and the shape of a letter is
+        // that single channel. Read as colour it samples as red with a solid alpha, which is a filled rectangle
+        // rather than a letter, so a page like that is always an intensity mode whatever the layer is called.
+        if ((mode == 3 || mode == 6 || mode == 8) && isSingleChannel()) {
+            return mode - 1;
+        }
+        return mode;
+    }
+
+    private boolean isSingleChannel() {
+        if (this.texture == null) {
+            return false;
+        }
+        AbstractTexture texture = Minecraft.getInstance().getTextureManager().getTexture(this.texture);
+        return texture != null && texture.getTexture() != null
+            && texture.getTexture().getFormat() == GpuFormat.R8_UNORM;
+    }
+
     /** The renderer id of the texture this render type samples, or 0 when it has none. */
     public int textureId() {
         return this.texture == null ? 0 : TextureTracker.idOf(this.texture);
@@ -114,18 +149,25 @@ public final class RenderTypeInfo {
 
     /** Hit group the shader packs shade this geometry with; portals have their own, everything else the default. */
     public String groupName() {
-        if (isEndPortal() || isEndGateway()) {
-            return this.name;
+        // Text carries a text mode where other layers carry an alpha mode, and only the text hit groups know how to
+        // read it: sent anywhere else the glyph coverage is tested against a mode number that means nothing there.
+        // The packs ship one text group, so every text layer is traced with it whatever its depth behaviour.
+        if (textMode() != PBRVertexWriter.ALPHA_MODE_OPAQUE) {
+            return "text_see_through";
         }
-        return "Entity";
+
+        // Otherwise the packs name their hit groups after the render layers themselves:
+        // "entity_solid_z_offset_forward" traces without height mapping, and so on. A name the pack does not define
+        // falls back to its default group, so the layer name is always the right thing to hand over.
+        return this.name;
     }
 
     public int alphaMode() {
-        // A glyph texel either belongs to the letter or it does not. Traced as a blended surface the ray passes
-        // straight through it and whatever is behind, the sign board, overwrites the letter's own material, so the
-        // text is drawn and erased within the same ray.
-        if (this.name.startsWith("text")) {
-            return PBRVertexWriter.ALPHA_MODE_CUTOUT;
+        // Text layers put a text mode in this field instead of an alpha mode: the shaders read it to know whether a
+        // glyph page carries its coverage in the red channel, in the alpha channel, or is a solid background quad.
+        int textMode = textMode();
+        if (textMode != PBRVertexWriter.ALPHA_MODE_OPAQUE) {
+            return textMode;
         }
         if (this.solid || isEndPortal() || isEndGateway()) {
             return PBRVertexWriter.ALPHA_MODE_OPAQUE;

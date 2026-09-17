@@ -3,9 +3,11 @@ package com.g2806.radiante.client.render;
 import com.g2806.radiante.client.proxy.vulkan.TextureProxy;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
@@ -106,28 +108,30 @@ public final class EmissionTiles {
 
     private static Map<TextureAtlasSprite, Integer> collectEmissiveSprites(Minecraft minecraft, TextureAtlas atlas) {
         Map<TextureAtlasSprite, Integer> emitters = new IdentityHashMap<>();
+        // Textures are shared between blocks: a beacon is a light source and its model is built out of the ordinary
+        // glass texture. Marking every sprite of an emissive block's model as emissive would light up every pane of
+        // glass in the world, so a sprite that any block without light emission also uses is left alone.
+        Set<TextureAtlasSprite> sharedWithDarkBlocks = Collections.newSetFromMap(new IdentityHashMap<>());
         RandomSource random = RandomSource.create(42L);
         List<BlockStateModelPart> parts = new ArrayList<>();
 
         for (Block block : BuiltInRegistries.BLOCK) {
             for (BlockState state : block.getStateDefinition().getPossibleStates()) {
                 int level = state.getLightEmission();
-                if (level <= 0) {
-                    continue;
-                }
-
                 BlockStateModel model = minecraft.getModelManager().getBlockStateModelSet().get(state);
                 parts.clear();
                 random.setSeed(42L);
                 model.collectParts(random, parts);
                 for (BlockStateModelPart part : parts) {
                     for (Direction direction : Direction.values()) {
-                        addSprites(part.getQuads(direction), level, emitters);
+                        addSprites(part.getQuads(direction), level, emitters, sharedWithDarkBlocks);
                     }
-                    addSprites(part.getQuads(null), level, emitters);
+                    addSprites(part.getQuads(null), level, emitters, sharedWithDarkBlocks);
                 }
             }
         }
+
+        emitters.keySet().removeAll(sharedWithDarkBlocks);
 
         // Lava is drawn by the fluid renderer and has no block model.
         for (Identifier id : LAVA_SPRITES) {
@@ -139,9 +143,15 @@ public final class EmissionTiles {
         return emitters;
     }
 
-    private static void addSprites(List<BakedQuad> quads, int level, Map<TextureAtlasSprite, Integer> emitters) {
+    private static void addSprites(List<BakedQuad> quads, int level, Map<TextureAtlasSprite, Integer> emitters,
+        Set<TextureAtlasSprite> sharedWithDarkBlocks) {
         for (BakedQuad quad : quads) {
-            emitters.merge(quad.materialInfo().sprite(), level, Math::max);
+            TextureAtlasSprite sprite = quad.materialInfo().sprite();
+            if (level <= 0) {
+                sharedWithDarkBlocks.add(sprite);
+            } else {
+                emitters.merge(sprite, level, Math::max);
+            }
         }
     }
 

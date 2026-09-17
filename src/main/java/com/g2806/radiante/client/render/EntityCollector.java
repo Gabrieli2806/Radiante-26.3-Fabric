@@ -19,6 +19,10 @@ import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.gizmos.DrawableGizmoPrimitives;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.Minecraft;
+import java.util.function.Function;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.Mesh;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadView;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -37,6 +41,9 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.client.model.geom.builders.UVPair;
+import org.joml.Vector3f;
+import org.joml.Vector3fc;
 import org.joml.Matrix4fc;
 import org.joml.Quaternionf;
 import org.jspecify.annotations.Nullable;
@@ -51,6 +58,10 @@ public final class EntityCollector implements SubmitNodeCollector {
     private static final Direction[] DIRECTIONS = Direction.values();
 
     private static int DEBUG_TEXT;
+    private static int DEBUG_BLOCK_MODELS;
+
+    /** How far world text is lifted off the surface it is written on, in blocks. */
+    private static final float TEXT_SURFACE_OFFSET = 0.02f;
 
     private final Map<RenderType, PBRVertexWriter> writers = new LinkedHashMap<>();
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
@@ -141,11 +152,18 @@ public final class EntityCollector implements SubmitNodeCollector {
     @Override
     public void submitBlockModel(PoseStack poseStack, RenderType renderType, List<BlockStateModelPart> parts,
         int[] tintLayers, int lightCoords, int overlayCoords, int outlineColor) {
+        if (DEBUG_BLOCK_MODELS < 12 && !RenderTypeInfo.of(renderType).groupName().equals("item_cutout")) {
+            DEBUG_BLOCK_MODELS++;
+            RadianteRenderer.LOGGER.info("block model call: layer={} parts={} outline={}",
+                RenderTypeInfo.of(renderType).groupName(), parts.size(), outlineColor);
+        }
+
         if (outlineColor != 0) {
             return;
         }
 
-        VertexConsumer buffer = this.writer(renderType);
+        PBRVertexWriter buffer = this.writer(renderType);
+        int before = buffer.vertexCount();
         this.quadInstance.setLightCoords(lightCoords);
         this.quadInstance.setOverlayCoords(overlayCoords);
         for (BlockStateModelPart part : parts) {
@@ -154,16 +172,87 @@ public final class EntityCollector implements SubmitNodeCollector {
             }
             putQuads(part.getQuads(null), poseStack, tintLayers, buffer, this.quadInstance);
         }
+
+    }
+
+    /**
+     * Paintings reach the renderer through submitCustomGeometry and come out right; item frames go through the
+     * baked quad helper and come out invisible. The two differ only in who writes the vertices, so block model
+     * quads are expanded here the same way the custom geometry path writes them, by hand.
+     */
+    /**
+     * Fabric replaces the storage behind a block model with a mesh of its own and submits it through this overload,
+     * cancelling the vanilla one. Its default implementation forwards to the vanilla call with the mesh dropped,
+     * which leaves nothing at all for models Fabric keeps entirely in the mesh - an item frame's frame is one of
+     * them, and that is why it traced as empty air while the item inside it showed.
+     */
+    @Override
+    public void submitBlockModel(PoseStack poseStack, Function<ChunkSectionLayer, RenderType> renderTypeFunction,
+        boolean translucent, List<BlockStateModelPart> parts, @Nullable Mesh mesh, int[] tintLayers, int lightCoords,
+        int overlayCoords, int outlineColor) {
+        RenderType renderType = renderTypeFunction.apply(
+            translucent ? ChunkSectionLayer.TRANSLUCENT : ChunkSectionLayer.CUTOUT);
+        this.submitBlockModel(poseStack, renderType, parts, tintLayers, lightCoords, overlayCoords, outlineColor);
+
+        if (mesh == null || mesh.size() == 0 || outlineColor != 0) {
+            return;
+        }
+
+        PBRVertexWriter buffer = this.writer(renderType);
+        PoseStack.Pose pose = poseStack.last();
+        mesh.forEach(quad -> putMeshQuad(quad, pose, tintLayers, lightCoords, overlayCoords, buffer));
+    }
+
+    /** One quad out of a Fabric mesh, written with the same values the vanilla quad path writes. */
+    private static void putMeshQuad(QuadView quad, PoseStack.Pose pose, int[] tintLayers, int lightCoords,
+        int overlayCoords, PBRVertexWriter buffer) {
+        int tintIndex = quad.tintIndex();
+        int tint = tintIndex >= 0 && tintIndex < tintLayers.length ? ARGB.opaque(tintLayers[tintIndex]) : -1;
+        Vector3f position = new Vector3f();
+        Vector3f normal = new Vector3f();
+
+        for (int vertex = 0; vertex < 4; vertex++) {
+            pose.pose().transformPosition(quad.copyPos(vertex, position), position);
+            if (quad.hasNormal(vertex)) {
+                normal.set(quad.normalX(vertex), quad.normalY(vertex), quad.normalZ(vertex));
+            } else {
+                normal.set(quad.faceNormal());
+            }
+            pose.transformNormal(normal, normal);
+
+            int light = quad.lightmap(vertex);
+            buffer.addVertex(position.x(), position.y(), position.z())
+                .setColor(ARGB.multiply(quad.color(vertex), tint))
+                .setUv(quad.u(vertex), quad.v(vertex))
+                .setOverlay(overlayCoords)
+                .setLight(light == 0 ? lightCoords : light)
+                .setNormal(normal.x(), normal.y(), normal.z());
+        }
     }
 
     private static void putQuads(List<BakedQuad> quads, PoseStack poseStack, int[] tintLayers,
         VertexConsumer buffer, QuadInstance quadInstance) {
+        PoseStack.Pose pose = poseStack.last();
+        Vector3f position = new Vector3f();
         for (BakedQuad quad : quads) {
             int tintIndex = quad.materialInfo().tintIndex();
-            quadInstance.setColor(tintIndex >= 0 && tintIndex < tintLayers.length
+            int color = tintIndex >= 0 && tintIndex < tintLayers.length
                 ? ARGB.opaque(tintLayers[tintIndex])
-                : -1);
-            buffer.putBakedQuad(poseStack.last(), quad, quadInstance);
+                : -1;
+            Vector3fc unitNormal = quad.direction().getUnitVec3f();
+            Vector3f normal = pose.transformNormal(unitNormal, new Vector3f());
+            int lightEmission = quad.materialInfo().lightEmission();
+
+            for (int vertex = 0; vertex < 4; vertex++) {
+                long packedUv = quad.packedUV(vertex);
+                pose.pose().transformPosition(quad.position(vertex), position);
+                buffer.addVertex(position.x(), position.y(), position.z())
+                    .setColor(color)
+                    .setUv(UVPair.unpackU(packedUv), UVPair.unpackV(packedUv))
+                    .setOverlay(quadInstance.overlayCoords())
+                    .setLight(quadInstance.getLightCoordsWithEmission(vertex, lightEmission))
+                    .setNormal(normal.x(), normal.y(), normal.z());
+            }
         }
     }
 
@@ -232,6 +321,11 @@ public final class EntityCollector implements SubmitNodeCollector {
             return;
         }
 
+        // Minecraft keeps sign text inside the board it is written on and relies on a depth bias to draw it in
+        // front anyway. A ray tracer has no such bias: the board's own surface is hit first and the letters are
+        // never seen. Pushing the glyphs a hair out along the way they face puts them where they appear to be.
+        poseStack.pushPose();
+        poseStack.translate(0.0f, 0.0f, TEXT_SURFACE_OFFSET);
         Matrix4fc pose = poseStack.last().pose();
         Font.PreparedText prepared = font.prepareText(string, x, y, color, dropShadow, false, backgroundColor);
         prepared.visit(new Font.GlyphVisitor() {
@@ -257,6 +351,7 @@ public final class EntityCollector implements SubmitNodeCollector {
                 }
             }
         });
+        poseStack.popPose();
     }
 
     @Override
