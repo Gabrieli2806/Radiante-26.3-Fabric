@@ -727,7 +727,9 @@ void Entities::queueBuild(EntitiesBuildTask task) {
 
             switch (static_cast<World::DrawMode>(task.indexFormats[geometryIndex + i])) {
                 case World::DrawMode::QUADS: {
-                    for (int j = 0; j < task.vertexCounts[geometryIndex + i]; j += 4) {
+                    // A trailing partial quad would index vertices that are not there; the acceleration
+                    // structure build reads them anyway and the device is lost. Whole quads only.
+                    for (int j = 0; j + 3 < task.vertexCounts[geometryIndex + i]; j += 4) {
                         geometryIndices.push_back(j + 0);
                         geometryIndices.push_back(j + 1);
                         geometryIndices.push_back(j + 2);
@@ -770,7 +772,7 @@ void Entities::queueBuild(EntitiesBuildTask task) {
                 }
                 case World::DrawMode::TRIANGLE_STRIP: {
                     std::vector<vk::VertexFormat::PBRVertex> fixedVertices;
-                    for (int j = 2; j < task.vertexCounts[geometryIndex + i]; j += 2) {
+                    for (int j = 2; j + 1 < task.vertexCounts[geometryIndex + i]; j += 2) {
                         auto v0 = geometryVertices[j - 2];
                         auto v1 = geometryVertices[j - 1];
                         auto v2 = geometryVertices[j - 1];
@@ -784,7 +786,7 @@ void Entities::queueBuild(EntitiesBuildTask task) {
                         fixedVertices.push_back(v3);
                     }
                     geometryVertices = fixedVertices;
-                    for (int j = 0; j < geometryVertices.size(); j += 4) {
+                    for (int j = 0; j + 3 < geometryVertices.size(); j += 4) {
                         geometryIndices.push_back(j + 0);
                         geometryIndices.push_back(j + 1);
                         geometryIndices.push_back(j + 2);

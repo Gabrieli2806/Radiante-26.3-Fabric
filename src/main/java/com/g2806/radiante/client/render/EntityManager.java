@@ -266,6 +266,12 @@ public final class EntityManager {
     }
 
     private static void addPending(int id, double x, double y, double z, int rayTracingFlag) {
+        // An entity whose origin is not a real point in the world - a block-attached one that lost its support
+        // block reports exactly that - would place its whole model outside anything the tracer can build.
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
+            return;
+        }
+
         List<PendingLayer> layers = new ArrayList<>();
         for (Map.Entry<RenderType, PBRVertexWriter> entry : COLLECTOR.layers().entrySet()) {
             PBRVertexWriter writer = entry.getValue();

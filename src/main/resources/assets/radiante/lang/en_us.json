@@ -200,9 +200,14 @@
   "options.radiante.unavailable.hardware": "Radiante needs a GPU with hardware ray tracing (VK_KHR_ray_tracing_pipeline). Your graphics card or driver does not report support for it.",
   "options.radiante.unavailable.opengl": "Radiante is unavailable because the game is running on OpenGL. Ray tracing needs the Vulkan renderer: set Graphics API to Prefer Vulkan or Default above, then restart the game.",
   "screen.radiante.unsupported.title": "Radiante: ray tracing unavailable",
-  "screen.radiante.unsupported.message": "Radiante could not start on this system. It needs a GPU with hardware ray tracing support (VK_KHR_ray_tracing_pipeline).\n\nThe game will keep running with Minecraft's own renderer. You can continue as you are, or switch the game to OpenGL — note that ray tracing is not available there at all.",
+  "screen.radiante.unsupported.message": "Radiante could not start on this system. It needs a graphics card with hardware ray tracing support (VK_KHR_ray_tracing_pipeline), and yours does not report it.\n\nThe game keeps running with Minecraft's own renderer. You can carry on as you are, or switch the game to OpenGL - ray tracing is not available there either.",
   "screen.radiante.unsupported.continue": "Continue without ray tracing",
   "screen.radiante.unsupported.opengl": "Switch to OpenGL",
   "screen.radiante.opengl.title": "Switched to OpenGL",
-  "screen.radiante.opengl.message": "The game will use OpenGL the next time it starts.\n\nRay tracing is not available on OpenGL, so Radiante's settings will stay closed. To come back, set useOpenGl=false in radiante/options.properties."
+  "screen.radiante.opengl.message": "The game will use OpenGL the next time it starts.\n\nRay tracing is not available on OpenGL, so Radiante's settings will stay closed. To come back, set useOpenGl=false in radiante/options.properties.",
+  "screen.radiante.unsupported.title.opengl": "Radiante: switch to Vulkan",
+  "screen.radiante.unsupported.message.opengl": "The game is running on OpenGL, and ray tracing does not exist on that graphics API, so Radiante stays off and its settings stay closed.\n\nSwitch the game to Vulkan and restart to use Radiante.",
+  "screen.radiante.unsupported.vulkan": "Switch to Vulkan",
+  "screen.radiante.vulkan.title": "Switched to Vulkan",
+  "screen.radiante.vulkan.message": "The game will use Vulkan the next time it starts, and Radiante can take over from there.\n\nRestart the game to try it."
 }

@@ -60,7 +60,7 @@ public class RadianteClient implements ClientModInitializer {
 
         // The warning has to wait for a screen to exist, so it goes up on the first menu after startup.
         ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
-            if (!RadianteRenderer.isActive() && !com.g2806.radiante.client.option.Options.useOpenGl
+            if (!RadianteRenderer.isActive()
                 && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen title
                 && com.g2806.radiante.client.gui.UnsupportedHardwareScreen.shouldShow()) {
                 minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UnsupportedHardwareScreen(title));

@@ -1438,7 +1438,8 @@ void Chunks::queueChunkBuild(ChunkBuildTask task) {
         std::memcpy(geometryVertices.data(), task.vertices[i],
                     task.vertexCounts[i] * sizeof(vk::VertexFormat::PBRVertex));
 
-        for (int j = 0; j < task.vertexCounts[i]; j += 4) {
+        // Whole quads only: a partial one indexes past the vertices and the build reads them anyway.
+        for (int j = 0; j + 3 < task.vertexCounts[i]; j += 4) {
             geometryIndices.push_back(j + 0);
             geometryIndices.push_back(j + 1);
             geometryIndices.push_back(j + 2);

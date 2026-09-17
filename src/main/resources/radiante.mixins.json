@@ -11,6 +11,7 @@
     "backend.VulkanBackendMixin",
     "backend.VulkanCommandEncoderAccessor",
     "backend.VulkanDeviceMixin",
+    "backend.VulkanGpuBufferAccessor",
     "backend.VulkanInstanceMixin",
     "backend.VulkanQueueLockMixins$QueueMixin",
     "backend.VulkanQueueLockMixins$SubmissionMixin",

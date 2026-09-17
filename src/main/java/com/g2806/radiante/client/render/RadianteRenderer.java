@@ -21,9 +21,12 @@ import java.nio.ByteBuffer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.blockentity.AbstractEndPortalRenderer;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.SectionOcclusionGraph;
 import net.minecraft.client.renderer.fog.FogData;
 import net.minecraft.client.renderer.state.OptionsRenderState;
 import net.minecraft.client.renderer.state.level.CameraEntityRenderState;
+import net.minecraft.client.renderer.state.level.ChunkLoadingRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.state.level.SkyRenderState;
@@ -167,6 +170,8 @@ public final class RadianteRenderer {
             SectionTrackerHolder.update(minecraft, cameraState.pos);
         }
 
+        keepOcclusionGraphFed(minecraft, levelRenderState);
+
         EmissionTiles.registerIfNeeded(minecraft);
         ChunkManager.applyImportantUploads();
         EntityManager.render(minecraft, levelRenderState);
@@ -307,6 +312,29 @@ public final class RadianteRenderer {
         float u = (millis % 110000L) / 110000.0f;
         float v = (millis % 30000L) / 30000.0f;
         return glintMatrix.translation(-u, v, 0.0f).rotateZ((float) (Math.PI / 18)).scale(0.16f);
+    }
+
+    /**
+     * Minecraft publishes which chunks were loaded and which sections turned empty as a per-frame difference, and
+     * clears it again on the next extraction. Only {@code LevelRenderer.renderLevel} reads it, and that is the
+     * method this renderer stands in for, so every one of those differences would be lost while ray tracing is on.
+     * The occlusion graph would then believe none of those chunks ever arrived, and the moment the player switches
+     * ray tracing off it would find nothing to draw - an empty world that only a rejoin repaired.
+     */
+    private static void keepOcclusionGraphFed(Minecraft minecraft, LevelRenderState levelRenderState) {
+        LevelRenderer levelRenderer = minecraft.levelRenderer;
+        if (levelRenderer == null) {
+            return;
+        }
+
+        ChunkLoadingRenderState chunkLoading = levelRenderState.chunkLoadingRenderState;
+        SectionOcclusionGraph graph = levelRenderer.sectionOcclusionGraph();
+        if (chunkLoading.addedLoadedChunks != null && chunkLoading.removedLoadedChunks != null) {
+            graph.updateLoadedChunks(chunkLoading.addedLoadedChunks, chunkLoading.removedLoadedChunks);
+        }
+        if (chunkLoading.addedEmptySections != null && chunkLoading.removedEmptySections != null) {
+            graph.updateEmptySections(chunkLoading.addedEmptySections, chunkLoading.removedEmptySections);
+        }
     }
 
     /** Pulls the section tracker out of the extractor and hands it to the chunk manager. */

@@ -67,8 +67,8 @@ public final class RenderTypeInfo {
     }
 
     /** See util/text_mode.glsl: these share the alpha mode field, so they must not collide with its values. */
-    private int textMode() {
-        int mode = switch (this.name) {
+    private int layerTextMode() {
+        return switch (this.name) {
             case "text_background" -> 1;
             case "text_intensity" -> 2;
             case "text" -> 3;
@@ -79,14 +79,33 @@ public final class RenderTypeInfo {
             case "text_polygon_offset" -> 8;
             default -> PBRVertexWriter.ALPHA_MODE_OPAQUE;
         };
+    }
 
-        // Minecraft builds a font page with one channel unless the font needs colour, and the shape of a letter is
-        // that single channel. Read as colour it samples as red with a solid alpha, which is a filled rectangle
-        // rather than a letter, so a page like that is always an intensity mode whatever the layer is called.
-        if ((mode == 3 || mode == 6 || mode == 8) && isSingleChannel()) {
-            return mode - 1;
+    /**
+     * Minecraft builds a font page with one channel unless the font needs colour, and the shape of a letter is that
+     * single channel. Read as colour it samples as red with a solid alpha, which is a filled rectangle rather than
+     * a letter, so a page like that is always an intensity mode whatever the layer is called.
+     */
+    private static int forChannels(int mode, boolean singleChannelPage) {
+        return (mode == 3 || mode == 6 || mode == 8) && singleChannelPage ? mode - 1 : mode;
+    }
+
+    private int textMode() {
+        return forChannels(layerTextMode(), isSingleChannel());
+    }
+
+    /**
+     * The same choice, for a glyph whose page is known. Font pages are built at runtime and are not registered
+     * under the identifier the layer names, so asking the texture manager for the layer's texture answers about
+     * some other sheet - or about nothing at all. Every glyph knows the page it was baked into, and that is the one
+     * whose channel count decides how the shader has to read it.
+     */
+    public int alphaModeForPage(boolean singleChannelPage) {
+        int mode = layerTextMode();
+        if (mode == PBRVertexWriter.ALPHA_MODE_OPAQUE) {
+            return alphaMode();
         }
-        return mode;
+        return forChannels(mode, singleChannelPage);
     }
 
     private boolean isSingleChannel() {
@@ -147,19 +166,21 @@ public final class RenderTypeInfo {
         return this.name.equals("end_gateway");
     }
 
-    /** Hit group the shader packs shade this geometry with; portals have their own, everything else the default. */
-    public String groupName() {
-        // Text carries a text mode where other layers carry an alpha mode, and only the text hit groups know how to
-        // read it: sent anywhere else the glyph coverage is tested against a mode number that means nothing there.
-        // The packs ship one text group, so every text layer is traced with it whatever its depth behaviour.
-        if (textMode() != PBRVertexWriter.ALPHA_MODE_OPAQUE) {
-            return "text_see_through";
-        }
+    /** Hit groups the packs define for text. Any other name here stalls the renderer, so the list is exact. */
+    private static final java.util.Set<String> TEXT_HIT_GROUPS = java.util.Set.of(
+        "text_see_through", "text_intensity_see_through", "text_polygon_offset", "text_intensity_polygon_offset");
 
-        // Otherwise the packs name their hit groups after the render layers themselves:
-        // "entity_solid_z_offset_forward" traces without height mapping, and so on. A name the pack does not define
-        // falls back to its default group, so the layer name is always the right thing to hand over.
-        return this.name;
+    /** Hit group the shader packs shade this geometry with; a few have their own, everything else the default. */
+    public String groupName() {
+        // The shader packs name their hit groups after render layers, which makes it tempting to hand the layer
+        // name over and let specialised groups do their job. Doing that stalls the renderer within seconds of
+        // entering a world: most of those groups are not valid for entity geometry. Only the names the packs
+        // really define for this geometry are passed through - the portals, and the four text groups, whose
+        // any-hit shader is the only thing that cuts a glyph out of the cell it is drawn in.
+        if (isEndPortal() || isEndGateway() || TEXT_HIT_GROUPS.contains(this.name)) {
+            return this.name;
+        }
+        return "Entity";
     }
 
     public int alphaMode() {
@@ -186,11 +207,11 @@ public final class RenderTypeInfo {
         if (isEndGateway()) {
             return NativeGeometry.GEOMETRY_TYPE_END_GATEWAY;
         }
-        // A glyph is a cut out, not a pane: traced as transparent geometry the ray passes through the letter and
-        // the surface behind it, the sign board, overwrites the letter's own material before it is ever shaded.
-        // The text any-hit shader already cuts the glyph to shape, so what remains of it is opaque.
+        // A glyph cell is mostly empty, and only the text any-hit shader knows which texels are the letter. Solid
+        // geometry is built with the Vulkan opaque flag, which tells the driver it may skip any-hit entirely - so
+        // calling text solid is what turned every letter into a filled rectangle. It has to stay non-opaque.
         if (textMode() != PBRVertexWriter.ALPHA_MODE_OPAQUE) {
-            return NativeGeometry.GEOMETRY_TYPE_WORLD_SOLID;
+            return NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT;
         }
         return this.solid ? NativeGeometry.GEOMETRY_TYPE_WORLD_SOLID : NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT;
     }

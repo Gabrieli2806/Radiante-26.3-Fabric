@@ -1,9 +1,13 @@
 package com.g2806.radiante.client.render;
 
 import com.g2806.radiante.client.proxy.vulkan.TextureProxy;
+import com.g2806.radiante.mixin.backend.VulkanGpuBufferAccessor;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.renderpearl.api.GpuFormat;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.backend.vulkan.VulkanConst;
+import com.mojang.renderpearl.backend.vulkan.VulkanGpuBuffer;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -13,7 +17,11 @@ import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
+import org.lwjgl.PointerBuffer;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
+import org.lwjgl.util.vma.Vma;
+import org.lwjgl.vulkan.VK12;
 
 /**
  * Mirrors CPU-written Minecraft textures into the native renderer and assigns them the integer ids the ray
@@ -95,6 +103,43 @@ public final class TextureTracker {
 
     private static synchronized boolean isFallback(GpuTexture texture) {
         return IDS.containsKey(texture);
+    }
+
+    /**
+     * Mirrors a copy that travels through a GPU buffer rather than a plain byte array. Glyph sheets are filled this
+     * way and only this way: {@code FontTexture} stages each glyph in a buffer and copies it across, so a renderer
+     * that watches only the CPU writes ends up with font pages that were created and never filled - which is why
+     * sign text had nothing to sample.
+     */
+    public static void onBufferCopy(GpuTexture destination, GpuBufferSlice source, int sourceX, int sourceY,
+        int sourceWidth, int destX, int destY, int copyWidth, int copyHeight, int mipLevel) {
+        int id = idOf(destination);
+        if (id == 0) {
+            return;
+        }
+
+        GpuBuffer buffer = source.buffer();
+        // Only a host visible allocation can be read back here, which is what the staging buffers are.
+        if (!(buffer instanceof VulkanGpuBuffer.Direct) || (buffer.usage() & 3) == 0 || buffer.isClosed()) {
+            return;
+        }
+
+        VulkanGpuBufferAccessor accessor = (VulkanGpuBufferAccessor) buffer;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            PointerBuffer pointer = stack.callocPointer(1);
+            if (Vma.vmaMapMemory(accessor.radiante$device().vma(), accessor.radiante$vmaAllocation(), pointer)
+                != VK12.VK_SUCCESS) {
+                return;
+            }
+
+            try {
+                long address = pointer.get(0) + source.offset();
+                TextureProxy.queueUpload(address, (int) source.length(), sourceWidth, id, sourceX, sourceY, destX,
+                    destY, copyWidth, copyHeight, mipLevel);
+            } finally {
+                Vma.vmaUnmapMemory(accessor.radiante$device().vma(), accessor.radiante$vmaAllocation());
+            }
+        }
     }
 
     /** Uploads a region of a source image into a mirrored texture (used to rebuild atlases). */

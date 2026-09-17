@@ -7,26 +7,33 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Confirms the switch to OpenGL and spells out what it costs: the graphics API changes only when the game starts,
- * and on OpenGL there is no ray tracing at all, so the mod's settings stay closed.
+ * Confirms a change of graphics API and spells out what it means. Either way the API only changes when the game
+ * starts, so the one thing the player has to know is that a restart is needed before anything looks different.
  */
 public class OpenGlSwitchedScreen extends Screen {
 
-    private final Screen parent;
+    private static final int WIDGET_WIDTH = 240;
 
-    public OpenGlSwitchedScreen(Screen parent) {
-        super(Component.translatable("screen.radiante.opengl.title"));
+    private final Screen parent;
+    private final boolean toVulkan;
+
+    public OpenGlSwitchedScreen(Screen parent, boolean toVulkan) {
+        super(Component.translatable(toVulkan ? "screen.radiante.vulkan.title" : "screen.radiante.opengl.title"));
         this.parent = parent;
+        this.toVulkan = toVulkan;
     }
 
     @Override
     protected void init() {
         LinearLayout layout = LinearLayout.vertical().spacing(8);
+        layout.defaultCellSetting().alignHorizontallyCenter();
+
         layout.addChild(new MultiLineTextWidget(this.title, this.font).setMaxWidth(320).setCentered(true));
-        layout.addChild(new MultiLineTextWidget(Component.translatable("screen.radiante.opengl.message"), this.font)
+        layout.addChild(new MultiLineTextWidget(Component.translatable(
+            this.toVulkan ? "screen.radiante.vulkan.message" : "screen.radiante.opengl.message"), this.font)
             .setMaxWidth(320).setCentered(true));
         layout.addChild(Button.builder(Component.translatable("gui.ok"), button -> this.onClose())
-            .width(220).build());
+            .width(WIDGET_WIDTH).build());
 
         layout.arrangeElements();
         layout.visitWidgets(this::addRenderableWidget);

@@ -3,6 +3,8 @@ package com.g2806.radiante.client.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.textures.GpuTexture;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -196,7 +198,10 @@ public final class EntityCollector implements SubmitNodeCollector {
             translucent ? ChunkSectionLayer.TRANSLUCENT : ChunkSectionLayer.CUTOUT);
         this.submitBlockModel(poseStack, renderType, parts, tintLayers, lightCoords, overlayCoords, outlineColor);
 
-        if (mesh == null || mesh.size() == 0 || outlineColor != 0) {
+        // Only models Fabric keeps entirely in its mesh need this: those are the ones vanilla hands over empty, an
+        // item frame among them. Where vanilla parts exist they have already been written above, and adding the mesh
+        // on top of them would trace the same model twice.
+        if (mesh == null || mesh.size() == 0 || outlineColor != 0 || !parts.isEmpty()) {
             return;
         }
 
@@ -342,19 +347,20 @@ public final class EntityCollector implements SubmitNodeCollector {
                 }
                 PBRVertexWriter writer = EntityCollector.this.writer(renderType);
                 // Font pages are built at runtime and are not registered under the identifier the render layer
-                // names, so resolving the texture by that name hands back something other than the glyph sheet.
-                // The renderable knows which page its glyph actually lives on.
-                // A glyph must be sampled from the page it was baked into. When that page is not one the renderer
-                // mirrors, sampling the layer's named texture instead reads a different page and every letter comes
-                // out as a filled rectangle, so the glyph is skipped rather than drawn wrong.
+                // names, so asking the texture manager for the layer's texture answers about some other sheet.
+                // Everything about a glyph - which page to sample and how many channels that page has - has to
+                // come from the renderable, which knows the page its glyph was baked into.
                 if (renderable.textureView() == null || renderable.textureView().texture() == null) {
                     return;
                 }
-                int fontTextureId = TextureTracker.idOf(renderable.textureView().texture());
+                GpuTexture page = renderable.textureView().texture();
+                int fontTextureId = TextureTracker.idOf(page);
                 if (fontTextureId == 0) {
                     return;
                 }
                 writer.textureId(fontTextureId);
+                writer.alphaMode(RenderTypeInfo.of(renderType)
+                    .alphaModeForPage(page.getFormat() == GpuFormat.R8_UNORM));
                 renderable.render(pose, writer, lightCoords, false);
             }
         });

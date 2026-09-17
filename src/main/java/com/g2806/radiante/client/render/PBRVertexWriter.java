@@ -35,10 +35,20 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private static final int OFF_POST_BASE = 112;
     private static final int OFF_ALPHA_MODE = 124;
 
+    /**
+     * Furthest a vertex may sit from the origin of its coordinate space. Minecraft occasionally poses something at
+     * a position it never meant to draw - a block-attached entity whose support block is gone, a model scaled by a
+     * degenerate matrix - and the result is an infinite or astronomically large corner. The rasteriser shrugs those
+     * off; an acceleration structure does not, and the driver answers with a lost device.
+     */
+    private static final float POSITION_LIMIT = 1.0E6f;
+
     private long address;
     private long capacity;
     private int vertexCount;
     private long current = -1L;
+    private boolean quadHasUnplaceableVertex;
+    private int droppedQuads;
 
     private int textureId;
     private int glintTextureId;
@@ -124,9 +134,16 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
             MemoryUtil.memGetFloat(v + OFF_COLOR + 8), MemoryUtil.memGetFloat(v + OFF_COLOR + 12));
     }
 
+    /** Quads dropped since the last reset because a corner could not be placed. */
+    public int droppedQuads() {
+        return this.droppedQuads;
+    }
+
     public void reset() {
         this.vertexCount = 0;
         this.current = -1L;
+        this.quadHasUnplaceableVertex = false;
+        this.droppedQuads = 0;
     }
 
     private void ensureCapacity(long required) {
@@ -142,7 +159,18 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     }
 
     private void finishQuadIfComplete() {
-        if (!this.computeQuadNormals || this.vertexCount % 4 != 0 || this.vertexCount == 0) {
+        if (this.vertexCount % 4 != 0 || this.vertexCount == 0) {
+            return;
+        }
+        if (this.quadHasUnplaceableVertex) {
+            // Rewinding is the only honest answer. Clamping the corner to the origin would stretch the quad from
+            // wherever the model really is all the way to the camera, which is worse than not drawing it at all.
+            this.vertexCount -= 4;
+            this.quadHasUnplaceableVertex = false;
+            this.droppedQuads++;
+            return;
+        }
+        if (!this.computeQuadNormals) {
             return;
         }
         long v0 = this.address + (long) (this.vertexCount - 4) * STRIDE;
@@ -182,10 +210,16 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         this.current = v;
 
         MemoryUtil.memSet(v, 0, STRIDE);
-        boolean invalid = Float.isNaN(x) || Float.isNaN(y) || Float.isNaN(z);
-        MemoryUtil.memPutFloat(v + OFF_POS, invalid ? 0 : x);
-        MemoryUtil.memPutFloat(v + OFF_POS + 4, invalid ? 0 : y);
-        MemoryUtil.memPutFloat(v + OFF_POS + 8, invalid ? 0 : z);
+        if (!placeable(x) || !placeable(y) || !placeable(z)) {
+            // Written as zeroes only so the buffer holds no rubbish; the whole quad goes away once it completes.
+            this.quadHasUnplaceableVertex = true;
+            x = 0.0f;
+            y = 0.0f;
+            z = 0.0f;
+        }
+        MemoryUtil.memPutFloat(v + OFF_POS, x);
+        MemoryUtil.memPutFloat(v + OFF_POS + 4, y);
+        MemoryUtil.memPutFloat(v + OFF_POS + 8, z);
         MemoryUtil.memPutInt(v + OFF_TEXTURE_ID, this.textureId);
         MemoryUtil.memPutInt(v + OFF_GLINT_TEXTURE, this.glintTextureId);
         MemoryUtil.memPutInt(v + OFF_COORDINATE, this.coordinate);
@@ -265,6 +299,11 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     }
 
     /** Call once all vertices are written so a trailing quad gets its computed normal. */
+    /** A coordinate the acceleration structure can hold: finite, and inside the world the renderer traces. */
+    private static boolean placeable(float value) {
+        return Float.isFinite(value) && Math.abs(value) <= POSITION_LIMIT;
+    }
+
     public void finish() {
         finishQuadIfComplete();
     }

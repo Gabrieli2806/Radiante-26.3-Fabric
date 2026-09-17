@@ -1,6 +1,7 @@
 package com.g2806.radiante.mixin.backend;
 
 import com.g2806.radiante.client.render.TextureTracker;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.backend.vulkan.VulkanCommandEncoder;
 import com.mojang.renderpearl.backend.vulkan.VulkanDevice;
@@ -43,6 +44,15 @@ public class TextureTrackingMixins {
         private void radiante$mirrorWrite(GpuTexture destination, ByteBuffer source, int mipLevel, int depthOrLayer,
             int destX, int destY, int width, int height, CallbackInfo ci) {
             TextureTracker.onWrite(destination, source, mipLevel, destX, destY, width, height);
+        }
+
+        @Inject(method = "copyBufferToTexture(Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;IIIILcom/mojang/renderpearl/api/textures/GpuTexture;IIIIII)V",
+            at = @At("HEAD"))
+        private void radiante$mirrorBufferCopy(GpuBufferSlice source, int sourceX, int sourceY, int sourceWidth,
+            int sourceHeight, GpuTexture destination, int destinationX, int destinationY, int copyWidth,
+            int copyHeight, int mipLevel, int arrayLayer, CallbackInfo ci) {
+            TextureTracker.onBufferCopy(destination, source, sourceX, sourceY, sourceWidth, destinationX,
+                destinationY, copyWidth, copyHeight, mipLevel);
         }
     }
 }
