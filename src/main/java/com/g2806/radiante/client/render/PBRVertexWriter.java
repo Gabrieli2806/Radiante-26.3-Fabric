@@ -101,6 +101,14 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         return this.address;
     }
 
+    /** Reads back a written vertex texture coordinate. */
+    public String debugUvOf(int vertexIndex) {
+        long v = this.address + (long) vertexIndex * STRIDE;
+        return String.format("uv=%.4f,%.4f useTex=%d texId=%d", MemoryUtil.memGetFloat(v + OFF_TEXTURE_UV),
+            MemoryUtil.memGetFloat(v + OFF_TEXTURE_UV + 4), MemoryUtil.memGetInt(v + OFF_USE_TEXTURE),
+            MemoryUtil.memGetInt(v + OFF_TEXTURE_ID));
+    }
+
     /** Reads back a written vertex position, used to tell a misplaced glyph from a missing one. */
     public String debugPositionOf(int vertexIndex) {
         long v = this.address + (long) vertexIndex * STRIDE;

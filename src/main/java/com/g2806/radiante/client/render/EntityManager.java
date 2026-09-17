@@ -40,6 +40,8 @@ public final class EntityManager {
     /** How far out block entities are gathered, in chunks and in blocks; beyond this they are too small to matter. */
     private static final int BLOCK_ENTITY_CHUNK_RADIUS = 6;
     private static final double BLOCK_ENTITY_RANGE = 80.0;
+    /** How brightly a glow item frame lights itself. */
+    private static final float GLOW_FRAME_EMISSION = 1.5f;
     private static int DEBUG_TEXT_LAYERS;
 
     /** Masks the ray tracing shaders select geometry with. */
@@ -91,6 +93,13 @@ public final class EntityManager {
 
         COLLECTOR.reset();
         POSE_STACK.setIdentity();
+
+        // A glow item frame is lit from within in vanilla rather than by the world around it, and nothing in its
+        // model says so; the entity does.
+        if (state instanceof net.minecraft.client.renderer.entity.state.ItemFrameRenderState frame
+            && frame.isGlowFrame) {
+            COLLECTOR.entityEmission(GLOW_FRAME_EMISSION);
+        }
 
         try {
             // Built around the entity origin; the renderer places the instance at the entity position.

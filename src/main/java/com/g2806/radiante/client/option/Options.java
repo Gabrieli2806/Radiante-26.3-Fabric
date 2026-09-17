@@ -73,6 +73,11 @@ public class Options {
     /** Frames DLSS generates per rendered frame: 0 is off, 1 is 2x, up to 5 for 6x. */
     public static int generatedFrames = 1;
 
+    /** Ray tracing can be switched off with a key, which hands the world back to Minecraft's own renderer. */
+    public static boolean rayTracingEnabled = true;
+    /** Set when the player chooses to run on OpenGL, where this renderer cannot work at all. */
+    public static boolean useOpenGl = false;
+
     public static int getMaxChunkBuildingThreads() {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         boolean is64Bits = System.getProperty("os.arch", "").contains("64");
@@ -118,6 +123,9 @@ public class Options {
             setCollectChunkEmission(Boolean.parseBoolean(props.getProperty("collectChunkEmission",
                     String.valueOf(collectChunkEmission))),
                 false);
+            rayTracingEnabled = Boolean.parseBoolean(props.getProperty("rayTracingEnabled",
+                String.valueOf(rayTracingEnabled)));
+            useOpenGl = Boolean.parseBoolean(props.getProperty("useOpenGl", String.valueOf(useOpenGl)));
             frameGeneration = Boolean.parseBoolean(props.getProperty("frameGeneration",
                 String.valueOf(frameGeneration)));
             generatedFrames = Integer.parseInt(props.getProperty("generatedFrames",
@@ -145,6 +153,8 @@ public class Options {
         props.setProperty("chunkBuildingTotalBatches", String.valueOf(chunkBuildingTotalBatches));
         props.setProperty("chunkBuildingThreads", String.valueOf(chunkBuildingThreads));
         props.setProperty("collectChunkEmission", String.valueOf(collectChunkEmission));
+        props.setProperty("rayTracingEnabled", String.valueOf(rayTracingEnabled));
+        props.setProperty("useOpenGl", String.valueOf(useOpenGl));
         props.setProperty("frameGeneration", String.valueOf(frameGeneration));
         props.setProperty("generatedFrames", String.valueOf(generatedFrames));
 

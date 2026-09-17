@@ -1,6 +1,7 @@
 package com.g2806.radiante.client;
 
 import com.g2806.radiante.client.gui.RadianteOptionsScreen;
+import com.g2806.radiante.client.render.RadianteRenderer;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -54,11 +55,40 @@ public class RadianteClient implements ClientModInitializer {
 
         KeyMapping openSettings = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.radiante.open_settings",
             InputConstants.KEY_F6, KeyMapping.Category.MISC));
+        KeyMapping toggleRayTracing = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping("key.radiante.toggle_ray_tracing", InputConstants.KEY_F7, KeyMapping.Category.MISC));
+
+        // The warning has to wait for a screen to exist, so it goes up on the first menu after startup.
         ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
+            if (!RadianteRenderer.isActive() && !com.g2806.radiante.client.option.Options.useOpenGl
+                && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen title
+                && com.g2806.radiante.client.gui.UnsupportedHardwareScreen.shouldShow()) {
+                minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UnsupportedHardwareScreen(title));
+            }
+
             while (openSettings.consumeClick()) {
                 if (minecraft.gui.screen() == null) {
                     minecraft.gui.setScreen(new RadianteOptionsScreen(null, minecraft.options));
                 }
+            }
+
+            while (toggleRayTracing.consumeClick()) {
+                if (!RadianteRenderer.isActive()) {
+                    sendStatus(minecraft, "message.radiante.ray_tracing_unavailable");
+                    continue;
+                }
+                com.g2806.radiante.client.option.Options.rayTracingEnabled =
+                    !com.g2806.radiante.client.option.Options.rayTracingEnabled;
+                com.g2806.radiante.client.option.Options.overwriteConfig();
+
+                // Each renderer keeps its own copy of the world, and only the one in use is kept up to date, so
+                // the one being handed the world back has to rebuild it before it can draw anything.
+                if (minecraft.level != null) {
+                    minecraft.levelExtractor.allChanged();
+                }
+
+                sendStatus(minecraft, com.g2806.radiante.client.option.Options.rayTracingEnabled
+                    ? "message.radiante.ray_tracing_on" : "message.radiante.ray_tracing_off");
             }
         });
     }
@@ -104,6 +134,13 @@ public class RadianteClient implements ClientModInitializer {
         Options.readOptions();
         Pipeline.reloadAllModuleEntries();
         LOGGER.info("Radiante native renderer loaded from {}", radianceDir);
+    }
+
+    private static void sendStatus(net.minecraft.client.Minecraft minecraft, String translationKey) {
+        if (minecraft.gui != null) {
+            minecraft.gui.hud.setOverlayMessage(net.minecraft.network.chat.Component.translatable(translationKey),
+                false);
+        }
     }
 
     private static void copyFile(String name) {

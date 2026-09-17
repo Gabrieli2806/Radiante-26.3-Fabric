@@ -62,6 +62,9 @@ public final class EntityCollector implements SubmitNodeCollector {
     private static final float TEXT_SURFACE_OFFSET = 0.02f;
 
     private final Map<RenderType, PBRVertexWriter> writers = new LinkedHashMap<>();
+
+    /** Extra glow the current entity gives off whatever layer it is drawn with, such as a glow item frame. */
+    private float entityEmission;
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
     private final List<PBRVertexWriter> pool = new ArrayList<>();
     private final QuadInstance quadInstance = new QuadInstance();
@@ -71,6 +74,7 @@ public final class EntityCollector implements SubmitNodeCollector {
     public void reset() {
         this.writers.clear();
         this.used = 0;
+        this.entityEmission = 0.0f;
     }
 
     public Map<RenderType, PBRVertexWriter> layers() {
@@ -112,11 +116,16 @@ public final class EntityCollector implements SubmitNodeCollector {
             .glintTextureId(0)
             .alphaMode(info.alphaMode())
             .coordinate(NativeGeometry.COORDINATE_CAMERA)
-            .albedoEmission(info.emission())
+            .albedoEmission(info.emission() + this.entityEmission)
             .overlayEnabled(info.useOverlay())
             .computeQuadNormals(info.needsComputedNormals());
         this.writers.put(renderType, writer);
         return writer;
+    }
+
+    /** Set before an entity is submitted; cleared with the collector. */
+    public void entityEmission(float entityEmission) {
+        this.entityEmission = entityEmission;
     }
 
     @Override
@@ -335,12 +344,17 @@ public final class EntityCollector implements SubmitNodeCollector {
                 // Font pages are built at runtime and are not registered under the identifier the render layer
                 // names, so resolving the texture by that name hands back something other than the glyph sheet.
                 // The renderable knows which page its glyph actually lives on.
-                if (renderable.textureView() != null && renderable.textureView().texture() != null) {
-                    int fontTextureId = TextureTracker.idOf(renderable.textureView().texture());
-                    if (fontTextureId != 0) {
-                        writer.textureId(fontTextureId);
-                    }
+                // A glyph must be sampled from the page it was baked into. When that page is not one the renderer
+                // mirrors, sampling the layer's named texture instead reads a different page and every letter comes
+                // out as a filled rectangle, so the glyph is skipped rather than drawn wrong.
+                if (renderable.textureView() == null || renderable.textureView().texture() == null) {
+                    return;
                 }
+                int fontTextureId = TextureTracker.idOf(renderable.textureView().texture());
+                if (fontTextureId == 0) {
+                    return;
+                }
+                writer.textureId(fontTextureId);
                 renderable.render(pose, writer, lightCoords, false);
             }
         });

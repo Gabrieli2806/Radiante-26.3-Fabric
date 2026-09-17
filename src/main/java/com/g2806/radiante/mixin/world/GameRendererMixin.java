@@ -17,7 +17,7 @@ public abstract class GameRendererMixin {
     @WrapOperation(method = "render", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel()V"))
     private void radiante$renderLevel(GameRenderer gameRenderer, Operation<Void> original) {
-        if (!RadianteRenderer.isActive()) {
+        if (!RadianteRenderer.isRayTracingEnabled()) {
             original.call(gameRenderer);
             return;
         }

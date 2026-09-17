@@ -60,6 +60,18 @@ public final class RadianteRenderer {
         return active;
     }
 
+    /** True when the ray tracer both works here and the player has it switched on. */
+    public static boolean isRayTracingEnabled() {
+        return active && Options.rayTracingEnabled;
+    }
+
+    /** Why ray tracing is unavailable on this machine, or null when it is available. */
+    public static String unsupportedReason() {
+        return unsupportedReason;
+    }
+
+    private static String unsupportedReason;
+
     public static void lockQueue() {
         if (active) {
             RendererProxy.lockQueue();
@@ -102,6 +114,7 @@ public final class RadianteRenderer {
 
         if (!ok[0]) {
             LOGGER.error("Radiante native renderer failed to initialise; ray tracing stays off");
+            unsupportedReason = "options.radiante.unsupported.reason";
             return;
         }
 

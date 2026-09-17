@@ -47,10 +47,14 @@ public class LevelRendererMixin {
         }
     }
 
-    /** Entity and block entity extraction ask this; answer from the renderer's own sections. */
+    /**
+     * Entity and block entity extraction ask this; answer from the renderer's own sections. With ray tracing
+     * switched off the world is Minecraft's to draw again, and answering for it would leave it convinced that
+     * sections it never compiled are ready, so almost nothing would be drawn.
+     */
     @Inject(method = "isSectionCompiledAndVisible", at = @At("HEAD"), cancellable = true)
     private void radiante$sectionReady(BlockPos pos, long fadeDuration, CallbackInfoReturnable<Boolean> cir) {
-        if (RadianteRenderer.isActive()) {
+        if (RadianteRenderer.isRayTracingEnabled()) {
             cir.setReturnValue(ChunkManager.isSectionReady(pos));
         }
     }

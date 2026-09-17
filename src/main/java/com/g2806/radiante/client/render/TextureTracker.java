@@ -1,12 +1,13 @@
 package com.g2806.radiante.client.render;
 
 import com.g2806.radiante.client.proxy.vulkan.TextureProxy;
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.renderpearl.api.GpuFormat;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.backend.vulkan.VulkanConst;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
@@ -46,10 +47,12 @@ public final class TextureTracker {
         SKIP_TRACKING.set(skip);
     }
 
+
     public static synchronized void onCreated(GpuTexture texture) {
         if (SKIP_TRACKING.get() || !RadianteRenderer.isActive() || !isTracked(texture)) {
             return;
         }
+
 
         int id;
         if (!FREE_IDS.isEmpty()) {
@@ -73,6 +76,8 @@ public final class TextureTracker {
         }
     }
 
+
+
     public static void onWrite(GpuTexture texture, ByteBuffer source, int mipLevel, int destX, int destY, int width,
         int height) {
         int id = idOf(texture);
@@ -81,46 +86,11 @@ public final class TextureTracker {
         }
 
 
+
         int bytesPerPixel = texture.getFormat() == GpuFormat.R8_UNORM ? 1 : 4;
         int size = Math.min(source.remaining(), width * height * bytesPerPixel);
         TextureProxy.queueUpload(MemoryUtil.memAddress(source), size, width, id, 0, 0, destX, destY, width, height,
             mipLevel);
-    }
-
-    /**
-     * Minecraft has three ways to write a texture and fonts use one of the two that hand over a NativeImage, not the
-     * raw buffer. Left unmirrored, the renderer's copy of a font page stays blank, every glyph samples an alpha of
-     * zero and the alpha test throws all the letters away.
-     */
-    public static void onWriteImage(GpuTexture texture, NativeImage source, int mipLevel, int destX, int destY) {
-        int id = idOf(texture);
-        if (id == 0 && !isFallback(texture)) {
-            return;
-        }
-
-        int width = source.getWidth();
-        int height = source.getHeight();
-        if (width <= 0 || height <= 0) {
-            return;
-        }
-
-        ByteBuffer pixels = MemoryUtil.memAlloc(width * height * 4);
-        try {
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    pixels.putInt((y * width + x) * 4, toRgba(source.getPixel(x, y)));
-                }
-            }
-            TextureProxy.queueUpload(MemoryUtil.memAddress(pixels), width * height * 4, width, id, 0, 0, destX, destY,
-                width, height, mipLevel);
-        } finally {
-            MemoryUtil.memFree(pixels);
-        }
-    }
-
-    /** NativeImage hands out ARGB; the mirrored texture stores RGBA in memory order. */
-    private static int toRgba(int argb) {
-        return (argb & 0xFF00FF00) | ((argb >> 16) & 0xFF) | ((argb & 0xFF) << 16);
     }
 
     private static synchronized boolean isFallback(GpuTexture texture) {
