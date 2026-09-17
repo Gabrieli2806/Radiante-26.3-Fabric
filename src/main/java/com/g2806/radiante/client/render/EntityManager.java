@@ -41,7 +41,6 @@ public final class EntityManager {
     private static final int BLOCK_ENTITY_CHUNK_RADIUS = 6;
     private static final double BLOCK_ENTITY_RANGE = 80.0;
     private static int DEBUG_TEXT_LAYERS;
-    private static int DEBUG_ITEM_FRAMES;
 
     /** Masks the ray tracing shaders select geometry with. */
     private static final int RAY_TRACING_WORLD = 0b00000001;
@@ -89,24 +88,6 @@ public final class EntityManager {
     }
 
     private static void collect(Minecraft minecraft, CameraRenderState cameraState, EntityRenderState state) {
-        if (state instanceof net.minecraft.client.renderer.entity.state.ItemFrameRenderState frame
-            && DEBUG_ITEM_FRAMES < 6) {
-            DEBUG_ITEM_FRAMES++;
-            RadianteRenderer.LOGGER.info("item frame state: invisible={} frameModelEmpty={} hasItem={} mapId={}",
-                frame.isInvisible, frame.frameModel.isEmpty(), !frame.item.isEmpty(), frame.mapId);
-            for (String field : new String[] {"modelParts", "specialRenderer", "renderType", "transformation"}) {
-                try {
-                    java.lang.reflect.Field f =
-                        net.minecraft.client.renderer.block.BlockModelRenderState.class.getDeclaredField(field);
-                    f.setAccessible(true);
-                    Object value = f.get(frame.frameModel);
-                    RadianteRenderer.LOGGER.info("  frameModel.{} = {}", field,
-                        value instanceof java.util.List<?> list ? "List size " + list.size() : value);
-                } catch (ReflectiveOperationException | RuntimeException e) {
-                    RadianteRenderer.LOGGER.info("  frameModel.{} unreadable: {}", field, e.toString());
-                }
-            }
-        }
 
         COLLECTOR.reset();
         POSE_STACK.setIdentity();

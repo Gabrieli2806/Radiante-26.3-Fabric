@@ -186,6 +186,12 @@ public final class RenderTypeInfo {
         if (isEndGateway()) {
             return NativeGeometry.GEOMETRY_TYPE_END_GATEWAY;
         }
+        // A glyph is a cut out, not a pane: traced as transparent geometry the ray passes through the letter and
+        // the surface behind it, the sign board, overwrites the letter's own material before it is ever shaded.
+        // The text any-hit shader already cuts the glyph to shape, so what remains of it is opaque.
+        if (textMode() != PBRVertexWriter.ALPHA_MODE_OPAQUE) {
+            return NativeGeometry.GEOMETRY_TYPE_WORLD_SOLID;
+        }
         return this.solid ? NativeGeometry.GEOMETRY_TYPE_WORLD_SOLID : NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT;
     }
 }

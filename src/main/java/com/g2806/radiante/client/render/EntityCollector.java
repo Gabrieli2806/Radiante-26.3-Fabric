@@ -57,8 +57,6 @@ public final class EntityCollector implements SubmitNodeCollector {
 
     private static final Direction[] DIRECTIONS = Direction.values();
 
-    private static int DEBUG_TEXT;
-    private static int DEBUG_BLOCK_MODELS;
 
     /** How far world text is lifted off the surface it is written on, in blocks. */
     private static final float TEXT_SURFACE_OFFSET = 0.02f;
@@ -152,11 +150,6 @@ public final class EntityCollector implements SubmitNodeCollector {
     @Override
     public void submitBlockModel(PoseStack poseStack, RenderType renderType, List<BlockStateModelPart> parts,
         int[] tintLayers, int lightCoords, int overlayCoords, int outlineColor) {
-        if (DEBUG_BLOCK_MODELS < 12 && !RenderTypeInfo.of(renderType).groupName().equals("item_cutout")) {
-            DEBUG_BLOCK_MODELS++;
-            RadianteRenderer.LOGGER.info("block model call: layer={} parts={} outline={}",
-                RenderTypeInfo.of(renderType).groupName(), parts.size(), outlineColor);
-        }
 
         if (outlineColor != 0) {
             return;
@@ -324,8 +317,11 @@ public final class EntityCollector implements SubmitNodeCollector {
         // Minecraft keeps sign text inside the board it is written on and relies on a depth bias to draw it in
         // front anyway. A ray tracer has no such bias: the board's own surface is hit first and the letters are
         // never seen. Pushing the glyphs a hair out along the way they face puts them where they appear to be.
+        // The pose already carries the scale that turns glyph units into blocks, so the step has to be divided by
+        // it to come out as a fixed distance in the world rather than a hundredth of one.
         poseStack.pushPose();
-        poseStack.translate(0.0f, 0.0f, TEXT_SURFACE_OFFSET);
+        float glyphScale = poseStack.last().pose().transformDirection(new Vector3f(0.0f, 0.0f, 1.0f)).length();
+        poseStack.translate(0.0f, 0.0f, TEXT_SURFACE_OFFSET / Math.max(glyphScale, 1.0E-6f));
         Matrix4fc pose = poseStack.last().pose();
         Font.PreparedText prepared = font.prepareText(string, x, y, color, dropShadow, false, backgroundColor);
         prepared.visit(new Font.GlyphVisitor() {
@@ -336,19 +332,16 @@ public final class EntityCollector implements SubmitNodeCollector {
                     return;
                 }
                 PBRVertexWriter writer = EntityCollector.this.writer(renderType);
-                int before = writer.vertexCount();
-                renderable.render(pose, writer, lightCoords, false);
-                if (DEBUG_TEXT < 10 && writer.vertexCount() > before) {
-                    DEBUG_TEXT++;
-                    RadianteRenderer.LOGGER.info("world text piece: {} v0[{}] v1[{}] v2[{}]",
-                        renderable.getClass().getSimpleName(), writer.debugPositionOf(before),
-                        writer.debugPositionOf(before + 1), writer.debugPositionOf(before + 2));
-                    RenderTypeInfo info = RenderTypeInfo.of(renderType);
-                    RadianteRenderer.LOGGER.info(
-                        "world text: texture={} textureId={} mirrored={} alphaMode={} vertices={}",
-                        info.texture(), info.textureId(), "n/a",
-                        info.alphaMode(), writer.vertexCount() - before);
+                // Font pages are built at runtime and are not registered under the identifier the render layer
+                // names, so resolving the texture by that name hands back something other than the glyph sheet.
+                // The renderable knows which page its glyph actually lives on.
+                if (renderable.textureView() != null && renderable.textureView().texture() != null) {
+                    int fontTextureId = TextureTracker.idOf(renderable.textureView().texture());
+                    if (fontTextureId != 0) {
+                        writer.textureId(fontTextureId);
+                    }
                 }
+                renderable.render(pose, writer, lightCoords, false);
             }
         });
         poseStack.popPose();
