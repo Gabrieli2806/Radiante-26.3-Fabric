@@ -50,6 +50,8 @@ public class RadianteClient implements ClientModInitializer {
     public void onInitializeClient() {
         ensureNativeLoaded();
 
+        SmokeTest.register();
+
         KeyMapping openSettings = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.radiante.open_settings",
             InputConstants.KEY_F6, KeyMapping.Category.MISC));
         ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
@@ -184,7 +186,17 @@ public class RadianteClient implements ClientModInitializer {
             for (Path file : (Iterable<Path>) stream.filter(Files::isRegularFile)::iterator) {
                 Path destination = target.resolve(source.relativize(file).toString());
                 Files.createDirectories(destination.getParent());
-                Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
+                try {
+                    Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    // Another instance of the game may still hold these libraries open. An identical copy is
+                    // already in place in that case, so refusing to start over it would be worse than using it.
+                    if (!Files.exists(destination)) {
+                        throw e;
+                    }
+                    LOGGER.warn("Keeping the existing {}: it is in use and could not be replaced",
+                        destination.getFileName());
+                }
             }
         }
     }

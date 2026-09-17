@@ -175,9 +175,19 @@ public class BufferProxy {
             memSet(addr, -1, size);
             int blocks = com.g2806.radiante.client.render.TextureTracker.idOf(
                 net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS);
-            int specular = com.g2806.radiante.client.render.EmissionTiles.specularTextureFor(blocks);
-            if (blocks > 0 && blocks < TEXTURE_MAPPING_ENTRIES && specular >= 0) {
-                bb.putInt(blocks * 3 * Integer.BYTES, specular);
+            if (blocks > 0 && blocks < TEXTURE_MAPPING_ENTRIES) {
+                int entry = blocks * 3 * Integer.BYTES;
+                int specular = com.g2806.radiante.client.render.PbrAtlases.specularTextureFor(blocks);
+                if (specular < 0) {
+                    specular = com.g2806.radiante.client.render.EmissionTiles.specularTextureFor(blocks);
+                }
+                if (specular >= 0) {
+                    bb.putInt(entry, specular);
+                }
+                int normal = com.g2806.radiante.client.render.PbrAtlases.normalTextureFor(blocks);
+                if (normal >= 0) {
+                    bb.putInt(entry + Integer.BYTES, normal);
+                }
             }
             updateMapping(addr);
         }

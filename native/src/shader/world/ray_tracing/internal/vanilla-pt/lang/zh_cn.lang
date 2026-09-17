@@ -66,3 +66,4 @@ render_pipeline.module.ray_tracing.attribute.post_dof_focus_distance=景深对�
 render_pipeline.module.ray_tracing.attribute.post_dof_focus_range=景深焦平面范围
 render_pipeline.module.ray_tracing.attribute.post_dof_radius=景深半径
 render_pipeline.module.ray_tracing.attribute.post_dof_samples=景深采样数
+render_pipeline.module.ray_tracing.attribute.pixelated_lighting=像素化光照

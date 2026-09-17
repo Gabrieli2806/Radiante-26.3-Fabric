@@ -185,8 +185,12 @@
   "options.radiante.chunk_building_batch_size": "Chunk Batch Size",
   "options.radiante.chunk_building_total_batches": "Chunk Batches",
   "options.radiante.collect_chunk_emission": "Block Emission",
+  "options.radiante.pixelated_lighting": "Pixelated Lighting",
   "key.radiante.open_settings": "Open Radiante Settings",
   "render_pipeline.module.dlss.attribute.mode.ultra_performance": "Ultra Performance",
   "options.radiante.dlss_mode": "DLSS Mode",
-  "options.radiante.frame_generation": "Frame Generation"
+  "options.radiante.frame_generation": "Frame Generation",
+  "options.radiante.cloud_mode": "Clouds",
+  "render_pipeline.module.ray_tracing.attribute.cloud_mode.off": "Off",
+  "render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric": "Volumetric"
 }

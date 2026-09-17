@@ -273,6 +273,73 @@ public class Pipeline {
         return changed;
     }
 
+    public static final String CLOUD_MODE_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.cloud_mode";
+    /**
+     * Only the modes the renderer can actually produce. Vanilla clouds are drawn from geometry Minecraft submits,
+     * which is not ported yet, so the choice is between none and the ray marched ones.
+     */
+    public static final List<String> CLOUD_MODES = List.of(
+        "render_pipeline.module.ray_tracing.attribute.cloud_mode.off",
+        "render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric");
+
+    private static final String CLOUD_TEMPORAL_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_temporal_accumulation";
+
+    /** Sets the cloud mode; returns true when the pipeline needs rebuilding. */
+    public static boolean setCloudMode(String mode) {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), CLOUD_MODE_ATTRIBUTE);
+        if (attribute == null || Objects.equals(attribute.value, mode)) {
+            return false;
+        }
+        attribute.value = mode;
+
+        // Ray marched clouds are noisy frame to frame; without accumulation across frames they visibly flicker, so
+        // turning the clouds on turns this on with them.
+        AttributeConfig temporal = findAttribute(getRayTracingModule(), CLOUD_TEMPORAL_ATTRIBUTE);
+        if (temporal != null && mode.endsWith(".volumetric")) {
+            temporal.value = "render_pipeline.true";
+        }
+        return true;
+    }
+
+    public static String getCloudMode() {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), CLOUD_MODE_ATTRIBUTE);
+        return attribute == null ? null : attribute.value;
+    }
+
+    public static boolean supportsClouds() {
+        return findAttribute(getRayTracingModule(), CLOUD_MODE_ATTRIBUTE) != null;
+    }
+
+    public static final String PIXELATED_LIGHTING_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.pixelated_lighting";
+
+    /**
+     * Turns the blocky, per texel lighting on or off. It lives in the shader pack rather than in the renderer, so
+     * the pipeline has to be rebuilt for the change to take effect; returns true when that is needed.
+     */
+    public static boolean setPixelatedLighting(boolean enabled) {
+        String value = enabled ? "render_pipeline.true" : "render_pipeline.false";
+        Module module = getRayTracingModule();
+        AttributeConfig attribute = findAttribute(module, PIXELATED_LIGHTING_ATTRIBUTE);
+        if (attribute == null || Objects.equals(attribute.value, value)) {
+            return false;
+        }
+        attribute.value = value;
+        return true;
+    }
+
+    /** True when the active shader pack has pixelated lighting switched on. */
+    public static boolean isPixelatedLighting() {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), PIXELATED_LIGHTING_ATTRIBUTE);
+        return attribute != null && Objects.equals(attribute.value, "render_pipeline.true");
+    }
+
+    /** False when the active shader pack does not offer the option at all. */
+    public static boolean supportsPixelatedLighting() {
+        return findAttribute(getRayTracingModule(), PIXELATED_LIGHTING_ATTRIBUTE) != null;
+    }
+
     private static AttributeConfig findAttribute(Module module, String name) {
         if (module == null || module.attributeConfigs == null) {
             return null;

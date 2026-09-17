@@ -177,5 +177,9 @@
   "render_pipeline.mode.pipeline": "管线",
   "render_pipeline.mode.preset": "预设",
   "render_pipeline.true": "是",
-  "render_pipeline.false": "否"
+  "render_pipeline.false": "否",
+  "options.radiante.pixelated_lighting": "像素化光照",
+  "options.radiante.cloud_mode": "云",
+  "render_pipeline.module.ray_tracing.attribute.cloud_mode.off": "关闭",
+  "render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric": "体积云"
 }

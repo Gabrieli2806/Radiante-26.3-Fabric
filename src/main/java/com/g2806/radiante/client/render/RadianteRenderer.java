@@ -22,6 +22,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.blockentity.AbstractEndPortalRenderer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.fog.FogData;
+import net.minecraft.client.renderer.state.OptionsRenderState;
+import net.minecraft.client.renderer.state.level.CameraEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.state.level.SkyRenderState;
@@ -186,7 +188,9 @@ public final class RadianteRenderer {
         FogData fog = cameraState.fogData;
 
         Matrix4f view = toRendererView(cameraState.viewRotationMatrix);
-        Matrix4f effectedView = toRendererView(cameraState.viewRotationMatrix);
+        // Primary rays are generated from the effected view, which is the matrix meant to carry camera effects.
+        Matrix4f effectedView =
+            toRendererView(cameraShake(minecraft, cameraState).mul(cameraState.viewRotationMatrix));
         Matrix4f projection = new Matrix4f(cameraState.projectionMatrix);
 
         int skyType = skyTypeOf(levelRenderState.skyRenderState.skybox);
@@ -228,6 +232,45 @@ public final class RadianteRenderer {
      */
     private static Matrix4f toRendererView(Matrix4f viewRotation) {
         return new Matrix4f().scaling(-1.0f, 1.0f, -1.0f).mul(viewRotation);
+    }
+
+    /**
+     * The tilt when the player takes a hit and the sway while walking, exactly as vanilla computes them. Vanilla
+     * multiplies this onto the camera transform; folding it into the projection instead skews the frustum and the
+     * shake comes out far stronger than it should.
+     */
+    private static Matrix4f cameraShake(Minecraft minecraft, CameraRenderState cameraState) {
+        CameraEntityRenderState entity = cameraState.entityRenderState;
+        OptionsRenderState options = minecraft.gameRenderer.gameRenderState().optionsRenderState;
+        Matrix4f shake = new Matrix4f();
+
+        if (entity.isLiving) {
+            if (entity.isDeadOrDying) {
+                float duration = Math.min(entity.deathTime, 20.0f);
+                shake.rotate((float) Math.toRadians(40.0f - 8000.0f / (duration + 200.0f)), 0.0f, 0.0f, 1.0f);
+            }
+
+            if (entity.hurtTime >= 0.0f && entity.hurtDuration > 0) {
+                float hurt = entity.hurtTime / entity.hurtDuration;
+                hurt = Mth.sin(hurt * hurt * hurt * hurt * (float) Math.PI);
+                float direction = entity.hurtDir;
+                float tilt = (float) (-hurt * 14.0 * options.damageTiltStrength);
+                shake.rotate((float) Math.toRadians(-direction), 0.0f, 1.0f, 0.0f);
+                shake.rotate((float) Math.toRadians(tilt), 0.0f, 0.0f, 1.0f);
+                shake.rotate((float) Math.toRadians(direction), 0.0f, 1.0f, 0.0f);
+            }
+        }
+
+        if (options.bobView && entity.isPlayer) {
+            float walk = entity.backwardsInterpolatedWalkDistance;
+            float bob = entity.bob;
+            shake.translate(Mth.sin(walk * (float) Math.PI) * bob * 0.5f,
+                -Math.abs(Mth.cos(walk * (float) Math.PI) * bob), 0.0f);
+            shake.rotate((float) Math.toRadians(Mth.sin(walk * (float) Math.PI) * bob * 3.0f), 0.0f, 0.0f, 1.0f);
+            shake.rotate((float) Math.toRadians(Math.abs(Mth.cos(walk * (float) Math.PI - 0.2f) * bob) * 5.0f),
+                1.0f, 0.0f, 0.0f);
+        }
+        return shake;
     }
 
     /** The shaders use the same order as vanilla: none, overworld, end. */

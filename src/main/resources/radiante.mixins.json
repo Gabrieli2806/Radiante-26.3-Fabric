@@ -24,6 +24,7 @@
     "render.RenderTypeAccessors$RenderTypeAccessor",
     "render.RenderTypeAccessors$TextureBindingAccessor",
     "texture.SpriteContentsMixin",
+    "texture.TextureAtlasAccessor",
     "texture.TextureAtlasMixin",
     "world.GameRendererMixin",
     "world.LevelExtractorMixin",

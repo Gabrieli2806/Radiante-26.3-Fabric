@@ -46,7 +46,7 @@
         {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_temporal_accumulation",
             "type": "bool",
-            "default_value": "render_pipeline.false",
+            "default_value": "render_pipeline.true",
             "define": "VPT_ENABLE_VOLUMETRIC_CLOUD_TEMPORAL"
         },
         {

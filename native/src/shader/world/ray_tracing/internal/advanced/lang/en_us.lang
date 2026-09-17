@@ -76,3 +76,4 @@ render_pipeline.module.ray_tracing.attribute.post_dof_focus_distance=DOF Focus D
 render_pipeline.module.ray_tracing.attribute.post_dof_focus_range=DOF Focus Range
 render_pipeline.module.ray_tracing.attribute.post_dof_radius=DOF Radius
 render_pipeline.module.ray_tracing.attribute.post_dof_samples=DOF Samples
+render_pipeline.module.ray_tracing.attribute.pixelated_lighting=Pixelated Lighting

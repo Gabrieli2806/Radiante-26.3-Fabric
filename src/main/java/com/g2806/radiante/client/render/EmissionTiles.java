@@ -32,8 +32,14 @@ public final class EmissionTiles {
 
     /** Cells per sprite side; small enough for 16px textures to keep flames separate from their stick. */
     private static final int CELLS_PER_SIDE = 4;
-    /** Texels darker than this do not emit. */
-    private static final float MIN_LUMINANCE = 0.55f;
+    /** Texels whose brightest channel is below this do not emit. */
+    private static final float MIN_BRIGHTNESS = 0.55f;
+    /** Floor for textures that never reach MIN_BRIGHTNESS anywhere. */
+    private static final float DARK_EMITTER_MIN_BRIGHTNESS = 0.15f;
+    /** For those dark emitters, a texel emits when it is this bright relative to the brightest texel. */
+    private static final float RELATIVE_BRIGHTNESS = 0.6f;
+    /** Texels at least this saturated count as the coloured, glowing part of a texture. */
+    private static final float MIN_GLOW_SATURATION = 0.35f;
     private static final int CELL_BYTES = 8 * Float.BYTES;
     /** Scales how much light emitters cast on their surroundings. */
     private static final float LIGHT_STRENGTH = 8.0f;
@@ -55,6 +61,7 @@ public final class EmissionTiles {
 
     public static void invalidate() {
         registeredFor = null;
+        PbrAtlases.invalidate();
     }
 
     /** Registers the emitters once per block atlas; call on the render thread once models are loaded. */
@@ -71,6 +78,11 @@ public final class EmissionTiles {
         }
         registeredFor = key;
 
+        // A resource pack that ships its own PBR maps knows better than anything we can derive from the albedo,
+        // but the emitter cells are still needed either way: they are what makes a torch light up the room rather
+        // than merely look bright.
+        boolean packMaps = PbrAtlases.build(minecraft, atlas, atlasId) > 0;
+
         Map<TextureAtlasSprite, Integer> emitters = collectEmissiveSprites(minecraft, atlas);
         int atlasWidth = atlas.getTexture().getWidth(0);
         int atlasHeight = atlas.getTexture().getHeight(0);
@@ -78,9 +90,12 @@ public final class EmissionTiles {
         ByteBuffer specular = MemoryUtil.memCalloc(atlasWidth * atlasHeight * 4);
         try {
             for (Map.Entry<TextureAtlasSprite, Integer> entry : emitters.entrySet()) {
-                upload(atlasId, entry.getKey(), entry.getValue(), atlasWidth, atlasHeight, specular);
+                upload(atlasId, entry.getKey(), entry.getValue(), atlasWidth, atlasHeight,
+                    packMaps ? null : specular);
             }
-            uploadSpecularAtlas(atlasId, specular, atlasWidth, atlasHeight, mipLevels);
+            if (!packMaps) {
+                uploadSpecularAtlas(atlasId, specular, atlasWidth, atlasHeight, mipLevels);
+            }
         } finally {
             MemoryUtil.memFree(specular);
         }
@@ -143,6 +158,15 @@ public final class EmissionTiles {
         int height = contents.height();
         int rowPixels = Math.max(1, ((SpriteContentsAccess) contents).radiante$mipWidth(0));
         float strength = level / 15.0f;
+        // Brightness is the strongest channel, not perceived luminance: pure red has a luminance of 0.21, so a
+        // luminance cut skips the red of redstone and the orange of magma, and lets only the palest specks of lava
+        // through. Textures that glow in colour also carry pale highlights and grey stone, so when a texture has
+        // bright, saturated texels only those emit; the white glints on redstone ore stay dark. Textures that never
+        // get bright anywhere, a nether portal glowing all over in dark purple, fall back to a relative cut.
+        float brightest = maxBrightness(pixels, width, height, rowPixels);
+        float threshold = brightest >= MIN_BRIGHTNESS ? MIN_BRIGHTNESS
+            : Math.max(DARK_EMITTER_MIN_BRIGHTNESS, brightest * RELATIVE_BRIGHTNESS);
+        boolean coloured = hasSaturatedTexels(pixels, width, height, rowPixels, threshold);
         int cellWidth = Math.max(1, width / CELLS_PER_SIDE);
         int cellHeight = Math.max(1, height / CELLS_PER_SIDE);
 
@@ -165,14 +189,17 @@ public final class EmissionTiles {
                         float b = (pixels.get(index + 2) & 0xFF) / 255.0f;
                         float a = (pixels.get(index + 3) & 0xFF) / 255.0f;
                         texels++;
-                        float luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-                        if (a < 0.1f || luminance < MIN_LUMINANCE) {
+                        float brightness = Math.max(r, Math.max(g, b));
+                        if (a < 0.1f || brightness < threshold
+                            || (coloured && saturation(r, g, b) < MIN_GLOW_SATURATION)) {
                             continue;
                         }
-                        float weight = a * luminance;
-                        writeSpecularEmission(specular, atlasWidth, atlasHeight,
-                            Math.round(sprite.getU0() * atlasWidth) + x, Math.round(sprite.getV0() * atlasHeight) + y,
-                            strength * luminance);
+                        float weight = a * brightness;
+                        if (specular != null) {
+                            writeSpecularEmission(specular, atlasWidth, atlasHeight,
+                                Math.round(sprite.getU0() * atlasWidth) + x,
+                                Math.round(sprite.getV0() * atlasHeight) + y, strength * brightness);
+                        }
                         emission += weight;
                         red += r * weight;
                         green += g * weight;
@@ -211,6 +238,46 @@ public final class EmissionTiles {
         } finally {
             MemoryUtil.nmemFree(address);
         }
+    }
+
+    private static float maxBrightness(ByteBuffer pixels, int width, int height, int rowPixels) {
+        float max = 0.0f;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = (y * rowPixels + x) * 4;
+                if (index + 3 >= pixels.capacity() || (pixels.get(index + 3) & 0xFF) < 26) {
+                    continue;
+                }
+                max = Math.max(max, Math.max((pixels.get(index) & 0xFF),
+                    Math.max(pixels.get(index + 1) & 0xFF, pixels.get(index + 2) & 0xFF)) / 255.0f);
+            }
+        }
+        return max;
+    }
+
+    private static boolean hasSaturatedTexels(ByteBuffer pixels, int width, int height, int rowPixels,
+        float threshold) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = (y * rowPixels + x) * 4;
+                if (index + 3 >= pixels.capacity() || (pixels.get(index + 3) & 0xFF) < 26) {
+                    continue;
+                }
+                float r = (pixels.get(index) & 0xFF) / 255.0f;
+                float g = (pixels.get(index + 1) & 0xFF) / 255.0f;
+                float b = (pixels.get(index + 2) & 0xFF) / 255.0f;
+                if (Math.max(r, Math.max(g, b)) >= threshold && saturation(r, g, b) >= MIN_GLOW_SATURATION) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static float saturation(float r, float g, float b) {
+        float max = Math.max(r, Math.max(g, b));
+        float min = Math.min(r, Math.min(g, b));
+        return max <= 0.0f ? 0.0f : (max - min) / max;
     }
 
     /** The specular texture mapped onto the block atlas, used by BufferProxy.updateMapping. */

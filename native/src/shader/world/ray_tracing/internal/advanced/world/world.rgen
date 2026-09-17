@@ -485,7 +485,9 @@ void prepareSecondary(int bounce, int isHand, out float len, out uint mask) {
     if (bounce == 0) {
         len = 1000.0;
         if (worldUBO.isFirstPerson > 0) {
-            mask = WORLD_MASK | FISHING_BOBBER_MASK | WEATHER_MASK | PARTICLE_MASK | CLOUD_MASK;
+            // The held item has to be reachable by bounced light, otherwise a torch in the hand glows without
+            // lighting anything around it in first person, while the same torch lights the scene in third person.
+            mask = WORLD_MASK | HAND_MASK | FISHING_BOBBER_MASK | WEATHER_MASK | PARTICLE_MASK | CLOUD_MASK;
         } else {
             mask = WORLD_MASK | PLAYER_MASK | FISHING_BOBBER_MASK | WEATHER_MASK | PARTICLE_MASK | CLOUD_MASK;
         }

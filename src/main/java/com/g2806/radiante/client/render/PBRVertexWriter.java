@@ -101,6 +101,21 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         return this.address;
     }
 
+    /** Reads back a written vertex position, used to tell a misplaced glyph from a missing one. */
+    public String debugPositionOf(int vertexIndex) {
+        long v = this.address + (long) vertexIndex * STRIDE;
+        return String.format("%.3f,%.3f,%.3f", MemoryUtil.memGetFloat(v + OFF_POS),
+            MemoryUtil.memGetFloat(v + OFF_POS + 4), MemoryUtil.memGetFloat(v + OFF_POS + 8));
+    }
+
+    /** Reads back a written vertex colour, used to tell a black glyph from a missing one. */
+    public String debugColorOf(int vertexIndex) {
+        long v = this.address + (long) vertexIndex * STRIDE;
+        return String.format("use=%d rgba=%.2f,%.2f,%.2f,%.2f", MemoryUtil.memGetInt(v + OFF_USE_COLOR),
+            MemoryUtil.memGetFloat(v + OFF_COLOR), MemoryUtil.memGetFloat(v + OFF_COLOR + 4),
+            MemoryUtil.memGetFloat(v + OFF_COLOR + 8), MemoryUtil.memGetFloat(v + OFF_COLOR + 12));
+    }
+
     public void reset() {
         this.vertexCount = 0;
         this.current = -1L;

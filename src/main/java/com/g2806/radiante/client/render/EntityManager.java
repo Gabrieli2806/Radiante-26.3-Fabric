@@ -16,7 +16,11 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.state.level.PlayerRenderState;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
@@ -31,6 +35,12 @@ public final class EntityManager {
     private static final List<PendingEntity> PENDING = new ArrayList<>();
     private static boolean queued;
     private static int DEBUG_BLOCK_ENTITIES;
+    private static final java.util.Set<String> DEBUG_BLOCK_ENTITY_KINDS = new java.util.HashSet<>();
+    private static final java.util.Set<String> DEBUG_FAILED_BLOCK_ENTITIES = new java.util.HashSet<>();
+    /** How far out block entities are gathered, in chunks and in blocks; beyond this they are too small to matter. */
+    private static final int BLOCK_ENTITY_CHUNK_RADIUS = 6;
+    private static final double BLOCK_ENTITY_RANGE = 80.0;
+    private static int DEBUG_TEXT_LAYERS;
 
     /** Masks the ray tracing shaders select geometry with. */
     private static final int RAY_TRACING_WORLD = 0b00000001;
@@ -62,7 +72,7 @@ public final class EntityManager {
             collect(minecraft, cameraState, state);
         }
 
-        for (BlockEntityRenderState state : levelRenderState.blockEntityRenderStates) {
+        for (BlockEntityRenderState state : collectBlockEntityStates(minecraft, levelRenderState, cameraState)) {
             collectBlockEntity(minecraft, cameraState, state);
         }
 
@@ -95,6 +105,47 @@ public final class EntityManager {
         addPending(System.identityHashCode(state), state.x, state.y, state.z, RAY_TRACING_WORLD);
     }
 
+    /**
+     * Minecraft only extracts block entities from the chunk sections it decided to draw, and the ray tracer replaces
+     * that pass entirely, so its list holds nothing but the handful that render from any distance, such as beacons.
+     * Everything placed in the world - signs, chests, banners, end portals - has to be gathered here instead, from
+     * the chunks around the camera.
+     */
+    private static List<BlockEntityRenderState> collectBlockEntityStates(Minecraft minecraft,
+        LevelRenderState levelRenderState, CameraRenderState cameraState) {
+        List<BlockEntityRenderState> states = new ArrayList<>(levelRenderState.blockEntityRenderStates);
+        if (minecraft.level == null) {
+            return states;
+        }
+
+        Vec3 camera = cameraState.pos;
+        int centerX = Mth.floor(camera.x()) >> 4;
+        int centerZ = Mth.floor(camera.z()) >> 4;
+        int radius = Math.min(BLOCK_ENTITY_CHUNK_RADIUS, minecraft.options.getEffectiveRenderDistance());
+        float partialTicks = levelRenderState.worldPartialTicks;
+
+        for (int x = centerX - radius; x <= centerX + radius; x++) {
+            for (int z = centerZ - radius; z <= centerZ + radius; z++) {
+                LevelChunk chunk = minecraft.level.getChunkSource().getChunk(x, z, false);
+                if (chunk == null) {
+                    continue;
+                }
+                for (Map.Entry<BlockPos, BlockEntity> entry : chunk.getBlockEntities().entrySet()) {
+                    BlockPos pos = entry.getKey();
+                    if (pos.distToCenterSqr(camera) > BLOCK_ENTITY_RANGE * BLOCK_ENTITY_RANGE) {
+                        continue;
+                    }
+                    BlockEntityRenderState state = minecraft.getBlockEntityRenderDispatcher()
+                        .tryExtractRenderState(entry.getValue(), partialTicks, null, false);
+                    if (state != null) {
+                        states.add(state);
+                    }
+                }
+            }
+        }
+        return states;
+    }
+
     private static void collectBlockEntity(Minecraft minecraft, CameraRenderState cameraState,
         BlockEntityRenderState state) {
         COLLECTOR.reset();
@@ -103,6 +154,11 @@ public final class EntityManager {
         try {
             minecraft.getBlockEntityRenderDispatcher().submit(state, POSE_STACK, COLLECTOR, cameraState);
         } catch (RuntimeException e) {
+            // Swallowing this silently once hid the reason a whole kind of block entity never appeared.
+            if (DEBUG_FAILED_BLOCK_ENTITIES.add(state.getClass().getSimpleName())) {
+                RadianteRenderer.LOGGER.warn("Block entity {} could not be collected", state.getClass().getSimpleName(),
+                    e);
+            }
             return;
         }
 
@@ -124,6 +180,15 @@ public final class EntityManager {
                 }
             }
         }
+    }
+
+    /** One line per kind of block entity the renderer receives, so a missing one can be told from a broken one. */
+    private static void debugBlockEntityKind(BlockEntityRenderState state) {
+        if (!DEBUG_BLOCK_ENTITY_KINDS.add(state.getClass().getSimpleName())) {
+            return;
+        }
+        RadianteRenderer.LOGGER.info("block entity kind reaching the renderer: {} at {}",
+            state.getClass().getSimpleName(), state.blockPos);
     }
 
     /** Particles arrive already positioned relative to the camera and facing it. */
@@ -194,10 +259,21 @@ public final class EntityManager {
             PBRVertexWriter writer = entry.getValue();
             writer.finish();
             if (writer.vertexCount() == 0 || writer.vertexCount() % 4 != 0) {
+                RenderTypeInfo dropped = RenderTypeInfo.of(entry.getKey());
+                if (DEBUG_TEXT_LAYERS < 5 && dropped.needsComputedNormals()) {
+                    DEBUG_TEXT_LAYERS++;
+                    RadianteRenderer.LOGGER.info("layer dropped: group={} vertices={}", dropped.groupName(),
+                        writer.vertexCount());
+                }
                 continue;
             }
 
             RenderTypeInfo info = RenderTypeInfo.of(entry.getKey());
+            if (DEBUG_TEXT_LAYERS < 5 && info.needsComputedNormals()) {
+                DEBUG_TEXT_LAYERS++;
+                RadianteRenderer.LOGGER.info("layer accepted: group={} geometry={} textureId={} vertices={}",
+                    info.groupName(), info.geometryType(), info.textureId(), writer.vertexCount());
+            }
             layers.add(new PendingLayer(info.geometryType(), info.textureId(), writer.vertexCount(),
                 copyVertices(writer), info.groupName()));
         }

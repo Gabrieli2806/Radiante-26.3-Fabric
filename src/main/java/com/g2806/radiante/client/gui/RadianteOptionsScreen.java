@@ -29,6 +29,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private ShaderPackChoice pendingShaderPack;
     private String pendingDlssMode;
     private int pendingGeneratedFrames = Options.frameGeneration ? Options.generatedFrames : 0;
+    private String pendingCloudMode;
     private int pendingChunkThreads = Options.chunkBuildingThreads;
     private int pendingChunkBatchSize = Options.chunkBuildingBatchSize;
     private int pendingChunkTotalBatches = Options.chunkBuildingTotalBatches;
@@ -99,6 +100,22 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             active, value -> this.pendingShaderPack = value);
     }
 
+    /** Clouds come from the shader pack, which ray marches them, so nothing has to be submitted for them. */
+    private OptionInstance<String> cloudModeOption() {
+        if (!Pipeline.supportsClouds()) {
+            return null;
+        }
+
+        String current = Pipeline.getCloudMode();
+        this.pendingCloudMode = current != null && Pipeline.CLOUD_MODES.contains(current) ? current
+            : Pipeline.CLOUD_MODES.get(0);
+
+        return new OptionInstance<>("options.radiante.cloud_mode", OptionInstance.noTooltip(),
+            (caption, value) -> Component.translatable(value),
+            new OptionInstance.Enum<>(Pipeline.CLOUD_MODES, Codec.STRING), this.pendingCloudMode,
+            value -> this.pendingCloudMode = value);
+    }
+
     private OptionInstance<String> dlssModeOption() {
         if (!Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key)) {
             return null;
@@ -166,6 +183,11 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             this.list.addSmall(frameGeneration);
         }
 
+        OptionInstance<String> clouds = cloudModeOption();
+        if (clouds != null) {
+            this.list.addSmall(clouds);
+        }
+
         this.list.addSmall(
             slider("options.radiante.chunk_building_threads", 1, Options.getMaxChunkBuildingThreads(),
                 this.pendingChunkThreads, value -> this.pendingChunkThreads = value),
@@ -219,6 +241,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingShaderPack != null && !Pipeline.isShaderPackActive(this.pendingShaderPack)) {
             rebuild |= Pipeline.setShaderPack(this.pendingShaderPack, false);
+        }
+        if (this.pendingCloudMode != null && !Objects.equals(this.pendingCloudMode, Pipeline.getCloudMode())) {
+            rebuild |= Pipeline.setCloudMode(this.pendingCloudMode);
         }
         // The mode lives on the DLSS module, which only exists once the DLSS pipeline is assembled.
         if (this.pendingDlssMode != null) {

@@ -111,6 +111,11 @@ void main() {
 
     float factor = rayBounce(mainRay) == 0u ? ADV_DIRECT_LIGHT_STRENGTH : ADV_INDIRECT_LIGHT_STRENGTH;
     mainRay.radiance += factor * shadedRgb * alpha * pbrEmission * mainRay.throughput;
+    // Layers that are light themselves rather than lit surfaces carry their emission per vertex: glowing eyes,
+    // beacon beams, lightning and the flames on a burning entity are all blended, so this is the only path they
+    // ever reach.
+    float vertexEmission = bary.x * m0.albedoEmission + bary.y * m1.albedoEmission + bary.z * m2.albedoEmission;
+    mainRay.radiance += shadedRgb * alpha * vertexEmission * mainRay.throughput;
     mainRay.throughput *= transmittance;
 
     vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;

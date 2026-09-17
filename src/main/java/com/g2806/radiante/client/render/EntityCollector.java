@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.font.TextRenderable;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.renderer.OrderedSubmitNodeCollector;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -17,7 +18,13 @@ import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.gizmos.DrawableGizmoPrimitives;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.ModelBakery;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
 import net.minecraft.client.renderer.texture.UvMapping;
@@ -30,6 +37,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.joml.Matrix4fc;
 import org.joml.Quaternionf;
 import org.jspecify.annotations.Nullable;
 
@@ -41,6 +49,8 @@ import org.jspecify.annotations.Nullable;
 public final class EntityCollector implements SubmitNodeCollector {
 
     private static final Direction[] DIRECTIONS = Direction.values();
+
+    private static int DEBUG_TEXT;
 
     private final Map<RenderType, PBRVertexWriter> writers = new LinkedHashMap<>();
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
@@ -95,7 +105,7 @@ public final class EntityCollector implements SubmitNodeCollector {
             .coordinate(NativeGeometry.COORDINATE_CAMERA)
             .albedoEmission(info.emission())
             .overlayEnabled(info.useOverlay())
-            .computeQuadNormals(false);
+            .computeQuadNormals(info.needsComputedNormals());
         this.writers.put(renderType, writer);
         return writer;
     }
@@ -209,9 +219,44 @@ public final class EntityCollector implements SubmitNodeCollector {
         boolean seeThrough, int lightCoords, CameraRenderState camera) {
     }
 
+    /**
+     * Text drawn in the world: the lines on a sign, mostly. Minecraft lays the glyphs out for us and hands back
+     * renderables that know how to emit their own quads, so each one is asked to write straight into the layer of
+     * its own render type.
+     */
     @Override
     public void submitText(PoseStack poseStack, float x, float y, FormattedCharSequence string, boolean dropShadow,
         Font.DisplayMode displayMode, int lightCoords, int color, int backgroundColor, int outlineColor) {
+        Font font = Minecraft.getInstance().font;
+        if (font == null) {
+            return;
+        }
+
+        Matrix4fc pose = poseStack.last().pose();
+        Font.PreparedText prepared = font.prepareText(string, x, y, color, dropShadow, false, backgroundColor);
+        prepared.visit(new Font.GlyphVisitor() {
+            @Override
+            public void acceptRenderable(TextRenderable renderable) {
+                RenderType renderType = renderable.renderType(displayMode);
+                if (renderType == null) {
+                    return;
+                }
+                PBRVertexWriter writer = EntityCollector.this.writer(renderType);
+                int before = writer.vertexCount();
+                renderable.render(pose, writer, lightCoords, false);
+                if (DEBUG_TEXT < 10 && writer.vertexCount() > before) {
+                    DEBUG_TEXT++;
+                    RadianteRenderer.LOGGER.info("world text piece: {} v0[{}] v1[{}] v2[{}]",
+                        renderable.getClass().getSimpleName(), writer.debugPositionOf(before),
+                        writer.debugPositionOf(before + 1), writer.debugPositionOf(before + 2));
+                    RenderTypeInfo info = RenderTypeInfo.of(renderType);
+                    RadianteRenderer.LOGGER.info(
+                        "world text: texture={} textureId={} mirrored={} alphaMode={} vertices={}",
+                        info.texture(), info.textureId(), "n/a",
+                        info.alphaMode(), writer.vertexCount() - before);
+                }
+            }
+        });
     }
 
     @Override
@@ -219,8 +264,68 @@ public final class EntityCollector implements SubmitNodeCollector {
         Font.DisplayMode displayMode, int lightCoords) {
     }
 
+    /**
+     * The flames wrapped around a burning entity: a stack of shrinking billboards alternating between the two fire
+     * sprites, the same shape vanilla draws, but emissive so the fire lights up what it is burning.
+     */
     @Override
     public void submitFlame(PoseStack poseStack, EntityRenderState renderState, Quaternionf rotation) {
+        Minecraft minecraft = Minecraft.getInstance();
+        TextureAtlasSprite first = minecraft.getAtlasManager().get(ModelBakery.FIRE_0);
+        TextureAtlasSprite second = minecraft.getAtlasManager().get(ModelBakery.FIRE_1);
+        if (first == null || second == null) {
+            return;
+        }
+
+        RenderType renderType = RenderTypes.entityCutoutCull(TextureAtlas.LOCATION_BLOCKS);
+        PBRVertexWriter writer = this.writer(renderType);
+        PoseStack.Pose pose = poseStack.last();
+
+        float scale = renderState.boundingBoxWidth * 1.4f;
+        pose.scale(scale, scale, scale);
+        float halfWidth = 0.5f;
+        float remaining = renderState.boundingBoxHeight / scale;
+        float verticalOffset = 0.0f;
+        pose.rotate(rotation);
+        pose.translate(0.0f, 0.0f, 0.3f - (int) remaining * 0.02f);
+        float depth = 0.0f;
+        int slice = 0;
+        int lightCoords = LightCoordsUtil.withBlock(renderState.lightCoords, 15);
+
+        writer.albedoEmission(RenderTypeInfo.FLAME_EMISSION);
+        try {
+            while (remaining > 0.0f) {
+                TextureAtlasSprite sprite = slice % 2 == 0 ? first : second;
+                float u0 = sprite.getU0();
+                float v0 = sprite.getV0();
+                float u1 = sprite.getU1();
+                float v1 = sprite.getV1();
+                if (slice / 2 % 2 == 0) {
+                    float swap = u1;
+                    u1 = u0;
+                    u0 = swap;
+                }
+
+                flameVertex(pose, writer, -halfWidth, -verticalOffset, depth, u1, v1, lightCoords);
+                flameVertex(pose, writer, halfWidth, -verticalOffset, depth, u0, v1, lightCoords);
+                flameVertex(pose, writer, halfWidth, 1.4f - verticalOffset, depth, u0, v0, lightCoords);
+                flameVertex(pose, writer, -halfWidth, 1.4f - verticalOffset, depth, u1, v0, lightCoords);
+
+                remaining -= 0.45f;
+                verticalOffset -= 0.45f;
+                halfWidth *= 0.9f;
+                depth -= 0.03f;
+                slice++;
+            }
+        } finally {
+            writer.albedoEmission(RenderTypeInfo.of(renderType).emission());
+        }
+    }
+
+    private static void flameVertex(PoseStack.Pose pose, PBRVertexWriter writer, float x, float y, float z, float u,
+        float v, int lightCoords) {
+        writer.addVertex(pose, x, y, z).setColor(-1).setUv(u, v).setUv1(0, 10).setLight(lightCoords)
+            .setNormal(pose, 0.0f, 1.0f, 0.0f);
     }
 
     @Override
