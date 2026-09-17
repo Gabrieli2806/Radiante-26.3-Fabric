@@ -42,6 +42,8 @@ public final class EntityManager {
     private static final double BLOCK_ENTITY_RANGE = 80.0;
     /** How brightly a glow item frame lights itself. */
     private static final float GLOW_FRAME_EMISSION = 1.5f;
+    /** An end crystal burns from inside; vanilla draws it at full brightness whatever the light around it. */
+    private static final float END_CRYSTAL_EMISSION = 3.0f;
     private static int DEBUG_TEXT_LAYERS;
 
     /** Masks the ray tracing shaders select geometry with. */
@@ -99,6 +101,10 @@ public final class EntityManager {
         if (state instanceof net.minecraft.client.renderer.entity.state.ItemFrameRenderState frame
             && frame.isGlowFrame) {
             COLLECTOR.entityEmission(GLOW_FRAME_EMISSION);
+        } else if (state instanceof net.minecraft.client.renderer.entity.state.EndCrystalRenderState) {
+            // An end crystal is a light source in its own right, and its texture is what gives it its colour, so
+            // the glow is kept modest: multiplied by a bright texture, a large value burns the whole thing white.
+            COLLECTOR.entityEmission(END_CRYSTAL_EMISSION);
         }
 
         try {

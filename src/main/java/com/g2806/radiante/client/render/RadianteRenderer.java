@@ -220,7 +220,7 @@ public final class RadianteRenderer {
         float fogEnd = environmental ? fog.environmentalEnd : fog.renderDistanceEnd;
 
         BufferProxy.updateWorldUniform(new BufferProxy.WorldUniform(view, effectedView, projection,
-            glintTextureMatrix(minecraft), levelRenderState.gameTime + levelRenderState.worldPartialTicks,
+            glintTextureMatrix(minecraft), dayFraction(levelRenderState),
             TextureTracker.idOf(gameRenderer.overlayTexture().getTextureView().texture()),
             cameraState.isFirstPerson, fogStart, fogEnd, new Vector4f(fog.color), skyType,
             TextureTracker.idOf(AbstractEndPortalRenderer.END_SKY_LOCATION),
@@ -304,6 +304,17 @@ public final class RadianteRenderer {
             case POWDER_SNOW -> 2;
             default -> 3;
         };
+    }
+
+    /**
+     * What the shaders mean by game time, and it is not a tick count: vanilla's GameTime uniform is how far the
+     * Minecraft day has gone, from 0 to 1, wrapping every 24000 ticks. Handing over raw ticks instead runs every
+     * animation that reads it - the end portal layers, the clouds, the water - some twenty four thousand times too
+     * fast, and the number grows until single precision can no longer hold the fraction, which is what made the
+     * portal jump about instead of drifting.
+     */
+    private static float dayFraction(LevelRenderState levelRenderState) {
+        return ((float) (levelRenderState.gameTime % 24000L) + levelRenderState.worldPartialTicks) / 24000.0f;
     }
 
     /** Mirrors vanilla's armor glint texture animation, which the shaders sample the glint layer with. */

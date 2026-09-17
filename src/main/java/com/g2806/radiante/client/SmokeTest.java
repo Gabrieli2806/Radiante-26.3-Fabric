@@ -96,34 +96,25 @@ public final class SmokeTest {
         STEPS.add(() -> {
             command("fill -10 198 -10 10 198 10 minecraft:stone");
             command("fill -10 199 -10 10 206 10 minecraft:air");
-            command("fill -8 199 6 8 205 6 minecraft:stone");
-            command("setblock -6 200 5 minecraft:glowstone");
-            command("setblock 6 200 5 minecraft:glowstone");
-            command("tp @s 0 199 0 0 0");
+            command("tp @s 0 199 5 180 0");
         });
         STEPS.add(() -> {
-            // A wall sign hangs off the wall behind it; a standing sign would pop off with air underneath.
-            command("setblock -2 201 5 minecraft:oak_wall_sign[facing=north]"
-                + "{front_text:{messages:['{\"text\":\"RADIANTE\"}','{\"text\":\"SIGN TEXT\"}',"
-                + "'{\"text\":\"LINE THREE\"}','{\"text\":\"LINE FOUR\"}']}}");
-            // A painting is the control: it uses the same render layer as an item frame and already works.
-            command("summon minecraft:painting 2 201 5.4 "
-                + "{facing:2,variant:\"minecraft:alban\"}");
+            // A full portal, the way one is found: the block itself ringed by its frames, with an end crystal
+            // beside it because both are supposed to give off light of their own.
+            command("setblock 0 199 0 minecraft:end_portal");
+            command("setblock -1 199 0 minecraft:end_portal_frame[facing=east,eye=true]");
+            command("setblock 1 199 0 minecraft:end_portal_frame[facing=west,eye=true]");
+            command("setblock 0 199 1 minecraft:end_portal_frame[facing=north,eye=true]");
+            command("setblock 0 199 -1 minecraft:end_portal_frame[facing=south,eye=true]");
+            command("summon minecraft:end_crystal 3 200 0 {ShowBottom:1b}");
         });
-        STEPS.add(() -> {
-            command("summon minecraft:item_frame 0 201 5.4 "
-                + "{Facing:2b,Item:{id:\"minecraft:diamond\",count:1}}");
-            command("summon minecraft:glow_item_frame 1 201 5.4 {Facing:2b}");
-        });
-        STEPS.add(() -> command("tp @s 0 200.6 2.5 0 0"));
-        STEPS.add(() -> shot("A-wide-sign-frame-painting"));
-        STEPS.add(() -> command("tp @s -2 200.9 4.2 0 0"));
-        STEPS.add(() -> shot("B-sign-closeup"));
-        STEPS.add(() -> command("tp @s 0 200.9 4.2 0 0"));
-        STEPS.add(() -> shot("C-item-frame-closeup"));
-        STEPS.add(() -> command("tp @s 1 200.9 4.2 0 0"));
-        STEPS.add(() -> shot("D-glow-frame-closeup"));
-        STEPS.add(() -> command("tp @s 2 200.9 4.2 0 0"));
-        STEPS.add(() -> shot("E-painting-closeup"));
+        // A working portal sends whoever stands in it to the End, which ended one run on the title screen, and a
+        // spectator sees an empty world here. So the camera stays on the floor beside the portal, never over it.
+        STEPS.add(() -> command("tp @s 0 199 2 180 55"));
+        STEPS.add(() -> shot("A-end-portal-close"));
+        STEPS.add(() -> command("tp @s 0 199 4 180 25"));
+        STEPS.add(() -> shot("B-end-portal-wide"));
+        STEPS.add(() -> command("tp @s 3 199 4 180 10"));
+        STEPS.add(() -> shot("C-end-crystal"));
     }
 }

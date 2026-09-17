@@ -94,10 +94,12 @@ void main() {
 
     vec4 texProj0 =
         projectPosition(worldUBO.cameraProjMat * worldUBO.cameraEffectedViewMat * vec4(worldPos, 1.0));
-    vec3 color = computeEndPortalColor(texProj0, 16, worldUBO.endSkyTextureID, worldUBO.endPortalTextureID, worldUBO.gameTime);
+    vec3 color = computeEndPortalColor(texProj0, 15, worldUBO.endSkyTextureID, worldUBO.endPortalTextureID, worldUBO.gameTime);
 
-    // add glowing radiance
-    mainRay.radiance += 4 * color;
+    // The colour above is already what vanilla puts on the screen: a nearly black field with a scattering of
+    // bright stars. Multiplying it turned the whole block into a flat glowing slab, which is what it is supposed
+    // not to look like - the dark part of a portal is dark.
+    mainRay.radiance += color;
     mainRay.hitT = gl_HitTEXT;
     mainRay.normal = vec3(0.0);
     rayClearMaterial(mainRay);
