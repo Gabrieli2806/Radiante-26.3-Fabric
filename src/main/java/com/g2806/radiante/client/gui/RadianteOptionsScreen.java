@@ -64,12 +64,24 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 active = preset;
             }
         }
+        // The list is rebuilt whenever the preset changes, so a choice already made has to survive that.
+        if (this.pendingPreset != null && available.contains(this.pendingPreset)) {
+            active = this.pendingPreset;
+        }
         this.pendingPreset = active;
 
         return new OptionInstance<>("options.radiante.preset", OptionInstance.noTooltip(),
             (caption, value) -> Component.translatable(value.key),
             new OptionInstance.Enum<>(available, Codec.STRING.xmap(Presets::valueOf, Presets::name)), active,
-            value -> this.pendingPreset = value);
+            value -> {
+                boolean changed = value != this.pendingPreset;
+                this.pendingPreset = value;
+                // Which of the settings below make sense depends on this one, so the list has to be laid out
+                // again. Doing it straight away would edit the widget list that is handling this very click.
+                if (changed && this.minecraft != null) {
+                    this.minecraft.execute(this::rebuildWidgets);
+                }
+            });
     }
 
     private OptionInstance<ShaderPackChoice> shaderPackOption() {
@@ -116,8 +128,16 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             value -> this.pendingCloudMode = value);
     }
 
+    /**
+     * DLSS is one vendor's upscaler and denoiser together; its quality modes and its frame generation belong to it
+     * alone. Offering them next to FSR or XeSS suggests they can be combined, and they cannot.
+     */
+    private boolean usingDlss() {
+        return this.pendingPreset == Presets.RT_DLSSRR;
+    }
+
     private OptionInstance<String> dlssModeOption() {
-        if (!Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key)) {
+        if (!Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key) || !usingDlss()) {
             return null;
         }
 
@@ -136,6 +156,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
      * first time only takes effect after a restart.
      */
     private OptionInstance<Integer> frameGenerationOption() {
+        if (!usingDlss()) {
+            return null;
+        }
+
         int max = RendererProxy.maxGeneratedFrames();
         if (max <= 0 && !RadianteClient.streamlineLoaded()) {
             // Offer 2x so the player can switch it on; the real maximum shows up after the restart.
@@ -224,6 +248,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingCollectEmission != Options.collectChunkEmission) {
             Options.setCollectChunkEmission(this.pendingCollectEmission, false);
+        }
+        if (!usingDlss()) {
+            this.pendingGeneratedFrames = 0;
         }
         boolean wantsFrameGeneration = this.pendingGeneratedFrames > 0;
         if (wantsFrameGeneration != Options.frameGeneration || this.pendingGeneratedFrames != Options.generatedFrames) {

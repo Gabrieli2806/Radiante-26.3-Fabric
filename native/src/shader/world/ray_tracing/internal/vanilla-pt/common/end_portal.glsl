@@ -10,6 +10,21 @@ vec4 projectPosition(vec4 position) {
 }
 
 
+/**
+ * Where the starfield is anchored. Vanilla projects it from the camera, so it slides across the block as the
+ * player looks around - and in a path tracer, where the same surface can turn up in a reflection, a screen
+ * projection means nothing at all. Anchoring it to the world leaves the stars sitting still in the portal.
+ * The scale decides how much of the sheet fits across one block.
+ */
+const float END_PORTAL_WORLD_SCALE = 0.25;
+
+vec4 endPortalProjection(vec3 worldPos, vec3 normal) {
+    // Use the two world axes the surface actually spans, so a portal lying flat and a gateway standing up both
+    // get a projection that runs along them rather than through them.
+    vec2 surface = abs(normal.y) > 0.5 ? worldPos.xz : (abs(normal.x) > 0.5 ? worldPos.zy : worldPos.xy);
+    return vec4(surface * END_PORTAL_WORLD_SCALE, 0.0, 1.0);
+}
+
 vec3 computeEndPortalColor(vec4 texProj0, int iterations, uint endSkyTextureID, uint endPortalTextureID, float gameTime) {
     vec3 color = vec3(0.0);
     if (endSkyTextureID != 0xFFFFFFFFu)

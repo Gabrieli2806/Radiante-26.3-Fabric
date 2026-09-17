@@ -40,6 +40,12 @@ public final class EmissionTiles {
     private static final float DARK_EMITTER_MIN_BRIGHTNESS = 0.15f;
     /** For those dark emitters, a texel emits when it is this bright relative to the brightest texel. */
     private static final float RELATIVE_BRIGHTNESS = 0.6f;
+    /**
+     * And for every other texture, how bright a texel has to be next to the brightest one in the same sprite. A
+     * torch is the reason this exists: its flame sits at full brightness while its wooden stick reaches 0.62, above
+     * the absolute floor, so on that alone the whole torch glowed - stick included.
+     */
+    private static final float BRIGHT_EMITTER_RELATIVE = 0.65f;
     /** Texels at least this saturated count as the coloured, glowing part of a texture. */
     private static final float MIN_GLOW_SATURATION = 0.35f;
     private static final int CELL_BYTES = 8 * Float.BYTES;
@@ -55,6 +61,14 @@ public final class EmissionTiles {
         Identifier.withDefaultNamespace("block/lava_still"),
         Identifier.withDefaultNamespace("block/lava_flow"),
     };
+
+    /**
+     * Blocks Radiante lights that vanilla leaves dark. A block of redstone carries no light level at all in
+     * Minecraft, but it reads as a solid block of glowing mineral and Bedrock's ray traced mode treats it as one,
+     * so it gets a low level of its own here. Kept deliberately dim: it is decoration, not a torch.
+     */
+    private static final Map<Block, Integer> EXTRA_EMISSION = Map.of(
+        net.minecraft.world.level.block.Blocks.REDSTONE_BLOCK, 5);
 
     private static Object registeredFor;
 
@@ -116,17 +130,31 @@ public final class EmissionTiles {
         List<BlockStateModelPart> parts = new ArrayList<>();
 
         for (Block block : BuiltInRegistries.BLOCK) {
+            // Redstone ore is the same block and the same texture whether it is lit or not, and only the lit state
+            // carries a light level. Blacklisting on the dark state alone therefore threw away the very sprite it
+            // was meant to light, so what disqualifies a sprite is a block that emits nothing in any of its states.
+            boolean emitsSomewhere = false;
             for (BlockState state : block.getStateDefinition().getPossibleStates()) {
-                int level = state.getLightEmission();
+                if (state.getLightEmission() > 0) {
+                    emitsSomewhere = true;
+                    break;
+                }
+            }
+
+            int extra = EXTRA_EMISSION.getOrDefault(block, 0);
+            for (BlockState state : block.getStateDefinition().getPossibleStates()) {
+                int level = Math.max(state.getLightEmission(), extra);
                 BlockStateModel model = minecraft.getModelManager().getBlockStateModelSet().get(state);
                 parts.clear();
                 random.setSeed(42L);
                 model.collectParts(random, parts);
                 for (BlockStateModelPart part : parts) {
                     for (Direction direction : Direction.values()) {
-                        addSprites(part.getQuads(direction), level, emitters, sharedWithDarkBlocks);
+                        addSprites(part.getQuads(direction), level, emitsSomewhere || extra > 0, emitters,
+                            sharedWithDarkBlocks);
                     }
-                    addSprites(part.getQuads(null), level, emitters, sharedWithDarkBlocks);
+                    addSprites(part.getQuads(null), level, emitsSomewhere || extra > 0, emitters,
+                        sharedWithDarkBlocks);
                 }
             }
         }
@@ -143,14 +171,14 @@ public final class EmissionTiles {
         return emitters;
     }
 
-    private static void addSprites(List<BakedQuad> quads, int level, Map<TextureAtlasSprite, Integer> emitters,
-        Set<TextureAtlasSprite> sharedWithDarkBlocks) {
+    private static void addSprites(List<BakedQuad> quads, int level, boolean blockEmitsSomewhere,
+        Map<TextureAtlasSprite, Integer> emitters, Set<TextureAtlasSprite> sharedWithDarkBlocks) {
         for (BakedQuad quad : quads) {
             TextureAtlasSprite sprite = quad.materialInfo().sprite();
-            if (level <= 0) {
-                sharedWithDarkBlocks.add(sprite);
-            } else {
+            if (level > 0) {
                 emitters.merge(sprite, level, Math::max);
+            } else if (!blockEmitsSomewhere) {
+                sharedWithDarkBlocks.add(sprite);
             }
         }
     }
@@ -174,7 +202,8 @@ public final class EmissionTiles {
         // bright, saturated texels only those emit; the white glints on redstone ore stay dark. Textures that never
         // get bright anywhere, a nether portal glowing all over in dark purple, fall back to a relative cut.
         float brightest = maxBrightness(pixels, width, height, rowPixels);
-        float threshold = brightest >= MIN_BRIGHTNESS ? MIN_BRIGHTNESS
+        float threshold = brightest >= MIN_BRIGHTNESS
+            ? Math.max(MIN_BRIGHTNESS, brightest * BRIGHT_EMITTER_RELATIVE)
             : Math.max(DARK_EMITTER_MIN_BRIGHTNESS, brightest * RELATIVE_BRIGHTNESS);
         boolean coloured = hasSaturatedTexels(pixels, width, height, rowPixels, threshold);
         int cellWidth = Math.max(1, width / CELLS_PER_SIDE);

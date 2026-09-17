@@ -92,8 +92,8 @@ void main() {
     vec3 localPos = baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos;
     vec3 worldPos = vec4(localPos, 1.0) * gl_ObjectToWorld3x4EXT;
 
-    vec4 texProj0 =
-        projectPosition(worldUBO.cameraProjMat * worldUBO.cameraEffectedViewMat * vec4(worldPos, 1.0));
+    vec3 faceNormal = normalize(cross(p1.pos - p0.pos, p2.pos - p0.pos));
+    vec4 texProj0 = endPortalProjection(worldPos, faceNormal);
     vec3 color = computeEndPortalColor(texProj0, 15, worldUBO.endSkyTextureID, worldUBO.endPortalTextureID, worldUBO.gameTime);
 
     // add glowing radiance
