@@ -35,5 +35,13 @@
     "fabricloader": "*",
     "fabric-api": "*",
     "minecraft": "${minecraft_version}"
+  },
+  "custom": {
+    "modmenu": {
+      "links": {
+        "modmenu.donate": "https://ko-fi.com/gabrieli2806",
+        "modmenu.discord": "https://discord.gg/DhBbAzugZ9"
+      }
+    }
   }
 }
