@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <set>
+#include "core/util/logging.hpp"
 
 WorldPipelineBlueprint::WorldPipelineBlueprint(WorldPipelineBuildParams *params) {
     std::set<uint32_t> imageIndices;
@@ -58,12 +59,12 @@ WorldPipelineBlueprint::WorldPipelineBlueprint(WorldPipelineBuildParams *params)
 WorldPipeline::WorldPipeline() {}
 
 void WorldPipeline::dumpSharedImages(const char *label) const {
-    std::cerr << label << std::endl;
+    radiante::err() << label << std::endl;
     for (size_t frameIndex = 0; frameIndex < sharedImages_.size(); frameIndex++) {
         for (size_t idx = 0; idx < sharedImages_[frameIndex].size(); idx++) {
             auto &img = sharedImages_[frameIndex][idx];
             if (!img) continue;
-            std::cerr << "  frame=" << frameIndex << " idx=" << idx << " size=" << img->width() << "x" << img->height()
+            radiante::err() << "  frame=" << frameIndex << " idx=" << idx << " size=" << img->width() << "x" << img->height()
                       << " fmt=" << img->vkFormat() << " image=0x" << std::hex << (uint64_t)img->vkImage() << std::dec
                       << std::endl;
         }
@@ -96,7 +97,7 @@ void WorldPipeline::init(std::shared_ptr<Framework> framework, std::shared_ptr<P
         auto shaderPack = std::make_shared<ShaderPack>(framework);
         std::string error;
         if (!shaderPack->initialize(buildConfig, error)) {
-            std::cerr << "[World Pipeline] Failed to load shared shader pack. Reason: " << error << std::endl;
+            radiante::err() << "[World Pipeline] Failed to load shared shader pack. Reason: " << error << std::endl;
             throw std::runtime_error("failed to load shared shader pack");
         }
         shaderPack_ = shaderPack;
@@ -105,7 +106,7 @@ void WorldPipeline::init(std::shared_ptr<Framework> framework, std::shared_ptr<P
 
     for (int i = blueprint->moduleNames_.size() - 1; i >= 0; i--) {
 #ifdef DEBUG
-        std::cout << "Is " << blueprint->moduleNames_[i] << " exist? "
+        radiante::out() << "Is " << blueprint->moduleNames_[i] << " exist? "
                   << (Pipeline::worldModuleConstructors.find(blueprint->moduleNames_[i]) !=
                       Pipeline::worldModuleConstructors.end())
                   << std::endl;
@@ -127,7 +128,7 @@ void WorldPipeline::init(std::shared_ptr<Framework> framework, std::shared_ptr<P
                 }
                 bool result = worldModules_[i]->setOrCreateOutputImages(outputImages, outputFormats, frameIndex);
                 if (!result) {
-                    std::cout << blueprint->moduleNames_[i] << std::endl;
+                    radiante::out() << blueprint->moduleNames_[i] << std::endl;
                     throw std::runtime_error("Output image not set properly");
                 }
                 for (int j = 0; j < moduleOutputIndices.size(); j++) {
@@ -338,7 +339,7 @@ void Pipeline::collectWorldModules() {
         worldModuleInOutImageNums.insert(std::make_pair(
             XessSrModule::NAME, std::make_pair(XessSrModule::inputImageNum, XessSrModule::outputImageNum)));
     } else {
-        std::cerr << "[Pipeline] xess module skipped: incompatible instance/device extension requirements."
+        radiante::err() << "[Pipeline] xess module skipped: incompatible instance/device extension requirements."
                   << std::endl;
     }
 #endif
@@ -364,10 +365,10 @@ void Pipeline::collectWorldModules() {
                 DLSSModule::NAME, std::make_pair(DLSSModule::inputImageNum, DLSSModule::outputImageNum)));
             worldModuleStaticPreCloser.insert(std::make_pair(DLSSModule::NAME, DLSSModule::deinitNGXContext));
         } else {
-            std::cerr << "[Pipeline] dlss module skipped: NGX initialization/query failed." << std::endl;
+            radiante::err() << "[Pipeline] dlss module skipped: NGX initialization/query failed." << std::endl;
         }
     } else {
-        std::cerr << "[Pipeline] dlss module skipped: incompatible instance/device extension requirements."
+        radiante::err() << "[Pipeline] dlss module skipped: incompatible instance/device extension requirements."
                   << std::endl;
     }
 
@@ -392,13 +393,13 @@ void Pipeline::collectWorldModules() {
 
 Pipeline::Pipeline() {
 #ifdef DEBUG
-    std::cout << "Pipeline init" << std::endl;
+    radiante::out() << "Pipeline init" << std::endl;
 #endif
 }
 
 Pipeline::~Pipeline() {
 #ifdef DEBUG
-    std::cout << "Pipeline deconstruct" << std::endl;
+    radiante::out() << "Pipeline deconstruct" << std::endl;
 #endif
 }
 

@@ -23,6 +23,7 @@
 #include "fsr_setup.hpp"
 #include <cstring>
 #include <iostream>
+#include "core/util/logging.hpp"
 
 #ifdef MCVR_ENABLE_FFX_UPSCALER
 #    include <ffx_api/ffx_api.hpp>
@@ -75,16 +76,16 @@ PFN_vkVoidFunction customVkGetDeviceProcAddr(VkDevice device, const char *pName)
 
 void messageCallback(uint32_t type, const wchar_t *message) {
     if (type == FFX_API_MESSAGE_TYPE_ERROR) {
-        std::cerr << "[FSR] ERROR: ";
+        radiante::err() << "[FSR] ERROR: ";
     } else if (type == FFX_API_MESSAGE_TYPE_WARNING) {
-        std::cerr << "[FSR] WARNING: ";
+        radiante::err() << "[FSR] WARNING: ";
     } else {
-        std::cerr << "[FSR] UNKNOWN: ";
+        radiante::err() << "[FSR] UNKNOWN: ";
     }
     char buffer[1024];
     wcstombs(buffer, message, sizeof(buffer) - 1);
     buffer[sizeof(buffer) - 1] = '\0';
-    std::cerr << buffer << std::endl;
+    radiante::err() << buffer << std::endl;
 }
 
 #endif

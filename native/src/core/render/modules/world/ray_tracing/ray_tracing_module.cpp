@@ -20,6 +20,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include "core/util/logging.hpp"
 
 using json = nlohmann::json;
 
@@ -366,7 +367,7 @@ void RayTracingModule::loadShaderPack() {
     auto worldPipeline = worldPipeline_.lock();
     shaderPack_ = worldPipeline != nullptr ? worldPipeline->shaderPack() : nullptr;
     if (shaderPack_ == nullptr) {
-        std::cerr << "[Ray Tracing] Failed to get shared shader pack runtime." << std::endl;
+        radiante::err() << "[Ray Tracing] Failed to get shared shader pack runtime." << std::endl;
         exit(EXIT_FAILURE);
     }
     hasSharcRuntime_ = shaderPack_->hasSharcRuntime();
@@ -1500,7 +1501,7 @@ void RayTracingModule::initPipelines() {
     auto tPhase = clock::now();
     auto printPhase = [&tPhase](const char *label) {
         auto now = clock::now();
-        std::cerr << "[RayTracing initPipelines] " << label << ": " << ms(now - tPhase).count() << " ms" << std::endl;
+        radiante::err() << "[RayTracing initPipelines] " << label << ": " << ms(now - tPhase).count() << " ms" << std::endl;
         tPhase = now;
     };
 #endif
@@ -1583,7 +1584,7 @@ void RayTracingModule::initPipelines() {
             case ShaderPackLoader::PassConfig::Type::Compute:    dbgName = passConfig.compute.name;    break;
             default: continue;
         }
-        std::cerr << "[RayTracing initPipelines]   create pass '" << dbgName << "': "
+        radiante::err() << "[RayTracing initPipelines]   create pass '" << dbgName << "': "
                   << ms(clock::now() - tPass).count() << " ms" << std::endl;
 #endif
     }
@@ -1683,11 +1684,11 @@ void RayTracingModule::initPipelines() {
 
     auto tSbtUpload = clock::now();
     uploadStaticRayTracingPassSbts(device);
-    std::cerr << "[RayTracing initPipelines] upload static sbts: "
+    radiante::err() << "[RayTracing initPipelines] upload static sbts: "
               << ms(clock::now() - tSbtUpload).count() << " ms" << std::endl;
 
     for (size_t i = 0; i < passes_.size(); ++i) {
-        std::cerr << "[RayTracing initPipelines]   build pass '" << passNames[i] << "': "
+        radiante::err() << "[RayTracing initPipelines]   build pass '" << passNames[i] << "': "
                   << passBuildTimes[i] << " ms" << std::endl;
     }
     printPhase("build all passes");
@@ -1722,11 +1723,11 @@ void RayTracingModule::build() {
     auto t0 = clock::now();
     auto printStep = [&t0](const char *label) {
         auto now = clock::now();
-        std::cerr << "[RayTracing build] " << label << ": " << ms(now - t0).count() << " ms" << std::endl;
+        radiante::err() << "[RayTracing build] " << label << ": " << ms(now - t0).count() << " ms" << std::endl;
         t0 = now;
     };
 
-    std::cerr << "[RayTracing build] ====== start ======" << std::endl;
+    radiante::err() << "[RayTracing build] ====== start ======" << std::endl;
 #endif
 
     auto framework = framework_.lock();
@@ -1783,7 +1784,7 @@ void RayTracingModule::build() {
 #ifdef DEBUG
     printStep("initContexts");
 
-    std::cerr << "[RayTracing build] ====== done ======" << std::endl;
+    radiante::err() << "[RayTracing build] ====== done ======" << std::endl;
 #endif
 }
 

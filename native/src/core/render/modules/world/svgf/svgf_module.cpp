@@ -4,6 +4,7 @@
 #include "core/render/render_framework.hpp"
 #include "core/render/renderer.hpp"
 #include <iostream>
+#include "core/util/logging.hpp"
 
 SvgfModule::SvgfModule() {}
 
@@ -96,7 +97,7 @@ void SvgfModule::build() {
     bool ok = m_denoiser->init(framework->instance(), framework->physicalDevice(), framework->device(),
                                framework->vma(), width_, height_, size);
     if (!ok) {
-        std::cerr << "[SvgfModule] init failed." << std::endl;
+        radiante::err() << "[SvgfModule] init failed." << std::endl;
         m_denoiser.reset();
     }
 

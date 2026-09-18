@@ -1,5 +1,6 @@
 package com.g2806.radiante.client.render;
 
+import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.proxy.world.EntityProxy;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
@@ -187,7 +188,7 @@ public final class EntityManager {
         BlockPos pos = state.blockPos;
         int before = PENDING.size();
         addPending(pos.hashCode() ^ 0x5BD1E995, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_WORLD);
-        if (DEBUG_BLOCK_ENTITIES < 20) {
+        if (Options.debugLogging && DEBUG_BLOCK_ENTITIES < 20) {
             for (RenderType type : COLLECTOR.layers().keySet()) {
                 RenderTypeInfo info = RenderTypeInfo.of(type);
                 if (!info.groupName().equals("Entity")) {
@@ -202,7 +203,7 @@ public final class EntityManager {
 
     /** One line per kind of block entity the renderer receives, so a missing one can be told from a broken one. */
     private static void debugBlockEntityKind(BlockEntityRenderState state) {
-        if (!DEBUG_BLOCK_ENTITY_KINDS.add(state.getClass().getSimpleName())) {
+        if (!Options.debugLogging || !DEBUG_BLOCK_ENTITY_KINDS.add(state.getClass().getSimpleName())) {
             return;
         }
         RadianteRenderer.LOGGER.info("block entity kind reaching the renderer: {} at {}",
@@ -286,7 +287,7 @@ public final class EntityManager {
             writer.finish();
             if (writer.vertexCount() == 0 || writer.vertexCount() % 4 != 0) {
                 RenderTypeInfo dropped = RenderTypeInfo.of(entry.getKey());
-                if (DEBUG_TEXT_LAYERS < 5 && dropped.needsComputedNormals()) {
+                if (Options.debugLogging && DEBUG_TEXT_LAYERS < 5 && dropped.needsComputedNormals()) {
                     DEBUG_TEXT_LAYERS++;
                     RadianteRenderer.LOGGER.info("layer dropped: group={} vertices={}", dropped.groupName(),
                         writer.vertexCount());
@@ -295,7 +296,7 @@ public final class EntityManager {
             }
 
             RenderTypeInfo info = RenderTypeInfo.of(entry.getKey());
-            if (DEBUG_TEXT_LAYERS < 5 && info.needsComputedNormals()) {
+            if (Options.debugLogging && DEBUG_TEXT_LAYERS < 5 && info.needsComputedNormals()) {
                 DEBUG_TEXT_LAYERS++;
                 RadianteRenderer.LOGGER.info("layer accepted: group={} geometry={} textureId={} vertices={}",
                     info.groupName(), info.geometryType(), info.textureId(), writer.vertexCount());

@@ -47,6 +47,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <vector>
+#include "core/util/logging.hpp"
 
 #define CALL_NRD(x)                                                                                                    \
     {                                                                                                                  \
@@ -437,7 +438,7 @@ void NrdWrapper::createPipelines() {
 #pragma omp parallel for
     for (int p = 0; p < static_cast<int>(iDesc->pipelinesNum); ++p) {
 #ifdef DEBUG
-        std::cout << "Compiling NRD pipeline " << p << std::endl;
+        radiante::out() << "Compiling NRD pipeline " << p << std::endl;
 #endif
 
         const nrd::PipelineDesc &pDesc = iDesc->pipelines[p];
@@ -484,7 +485,7 @@ void NrdWrapper::createPipelines() {
 
         nrdPipeline.numBindings = setLayoutInfo.bindingCount;
 #ifdef DEUBG
-        std::cout << "Pipeline uses " << nrdPipeline.numBindings << " bindings" << std::endl;
+        radiante::out() << "Pipeline uses " << nrdPipeline.numBindings << " bindings" << std::endl;
 #endif
 
         // NRD using these two set indexes is a hardcoded assumption that NRD promised not to break

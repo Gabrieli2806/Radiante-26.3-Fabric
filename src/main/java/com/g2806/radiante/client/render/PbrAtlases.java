@@ -99,7 +99,9 @@ public final class PbrAtlases {
 
         atlasId = albedoTextureId;
         spriteCount = found;
-        RadianteRenderer.LOGGER.info("Stitched PBR maps for {} of {} sprites", found, sprites.size());
+        if (com.g2806.radiante.client.option.Options.debugLogging) {
+            RadianteRenderer.LOGGER.info("Stitched PBR maps for {} of {} sprites", found, sprites.size());
+        }
         return found;
     }
 

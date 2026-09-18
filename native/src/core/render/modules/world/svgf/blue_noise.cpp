@@ -7,9 +7,10 @@
 //   - sobol_256spp_256d[256*256]
 //   - scramblingTile[128*128*8]
 #include "../../../extern/FidelityFX-SDK/sdk/src/components/sssr/samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp"
+#include "core/util/logging.hpp"
 
 std::ostream &blueNoiseCout() {
-    return std::cout << "[BlueNoise] ";
+    return radiante::out() << "[BlueNoise] ";
 }
 
 BlueNoise::BlueNoise(std::shared_ptr<vk::Device> device, std::shared_ptr<vk::VMA> vma) {

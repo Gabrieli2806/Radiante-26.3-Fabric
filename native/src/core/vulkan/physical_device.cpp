@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
+#include "core/util/logging.hpp"
 
 bool vk::PhysicalDevice::isRayTracingCapable(VkPhysicalDevice device) {
     uint32_t extensionCount = 0;
@@ -71,7 +72,7 @@ vk::PhysicalDevice::PhysicalDevice(std::shared_ptr<Instance> instance,
     accelerationStructProperties_ = accelStructProperties;
     accelerationStructProperties_.pNext = nullptr;
 
-    std::cout << "[PhysicalDevice] using " << properties_.deviceName << " (main queue family " << mainQueueIndex_
+    radiante::out() << "[PhysicalDevice] using " << properties_.deviceName << " (main queue family " << mainQueueIndex_
               << ", secondary queue family " << secondaryQueueIndex_ << ")" << std::endl;
 }
 

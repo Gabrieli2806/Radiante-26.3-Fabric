@@ -116,7 +116,9 @@ public final class EmissionTiles {
             MemoryUtil.memFree(specular);
         }
 
-        RadianteRenderer.LOGGER.info("Registered {} emissive block textures", emitters.size());
+        if (com.g2806.radiante.client.option.Options.debugLogging) {
+            RadianteRenderer.LOGGER.info("Registered {} emissive block textures", emitters.size());
+        }
         ChunkManager.markAllDirty();
     }
 

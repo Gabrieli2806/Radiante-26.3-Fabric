@@ -7,6 +7,7 @@
 #include "core/render/renderer.hpp"
 
 #include <algorithm>
+#include "core/util/logging.hpp"
 
 std::shared_ptr<NgxContext> DLSSModule::ngxContext_ = nullptr;
 
@@ -15,7 +16,7 @@ bool DLSSModule::initNGXContext() {
     std::error_code ec;
     if (!std::filesystem::create_directories(dlssPath, ec)) {
         if (ec) {
-            std::cerr << "Failed to create directory: " << ec.message() << std::endl;
+            radiante::err() << "Failed to create directory: " << ec.message() << std::endl;
             exit(EXIT_FAILURE);
         }
     }
@@ -36,7 +37,10 @@ bool DLSSModule::initNGXContext() {
         return false;
     }
 
-    if (ngxContext_->queryDlssRRAvailable() != NVSDK_NGX_Result_Success) {
+    // Either feature is enough to keep the context: ray reconstruction is optional, upscaling on its own is not.
+    bool rrAvailable = ngxContext_->queryDlssRRAvailable() == NVSDK_NGX_Result_Success;
+    bool srAvailable = ngxContext_->queryDlssSRAvailable() == NVSDK_NGX_Result_Success;
+    if (!rrAvailable && !srAvailable) {
         ngxContext_->deinit();
         ngxContext_ = nullptr;
         return false;
@@ -74,6 +78,7 @@ void DLSSModule::init(std::shared_ptr<Framework> framework, std::shared_ptr<Worl
     motionDescriptorTables_.resize(size);
 
     dlss_ = DlssRR::create();
+    dlssSR_ = DlssSR::create();
 }
 
 bool DLSSModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::DeviceLocalImage>> &images,
@@ -88,14 +93,18 @@ bool DLSSModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::DeviceLo
     querySizeInfo.outputSize.width = outputWidth_;
     querySizeInfo.outputSize.height = outputHeight_;
     querySizeInfo.quality = mode_;
-    ngxContext_->querySupportedDlssInputSizes(querySizeInfo, supportedSizes_);
+    if (rayReconstruction_) {
+        ngxContext_->querySupportedDlssInputSizes(querySizeInfo, supportedSizes_);
+    } else {
+        ngxContext_->querySupportedDlssSRInputSizes(querySizeInfo, supportedSizes_);
+    }
 #ifdef DEBUG
-    std::cout << "DLSS sizes:" << std::endl;
-    std::cout << "\tminSize: [" << supportedSizes_.minSize.width << ", " << supportedSizes_.minSize.height << "]"
+    radiante::out() << "DLSS sizes:" << std::endl;
+    radiante::out() << "\tminSize: [" << supportedSizes_.minSize.width << ", " << supportedSizes_.minSize.height << "]"
               << std::endl;
-    std::cout << "\tmaxSize: [" << supportedSizes_.maxSize.width << ", " << supportedSizes_.maxSize.height << "]"
+    radiante::out() << "\tmaxSize: [" << supportedSizes_.maxSize.width << ", " << supportedSizes_.maxSize.height << "]"
               << std::endl;
-    std::cout << "\toptimalSize: [" << supportedSizes_.optimalSize.width << ", " << supportedSizes_.optimalSize.height
+    radiante::out() << "\toptimalSize: [" << supportedSizes_.optimalSize.width << ", " << supportedSizes_.optimalSize.height
               << "]" << std::endl;
 #endif
 
@@ -215,6 +224,10 @@ bool DLSSModule::setOrCreateOutputImages(std::vector<std::shared_ptr<vk::DeviceL
 
 void DLSSModule::setAttributes(int attributeCount, std::vector<std::string> &attributeKVs) {
     for (int i = 0; i < attributeCount; i++) {
+        if (attributeKVs[2 * i] == "render_pipeline.module.dlss.attribute.ray_reconstruction") {
+            rayReconstruction_ = attributeKVs[2 * i + 1] == "render_pipeline.true";
+            continue;
+        }
         if (attributeKVs[2 * i] == "render_pipeline.module.dlss.attribute.mode") {
             if (attributeKVs[2 * i + 1] == "render_pipeline.module.dlss.attribute.mode.ultra_performance") {
                 mode_ = NVSDK_NGX_PerfQuality_Value_UltraPerformance;
@@ -238,11 +251,23 @@ void DLSSModule::build() {
     auto worldPipeline = worldPipeline_.lock();
     uint32_t size = framework->swapchain()->imageCount();
 
-    NgxContext::DlssRRInitInfo dlssRRInitInfo{};
-    dlssRRInitInfo.inputSize = {inputWidth_, inputHeight_};
-    dlssRRInitInfo.outputSize = {outputWidth_, outputHeight_};
-    dlssRRInitInfo.quality = mode_;
-    ngxContext_->initDlssRR(dlssRRInitInfo, framework->mainCommandPool(), dlss_);
+    radiante::out() << "[DLSS] creating " << (rayReconstruction_ ? "ray reconstruction" : "super resolution")
+              << " at " << inputWidth_ << "x" << inputHeight_ << " -> " << outputWidth_ << "x" << outputHeight_
+              << std::endl;
+
+    if (rayReconstruction_) {
+        NgxContext::DlssRRInitInfo dlssRRInitInfo{};
+        dlssRRInitInfo.inputSize = {inputWidth_, inputHeight_};
+        dlssRRInitInfo.outputSize = {outputWidth_, outputHeight_};
+        dlssRRInitInfo.quality = mode_;
+        ngxContext_->initDlssRR(dlssRRInitInfo, framework->mainCommandPool(), dlss_);
+    } else {
+        NgxContext::DlssSRInitInfo dlssSRInitInfo{};
+        dlssSRInitInfo.inputSize = {inputWidth_, inputHeight_};
+        dlssSRInitInfo.outputSize = {outputWidth_, outputHeight_};
+        dlssSRInitInfo.quality = mode_;
+        ngxContext_->initDlssSR(dlssSRInitInfo, framework->mainCommandPool(), dlssSR_);
+    }
 
     auto firstHitDepthShader = vk::Shader::create(
         framework->device(), (Renderer::folderPath / "shaders/world/upscaler/upscale_first_hit_depth_comp.spv").string());
@@ -334,6 +359,7 @@ void DLSSModule::bindTexture(std::shared_ptr<vk::Sampler> sampler,
 
 void DLSSModule::preClose() {
     dlss_->deinit();
+    dlssSR_->deinit();
 }
 
 DLSSModuleContext::DLSSModuleContext(std::shared_ptr<FrameworkContext> frameworkContext,
@@ -605,21 +631,37 @@ void DLSSModuleContext::render() {
         linearDepthImage->imageLayout() = VK_IMAGE_LAYOUT_GENERAL;
         processedImage->imageLayout() = VK_IMAGE_LAYOUT_GENERAL;
 
-        module->dlss_->setResource(DlssRR::RESOURCE_COLOR_IN, hdrImage);
-        module->dlss_->setResource(DlssRR::RESOURCE_COLOR_OUT, processedImage);
-        module->dlss_->setResource(DlssRR::RESOURCE_DIFFUSE_ALBEDO, diffuseAlbedoImage);
-        module->dlss_->setResource(DlssRR::RESOURCE_SPECULAR_ALBEDO, specularAlbedoImage);
-        module->dlss_->setResource(DlssRR::RESOURCE_NORMALROUGHNESS, normalRoughnessImage);
-        module->dlss_->setResource(DlssRR::RESOURCE_MOTIONVECTOR, motionVectorImage);
-        module->dlss_->setResource(DlssRR::RESOURCE_LINEARDEPTH, linearDepthImage);
-        module->dlss_->setResource(DlssRR::RESOURCE_SPECULAR_HITDISTANCE, specularHitDepthImage);
-
         auto worldUBOBuffer = Renderer::instance().buffers()->worldUniformBuffer();
         auto worldUBO = static_cast<vk::Data::WorldUBO *>(worldUBOBuffer->mappedPtr());
-        if (worldUBO != nullptr) {
-            glm::vec2 jitter = worldUBO->cameraJitter;
-            module->dlss_->denoise(worldCommandBuffer, glm::uvec2{module->inputWidth_, module->inputHeight_}, jitter,
-                                   worldUBO->cameraViewMat, worldUBO->cameraProjMat);
+
+        if (module->rayReconstruction_) {
+            module->dlss_->setResource(DlssRR::RESOURCE_COLOR_IN, hdrImage);
+            module->dlss_->setResource(DlssRR::RESOURCE_COLOR_OUT, processedImage);
+            module->dlss_->setResource(DlssRR::RESOURCE_DIFFUSE_ALBEDO, diffuseAlbedoImage);
+            module->dlss_->setResource(DlssRR::RESOURCE_SPECULAR_ALBEDO, specularAlbedoImage);
+            module->dlss_->setResource(DlssRR::RESOURCE_NORMALROUGHNESS, normalRoughnessImage);
+            module->dlss_->setResource(DlssRR::RESOURCE_MOTIONVECTOR, motionVectorImage);
+            module->dlss_->setResource(DlssRR::RESOURCE_LINEARDEPTH, linearDepthImage);
+            module->dlss_->setResource(DlssRR::RESOURCE_SPECULAR_HITDISTANCE, specularHitDepthImage);
+
+            if (worldUBO != nullptr) {
+                glm::vec2 jitter = worldUBO->cameraJitter;
+                module->dlss_->denoise(worldCommandBuffer, glm::uvec2{module->inputWidth_, module->inputHeight_},
+                                       jitter, worldUBO->cameraViewMat, worldUBO->cameraProjMat);
+            }
+        } else {
+            // Plain upscaling: the colour arriving here has already been denoised by NRD, and the G-buffer that
+            // ray reconstruction needs is not part of this feature at all.
+            module->dlssSR_->setResource(DlssSR::RESOURCE_COLOR_IN, hdrImage);
+            module->dlssSR_->setResource(DlssSR::RESOURCE_COLOR_OUT, processedImage);
+            module->dlssSR_->setResource(DlssSR::RESOURCE_MOTIONVECTOR, motionVectorImage);
+            module->dlssSR_->setResource(DlssSR::RESOURCE_DEPTH, linearDepthImage);
+
+            if (worldUBO != nullptr) {
+                glm::vec2 jitter = worldUBO->cameraJitter;
+                module->dlssSR_->upscale(worldCommandBuffer, glm::uvec2{module->inputWidth_, module->inputHeight_},
+                                         jitter);
+            }
         }
     }
 

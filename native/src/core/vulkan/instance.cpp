@@ -11,14 +11,15 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+#include "core/util/logging.hpp"
 
 namespace {
 std::ostream &instanceCout() {
-    return std::cout << "[Instance] ";
+    return radiante::out() << "[Instance] ";
 }
 
 std::ostream &instanceCerr() {
-    return std::cerr << "[Instance] ";
+    return radiante::err() << "[Instance] ";
 }
 
 struct CreatedInstanceInfo {

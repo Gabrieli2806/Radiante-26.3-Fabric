@@ -6,6 +6,7 @@
 #include "core/vulkan/vma.hpp"
 
 #include <iostream>
+#include "core/util/logging.hpp"
 
 vk::BLAS::BLAS(std::shared_ptr<Device> device,
                VkAccelerationStructureKHR blas,
@@ -152,7 +153,7 @@ std::shared_ptr<vk::BLAS> vk::BLASBuilder::buildAndSubmit(std::shared_ptr<Device
     createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
     if (vkCreateAccelerationStructureKHR(device->vkDevice(), &createInfo, nullptr, &dstBLAS_) != VK_SUCCESS) {
-        std::cout << "Cannot create BLAS" << std::endl;
+        radiante::out() << "Cannot create BLAS" << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -190,7 +191,7 @@ std::shared_ptr<vk::BLAS> vk::BLASBuilder::build(std::shared_ptr<Device> device)
     createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
     if (vkCreateAccelerationStructureKHR(device->vkDevice(), &createInfo, nullptr, &dstBLAS_) != VK_SUCCESS) {
-        std::cout << "Cannot create BLAS" << std::endl;
+        radiante::out() << "Cannot create BLAS" << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -208,7 +209,7 @@ std::shared_ptr<vk::BLAS> vk::BLASBuilder::buildExternal(std::shared_ptr<Device>
     createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
     if (vkCreateAccelerationStructureKHR(device->vkDevice(), &createInfo, nullptr, &dstBLAS_) != VK_SUCCESS) {
-        std::cout << "Cannot create BLAS" << std::endl;
+        radiante::out() << "Cannot create BLAS" << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -524,7 +525,7 @@ std::shared_ptr<vk::TLAS> vk::TLASBuilder::buildAndSubmit(std::shared_ptr<Device
     tlasCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 
     if (vkCreateAccelerationStructureKHR(device->vkDevice(), &tlasCreateInfo, nullptr, &dstTLAS_) != VK_SUCCESS) {
-        std::cout << "Cannot create TLAS" << std::endl;
+        radiante::out() << "Cannot create TLAS" << std::endl;
         exit(EXIT_FAILURE);
     }
 

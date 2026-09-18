@@ -71,6 +71,7 @@ NVSDK_NGX_Result checkNgxResult(NVSDK_NGX_Result result, const char *func, int l
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class DlssRR;
+class DlssSR;
 
 class NgxContext : public SharedObject<NgxContext> {
   public:
@@ -101,6 +102,10 @@ class NgxContext : public SharedObject<NgxContext> {
     // Check if DLSS_RR is available and createDlssRR() can be called
     NVSDK_NGX_Result queryDlssRRAvailable();
 
+    // Check if plain DLSS (super resolution, no denoising) is available. This is a different feature from DLSS_RR
+    // and a card or driver may well offer one without the other.
+    NVSDK_NGX_Result queryDlssSRAvailable();
+
     struct SupportedSizes {
         VkExtent2D minSize = {};
         VkExtent2D maxSize = {};
@@ -113,6 +118,9 @@ class NgxContext : public SharedObject<NgxContext> {
     // Returns the supported input render size size
     NVSDK_NGX_Result querySupportedDlssInputSizes(const QuerySizeInfo &outputSize, SupportedSizes &renderSizes);
 
+    // The same question for plain DLSS, which has its own optimal settings table
+    NVSDK_NGX_Result querySupportedDlssSRInputSizes(const QuerySizeInfo &outputSize, SupportedSizes &renderSizes);
+
     struct DlssRRInitInfo {
         VkExtent2D inputSize = {};  // dimensions of the noisy input textures.
         VkExtent2D outputSize = {}; // dimensions of the output after denoising.
@@ -122,6 +130,14 @@ class NgxContext : public SharedObject<NgxContext> {
     // Initialize a DlssRR instance. There can be multiple.
     NVSDK_NGX_Result
     initDlssRR(const DlssRRInitInfo &initInfo, std::shared_ptr<vk::CommandPool> cmdPool, std::shared_ptr<DlssRR> dlssrr);
+
+    struct DlssSRInitInfo {
+        VkExtent2D inputSize = {};  // dimensions the world is rendered at
+        VkExtent2D outputSize = {}; // dimensions it is upscaled to
+        NVSDK_NGX_PerfQuality_Value quality = NVSDK_NGX_PerfQuality_Value_MaxQuality;
+    };
+    NVSDK_NGX_Result
+    initDlssSR(const DlssSRInitInfo &initInfo, std::shared_ptr<vk::CommandPool> cmdPool, std::shared_ptr<DlssSR> dlsssr);
 
     // Append 'extensions' with the instance extensions that should be enabled for DLSS_RR
     static NVSDK_NGX_Result getDlssRRRequiredInstanceExtensions(std::vector<VkExtensionProperties> &extensions);
@@ -205,6 +221,59 @@ class DlssRR : public SharedObject<DlssRR> {
     std::shared_ptr<vk::Device> m_device = VK_NULL_HANDLE;
     NVSDK_NGX_Parameter *m_ngxParams = nullptr;
     NVSDK_NGX_Handle *m_dlssdHandle = nullptr;
+    VkExtent2D m_inputSize;
+    VkExtent2D m_outputSize;
+    std::array<NVSDK_NGX_Resource_VK, RESOURCE_NUM> m_resources;
+};
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Plain DLSS: super resolution only. It takes a picture that has already been denoised and makes it bigger, which
+ * is why it needs nothing but colour, depth and motion vectors - no albedo, no normals. Ray Reconstruction is the
+ * other feature, and it replaces the denoiser rather than following it.
+ */
+class DlssSR : public SharedObject<DlssSR> {
+  public:
+    DlssSR() = default;
+    ~DlssSR();
+
+    void deinit();
+
+    enum DlssResource {
+        RESOURCE_COLOR_IN = 0,
+        RESOURCE_COLOR_OUT,
+        RESOURCE_MOTIONVECTOR,
+        RESOURCE_DEPTH,
+
+        RESOURCE_NUM
+    };
+
+    void setResource(DlssResource resourceId, std::shared_ptr<vk::DeviceLocalImage> image);
+    void resetResource(DlssResource resourceId);
+
+    NVSDK_NGX_Result upscale(std::shared_ptr<vk::CommandBuffer> cmdBuffer,
+                             glm::uvec2 renderSize,
+                             glm::vec2 jitter,
+                             bool reset = false);
+
+  private:
+    friend class NgxContext;
+    NVSDK_NGX_Result init(std::shared_ptr<vk::Device> device,
+                          std::shared_ptr<vk::CommandPool> cmdPool,
+                          NVSDK_NGX_Parameter *ngxParams,
+                          const NgxContext::DlssSRInitInfo &info);
+
+    DlssSR(const DlssSR &) = delete;
+    DlssSR(const DlssSR &&) = delete;
+    DlssSR &operator=(const DlssSR &) = delete;
+    DlssSR &operator=(const DlssSR &&) = delete;
+
+    std::shared_ptr<vk::Device> m_device = VK_NULL_HANDLE;
+    NVSDK_NGX_Parameter *m_ngxParams = nullptr;
+    NVSDK_NGX_Handle *m_dlssHandle = nullptr;
     VkExtent2D m_inputSize;
     VkExtent2D m_outputSize;
     std::array<NVSDK_NGX_Resource_VK, RESOURCE_NUM> m_resources;

@@ -9,6 +9,7 @@
 
 #include <cstring>
 #include <vector>
+#include "core/util/logging.hpp"
 
 static uint32_t align(uint32_t addr, uint32_t alignment) {
     return (addr + alignment - 1) & ~(alignment - 1);
@@ -27,7 +28,7 @@ vk::SBT::SBT(std::shared_ptr<PhysicalDevice> physicalDevice,
     uint32_t handleAlignment = rayTracingProperties.shaderGroupHandleAlignment;
     baseAlignment_ = rayTracingProperties.shaderGroupBaseAlignment;
     #ifdef DEBUG
-    std::cout << "handleSize: " << handleSize_ << " handleAlignment: " << handleAlignment
+    radiante::out() << "handleSize: " << handleSize_ << " handleAlignment: " << handleAlignment
               << " baseAlignment: " << baseAlignment_ << std::endl;
               #endif
     uint32_t groupCount = 1 + missCount + hitCount; // RayGen(1) + Miss + HitGroup
@@ -87,7 +88,7 @@ void vk::SBT::uploadStaticSBT(std::shared_ptr<CommandBuffer> commandBuffer) {
 void vk::SBT::setupHitSBT(std::vector<uint32_t> &hitGroupIndices, std::shared_ptr<CommandBuffer> commandBuffer) {
     VkDeviceSize rhitSBTSize = hitGroupIndices.size() * alignedHandleSize_;
     if (rhitSBTSize == 0) {
-        std::cerr << "Hit group should contains something!" << std::endl;
+        radiante::err() << "Hit group should contains something!" << std::endl;
         exit(1);
     }
 

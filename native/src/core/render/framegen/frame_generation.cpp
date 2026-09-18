@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
+#include "core/util/logging.hpp"
 
 namespace {
 
@@ -93,7 +94,7 @@ bool resolveApi() {
     g_sl.usable = g_sl.getNewFrameToken != nullptr && g_sl.setConstants != nullptr &&
                   g_sl.setTagForFrame != nullptr && g_sl.setOptions != nullptr;
     if (!g_sl.usable) {
-        std::cout << "[Streamline] frame generation entry points are missing; staying off" << std::endl;
+        radiante::out() << "[Streamline] frame generation entry points are missing; staying off" << std::endl;
     }
     return g_sl.usable;
 }
@@ -159,7 +160,7 @@ void framegen::FrameGeneration::beginFrame(std::shared_ptr<vk::DeviceLocalImage>
             sl::DLSSGOptions off{};
             off.mode = sl::DLSSGMode::eOff;
             g_sl.setOptions(sl::ViewportHandle(0), off);
-            std::cout << "[Streamline] frame generation turned off" << std::endl;
+            radiante::out() << "[Streamline] frame generation turned off" << std::endl;
         }
         g_enabled = false;
         g_presentedPerSecond = 0;
@@ -275,7 +276,7 @@ void framegen::FrameGeneration::beginFrame(std::shared_ptr<vk::DeviceLocalImage>
     // Periodic report, because frame generation only reaches its steady state after a few hundred frames.
     static int frames = 0;
     if (frames++ % 600 == 0) {
-        std::cout << "[Streamline] frame generation state: options=" << static_cast<int>(optionsResult)
+        radiante::out() << "[Streamline] frame generation state: options=" << static_cast<int>(optionsResult)
                   << " query=" << static_cast<int>(stateResult) << " status=" << static_cast<int>(state.status)
                   << " generated=" << options.numFramesToGenerate << " presented="
                   << state.numFramesActuallyPresented << " perSecond=" << g_presentedPerSecond << std::endl;

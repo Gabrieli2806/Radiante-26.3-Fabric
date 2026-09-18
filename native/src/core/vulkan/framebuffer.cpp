@@ -5,13 +5,14 @@
 #include "core/vulkan/render_pass.hpp"
 
 #include <iostream>
+#include "core/util/logging.hpp"
 
 std::ostream &framebufferCout() {
-    return std::cout << "[Framebuffer] ";
+    return radiante::out() << "[Framebuffer] ";
 }
 
 std::ostream &framebufferCerr() {
-    return std::cerr << "[Framebuffer] ";
+    return radiante::err() << "[Framebuffer] ";
 }
 
 vk::Framebuffer::Framebuffer(std::shared_ptr<Device> device, VkFramebuffer framebuffer)

@@ -6,6 +6,8 @@
 
 > ⚠️ **Alpha software.** Radiante is an early, work-in-progress fork. Core lighting works, but several vanilla features are not ported yet (see *Known Issues* below), and things will change between versions. Back up your worlds and configs before installing. Not recommended as your only shader/graphics mod on a world you care about — yet.
 
+> 📝 **The name is temporary.** "Radiante" is a working title while the project finds its feet, and it may change in a later release. If it does, the mod page and downloads will stay here — only the name changes.
+
 ![Gameplay](PASTE_SCREENSHOT_OR_GIF_URL_HERE)
 
 ---
@@ -93,7 +95,11 @@ Thanks to the open-source libraries this renderer depends on, including [NRD](ht
 **Dependencies:**
 * Fabric API (required)
 
-**Client-Side** - Radiante only changes how the world renders on your machine; it does not need to be installed on a server. It's also **not compatible** with other rendering mods (Sodium, Iris, etc.) since it replaces the renderer itself.
+**Client-Side** - Radiante only changes how the world renders on your machine; it does not need to be installed on a server.
+
+**Mod compatibility** - Radiante works alongside most mods. What it can't share a game with is anything that replaces the renderer too: **Sodium, Iris, and similar rendering mods will conflict**, because Radiante takes over the same job.
+
+Beyond that, compatibility is good but not guaranteed. Mods that draw their own custom geometry or effects may render incorrectly, or not show up at all, since Radiante has to understand what a mod submits in order to trace it. If a mod looks wrong, that's worth reporting - most of those cases are fixable.
 
 ---
 

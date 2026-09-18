@@ -68,6 +68,11 @@ public class Options {
     public static int chunkBuildingTotalBatches = 12;
     public static int chunkBuildingThreads = getDefaultChunkBuildingThreads();
     public static boolean collectChunkEmission = true;
+    /**
+     * Everything Radiante writes to the log is diagnostic. Off by default so a player's log stays theirs; turned
+     * on when someone is reporting a problem and the detail is worth having.
+     */
+    public static boolean debugLogging = false;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
     public static boolean frameGeneration = false;
     /** Frames DLSS generates per rendered frame: 0 is off, 1 is 2x, up to 5 for 6x. */
@@ -120,6 +125,8 @@ public class Options {
             setChunkBuildingThreads(
                 Integer.parseInt(props.getProperty("chunkBuildingThreads",
                     String.valueOf(chunkBuildingThreads))), false);
+            setDebugLogging(Boolean.parseBoolean(props.getProperty("debugLogging",
+                    String.valueOf(debugLogging))), false);
             setCollectChunkEmission(Boolean.parseBoolean(props.getProperty("collectChunkEmission",
                     String.valueOf(collectChunkEmission))),
                 false);
@@ -153,6 +160,7 @@ public class Options {
         props.setProperty("chunkBuildingTotalBatches", String.valueOf(chunkBuildingTotalBatches));
         props.setProperty("chunkBuildingThreads", String.valueOf(chunkBuildingThreads));
         props.setProperty("collectChunkEmission", String.valueOf(collectChunkEmission));
+        props.setProperty("debugLogging", String.valueOf(debugLogging));
         props.setProperty("rayTracingEnabled", String.valueOf(rayTracingEnabled));
         props.setProperty("useOpenGl", String.valueOf(useOpenGl));
         props.setProperty("frameGeneration", String.valueOf(frameGeneration));
@@ -226,6 +234,19 @@ public class Options {
 
     public static void setChunkBuildingThreads(int chunkBuildingThreads, boolean write) {
         Options.chunkBuildingThreads = clampChunkBuildingThreads(chunkBuildingThreads);
+        if (write) {
+            overwriteConfig();
+        }
+    }
+
+    /** Applies the setting to the renderer too, whose own output is the noisier half of it. */
+    public static void setDebugLogging(boolean enabled, boolean write) {
+        Options.debugLogging = enabled;
+        try {
+            com.g2806.radiante.client.proxy.vulkan.RendererProxy.setLoggingEnabled(enabled);
+        } catch (UnsatisfiedLinkError | NoClassDefFoundError e) {
+            // The native renderer is not loaded yet; it reads the flag when it is.
+        }
         if (write) {
             overwriteConfig();
         }

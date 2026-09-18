@@ -4,6 +4,7 @@
 #include "core/render/render_framework.hpp"
 #include <iostream>
 #include <algorithm>
+#include "core/util/logging.hpp"
 
 SvgfDenoiser::SvgfDenoiser() = default;
 
@@ -60,7 +61,7 @@ bool SvgfDenoiser::init(std::shared_ptr<vk::Instance> instance,
     // ffxInfo.renderHeight = height;
     
     // if (!m_ffxDenoiser.init(ffxInfo)) {
-    //     std::cerr << "Failed to initialize FFX Denoiser, continuing without it." << std::endl;
+    //     radiante::err() << "Failed to initialize FFX Denoiser, continuing without it." << std::endl;
     // }
 
     return true;
@@ -194,7 +195,7 @@ void SvgfDenoiser::createPipelines() {
 
         auto shader = vk::Shader::create(m_device, (Renderer::folderPath / "shaders/world/svgf/" / shaderName).string());
         if (!shader) {
-            std::cerr << "Failed to load shader: " << shaderName << std::endl;
+            radiante::err() << "Failed to load shader: " << shaderName << std::endl;
             return;
         }
         
@@ -449,7 +450,7 @@ void SvgfDenoiser::denoise(std::shared_ptr<vk::CommandBuffer> commandBuffer,
     static int logCounter = 0;
 
     if (frameIndex >= m_framePingPong.size()) {
-        std::cerr << "[SVGF] Error: frameIndex " << frameIndex << " out of bounds (size " << m_framePingPong.size() << ")" << std::endl;
+        radiante::err() << "[SVGF] Error: frameIndex " << frameIndex << " out of bounds (size " << m_framePingPong.size() << ")" << std::endl;
         return;
     }
 
@@ -498,7 +499,7 @@ void SvgfDenoiser::denoise(std::shared_ptr<vk::CommandBuffer> commandBuffer,
             clearImg(m_specHistory[i].specNormal);
             clearImg(m_specHistory[i].specHistoryLength);
         }
-        std::cerr << "[SVGF] History buffers cleared" << std::endl;
+        radiante::err() << "[SVGF] History buffers cleared" << std::endl;
     }
 
     auto transition = [&](const std::shared_ptr<vk::DeviceLocalImage>& img, bool discard = false) {

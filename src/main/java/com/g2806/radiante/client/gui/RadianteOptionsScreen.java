@@ -34,10 +34,41 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private int pendingChunkBatchSize = Options.chunkBuildingBatchSize;
     private int pendingChunkTotalBatches = Options.chunkBuildingTotalBatches;
     private boolean pendingCollectEmission = Options.collectChunkEmission;
+    private boolean pendingDebugLogging = Options.debugLogging;
     private boolean applied;
 
     public RadianteOptionsScreen(Screen lastScreen, net.minecraft.client.Options options) {
         super(lastScreen, options, TITLE);
+    }
+
+    /** Carries every choice made so far into a fresh screen. */
+    private RadianteOptionsScreen(RadianteOptionsScreen previous) {
+        this(previous.lastScreen, previous.options);
+        this.pendingPreset = previous.pendingPreset;
+        this.pendingShaderPack = previous.pendingShaderPack;
+        this.pendingDlssMode = previous.pendingDlssMode;
+        this.pendingGeneratedFrames = previous.pendingGeneratedFrames;
+        this.pendingCloudMode = previous.pendingCloudMode;
+        this.pendingChunkThreads = previous.pendingChunkThreads;
+        this.pendingChunkBatchSize = previous.pendingChunkBatchSize;
+        this.pendingChunkTotalBatches = previous.pendingChunkTotalBatches;
+        this.pendingCollectEmission = previous.pendingCollectEmission;
+        this.pendingDebugLogging = previous.pendingDebugLogging;
+    }
+
+    /**
+     * Lays the screen out again after a change that adds or removes options. Rebuilding this screen in place does
+     * not work: the layout an options screen holds is created once with the screen and appended to on every init,
+     * so a second pass leaves the first pass's widgets in it - they come back greyed out and stale, including
+     * options the new pipeline does not even have. A new screen gets a new layout.
+     */
+    private void reopenWithSameChoices() {
+        if (this.minecraft == null) {
+            return;
+        }
+        // The replacement screen carries the choices, so this one must not write them on the way out.
+        this.applied = true;
+        this.minecraft.gui.setScreen(new RadianteOptionsScreen(this));
     }
 
     private static OptionInstance<Integer> slider(String key, int min, int max, int initial,
@@ -76,10 +107,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             value -> {
                 boolean changed = value != this.pendingPreset;
                 this.pendingPreset = value;
-                // Which of the settings below make sense depends on this one, so the list has to be laid out
+                // Which of the settings below make sense depends on this one, so the screen has to be laid out
                 // again. Doing it straight away would edit the widget list that is handling this very click.
                 if (changed && this.minecraft != null) {
-                    this.minecraft.execute(this::rebuildWidgets);
+                    this.minecraft.execute(this::reopenWithSameChoices);
                 }
             });
     }
@@ -137,7 +168,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     }
 
     private OptionInstance<String> dlssModeOption() {
-        if (!Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key) || !usingDlss()) {
+        if (!usingDlss()) {
             return null;
         }
 
@@ -223,6 +254,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 value -> this.pendingChunkTotalBatches = value),
             OptionInstance.createBoolean("options.radiante.collect_chunk_emission", this.pendingCollectEmission,
                 value -> this.pendingCollectEmission = value));
+
+        this.list.addSmall(OptionInstance.createBoolean("options.radiante.debug_logging", this.pendingDebugLogging,
+            value -> this.pendingDebugLogging = value));
     }
 
     @Override
@@ -248,6 +282,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingCollectEmission != Options.collectChunkEmission) {
             Options.setCollectChunkEmission(this.pendingCollectEmission, false);
+        }
+        if (this.pendingDebugLogging != Options.debugLogging) {
+            Options.setDebugLogging(this.pendingDebugLogging, false);
         }
         if (!usingDlss()) {
             this.pendingGeneratedFrames = 0;

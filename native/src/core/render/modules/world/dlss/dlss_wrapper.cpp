@@ -61,6 +61,7 @@
 #include "core/vulkan/image.hpp"
 #include "core/vulkan/instance.hpp"
 #include "core/vulkan/physical_device.hpp"
+#include "core/util/logging.hpp"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Static members  and globals
@@ -69,9 +70,9 @@
 // Application ID assigned from NVIDIA, currently unused, but can't be 0
 static const unsigned long long g_ApplicationID = 0xbaadf00dbaadcafe;
 
-#define LOGE std::cout << "[DLSS Error] "
-#define LOGW std::cout << "[DLSS Warning] "
-#define LOGI std::cout << "[DLSS Info] "
+#define LOGE radiante::out() << "[DLSS Error] "
+#define LOGW radiante::out() << "[DLSS Warning] "
+#define LOGI radiante::out() << "[DLSS Info] "
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Helpers
@@ -115,7 +116,7 @@ void NVSDK_CONV NGX_AppLogCallback(const char *message,
 
 NVSDK_NGX_Result NgxContext::init(const NgxInitInfo &initInfo) {
 #ifdef DEBUG
-    std::cout << "NgxContext::init" << std::endl;
+    radiante::out() << "NgxContext::init" << std::endl;
 #endif
 
     if (!initInfo.instance || !initInfo.physicalDevice || !initInfo.device) {
@@ -125,7 +126,7 @@ NVSDK_NGX_Result NgxContext::init(const NgxInitInfo &initInfo) {
 
     applicationPath_.assign(initInfo.applicationPath.begin(), initInfo.applicationPath.end());
 #ifdef DEBUG
-    std::cout << "NgxContext::init application path: " << initInfo.applicationPath << std::endl;
+    radiante::out() << "NgxContext::init application path: " << initInfo.applicationPath << std::endl;
     std::wcout << "NgxContext::init applicationPath_: " << applicationPath_ << std::endl;
 #endif
 
@@ -223,6 +224,69 @@ NVSDK_NGX_Result NgxContext::queryDlssRRAvailable() {
     return NVSDK_NGX_Result_Success;
 }
 
+NVSDK_NGX_Result NgxContext::queryDlssSRAvailable() {
+    assert(ngxParams_);
+
+    int supported = 0;
+    int needsUpdatedDriver = 0;
+    unsigned minDriverVersionMajor = 0;
+    unsigned minDriverVersionMinor = 0;
+
+    NVSDK_NGX_Result resUpdatedDriver =
+        NGX_CHECK(ngxParams_->Get(NVSDK_NGX_Parameter_SuperSampling_NeedsUpdatedDriver, &needsUpdatedDriver));
+    NVSDK_NGX_Result resVersionMajor =
+        NGX_CHECK(ngxParams_->Get(NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMajor, &minDriverVersionMajor));
+    NVSDK_NGX_Result resVersionMinor =
+        NGX_CHECK(ngxParams_->Get(NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMinor, &minDriverVersionMinor));
+
+    if (NVSDK_NGX_SUCCEED(resUpdatedDriver) && needsUpdatedDriver) {
+        if (NVSDK_NGX_SUCCEED(resVersionMajor) && NVSDK_NGX_SUCCEED(resVersionMinor)) {
+            LOGW << "DLSS needs a newer driver, minimum " << minDriverVersionMajor << "." << minDriverVersionMinor
+                 << std::endl;
+            return NVSDK_NGX_Result_FAIL_OutOfDate;
+        }
+    }
+
+    NVSDK_NGX_Result resSupported =
+        NGX_CHECK(ngxParams_->Get(NVSDK_NGX_Parameter_SuperSampling_Available, &supported));
+    if (NVSDK_NGX_FAILED(resSupported) || !supported) {
+        LOGW << "DLSS super resolution is not available on this hardware/platform" << std::endl;
+        return NVSDK_NGX_Result_FAIL_FeatureNotSupported;
+    }
+
+    resSupported = NGX_CHECK(ngxParams_->Get(NVSDK_NGX_Parameter_SuperSampling_FeatureInitResult, &supported));
+    if (NVSDK_NGX_FAILED(resSupported) || !supported) {
+        LOGW << "DLSS super resolution is denied for this application" << std::endl;
+        return NVSDK_NGX_Result_FAIL_Denied;
+    }
+
+    return NVSDK_NGX_Result_Success;
+}
+
+NVSDK_NGX_Result NgxContext::querySupportedDlssSRInputSizes(const QuerySizeInfo &queryInfo, SupportedSizes &sizes) {
+    assert(ngxParams_);
+
+    float sharpness = 0.0f;
+    NGX_RETURN_ON_FAIL(NGX_DLSS_GET_OPTIMAL_SETTINGS(
+        ngxParams_, queryInfo.outputSize.width, queryInfo.outputSize.height, queryInfo.quality,
+        &sizes.optimalSize.width, &sizes.optimalSize.height, &sizes.maxSize.width, &sizes.maxSize.height,
+        &sizes.minSize.width, &sizes.minSize.height, &sharpness));
+
+    // As with DLSS_RR, a successful call can still hand back zeroes.
+    if (sizes.optimalSize.width == 0 || sizes.optimalSize.height == 0) {
+        return NVSDK_NGX_Result_Fail;
+    }
+
+    return NVSDK_NGX_Result_Success;
+}
+
+NVSDK_NGX_Result NgxContext::initDlssSR(const DlssSRInitInfo &initInfo,
+                                        std::shared_ptr<vk::CommandPool> cmdPool,
+                                        std::shared_ptr<DlssSR> dlsssr) {
+    NGX_RETURN_ON_FAIL(dlsssr->init(device_, cmdPool, ngxParams_, initInfo));
+    return NVSDK_NGX_Result_Success;
+}
+
 NVSDK_NGX_Result NgxContext::initDlssRR(const DlssRRInitInfo &initInfo,
                                         std::shared_ptr<vk::CommandPool> cmdPool,
                                         std::shared_ptr<DlssRR> dlssrr) {
@@ -305,7 +369,7 @@ NVSDK_NGX_Result DlssRR::init(std::shared_ptr<vk::Device> device,
                               NVSDK_NGX_Parameter *ngxParams,
                               const NgxContext::DlssRRInitInfo &info) {
 #ifdef DEBUG
-    std::cout << "DlssRR::init" << std::endl;
+    radiante::out() << "DlssRR::init" << std::endl;
 #endif
 
     assert(!m_dlssdHandle && "Cannot call init twice");
@@ -358,7 +422,7 @@ NVSDK_NGX_Result DlssRR::init(std::shared_ptr<vk::Device> device,
 
 void DlssRR::deinit() {
 #ifdef DEBUG
-    std::cout << "DlssRR::deinit" << std::endl;
+    radiante::out() << "DlssRR::deinit" << std::endl;
 #endif
 
     if (m_dlssdHandle) { NVSDK_NGX_VULKAN_ReleaseFeature(m_dlssdHandle); }
@@ -368,7 +432,7 @@ void DlssRR::deinit() {
 
 DlssRR::~DlssRR() {
 #ifdef DEBUG
-    std::cout << "DlssRR::~DlssRR" << std::endl;
+    radiante::out() << "DlssRR::~DlssRR" << std::endl;
 #endif
     assert(!m_dlssdHandle && "Must call deinit");
 }
@@ -434,6 +498,101 @@ NVSDK_NGX_Result DlssRR::denoise(std::shared_ptr<vk::CommandBuffer> cmdBuffer,
 
     NGX_RETURN_ON_FAIL(
         NGX_VULKAN_EVALUATE_DLSSD_EXT(cmdBuffer->vkCommandBuffer(), m_dlssdHandle, m_ngxParams, &evalParams));
+
+    return NVSDK_NGX_Result_Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+NVSDK_NGX_Result DlssSR::init(std::shared_ptr<vk::Device> device,
+                              std::shared_ptr<vk::CommandPool> cmdPool,
+                              NVSDK_NGX_Parameter *ngxParams,
+                              const NgxContext::DlssSRInitInfo &info) {
+    assert(!m_dlssHandle && "Cannot call init twice");
+
+    m_device = device;
+    m_ngxParams = ngxParams;
+    m_inputSize = info.inputSize;
+    m_outputSize = info.outputSize;
+    m_resources.fill({.Resource = {.ImageViewInfo = {}}});
+
+    NVSDK_NGX_DLSS_Create_Params dlssParams{};
+    dlssParams.Feature.InWidth = m_inputSize.width;
+    dlssParams.Feature.InHeight = m_inputSize.height;
+    dlssParams.Feature.InTargetWidth = m_outputSize.width;
+    dlssParams.Feature.InTargetHeight = m_outputSize.height;
+    dlssParams.Feature.InPerfQualityValue = info.quality;
+    // The renderer works in HDR and its motion vectors are at render resolution, same as for Ray Reconstruction.
+    dlssParams.InFeatureCreateFlags = NVSDK_NGX_DLSS_Feature_Flags_IsHDR | NVSDK_NGX_DLSS_Feature_Flags_MVLowRes |
+                                      NVSDK_NGX_DLSS_Feature_Flags_DepthInverted;
+
+    const uint32_t creationNodeMask = 0x1;
+    const uint32_t visibilityNodeMask = 0x1;
+
+    {
+        std::shared_ptr<vk::CommandBuffer> cmdBuffer = vk::CommandBuffer::create(device, cmdPool);
+        cmdBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        NGX_RETURN_ON_FAIL(NGX_VULKAN_CREATE_DLSS_EXT1(device->vkDevice(), cmdBuffer->vkCommandBuffer(),
+                                                       creationNodeMask, visibilityNodeMask, &m_dlssHandle, ngxParams,
+                                                       &dlssParams));
+        cmdBuffer->end()->submitMainQueueIndividual(device);
+    }
+
+    return NVSDK_NGX_Result_Success;
+}
+
+void DlssSR::deinit() {
+    if (m_dlssHandle) { NVSDK_NGX_VULKAN_ReleaseFeature(m_dlssHandle); }
+    m_dlssHandle = nullptr;
+    m_device = VK_NULL_HANDLE;
+}
+
+DlssSR::~DlssSR() {
+    assert(!m_dlssHandle && "Must call deinit");
+}
+
+void DlssSR::setResource(DlssResource resourceId, std::shared_ptr<vk::DeviceLocalImage> image) {
+    assert(m_dlssHandle);
+
+    VkExtent2D size = resourceId == RESOURCE_COLOR_OUT ? m_outputSize : m_inputSize;
+
+    m_resources[resourceId] = NVSDK_NGX_Create_ImageView_Resource_VK(
+        image->vkImageView(), image->vkImage(), vk::wholeColorSubresourceRange, image->vkFormat(), size.width,
+        size.height, resourceId == RESOURCE_COLOR_OUT /*readWrite*/);
+}
+
+void DlssSR::resetResource(DlssResource resourceId) {
+    m_resources[resourceId] = {};
+}
+
+NVSDK_NGX_Result DlssSR::upscale(std::shared_ptr<vk::CommandBuffer> cmdBuffer,
+                                 glm::uvec2 renderSize,
+                                 glm::vec2 jitter,
+                                 bool reset) {
+    assert(m_dlssHandle);
+
+    auto getResource = [this](DlssResource res) -> NVSDK_NGX_Resource_VK * {
+        return m_resources[res].Resource.ImageViewInfo.ImageView ? &m_resources[res] : nullptr;
+    };
+
+    NVSDK_NGX_VK_DLSS_Eval_Params evalParams = {};
+    evalParams.Feature.pInColor = getResource(RESOURCE_COLOR_IN);
+    evalParams.Feature.pInOutput = getResource(RESOURCE_COLOR_OUT);
+    evalParams.Feature.InSharpness = 0.0f;
+    evalParams.pInDepth = getResource(RESOURCE_DEPTH);
+    evalParams.pInMotionVectors = getResource(RESOURCE_MOTIONVECTOR);
+
+    evalParams.InJitterOffsetX = -jitter.x;
+    evalParams.InJitterOffsetY = -jitter.y;
+    evalParams.InMVScaleX = 1.0f;
+    evalParams.InMVScaleY = 1.0f;
+    evalParams.InRenderSubrectDimensions.Width = renderSize.x;
+    evalParams.InRenderSubrectDimensions.Height = renderSize.y;
+    evalParams.InReset = reset;
+
+    NGX_RETURN_ON_FAIL(
+        NGX_VULKAN_EVALUATE_DLSS_EXT(cmdBuffer->vkCommandBuffer(), m_dlssHandle, m_ngxParams, &evalParams));
 
     return NVSDK_NGX_Result_Success;
 }

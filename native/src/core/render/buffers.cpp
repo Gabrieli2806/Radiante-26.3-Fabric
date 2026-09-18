@@ -11,13 +11,14 @@
 #include <algorithm>
 #include <cstring>
 #include <random>
+#include "core/util/logging.hpp"
 
 std::ostream &buffersCout() {
-    return std::cout << "[Buffers] ";
+    return radiante::out() << "[Buffers] ";
 }
 
 std::ostream &buffersCerr() {
-    return std::cerr << "[Buffers] ";
+    return radiante::err() << "[Buffers] ";
 }
 
 Buffers::Buffers(std::shared_ptr<Framework> framework) {
@@ -178,7 +179,7 @@ void Buffers::buildIndexBuffer(uint32_t dstId, int type, int drawMode, int verte
         }
 
         default: {
-            std::cout << "Get draw mode=" << drawMode << std::endl;
+            radiante::out() << "Get draw mode=" << drawMode << std::endl;
             throw std::runtime_error("not implemented yet");
         }
     }

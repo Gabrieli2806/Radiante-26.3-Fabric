@@ -13,14 +13,15 @@
 #include <list>
 #include <unordered_set>
 #include <vector>
+#include "core/util/logging.hpp"
 
 namespace {
 std::ostream &deviceCout() {
-    return std::cout << "[Device] ";
+    return radiante::out() << "[Device] ";
 }
 
 std::ostream &deviceCerr() {
-    return std::cerr << "[Device] ";
+    return radiante::err() << "[Device] ";
 }
 
 struct CreatedDeviceInfo {

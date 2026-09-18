@@ -7,13 +7,14 @@
 
 #include <iostream>
 #include <vector>
+#include "core/util/logging.hpp"
 
 std::ostream &graphicsPipelineCout() {
-    return std::cout << "[GraphicsPipeline] ";
+    return radiante::out() << "[GraphicsPipeline] ";
 }
 
 std::ostream &graphicsPipelineCerr() {
-    return std::cerr << "[GraphicsPipeline] ";
+    return radiante::err() << "[GraphicsPipeline] ";
 }
 
 vk::GraphicsPipeline::GraphicsPipeline(std::shared_ptr<Device> device, VkPipeline pipeline)
@@ -347,7 +348,7 @@ std::shared_ptr<vk::RayTracingPipeline> vk::RayTracingPipelineBuilder::build(std
     VkPipeline rayTracingPipeline;
     if (vkCreateRayTracingPipelinesKHR(device->vkDevice(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
                                         &rayTracingPipeline) != VK_SUCCESS) {
-        std::cerr << "Cannot build ray tracing pipeline" << std::endl;
+        radiante::err() << "Cannot build ray tracing pipeline" << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -377,7 +378,7 @@ std::shared_ptr<vk::ComputePipeline> vk::ComputePipelineBuilder::build(std::shar
     VkPipeline compPipeline;
     if (vkCreateComputePipelines(device->vkDevice(), VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr,
                                  &compPipeline) != VK_SUCCESS) {
-        std::cerr << "Cannot build compute pipeline" << std::endl;
+        radiante::err() << "Cannot build compute pipeline" << std::endl;
         exit(EXIT_FAILURE);
     }
 

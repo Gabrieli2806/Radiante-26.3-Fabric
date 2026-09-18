@@ -169,7 +169,7 @@
   "render_pipeline.module.temporal_accumulation.attribute.depth_scale": "Depth Scale",
   "module_attribute_screen.no_attributes": "No Attributes",
   "render_pipeline.preset.name": "Preset",
-  "render_pipeline.preset.rt_dlss": "RT-DLSSRR",
+  "render_pipeline.preset.rt_dlss": "RT-DLSS (Ray Reconstruction)",
   "render_pipeline.preset.rt_nrd": "RT-NRD",
   "render_pipeline.preset.rt_nrd_fsr": "RT-NRD-FSR",
   "render_pipeline.preset.rt_nrd_xess": "RT-NRD-XeSS",
@@ -209,5 +209,7 @@
   "screen.radiante.unsupported.message.opengl": "The game is running on OpenGL, and ray tracing does not exist on that graphics API, so Radiante stays off and its settings stay closed.\n\nSwitch the game to Vulkan and restart to use Radiante.",
   "screen.radiante.unsupported.vulkan": "Switch to Vulkan",
   "screen.radiante.vulkan.title": "Switched to Vulkan",
-  "screen.radiante.vulkan.message": "The game will use Vulkan the next time it starts, and Radiante can take over from there.\n\nRestart the game to try it."
+  "screen.radiante.vulkan.message": "The game will use Vulkan the next time it starts, and Radiante can take over from there.\n\nRestart the game to try it.",
+  "render_pipeline.module.dlss.attribute.ray_reconstruction": "Ray Reconstruction",
+  "options.radiante.debug_logging": "Debug Logging"
 }

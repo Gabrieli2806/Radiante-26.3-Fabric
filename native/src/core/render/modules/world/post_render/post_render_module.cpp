@@ -17,6 +17,7 @@
 #include <random>
 #include <sstream>
 #include <string_view>
+#include "core/util/logging.hpp"
 
 using json = nlohmann::json;
 
@@ -53,7 +54,7 @@ std::string findShaderVariantName(const RenderPass &pass, std::string_view conte
 //     std::lock_guard<std::mutex> lock(mutex);
 //     if (!loggedKeys.insert(key).second) { return; }
 
-//     std::cerr << "[PostVariant] pass=" << passName << " content=" << contentName << " variant=" << variantName
+//     radiante::err() << "[PostVariant] pass=" << passName << " content=" << contentName << " variant=" << variantName
 //               << std::endl;
 // }
 
@@ -193,11 +194,11 @@ void PostRenderModule::build() {
     auto t0 = clock::now();
     auto printStep = [&t0](const char *label) {
         auto now = clock::now();
-        std::cerr << "[PostRender build] " << label << ": " << ms(now - t0).count() << " ms" << std::endl;
+        radiante::err() << "[PostRender build] " << label << ": " << ms(now - t0).count() << " ms" << std::endl;
         t0 = now;
     };
 
-    std::cerr << "[PostRender build] ====== start ======" << std::endl;
+    radiante::err() << "[PostRender build] ====== start ======" << std::endl;
 #endif
 
     auto framework = framework_.lock();
@@ -261,7 +262,7 @@ void PostRenderModule::build() {
 #ifdef DEBUG
     printStep("ensureDynamicPipelines");
 
-    std::cerr << "[PostRender build] ====== done ======" << std::endl;
+    radiante::err() << "[PostRender build] ====== done ======" << std::endl;
 #endif
 }
 
@@ -774,7 +775,7 @@ void PostRenderModule::ensureDynamicPipelines() {
     auto tPhase = clock::now();
     auto printPhase = [&tPhase](const char *label) {
         auto now = clock::now();
-        std::cerr << "[PostRender ensureDynamicPipelines] " << label << ": "
+        radiante::err() << "[PostRender ensureDynamicPipelines] " << label << ": "
                   << ms(now - tPhase).count() << " ms" << std::endl;
         tPhase = now;
     };
@@ -1075,7 +1076,7 @@ void PostRenderModule::ensureDynamicPipelines() {
             case ShaderPackLoader::PassConfig::Type::Render:     dbgName = passConfig.render.name;     break;
             default: continue;
         }
-        std::cerr << "[PostRender ensureDynamicPipelines]   create pass '" << dbgName << "': "
+        radiante::err() << "[PostRender ensureDynamicPipelines]   create pass '" << dbgName << "': "
                   << ms(clock::now() - tPass).count() << " ms" << std::endl;
 #endif
     }
@@ -1340,7 +1341,7 @@ void PostRenderModule::ensureDynamicPipelines() {
 #ifdef DEBUG
     for (size_t passIndex = 0; passIndex < fullScreenPasses_.size(); passIndex++) {
         auto &pass = fullScreenPasses_[passIndex];
-        std::cerr << "[PostRender ensureDynamicPipelines]   build full_screen pass '" << pass->config.name << "': "
+        radiante::err() << "[PostRender ensureDynamicPipelines]   build full_screen pass '" << pass->config.name << "': "
                   << fullScreenBuildTimes[passIndex] << " ms" << std::endl;
         if (!passNameToPass_.emplace(pass->config.name, pass).second) {
             throw std::runtime_error("duplicate post_render pass name: " + pass->config.name);
@@ -1349,7 +1350,7 @@ void PostRenderModule::ensureDynamicPipelines() {
 
     for (size_t passIndex = 0; passIndex < renderPasses_.size(); passIndex++) {
         auto &pass = renderPasses_[passIndex];
-        std::cerr << "[PostRender ensureDynamicPipelines]   build render pass '" << pass->config.name << "': "
+        radiante::err() << "[PostRender ensureDynamicPipelines]   build render pass '" << pass->config.name << "': "
                   << renderBuildTimes[passIndex] << " ms" << std::endl;
         if (!renderPassNameToPass_.emplace(pass->config.name, pass).second ||
             passNameToPass_.find(pass->config.name) != passNameToPass_.end()) {

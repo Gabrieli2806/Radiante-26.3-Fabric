@@ -11,6 +11,7 @@
 #include <cstring>
 #include <iostream>
 #include <unordered_map>
+#include "core/util/logging.hpp"
 
 using Vertex = glm::vec3;
 using Triangle = std::array<Vertex, 3>;
@@ -39,7 +40,7 @@ const char *postRenderFlagName(int postRenderFlag) {
 //     std::lock_guard<std::mutex> lock(mutex);
 //     if (!loggedKeys.insert(key).second) { return; }
 
-//     std::cerr << "[PostContent-Native] flag=" << flagName << " content=" << contentName << std::endl;
+//     radiante::err() << "[PostContent-Native] flag=" << flagName << " content=" << contentName << std::endl;
 // }
 
 }
@@ -956,9 +957,9 @@ void Entities::queueBuild(EntitiesBuildTask task) {
             entityBuildDataBatch_->addData(chunkBuildData);
         }
 
-        // std::cout << "used texture ids: ";
-        // for (auto id : textureIDs) { std::cout << id << " "; }
-        // std::cout << std::endl;
+        // radiante::out() << "used texture ids: ";
+        // for (auto id : textureIDs) { radiante::out() << id << " "; }
+        // radiante::out() << std::endl;
     }
 }
 

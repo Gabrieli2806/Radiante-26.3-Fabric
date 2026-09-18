@@ -3,13 +3,14 @@
 #include "core/vulkan/device.hpp"
 
 #include <iostream>
+#include "core/util/logging.hpp"
 
 std::ostream &renderPassCout() {
-    return std::cout << "[RenderPass] ";
+    return radiante::out() << "[RenderPass] ";
 }
 
 std::ostream &renderPassCerr() {
-    return std::cerr << "[RenderPass] ";
+    return radiante::err() << "[RenderPass] ";
 }
 
 vk::RenderPass::RenderPass(std::shared_ptr<Device> device, VkRenderPass renderpass)

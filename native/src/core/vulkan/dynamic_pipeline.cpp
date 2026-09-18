@@ -7,13 +7,14 @@
 
 #include <iostream>
 #include <vector>
+#include "core/util/logging.hpp"
 
 std::ostream &dynamicGraphicsPipelineCout() {
-    return std::cout << "[GraphicsPipeline] ";
+    return radiante::out() << "[GraphicsPipeline] ";
 }
 
 std::ostream &dynamicGraphicsPipelineCerr() {
-    return std::cerr << "[GraphicsPipeline] ";
+    return radiante::err() << "[GraphicsPipeline] ";
 }
 
 vk::DynamicGraphicsPipeline::DynamicGraphicsPipeline(std::shared_ptr<Device> device, VkPipeline pipeline)

@@ -15,13 +15,14 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "core/util/logging.hpp"
 
 std::ostream &shaderCout() {
-    return std::cout << "[Shader] ";
+    return radiante::out() << "[Shader] ";
 }
 
 std::ostream &shaderCerr() {
-    return std::cerr << "[Shader] ";
+    return radiante::err() << "[Shader] ";
 }
 
 std::string injectSourceAfterVersion(std::string sourceText, const std::string &injectedSource) {

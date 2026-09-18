@@ -8,13 +8,14 @@
 
 #include <cstring>
 #include <iostream>
+#include "core/util/logging.hpp"
 
 std::ostream &bufferCout() {
-    return std::cout << "[Buffer] ";
+    return radiante::out() << "[Buffer] ";
 }
 
 std::ostream &bufferCerr() {
-    return std::cerr << "[Buffer] ";
+    return radiante::err() << "[Buffer] ";
 }
 
 vk::HostVisibleBuffer::HostVisibleBuffer(std::shared_ptr<VMA> vma,
@@ -201,7 +202,7 @@ vk::DeviceLocalBuffer::DeviceLocalBuffer(std::shared_ptr<VMA> vma,
     allocationInfo.usage = vmaUsage;
     // if (usageExceptTransfer & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
     //     allocationInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    //     std::cout << "already specified VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT" << std::endl;
+    //     radiante::out() << "already specified VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT" << std::endl;
     // }
 
     if (vmaCreateBuffer(vma_->allocator(), &bufferInfo, &allocationInfo, &buffer_, &allocation_, &allocationInfo_) !=
@@ -263,7 +264,7 @@ vk::DeviceLocalBuffer::DeviceLocalBuffer(std::shared_ptr<VMA> vma,
     allocationInfo.usage = vmaUsage;
     // if (usageExceptTransfer & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
     //     allocationInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    //     std::cout << "already specified VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT" << std::endl;
+    //     radiante::out() << "already specified VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT" << std::endl;
     // }
 
     if (vmaCreateBufferWithAlignment(vma_->allocator(), &bufferInfo, &allocationInfo, minAlignment, &buffer_,

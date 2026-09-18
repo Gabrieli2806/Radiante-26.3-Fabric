@@ -7,6 +7,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <limits>
+#include "core/util/logging.hpp"
 
 nrd::ReblurSettings NrdModule::makeDefaultReblurSettings() {
     nrd::ReblurSettings settings = {};
@@ -113,7 +114,7 @@ bool NrdModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::DeviceLoc
     for (uint32_t i = 0; i < images.size(); i++) {
         if (images[i] == nullptr) {
             if (width_ == 0 || height_ == 0) {
-                std::cerr << "[NrdModule] Error: Cannot create input image " << i << " because dimensions are unknown."
+                radiante::err() << "[NrdModule] Error: Cannot create input image " << i << " because dimensions are unknown."
                           << std::endl;
                 return false;
             }

@@ -6,6 +6,7 @@
 #include "core/render/renderer.hpp"
 
 #include <algorithm>
+#include "core/util/logging.hpp"
 
 XessSrModule::XessSrModule() {}
 
@@ -167,7 +168,7 @@ void XessSrModule::build() {
     if (!xessEnabled_) {
         initialized_ = false;
     } else if (!xess_->initialize(config)) {
-        std::cerr << "XessSrModule: failed to initialize XeSS, fallback to blit" << std::endl;
+        radiante::err() << "XessSrModule: failed to initialize XeSS, fallback to blit" << std::endl;
         initialized_ = false;
     } else {
         initialized_ = true;

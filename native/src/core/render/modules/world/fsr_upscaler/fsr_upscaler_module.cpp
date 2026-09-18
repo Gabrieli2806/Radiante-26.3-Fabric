@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include "core/util/logging.hpp"
 
 FSRUpscalerModule::FSRUpscalerModule() {}
 
@@ -167,7 +168,7 @@ void FSRUpscalerModule::build() {
     if (!fsr3Enabled_) {
         initialized_ = false;
     } else if (!fsr3_->initialize(config)) {
-        std::cerr << "FSRUpscalerModule: Failed to initialize FSR3" << std::endl;
+        radiante::err() << "FSRUpscalerModule: Failed to initialize FSR3" << std::endl;
         initialized_ = false;
     } else {
         initialized_ = true;

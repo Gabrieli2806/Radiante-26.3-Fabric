@@ -6,13 +6,14 @@
 #include "core/vulkan/physical_device.hpp"
 
 #include <iostream>
+#include "core/util/logging.hpp"
 
 std::ostream &vmaTableCout() {
-    return std::cout << "[VMA] ";
+    return radiante::out() << "[VMA] ";
 }
 
 std::ostream &vmaTableCerr() {
-    return std::cerr << "[VMA] ";
+    return radiante::err() << "[VMA] ";
 }
 
 vk::VMA::VMA(std::shared_ptr<Instance> instance,

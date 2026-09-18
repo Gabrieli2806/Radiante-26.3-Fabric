@@ -12,21 +12,22 @@
 #include "core/vulkan/sync.hpp"
 
 #include <iostream>
+#include "core/util/logging.hpp"
 
 std::ostream &commandPoolCout() {
-    return std::cout << "[CommandPool] ";
+    return radiante::out() << "[CommandPool] ";
 }
 
 std::ostream &commandPoolCerr() {
-    return std::cerr << "[CommandPool] ";
+    return radiante::err() << "[CommandPool] ";
 }
 
 std::ostream &commandBufferCout() {
-    return std::cout << "[CommandBuffer] ";
+    return radiante::out() << "[CommandBuffer] ";
 }
 
 std::ostream &commandBufferCerr() {
-    return std::cerr << "[CommandBuffer] ";
+    return radiante::err() << "[CommandBuffer] ";
 }
 
 vk::CommandPool::CommandPool(std::shared_ptr<PhysicalDevice> physicalDevice, std::shared_ptr<Device> device)

@@ -17,6 +17,7 @@
 
 #include <iostream>
 #include <string>
+#include "core/util/logging.hpp"
 
 namespace {
 std::u16string toU16(JNIEnv *env, jstring jstr) {
@@ -33,8 +34,8 @@ auto guarded(const char *name, Fn &&fn, decltype(fn()) fallback) -> decltype(fn(
     try {
         return fn();
     } catch (const std::exception &e) {
-        std::cerr << "[Radiante] " << name << " failed: " << e.what() << std::endl;
-    } catch (...) { std::cerr << "[Radiante] " << name << " failed with unknown exception" << std::endl; }
+        radiante::err() << "[Radiante] " << name << " failed: " << e.what() << std::endl;
+    } catch (...) { radiante::err() << "[Radiante] " << name << " failed with unknown exception" << std::endl; }
     return fallback;
 }
 } // namespace
@@ -171,6 +172,11 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_close(JNIEnv *, jclass) {
     if (!Renderer::is_initialized()) return;
     Renderer::instance().close();
+}
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setLoggingEnabled(
+    JNIEnv *, jclass, jboolean enabled) {
+    radiante::setLoggingEnabled(enabled == JNI_TRUE);
 }
 
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_shouldRenderWorld(

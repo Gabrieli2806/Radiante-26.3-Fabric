@@ -7,13 +7,14 @@
 #include "core/render/pipeline.hpp"
 #include "core/render/render_framework.hpp"
 #include "core/render/renderer.hpp"
+#include "core/util/logging.hpp"
 
 std::ostream &texturesCout() {
-    return std::cout << "[Textures] ";
+    return radiante::out() << "[Textures] ";
 }
 
 std::ostream &texturesCerr() {
-    return std::cerr << "[Textures] ";
+    return radiante::err() << "[Textures] ";
 }
 
 
@@ -85,7 +86,7 @@ void Textures::initializeTexture(uint32_t id, uint32_t maxLevel, uint32_t width,
 
     framework->frameResourceRetainer().retain(textures_[id]);
 #ifdef DEBUG
-    if (textures_[id] != nullptr) { std::cout << "Textrue reinitialized: " << id << std::endl; }
+    if (textures_[id] != nullptr) { radiante::out() << "Textrue reinitialized: " << id << std::endl; }
 #endif
     textures_[id] = vk::DeviceLocalImage::create(device, vma, false, maxLevel, width, height, 1, format,
                                                  VK_IMAGE_USAGE_SAMPLED_BIT, 0, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0
@@ -453,7 +454,7 @@ ImageBufferCache::ImageBufferCache(std::shared_ptr<vk::VMA> vma, std::shared_ptr
 
 ImageBufferCache::~ImageBufferCache() {
 #ifdef DEBUG
-// std::cout << "ImageBufferCache deconstructed" << std::endl;
+// radiante::out() << "ImageBufferCache deconstructed" << std::endl;
 #endif
 }
 

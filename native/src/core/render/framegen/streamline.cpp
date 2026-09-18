@@ -12,11 +12,12 @@
 #include <filesystem>
 #include <iostream>
 #include <windows.h>
+#include "core/util/logging.hpp"
 
 namespace {
 
 std::ostream &slCout() {
-    return std::cout << "[Streamline] ";
+    return radiante::out() << "[Streamline] ";
 }
 
 struct Api {
@@ -87,7 +88,7 @@ bool framegen::Streamline::init(const std::string &folder) {
     if (std::getenv("RADIANTE_STREAMLINE_LOG") != nullptr) {
         preferences.logLevel = sl::LogLevel::eVerbose;
         preferences.logMessageCallback = [](sl::LogType type, const char *message) {
-            std::cout << "[SL " << static_cast<int>(type) << "] " << message << std::flush;
+            radiante::out() << "[SL " << static_cast<int>(type) << "] " << message << std::flush;
         };
     }
     preferences.pathsToPlugins = paths;

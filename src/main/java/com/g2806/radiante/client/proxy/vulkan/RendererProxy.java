@@ -35,6 +35,9 @@ public class RendererProxy {
 
     public static native void close();
 
+    /** Turns the renderer's own diagnostic output on or off; it is off unless the player asks for it. */
+    public static native void setLoggingEnabled(boolean enabled);
+
     public static native void shouldRenderWorld(boolean renderWorld);
 
     /** Loads NVIDIA Streamline from `folder`; must run before Minecraft creates its Vulkan instance. */

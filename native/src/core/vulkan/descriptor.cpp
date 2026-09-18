@@ -7,13 +7,14 @@
 
 #include <iostream>
 #include <map>
+#include "core/util/logging.hpp"
 
 std::ostream &descriptorTableCout() {
-    return std::cout << "[DescriptorTable] ";
+    return radiante::out() << "[DescriptorTable] ";
 }
 
 std::ostream &descriptorTableCerr() {
-    return std::cerr << "[DescriptorTable] ";
+    return radiante::err() << "[DescriptorTable] ";
 }
 
 vk::DescriptorTable::DescriptorTable(std::shared_ptr<Device> device,

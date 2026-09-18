@@ -257,6 +257,16 @@ public class Pipeline {
         return null;
     }
 
+    private static void setRayReconstructionOn(Module dlssModule, boolean enabled) {
+        AttributeConfig attribute = findAttribute(dlssModule, RAY_RECONSTRUCTION_ATTRIBUTE);
+        if (attribute != null) {
+            attribute.value = enabled ? "render_pipeline.true" : "render_pipeline.false";
+        }
+    }
+
+    public static final String RAY_RECONSTRUCTION_ATTRIBUTE =
+            "render_pipeline.module.dlss.attribute.ray_reconstruction";
+
     /** Sets the DLSS quality mode; returns true when the pipeline needs rebuilding. */
     public static boolean setDlssMode(String mode) {
         boolean changed = false;
@@ -949,6 +959,8 @@ public class Pipeline {
                     && PipelineMode.fromString(storage.mode) == PipelineMode.PRESET
                     && Objects.equals(processPresetName(storage.presetName), INSTANCE.activePresetName)) {
                 applyPresetModuleOverrides(storage.presetModules);
+            normaliseRayReconstruction();
+                normaliseRayReconstruction();
             }
 
             buildInternal();
@@ -1129,6 +1141,9 @@ public class Pipeline {
         postRenderModule.y = 300;
 
         INSTANCE.activePresetName = Presets.RT_DLSSRR.key;
+        // DLSS is the denoiser in this preset, so ray reconstruction is what the module has to create. The
+        // super resolution path exists in the renderer but has no preset feeding it a denoised picture yet.
+        setRayReconstructionOn(dlssModule, true);
 
         connect(rayTracingModule.getOutputImageConfig("radiance"),
                 dlssModule.getInputImageConfig("radiance"));
@@ -1805,9 +1820,11 @@ public class Pipeline {
         if (storage != null && Objects.equals(storage.mode, PipelineMode.PRESET.name())
                 && Objects.equals(storage.presetName, INSTANCE.activePresetName)) {
             applyPresetModuleOverrides(storage.presetModules);
+            normaliseRayReconstruction();
         }
 
         applyPresetModuleOverrides(carryOverModules);
+        normaliseRayReconstruction();
 
         if (commitChanges) {
             savePipeline();
@@ -1831,10 +1848,16 @@ public class Pipeline {
             requestedPresetName = Presets.RT_DLSSRR.key;
         }
 
-        if (!Objects.equals(requestedPresetName, Presets.RT_DLSSRR.key)
-                && !Objects.equals(requestedPresetName, Presets.RT_NRD.key)
-                && !Objects.equals(requestedPresetName, Presets.RT_NRD_FSR.key)
-                && !Objects.equals(requestedPresetName, Presets.RT_NRD_XESS.key)) {
+        // Checked against the enum rather than a hand written list: a preset missing from that list was silently
+        // rewritten to DLSS_RR, which is how a newly added one looks like it was never selected at all.
+        boolean known = false;
+        for (Presets preset : Presets.values()) {
+            if (Objects.equals(requestedPresetName, preset.key)) {
+                known = true;
+                break;
+            }
+        }
+        if (!known) {
             requestedPresetName = Presets.RT_DLSSRR.key;
         }
 
@@ -1843,6 +1866,21 @@ public class Pipeline {
         }
 
         return getBestAvailablePresetName();
+    }
+
+    /**
+     * Which NGX feature the DLSS module creates is decided by the preset, not by the player and not by whatever a
+     * previous pipeline happened to save. Stored attribute overrides are applied after a preset is assembled, so
+     * without this a pipeline saved under ray reconstruction would drag it into the preset that must not have it -
+     * DLSS would then denoise a picture NRD had already cleaned.
+     */
+    private static void normaliseRayReconstruction() {
+        boolean wanted = Objects.equals(Presets.RT_DLSSRR.key, INSTANCE.activePresetName);
+        for (Module module : INSTANCE.modules) {
+            if (module != null && Objects.equals(module.name, DLSS_MODULE_NAME)) {
+                setRayReconstructionOn(module, wanted);
+            }
+        }
     }
 
     private static void applyPresetModuleOverrides(List<PresetStoredModule> storedModules) {
@@ -2301,6 +2339,7 @@ public class Pipeline {
         if (loadedMode == PipelineMode.PRESET) {
             assemblePreset(INSTANCE.activePresetName);
             applyPresetModuleOverrides(storage.presetModules);
+            normaliseRayReconstruction();
             build();
             return;
         }

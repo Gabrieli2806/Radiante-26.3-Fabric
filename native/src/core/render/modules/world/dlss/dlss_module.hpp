@@ -63,6 +63,13 @@ class DLSSModule : public WorldModule, public SharedObject<DLSSModule> {
 
     // dlss
     std::shared_ptr<DlssRR> dlss_;
+    /**
+     * The same module drives both NVIDIA features. With ray reconstruction on, DLSS_RR denoises and upscales in
+     * one step and the G-buffer inputs matter; with it off, plain DLSS only upscales a picture NRD has already
+     * denoised, and wants nothing but colour, depth and motion vectors.
+     */
+    std::shared_ptr<DlssSR> dlssSR_;
+    bool rayReconstruction_ = true;
     NgxContext::SupportedSizes supportedSizes_{};
     NVSDK_NGX_PerfQuality_Value mode_ = NVSDK_NGX_PerfQuality_Value_Balanced;
 

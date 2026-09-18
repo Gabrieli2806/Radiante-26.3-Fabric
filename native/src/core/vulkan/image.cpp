@@ -9,13 +9,14 @@
 #include <cstring>
 #include <iostream>
 #include <sstream>
+#include "core/util/logging.hpp"
 
 std::ostream &imageCout() {
-    return std::cout << "[Image] ";
+    return radiante::out() << "[Image] ";
 }
 
 std::ostream &imageCerr() {
-    return std::cerr << "[Image] ";
+    return radiante::err() << "[Image] ";
 }
 
 VkImageAspectFlags vk::DeviceLocalImage::imageAspectMask(VkImageUsageFlags usage) {
@@ -663,11 +664,11 @@ VkSamplerAddressMode vk::Sampler::vkAddressMode() {
 }
 
 std::ostream &imageLoaderCout() {
-    return std::cout << "[ImageLoader] ";
+    return radiante::out() << "[ImageLoader] ";
 }
 
 std::ostream &imageLoaderCerr() {
-    return std::cerr << "[ImageLoader] ";
+    return radiante::err() << "[ImageLoader] ";
 }
 
 // 0~1 float

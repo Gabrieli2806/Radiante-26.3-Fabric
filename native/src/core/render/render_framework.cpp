@@ -17,10 +17,11 @@
 #include "core/render/world.hpp"
 
 #include <iostream>
+#include "core/util/logging.hpp"
 
 namespace {
 std::ostream &renderFrameworkCerr() {
-    return std::cerr << "[Render Framework] ";
+    return radiante::err() << "[Render Framework] ";
 }
 
 VkImageLayout worldOutputRestingLayout() {
@@ -267,11 +268,11 @@ void startWatchdog(VkDevice device) {
             double opMs = std::chrono::duration<double, std::milli>(
                               std::chrono::steady_clock::duration(nowTicks() - vk::queueOpStart().load()))
                               .count();
-            std::cout << "[Radiante-Watchdog] no frame for " << stalledMs << " ms; last submitted timeline value "
+            radiante::out() << "[Radiante-Watchdog] no frame for " << stalledMs << " ms; last submitted timeline value "
                       << g_watchValue.load() << ", completed " << counter << " (result " << result
                       << "); queue op " << (op != nullptr ? op : "none")
                       << (op != nullptr ? " running for " + std::to_string(opMs) + " ms" : std::string()) << std::endl;
-            std::cout.flush();
+            radiante::out().flush();
         }
     }).detach();
 }

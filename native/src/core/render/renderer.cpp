@@ -4,6 +4,7 @@
 #include "core/render/render_framework.hpp"
 #include "core/render/textures.hpp"
 #include "core/render/world.hpp"
+#include "core/util/logging.hpp"
 
 std::filesystem::path Renderer::folderPath{};
 Options Renderer::options{};
@@ -44,6 +45,6 @@ void Renderer::close() {
     framework_ = nullptr;
 
 #ifdef DEBUG
-    std::cout << "Renderer closed" << std::endl;
+    radiante::out() << "Renderer closed" << std::endl;
 #endif
 }

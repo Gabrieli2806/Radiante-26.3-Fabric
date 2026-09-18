@@ -105,6 +105,14 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    setLoggingEnabled
+ * Signature: (Z)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setLoggingEnabled
+  (JNIEnv *, jclass, jboolean);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
  * Method:    shouldRenderWorld
  * Signature: (Z)V
  */
