@@ -14,7 +14,7 @@ import org.lwjgl.system.MemoryStack;
 public class BufferProxy {
 
     private static final int WORLD_UBO_SIZE = 592;
-    private static final int SKY_UBO_SIZE = 80;
+    private static final int SKY_UBO_SIZE = 112;
     private static final int TEXTURE_MAPPING_ENTRIES = 4096;
 
     private static native void updateWorldUniform(long ptr);
@@ -112,7 +112,9 @@ public class BufferProxy {
                              int moonPhase,
                              float rainGradient,
                              int sunTextureId,
-                             int moonTextureId) {
+                             int moonTextureId,
+                             Vector4fc sunUvRect,
+                             Vector4fc moonUvRect) {
     }
 
     public static void updateSkyUniform(SkyUniform uniform) {
@@ -161,6 +163,25 @@ public class BufferProxy {
             bb.putInt(offset, uniform.sunTextureId());
             offset += Integer.BYTES;
             bb.putInt(offset, uniform.moonTextureId());
+            offset += Integer.BYTES;
+            offset += Integer.BYTES; // pad0
+
+            bb.putFloat(offset, uniform.sunUvRect().x());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.sunUvRect().y());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.sunUvRect().z());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.sunUvRect().w());
+            offset += Float.BYTES;
+
+            bb.putFloat(offset, uniform.moonUvRect().x());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.moonUvRect().y());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.moonUvRect().z());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.moonUvRect().w());
 
             updateSkyUniform(addr);
         }

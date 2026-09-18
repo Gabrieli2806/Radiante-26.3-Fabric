@@ -267,6 +267,12 @@ namespace Data {
         T_UINT sunTextureID;
         T_UINT moonTextureID;
         T_UINT pad0;
+
+        // Where each body sits in the celestials atlas, as (u0, v0, u1, v1). Minecraft 26.3 stitches the sun and
+        // the eight moon phases into one runtime atlas, so neither can be sampled as a whole texture and the moon
+        // has no fixed grid to index - the phase is picked on the Java side and its rectangle handed over here.
+        T_VEC4 sunUvRect;
+        T_VEC4 moonUvRect;
     };
 
     struct TextureMapEntry {

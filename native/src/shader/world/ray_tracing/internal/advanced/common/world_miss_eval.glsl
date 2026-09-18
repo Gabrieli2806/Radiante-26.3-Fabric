@@ -51,6 +51,20 @@ vec4 sampleTextureLod0(sampler2D tex, vec2 uv) {
     return sampleTexture(tex, clampedUv, 0.0, false);
 }
 
+vec4 sampleSpriteLod0(sampler2D tex, vec2 uv01, vec4 uvRect) {
+    // The sun and the moon phases live in one runtime-stitched atlas, so each is a rectangle inside it rather
+    // than a texture of its own or a tile of a fixed grid. Half a texel is trimmed off every edge so the sampler
+    // cannot bleed in whatever was stitched next door.
+    ivec2 texSize = textureSize(tex, 0);
+    if (texSize.x <= 0 || texSize.y <= 0) return vec4(0.0);
+    if (uvRect.z <= uvRect.x || uvRect.w <= uvRect.y) return vec4(0.0);
+    vec2 halfTexel = 0.5 / vec2(texSize);
+    vec2 minUv = uvRect.xy + halfTexel;
+    vec2 maxUv = uvRect.zw - halfTexel;
+    vec2 atlasUv = mix(minUv, maxUv, clamp(uv01, 0.0, 1.0));
+    return sampleTexture(tex, atlasUv, 0.0, false);
+}
+
 vec4 sampleAtlasLod0(sampler2D tex, vec2 uv01, uvec2 tileCount, uvec2 tile) {
     ivec2 texSize = textureSize(tex, 0);
     if (texSize.x <= 0 || texSize.y <= 0) return vec4(0.0);
@@ -79,7 +93,7 @@ vec4 evalSunBillboard(vec3 rayDir) {
     vec2 a = abs(q);
     if (a.x > tanHalf || a.y > tanHalf) return vec4(0.0);
     vec2 uv = q / tanHalf * 0.5 + 0.5;
-    return sampleTextureLod0(textures[nonuniformEXT(skyUBO.sunTextureID)], uv);
+    return sampleSpriteLod0(textures[nonuniformEXT(skyUBO.sunTextureID)], uv, skyUBO.sunUvRect);
 }
 
 vec4 evalMoonBillboard(vec3 rayDir) {
@@ -96,9 +110,7 @@ vec4 evalMoonBillboard(vec3 rayDir) {
     vec2 a = abs(q);
     if (a.x > tanHalf || a.y > tanHalf) return vec4(0.0);
     vec2 uv = q / tanHalf * 0.5 + 0.5;
-    uvec2 tileCount = uvec2(4u, 2u);
-    uvec2 tile = uvec2(skyUBO.moonPhase % tileCount.x, (skyUBO.moonPhase / tileCount.x) % tileCount.y);
-    return sampleAtlasLod0(textures[nonuniformEXT(skyUBO.moonTextureID)], uv, tileCount, tile);
+    return sampleSpriteLod0(textures[nonuniformEXT(skyUBO.moonTextureID)], uv, skyUBO.moonUvRect);
 }
 
 void main() {

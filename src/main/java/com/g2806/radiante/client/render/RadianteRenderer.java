@@ -31,6 +31,10 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.state.level.SkyRenderState;
 import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.MoonPhase;
 import net.minecraft.core.SectionPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.dimension.DimensionType;
@@ -238,10 +242,34 @@ public final class RadianteRenderer {
             .normalize();
 
 
+        TextureAtlas celestials = minecraft.getAtlasManager().getAtlasOrThrow(AtlasIds.CELESTIALS);
+        int celestialsId = TextureTracker.idOf(celestials.getTexture());
+
         BufferProxy.updateSkyUniform(new BufferProxy.SkyUniform(skyColor, horizonColor, sunDirection, skyType,
             Mth.sin(sky.sunAngle) >= 0.0f && horizonColor.w() > 0.0f, sky.shouldRenderDarkDisc,
             cameraState.entityRenderState.doesMobEffectBlockSky, submersionTypeOf(cameraState.fogType),
-            sky.moonPhase.ordinal(), 1.0f - sky.rainBrightness, 0, 0));
+            sky.moonPhase.ordinal(), 1.0f - sky.rainBrightness, celestialsId, celestialsId,
+            spriteRect(celestials, SUN_SPRITE),
+            spriteRect(celestials, moonSprite(sky.moonPhase))));
+    }
+
+    private static final Identifier SUN_SPRITE = Identifier.withDefaultNamespace("sun");
+
+    /** The eight phases are separate sprites named after the phase, not tiles of a fixed grid. */
+    private static Identifier moonSprite(MoonPhase phase) {
+        return Identifier.withDefaultNamespace("moon/" + phase.getSerializedName());
+    }
+
+    /**
+     * Where a sprite sits in its atlas, as (u0, v0, u1, v1). A missing sprite collapses to a zero rectangle, which
+     * samples one texel rather than stretching some unrelated neighbour across the whole sky.
+     */
+    private static Vector4f spriteRect(TextureAtlas atlas, Identifier sprite) {
+        TextureAtlasSprite found = atlas.getSprite(sprite);
+        if (found == null) {
+            return new Vector4f(0.0f);
+        }
+        return new Vector4f(found.getU0(), found.getV0(), found.getU1(), found.getV1());
     }
 
     /**
