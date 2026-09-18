@@ -59,10 +59,6 @@ tasks.named("runClient", JavaExec) {
 	}
 	// Prints which Vulkan library LWJGL ends up loading, which is how we tell whether frame generation can hook
 	// Minecraft's presentation at all.
-	// Runs the built in smoke test: builds a scene, photographs it into run/screenshots and exits.
-	if (project.hasProperty("smokeTest")) {
-		jvmArgs "-Dradiante.smokeTest=true"
-	}
 	if (project.hasProperty("lwjglDebug")) {
 		jvmArgs "-Dorg.lwjgl.util.DebugLoader=true", "-Dorg.lwjgl.util.Debug=true"
 	}

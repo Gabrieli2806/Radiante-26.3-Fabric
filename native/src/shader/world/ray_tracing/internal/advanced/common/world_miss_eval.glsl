@@ -89,7 +89,10 @@ vec4 evalSunBillboard(vec3 rayDir) {
     makeBasis(sunDir, right, up);
     vec2 p = vec2(dot(rayDir, right), dot(rayDir, up));
     vec2 q = p / max(z, 1e-4);
-    float tanHalf = tan(0.03);
+    // Vanilla draws the sun as a quad of half-width 30 at distance 100 (SkyRenderer.renderSun ->
+    // applyCelestialBodyTransform(pose, 100, 30)), so the half-angle's tangent is 30/100. The old 0.03 was that
+    // value ten times too small, which is why the disc read as a pinprick next to vanilla's.
+    float tanHalf = 30.0 / 100.0;
     vec2 a = abs(q);
     if (a.x > tanHalf || a.y > tanHalf) return vec4(0.0);
     vec2 uv = q / tanHalf * 0.5 + 0.5;
@@ -106,7 +109,8 @@ vec4 evalMoonBillboard(vec3 rayDir) {
     makeBasis(moonDir, right, up);
     vec2 p = vec2(dot(rayDir, right), dot(rayDir, up));
     vec2 q = p / max(z, 1e-4);
-    float tanHalf = tan(0.05);
+    // Same derivation as the sun, with vanilla's moon half-width of 20 at distance 100.
+    float tanHalf = 20.0 / 100.0;
     vec2 a = abs(q);
     if (a.x > tanHalf || a.y > tanHalf) return vec4(0.0);
     vec2 uv = q / tanHalf * 0.5 + 0.5;

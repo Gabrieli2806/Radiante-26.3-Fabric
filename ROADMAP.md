@@ -66,13 +66,25 @@ three consecutive in-game days show three distinct moon phases.
 
 Left alone deliberately: `sun_radiance` (`vec3(8,8,8)`) and `moon_radiance`
 (`vec3(0.64,0.8,1.6)`) are unchanged. With real textures the colour reads correctly,
-and the moon's cool tint is now a look question rather than a bug. Worth a second
-opinion in-game before touching.
+and the moon's cool tint is now a look question rather than a bug.
 
-Adjacent observation, not changed: the sun's angular size is small next to vanilla's.
-`evalSunBillboard` uses `tan(0.03)` (~3.4° across) while vanilla draws the sun quad
-at roughly 17°. The bloom hides most of it, but it is a real difference if anyone
-wants the vanilla read.
+Tried and reverted: softening the amber rim of `sun.png`, which the path tracer shows
+because the rim's blue channel is under a third of its red while vanilla blows the
+whole disc out to white. Mixing the disc toward white lit the sprite's dark padding
+and turned the sun into a white blob; desaturating toward luminance fixed that but
+drained the warmth that makes the sun read as the sun. Both looked worse than the
+rim. The sprite is drawn as-is.
+
+Angular size was wrong too, and is now fixed. Vanilla builds both bodies as a quad
+spanning -1..1, scaled and pushed out by `applyCelestialBodyTransform(pose, 100, s)`
+with `s` = 30 for the sun and 20 for the moon, so the half-angle's tangent is `s/100`.
+The shader had `tan(0.03)` and `tan(0.05)`, leaving the sun ten times and the moon
+four times too small. Both now use `30.0/100.0` and `20.0/100.0`.
+
+Verified by rendering the same camera with ray tracing off, so Minecraft drew the sky
+itself, and comparing crops: the sun's disc and the moon's disc are the same size in
+both renderers. The moon's "hollow square" look is not a bug either - it is the real
+`new_moon` sprite, and vanilla draws the identical silhouette.
 
 ## Also open from earlier sessions (not new, just not yet done)
 

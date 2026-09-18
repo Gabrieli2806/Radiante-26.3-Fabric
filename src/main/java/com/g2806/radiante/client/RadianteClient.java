@@ -51,8 +51,6 @@ public class RadianteClient implements ClientModInitializer {
     public void onInitializeClient() {
         ensureNativeLoaded();
 
-        SmokeTest.register();
-
         KeyMapping openSettings = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.radiante.open_settings",
             InputConstants.KEY_F6, KeyMapping.Category.MISC));
         KeyMapping toggleRayTracing = KeyMappingHelper.registerKeyMapping(
