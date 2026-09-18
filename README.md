@@ -2,6 +2,8 @@
 
 Path-traced rendering for Minecraft 26.3 (Fabric), built on Minecraft's own Vulkan backend.
 
+[GitHub](https://github.com/Gabrieli2806/Radiante-26.3-Fabric) · [Modrinth](https://modrinth.com/project/radiante)
+
 Radiante is a fork of [Radiance](https://github.com/Minecraft-Radiance/Radiance) and its native renderer
 [MCVR](https://github.com/Minecraft-Radiance/MCVR), rewritten for the render pearl (`com.mojang.renderpearl`)
 Vulkan backend introduced in Minecraft 26.3. Instead of creating its own Vulkan device next to the game, it

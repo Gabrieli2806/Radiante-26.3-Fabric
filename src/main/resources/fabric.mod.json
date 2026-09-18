@@ -14,6 +14,11 @@
   ],
   "license": "GPL-3.0",
   "icon": "assets/radiante/icon.png",
+  "contact": {
+    "homepage": "https://modrinth.com/project/radiante",
+    "sources": "https://github.com/Gabrieli2806/Radiante-26.3-Fabric",
+    "issues": "https://github.com/Gabrieli2806/Radiante-26.3-Fabric/issues"
+  },
   "environment": "client",
   "entrypoints": {
     "client": [
