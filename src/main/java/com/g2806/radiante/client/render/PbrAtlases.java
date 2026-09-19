@@ -78,9 +78,11 @@ public final class PbrAtlases {
         int found = 0;
         try {
             for (Map.Entry<Identifier, TextureAtlasSprite> entry : sprites.entrySet()) {
-                boolean any = stitch(resources, sprites, entry.getKey(), entry.getValue(), "_s", specular, width,
-                    height);
-                any |= stitch(resources, sprites, entry.getKey(), entry.getValue(), "_n", normal, width, height);
+                if (isPackMap(sprites, entry.getKey())) {
+                    continue;
+                }
+                boolean any = stitch(resources, entry.getKey(), entry.getValue(), "_s", specular, width, height);
+                any |= stitch(resources, entry.getKey(), entry.getValue(), "_n", normal, width, height);
                 if (any) {
                     found++;
                 }
@@ -105,6 +107,23 @@ public final class PbrAtlases {
         return found;
     }
 
+    /**
+     * True for a sprite that is itself one of a pack's PBR maps. Minecraft 26.3 builds the block atlas from a
+     * directory source, so every PNG under textures/block - "stone_s.png" and "stone_n.png" included - is stitched
+     * in as a sprite of its own. Those have to be skipped as bases, but they must not be refused as maps: an
+     * earlier version rejected any map that was also a sprite, and with a directory source that is every map a
+     * pack ships, so no PBR pack worked at all. Vanilla has no texture named after another with these suffixes.
+     */
+    private static boolean isPackMap(Map<Identifier, TextureAtlasSprite> sprites, Identifier spriteId) {
+        String path = spriteId.getPath();
+        if (!path.endsWith("_s") && !path.endsWith("_n")) {
+            return false;
+        }
+        Identifier base = Identifier.fromNamespaceAndPath(spriteId.getNamespace(),
+            path.substring(0, path.length() - 2));
+        return sprites.containsKey(base);
+    }
+
     private static ByteBuffer fill(int width, int height, int value) {
         ByteBuffer buffer = MemoryUtil.memAlloc(width * height * 4);
         for (int i = 0; i < width * height; i++) {
@@ -118,17 +137,8 @@ public final class PbrAtlases {
      * base texture, and animated textures stack their frames, so only the first frame is read and it is point
      * sampled to the size the sprite occupies.
      */
-    private static boolean stitch(ResourceManager resources, Map<Identifier, TextureAtlasSprite> sprites,
-        Identifier spriteId, TextureAtlasSprite sprite, String suffix, ByteBuffer target, int width, int height) {
-        Identifier mapCandidate = Identifier.fromNamespaceAndPath(spriteId.getNamespace(),
-            spriteId.getPath() + suffix);
-        // Some textures are named after another one with this very suffix, so "rail_corner" would claim
-        // "rail_corner_s" as its specular map when that is a texture in its own right. A file the atlas already
-        // stitched as a sprite is never a PBR map.
-        if (sprites.containsKey(mapCandidate)) {
-            return false;
-        }
-
+    private static boolean stitch(ResourceManager resources, Identifier spriteId, TextureAtlasSprite sprite,
+        String suffix, ByteBuffer target, int width, int height) {
         Identifier mapId = Identifier.fromNamespaceAndPath(spriteId.getNamespace(),
             "textures/" + spriteId.getPath() + suffix + ".png");
         Optional<Resource> resource = resources.getResource(mapId);
