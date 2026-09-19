@@ -55,6 +55,28 @@ public final class EntityManager {
     private static final int PARTICLES_ID = "radiante:particles".hashCode();
     private static final PBRVertexWriter PARTICLE_WRITER = new PBRVertexWriter(4096);
     private static final int HAND_ID = "radiante:hand".hashCode();
+    private static final int WEATHER_ID = "radiante:weather".hashCode();
+    private static final int RAY_TRACING_WEATHER = 0b00010000;
+    private static final PBRVertexWriter WEATHER_WRITER = new PBRVertexWriter(4096);
+    private static final net.minecraft.resources.Identifier RAIN_TEXTURE =
+        net.minecraft.resources.Identifier.withDefaultNamespace("textures/environment/rain.png");
+    private static final net.minecraft.resources.Identifier SNOW_TEXTURE =
+        net.minecraft.resources.Identifier.withDefaultNamespace("textures/environment/snow.png");
+    /** Vanilla's per-column facing: each sheet is turned side-on to the camera column it stands in. */
+    private static final float[] WEATHER_COLUMN_X = new float[32 * 32];
+    private static final float[] WEATHER_COLUMN_Z = new float[32 * 32];
+
+    static {
+        for (int z = 0; z < 32; z++) {
+            for (int x = 0; x < 32; x++) {
+                float deltaX = x - 16;
+                float deltaZ = z - 16;
+                float distance = Mth.length(deltaX, deltaZ);
+                WEATHER_COLUMN_X[z * 32 + x] = distance == 0.0f ? 0.0f : -deltaZ / distance;
+                WEATHER_COLUMN_Z[z * 32 + x] = distance == 0.0f ? 0.0f : deltaX / distance;
+            }
+        }
+    }
 
     private EntityManager() {
     }
@@ -85,6 +107,7 @@ public final class EntityManager {
         }
 
         collectParticles(levelRenderState, cameraState);
+        collectWeather(levelRenderState, cameraState);
         collectHands(minecraft, levelRenderState, cameraState);
 
         upload(NativeGeometry.COORDINATE_WORLD);
@@ -247,6 +270,87 @@ public final class EntityManager {
             PENDING.add(new PendingEntity(PARTICLES_ID, camera.x(), camera.y(), camera.z(), RAY_TRACING_PARTICLE,
                 layers));
         }
+    }
+
+    /**
+     * Rain and snow: the same sheets vanilla draws, built from the columns Minecraft already extracted. They go in
+     * under the weather mask, which camera rays see and shadow rays skip, and use the stochastic alpha mode so a
+     * streak is a faint visible surface rather than clear glass.
+     */
+    private static void collectWeather(LevelRenderState levelRenderState, CameraRenderState cameraState) {
+        net.minecraft.client.renderer.state.level.WeatherRenderState weather = levelRenderState.weatherRenderState;
+        if (weather.intensity <= 0.0f || (weather.rainColumns.isEmpty() && weather.snowColumns.isEmpty())) {
+            return;
+        }
+
+        Vec3 camera = cameraState.pos;
+        List<PendingLayer> layers = new ArrayList<>();
+        addWeatherLayer(layers, weather.rainColumns, RAIN_TEXTURE, camera, 1.0f, weather.radius, weather.intensity);
+        addWeatherLayer(layers, weather.snowColumns, SNOW_TEXTURE, camera, 0.8f, weather.radius, weather.intensity);
+        if (!layers.isEmpty()) {
+            PENDING.add(new PendingEntity(WEATHER_ID, camera.x(), camera.y(), camera.z(), RAY_TRACING_WEATHER,
+                layers));
+        }
+    }
+
+    private static void addWeatherLayer(List<PendingLayer> layers,
+        List<net.minecraft.client.renderer.WeatherEffectRenderer.ColumnInstance> columns,
+        net.minecraft.resources.Identifier texture, Vec3 camera, float maxAlpha, int radius, float intensity) {
+        if (columns.isEmpty()) {
+            return;
+        }
+        int textureId = TextureTracker.idOf(texture);
+        if (textureId == 0) {
+            return;
+        }
+
+        PBRVertexWriter writer = WEATHER_WRITER.textureId(textureId)
+            .glintTextureId(0)
+            .alphaMode(PBRVertexWriter.ALPHA_MODE_STOCHASTIC)
+            .coordinate(NativeGeometry.COORDINATE_WORLD)
+            .albedoEmission(0.0f)
+            .overlayEnabled(false)
+            .computeQuadNormals(true);
+        writer.reset();
+
+        float radiusSq = Math.max(radius * radius, 1);
+        int cameraX = Mth.floor(camera.x());
+        int cameraZ = Mth.floor(camera.z());
+        for (net.minecraft.client.renderer.WeatherEffectRenderer.ColumnInstance column : columns) {
+            int indexX = column.x() - cameraX + 16;
+            int indexZ = column.z() - cameraZ + 16;
+            if (indexX < 0 || indexX >= 32 || indexZ < 0 || indexZ >= 32) {
+                continue;
+            }
+            float relativeX = (float) (column.x() + 0.5 - camera.x());
+            float relativeZ = (float) (column.z() + 0.5 - camera.z());
+            float distanceSq = relativeX * relativeX + relativeZ * relativeZ;
+            float alpha = Mth.lerp(Math.min(distanceSq / radiusSq, 1.0f), maxAlpha, 0.5f) * intensity;
+            int color = net.minecraft.util.ARGB.white(alpha);
+            float halfX = WEATHER_COLUMN_X[indexZ * 32 + indexX] / 2.0f;
+            float halfZ = WEATHER_COLUMN_Z[indexZ * 32 + indexX] / 2.0f;
+            float x0 = relativeX - halfX;
+            float x1 = relativeX + halfX;
+            float z0 = relativeZ - halfZ;
+            float z1 = relativeZ + halfZ;
+            float y1 = (float) (column.topY() - camera.y());
+            float y0 = (float) (column.bottomY() - camera.y());
+            float u0 = column.uOffset();
+            float u1 = column.uOffset() + 1.0f;
+            float v0 = column.bottomY() * 0.25f + column.vOffset();
+            float v1 = column.topY() * 0.25f + column.vOffset();
+            writer.addVertex(x0, y1, z0).setColor(color).setUv(u0, v0).setLight(column.lightCoords());
+            writer.addVertex(x1, y1, z1).setColor(color).setUv(u1, v0).setLight(column.lightCoords());
+            writer.addVertex(x1, y0, z1).setColor(color).setUv(u1, v1).setLight(column.lightCoords());
+            writer.addVertex(x0, y0, z0).setColor(color).setUv(u0, v1).setLight(column.lightCoords());
+        }
+
+        writer.finish();
+        if (writer.vertexCount() == 0 || writer.vertexCount() % 4 != 0) {
+            return;
+        }
+        layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT, textureId, writer.vertexCount(),
+            copyVertices(writer), "Entity"));
     }
 
     /** The held items and arms are submitted separately from the world and follow the camera. */

@@ -73,6 +73,8 @@ public class Options {
      * on when someone is reporting a problem and the detail is worth having.
      */
     public static boolean debugLogging = false;
+    /** Per-biome haze in the overworld: warm dust over deserts, thick green air over swamps, and so on. */
+    public static boolean biomeFog = true;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
     public static boolean frameGeneration = false;
     /** Frames DLSS generates per rendered frame: 0 is off, 1 is 2x, up to 5 for 6x. */
@@ -127,6 +129,7 @@ public class Options {
                     String.valueOf(chunkBuildingThreads))), false);
             setDebugLogging(Boolean.parseBoolean(props.getProperty("debugLogging",
                     String.valueOf(debugLogging))), false);
+            biomeFog = Boolean.parseBoolean(props.getProperty("biomeFog", String.valueOf(biomeFog)));
             setCollectChunkEmission(Boolean.parseBoolean(props.getProperty("collectChunkEmission",
                     String.valueOf(collectChunkEmission))),
                 false);
@@ -161,6 +164,7 @@ public class Options {
         props.setProperty("chunkBuildingThreads", String.valueOf(chunkBuildingThreads));
         props.setProperty("collectChunkEmission", String.valueOf(collectChunkEmission));
         props.setProperty("debugLogging", String.valueOf(debugLogging));
+        props.setProperty("biomeFog", String.valueOf(biomeFog));
         props.setProperty("rayTracingEnabled", String.valueOf(rayTracingEnabled));
         props.setProperty("useOpenGl", String.valueOf(useOpenGl));
         props.setProperty("frameGeneration", String.valueOf(frameGeneration));

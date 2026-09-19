@@ -34,14 +34,19 @@ an invisible `moving_piston` (or air) while they move. It now tesselates them
 with a `ModelBlockRenderer` the way vanilla's `MovingBlockFeatureRenderer` does
 and writes the quads into the solid/cutout/translucent moving-block layers.
 
-## Per-biome fog/ambiance
+## Per-biome fog/ambiance — implemented, pending in-game tuning
 
-Bedrock RTX tints fog and ambient light by biome (desert reads warm and hazy,
-swamp reads green and thick, etc). Nothing in the current pipeline does this —
-fog is currently a flat color/distance pair set once per frame
-(`RadianteRenderer.updateUniforms`, `WorldUBO.fogColor/fogStart/fogEnd`), with
-no per-biome variation. Would need biome color data threaded from Java into a
-new uniform, then read in the fog/sky shaders.
+Option "Biome Fog" (`Options.biomeFog`, on by default). `BiomeAmbiance` samples
+a 3x3 grid of biomes 12 blocks apart around the camera, maps each to a tint and
+an extinction per block (vanilla keys first, then biome tags, then climate for
+modded biomes), eases the result in over ~2 s, thickens it with rain, and
+scales it by the camera's sky light so caves stay clear. It reaches the shaders
+as `SkyUBO.biomeFog` (rgb tint, a density). Both packs apply it in `world.rgen`
+as an extra exponential haze lit by the sky's horizon colour, folded into the
+DLSS-RR output and the NRD compose fog alike; the volumetric branch now
+combines with it instead of overwriting it. Values are our own, not copied
+from any Bedrock pack. Overworld only: Nether fog already comes per biome from
+vanilla's fog colour.
 
 ## Advanced settings menu
 
@@ -98,10 +103,14 @@ both renderers. The moon's "hollow square" look is not a bug either - it is the 
   measured (99.9% drop in indirect-light coverage vs. DLSS-RR on the same
   scene), root cause not yet found. Blocks offering NRD-based presets
   (FSR/XeSS/plain NRD) as a real alternative to DLSS.
-- Two `VK_ERROR_DEVICE_LOST` crashes reported (`Failed to wait for semaphore`),
-  not yet reproduced/diagnosed.
+- `VK_ERROR_DEVICE_LOST` / 5 s semaphore timeout a few seconds into a world:
+  reproduced, and it is DLSS Ray Reconstruction at **Ultra Performance** —
+  clean HEAD crashes with it, Balanced and Performance run. Worked around (mode
+  hidden in the options, mapped to Performance natively); the root cause of the
+  GPU hang is still open. Older reports may have been the same thing.
 - Held-item light (a torch in hand doesn't light its surroundings, only itself).
 - Vanilla (non-volumetric) cloud rendering — needs decoding Minecraft's packed
   cloud face format.
-- Weather, block selection outline, block-breaking animation, enchantment
-  glint, damage flash — not ported yet.
+- Block selection outline, block-breaking animation, enchantment glint, damage
+  flash — not ported yet. (Weather is in: rain/snow sheets from
+  `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)

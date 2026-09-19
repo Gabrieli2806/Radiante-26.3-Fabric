@@ -181,5 +181,7 @@
   "options.radiante.pixelated_lighting": "像素化光照",
   "options.radiante.cloud_mode": "云",
   "render_pipeline.module.ray_tracing.attribute.cloud_mode.off": "关闭",
-  "render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric": "体积云"
+  "render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric": "体积云",
+  "options.radiante.biome_fog": "生物群系雾",
+  "options.radiante.biome_fog.tooltip": "主世界按生物群系变化的雾气：沙漠温暖多尘，沼泽浓重偏绿，雪地清冷。在生物群系之间平滑过渡，不会进入洞穴。"
 }

@@ -89,6 +89,12 @@ bool DLSSModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::DeviceLo
 
     if (images.size() != inputImageNum) return false;
 
+    // Ray Reconstruction at Ultra Performance hangs the GPU shortly after a world loads; until that is understood,
+    // run it at Performance instead. A config saved with Ultra Performance would otherwise crash on every join.
+    if (rayReconstruction_ && mode_ == NVSDK_NGX_PerfQuality_Value_UltraPerformance) {
+        mode_ = NVSDK_NGX_PerfQuality_Value_MaxPerf;
+    }
+
     NgxContext::QuerySizeInfo querySizeInfo{};
     querySizeInfo.outputSize.width = outputWidth_;
     querySizeInfo.outputSize.height = outputHeight_;

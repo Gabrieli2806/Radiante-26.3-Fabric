@@ -190,6 +190,27 @@ bool finiteVec3(vec3 value) {
     return !any(isnan(value)) && !any(isinf(value));
 }
 
+// Per-biome haze (skyUBO.biomeFog: rgb = tint, a = extinction per block, 0 when off or out of the sky). Lit by the
+// sky along the view's horizon, tinted towards the biome's colour, thickest at the horizon and clear at the zenith.
+const float BIOME_HAZE_MAX_DISTANCE = 320.0;
+
+bool biomeHazeActive() {
+    return skyUBO.biomeFog.a > 0.0 && worldUBO.skyType == 1 && skyUBO.cameraSubmersionType == 3 &&
+           skyUBO.hasBlindnessOrDarkness == 0;
+}
+
+void biomeHaze(vec3 rayDir, bool hitSky, float hitDistance, out float transmittance, out vec3 additive) {
+    float hazeDistance = hitSky ? BIOME_HAZE_MAX_DISTANCE * (1.0 - smoothstep(0.0, 0.45, rayDir.y)) :
+                              min(hitDistance, BIOME_HAZE_MAX_DISTANCE);
+    transmittance = exp(-skyUBO.biomeFog.a * max(hazeDistance, 0.0));
+
+    vec3 horizonDir = normalize(vec3(rayDir.x, 0.12, rayDir.z));
+    vec3 skyLight = texture(skyFull, horizonDir).rgb;
+    float skyLuma = dot(skyLight, vec3(0.2126, 0.7152, 0.0722));
+    vec3 hazeRadiance = mix(skyLight, skyLuma * skyUBO.biomeFog.rgb, 0.75);
+    additive = hazeRadiance * (1.0 - transmittance);
+}
+
 float volumetricLightLuminance(vec3 value) {
     return dot(value, vec3(0.2126, 0.7152, 0.0722));
 }
@@ -1059,6 +1080,28 @@ void main() {
         }
     }
 
+    if (!raySkipFog(mainRay) && biomeHazeActive()) {
+        float hazeTransmittance;
+        vec3 hazeAdditive;
+        biomeHaze(orgDirection, psrHitSky, psrHitSky ? 0.0 : length(psrHitPosition - eyePos), hazeTransmittance,
+                  hazeAdditive);
+        if (useTransparentSplit) {
+            transparentReflectionRadiance *= hazeTransmittance;
+            transparentRefractionRadiance *= hazeTransmittance;
+            transparentFogAdditive = transparentFogAdditive * hazeTransmittance + hazeAdditive;
+            transparentFogTransmittance *= hazeTransmittance;
+        } else {
+            mainRay.radiance = mainRay.radiance * hazeTransmittance + hazeAdditive;
+            if (composeFogTransmittance < 0.0) {
+                composeFogTransmittance = hazeTransmittance;
+                composeFogAdditive = hazeAdditive;
+            } else {
+                composeFogAdditive = composeFogAdditive * hazeTransmittance + hazeAdditive;
+                composeFogTransmittance *= hazeTransmittance;
+            }
+        }
+    }
+
     if (useTransparentSplit) {
         firstHitEmission += transparentFogAdditive;
         mainRay.radiance = transparentReflectionRadiance + transparentRefractionRadiance + firstHitEmission;
@@ -1111,8 +1154,15 @@ void main() {
                                volumetricTransmittance, volumetricLight);
         mainRay.radiance = mainRay.radiance * volumetricTransmittance + volumetricLight;
         if (!useTransparentSplit) {
-            composeFogTransmittance = clamp(volumetricLightLuminance(volumetricTransmittance), 0.0, 1.0);
-            composeFogAdditive = volumetricLight;
+            // Folded into whatever fog is already composed (the biome haze) rather than replacing it.
+            float volumetricComposeTransmittance = clamp(volumetricLightLuminance(volumetricTransmittance), 0.0, 1.0);
+            if (composeFogTransmittance < 0.0) {
+                composeFogTransmittance = volumetricComposeTransmittance;
+                composeFogAdditive = volumetricLight;
+            } else {
+                composeFogAdditive = composeFogAdditive * volumetricComposeTransmittance + volumetricLight;
+                composeFogTransmittance *= volumetricComposeTransmittance;
+            }
         }
     }
     bool isFirstHitSpecular = useTransparentSplit ? hasTransparentReflection :

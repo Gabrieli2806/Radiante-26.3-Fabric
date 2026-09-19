@@ -35,6 +35,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private int pendingChunkTotalBatches = Options.chunkBuildingTotalBatches;
     private boolean pendingCollectEmission = Options.collectChunkEmission;
     private boolean pendingDebugLogging = Options.debugLogging;
+    private boolean pendingBiomeFog = Options.biomeFog;
     private boolean applied;
 
     public RadianteOptionsScreen(Screen lastScreen, net.minecraft.client.Options options) {
@@ -54,6 +55,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingChunkTotalBatches = previous.pendingChunkTotalBatches;
         this.pendingCollectEmission = previous.pendingCollectEmission;
         this.pendingDebugLogging = previous.pendingDebugLogging;
+        this.pendingBiomeFog = previous.pendingBiomeFog;
     }
 
     /**
@@ -255,8 +257,12 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             OptionInstance.createBoolean("options.radiante.collect_chunk_emission", this.pendingCollectEmission,
                 value -> this.pendingCollectEmission = value));
 
-        this.list.addSmall(OptionInstance.createBoolean("options.radiante.debug_logging", this.pendingDebugLogging,
-            value -> this.pendingDebugLogging = value));
+        this.list.addSmall(
+            OptionInstance.createBoolean("options.radiante.biome_fog",
+                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
+                this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
+            OptionInstance.createBoolean("options.radiante.debug_logging", this.pendingDebugLogging,
+                value -> this.pendingDebugLogging = value));
     }
 
     @Override
@@ -283,6 +289,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         if (this.pendingCollectEmission != Options.collectChunkEmission) {
             Options.setCollectChunkEmission(this.pendingCollectEmission, false);
         }
+        Options.biomeFog = this.pendingBiomeFog;
         if (this.pendingDebugLogging != Options.debugLogging) {
             Options.setDebugLogging(this.pendingDebugLogging, false);
         }

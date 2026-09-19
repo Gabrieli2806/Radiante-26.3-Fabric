@@ -77,6 +77,13 @@ void main() {
         alpha *= sampleTexture(textures[nonuniformEXT(textureID)], uv, lod, false).a;
     }
 
+    if (alphaMode == ALPHA_MODE_STOCHASTIC && alpha >= 0.05 && alpha < 0.999) {
+        uint seed = xxhash32(uvec3(gl_LaunchIDEXT.xy, ubo.seed ^ uint(gl_PrimitiveID)));
+        if (rand(seed) >= alpha) {
+            ignoreIntersectionEXT;
+            return;
+        }
+    }
     alpha = resolveSurfaceAlpha(alpha, alphaMode);
     if (alpha < 0.05) {
         ignoreIntersectionEXT;

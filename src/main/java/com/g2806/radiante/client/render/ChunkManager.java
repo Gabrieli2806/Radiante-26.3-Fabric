@@ -68,6 +68,15 @@ public final class ChunkManager {
     private static final java.util.concurrent.ConcurrentHashMap<Long, Integer> latestBuild =
         new java.util.concurrent.ConcurrentHashMap<>();
     private static final AtomicInteger buildSequence = new AtomicInteger();
+    /**
+     * The section each grid slot currently holds. Builds are queued faster than they run, so after a teleport the
+     * queue is still full of sections from where the player was; by the time one of those finishes, its slot belongs
+     * to a section at the new location. Checking ownership drops that work before it is compiled, and stops a late
+     * one from writing the old area back into a slot that now stands somewhere else.
+     */
+    private static java.util.concurrent.atomic.AtomicLongArray slotOwner =
+        new java.util.concurrent.atomic.AtomicLongArray(0);
+    private static final long NO_OWNER = Long.MIN_VALUE;
 
     private ChunkManager() {
     }
@@ -93,6 +102,10 @@ public final class ChunkManager {
             compiledSections.clear();
         }
         latestBuild.clear();
+        slotOwner = new java.util.concurrent.atomic.AtomicLongArray(gridSizeXZ * gridSizeXZ * gridSizeY);
+        for (int i = 0; i < slotOwner.length(); i++) {
+            slotOwner.set(i, NO_OWNER);
+        }
         forceAllDirty = true;
         executor = Executors.newFixedThreadPool(Math.max(1, Options.chunkBuildingThreads), runnable -> {
             Thread thread = new Thread(runnable, "Radiante Section Builder");
@@ -136,34 +149,54 @@ public final class ChunkManager {
         forceAllDirty = false;
         RenderRegionCache cache = new RenderRegionCache();
         List<SectionUpdateTracker.SectionDirtyState> candidates = new ArrayList<>();
-        ((SectionTrackerAccess) tracker).radiante$forEachSection(state -> {
-            long node = state.getSectionNode();
-            int slot = slotOf(node);
-            if (slot < 0) {
-                return;
-            }
-
-            int previous = sectionNodeBySlot.getOrDefault(slot, Integer.MIN_VALUE);
-            boolean moved = previous != slotHash(node);
-            if (moved) {
-                sectionNodeBySlot.put(slot, slotHash(node));
-                synchronized (compiledSections) {
-                    compiledSections.remove(node);
+        // Relocating a slot takes the grid's write lock, so a builder thread cannot check the slot's owner, lose it
+        // to the relocation, and then upload the old section into it anyway. Taken only on frames that move a slot.
+        boolean[] relocating = new boolean[1];
+        try {
+            ((SectionTrackerAccess) tracker).radiante$forEachSection(state -> {
+                long node = state.getSectionNode();
+                int slot = slotOf(node);
+                if (slot < 0) {
+                    return;
                 }
-                ChunkProxy.relocateSingle(slot, SectionPos.sectionToBlockCoord(SectionPos.x(node)),
-                    SectionPos.sectionToBlockCoord(SectionPos.y(node)),
-                    SectionPos.sectionToBlockCoord(SectionPos.z(node)));
-                state.setDirty(false);
-            }
 
-            if (rebuildAll) {
-                state.setDirty(false);
-            }
+                int previous = sectionNodeBySlot.getOrDefault(slot, Integer.MIN_VALUE);
+                boolean moved = previous != slotHash(node);
+                if (moved) {
+                    if (!relocating[0]) {
+                        GRID_LOCK.writeLock().lock();
+                        relocating[0] = true;
+                    }
+                    sectionNodeBySlot.put(slot, slotHash(node));
+                    long evicted = slot < slotOwner.length() ? slotOwner.getAndSet(slot, node) : NO_OWNER;
+                    synchronized (compiledSections) {
+                        compiledSections.remove(node);
+                        if (evicted != NO_OWNER) {
+                            compiledSections.remove(evicted);
+                        }
+                    }
+                    if (evicted != NO_OWNER) {
+                        latestBuild.remove(evicted);
+                    }
+                    ChunkProxy.relocateSingle(slot, SectionPos.sectionToBlockCoord(SectionPos.x(node)),
+                        SectionPos.sectionToBlockCoord(SectionPos.y(node)),
+                        SectionPos.sectionToBlockCoord(SectionPos.z(node)));
+                    state.setDirty(false);
+                }
 
-            if (state.isDirty()) {
-                candidates.add(state);
+                if (rebuildAll) {
+                    state.setDirty(false);
+                }
+
+                if (state.isDirty()) {
+                    candidates.add(state);
+                }
+            });
+        } finally {
+            if (relocating[0]) {
+                GRID_LOCK.writeLock().unlock();
             }
-        });
+        }
 
         if (candidates.isEmpty()) {
             return;
@@ -227,6 +260,11 @@ public final class ChunkManager {
         return SectionPos.of(sectionNode).center().distSqr(cameraBlock);
     }
 
+    private static boolean ownsSlot(int slot, long sectionNode) {
+        java.util.concurrent.atomic.AtomicLongArray owners = slotOwner;
+        return slot >= 0 && slot < owners.length() && owners.get(slot) == sectionNode;
+    }
+
     private static boolean isLatestBuild(long sectionNode, int sequence) {
         Integer latest = latestBuild.get(sectionNode);
         return latest == null || latest == sequence;
@@ -234,6 +272,12 @@ public final class ChunkManager {
 
     private static void compile(int slot, long sectionNode, RenderSectionRegion region, boolean important,
         int buildGeneration, int sequence) {
+        // Queued before a teleport or superseded by a newer build: compiling it would only delay the sections that
+        // are actually around the player.
+        if (buildGeneration != generation || !ownsSlot(slot, sectionNode) || !isLatestBuild(sectionNode, sequence)) {
+            return;
+        }
+
         SectionCompileScratch scratch = SCRATCH.get();
         scratch.reset();
 
@@ -271,17 +315,22 @@ public final class ChunkManager {
             }
         }
 
+        boolean uploaded = false;
         GRID_LOCK.readLock().lock();
         try {
-            // A section compiled for the previous world would land in a slot of the new grid.
-            if (buildGeneration == generation && isLatestBuild(sectionNode, sequence)) {
+            // A section compiled for the previous world would land in a slot of the new grid, and one compiled for
+            // a slot that has since been relocated would put the old area back.
+            if (buildGeneration == generation && ownsSlot(slot, sectionNode) && isLatestBuild(sectionNode, sequence)) {
                 upload(slot, sectionNode, sequence, origin, scratch, atlasId, important);
+                uploaded = true;
             }
         } finally {
             GRID_LOCK.readLock().unlock();
         }
-        synchronized (compiledSections) {
-            compiledSections.add(sectionNode);
+        if (uploaded) {
+            synchronized (compiledSections) {
+                compiledSections.add(sectionNode);
+            }
         }
     }
 
@@ -364,7 +413,8 @@ public final class ChunkManager {
         SectionUpload upload;
         while ((upload = IMPORTANT_UPLOADS.poll()) != null) {
             try {
-                if (upload.generation() == generation && isLatestBuild(upload.sectionNode(), upload.sequence())) {
+                if (upload.generation() == generation && ownsSlot(upload.slot(), upload.sectionNode())
+                    && isLatestBuild(upload.sectionNode(), upload.sequence())) {
                     upload.apply();
                 }
             } finally {

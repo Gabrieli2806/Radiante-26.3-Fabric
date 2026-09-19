@@ -211,5 +211,7 @@
   "screen.radiante.vulkan.title": "Switched to Vulkan",
   "screen.radiante.vulkan.message": "The game will use Vulkan the next time it starts, and Radiante can take over from there.\n\nRestart the game to try it.",
   "render_pipeline.module.dlss.attribute.ray_reconstruction": "Ray Reconstruction",
-  "options.radiante.debug_logging": "Debug Logging"
+  "options.radiante.debug_logging": "Debug Logging",
+  "options.radiante.biome_fog": "Biome Fog",
+  "options.radiante.biome_fog.tooltip": "Per-biome haze in the overworld: warm dust over deserts, thick green air over swamps, cool air over snow. Fades between biomes and stays out of caves."
 }

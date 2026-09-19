@@ -273,6 +273,10 @@ namespace Data {
         // has no fixed grid to index - the phase is picked on the Java side and its rectangle handed over here.
         T_VEC4 sunUvRect;
         T_VEC4 moonUvRect;
+
+        // Per-biome haze, blended around the camera on the Java side: rgb is the biome's tint, a its extinction per
+        // block. Zero when the option is off, outside the overworld sky, or with the camera out of the sky light.
+        T_VEC4 biomeFog;
     };
 
     struct TextureMapEntry {
