@@ -89,6 +89,21 @@ each compacted BLAS its own buffer, so rebuilding a chunk frees exactly its
 memory instead of pinning its whole build batch (slow growth over long
 sessions). Still possible: fewer TLAS instances by merging sections.
 
+## Frosted glass (inherited from Radiance) — fixed
+
+Glass, stained glass and panes read as blurry/frosted instead of clear.
+`convertLabPBRMaterial` (`util/labpbr.glsl`) derives roughness from the specular
+map's red channel, and vanilla blocks have no specular map: the sample comes
+back all zeros, which decodes as a fully rough surface. Combined with
+`texAlbedo.a < 1` setting `transmission = 1`, light passing through scattered in
+every direction, so nothing behind the block was visible — only its tint.
+Now a transmissive surface whose specular sample is entirely zero (nothing
+authored for it) is treated as smooth glass: roughness 0.02, f0 0.04, ior 1.5.
+Resource packs that do author a specular map keep their own values. Applies to
+both shader packs, and to ice and other see-through blocks. Verified A/B on the
+same scene: with the fix the wall behind lime stained glass and red panes is
+visible through them; before it was not.
+
 ## Advanced settings menu
 
 Bring back something like Radiance's fuller customization screen — the current

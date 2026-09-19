@@ -58,7 +58,17 @@ LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal
         float sqrtF0 = sqrt(F0);
         mat.ior = (1.0 + sqrtF0) / max(1.0 - sqrtF0, EPS);
 
-        if (texAlbedo.a < 1.0 - EPS) { mat.transmission = 1.0; }
+        if (texAlbedo.a < 1.0 - EPS) {
+            mat.transmission = 1.0;
+            // Vanilla glass, stained glass and panes have no specular map, and an absent one decodes as a fully
+            // rough surface: the light passing through them scatters and they read as frosted rather than clear.
+            // With nothing authored for them, see-through blocks are treated as smooth glass instead.
+            if (texSpecular.r <= 0.0 && texSpecular.g <= 0.0 && texSpecular.b <= 0.0 && texSpecular.a <= 0.0) {
+                mat.roughness = 0.02;
+                mat.f0 = vec3(0.04);
+                mat.ior = 1.5;
+            }
+        }
     } else if (metalIdx <= 237) {
         vec3 n = vec3(1.0);
         vec3 k = vec3(0.0);
