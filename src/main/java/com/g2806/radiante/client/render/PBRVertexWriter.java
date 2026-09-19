@@ -16,6 +16,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     public static final int ALPHA_MODE_TRANSPARENT = 2;
     /** Kept by the any-hit shader with probability alpha, then shaded opaque; see util/alpha_mode.glsl. */
     public static final int ALPHA_MODE_STOCHASTIC = 9;
+    /** A multiplicative decal such as block cracks; see util/alpha_mode.glsl. */
+    public static final int ALPHA_MODE_DECAL = 10;
 
     private static final int OFF_POS = 0;
     private static final int OFF_USE_NORM = 12;

@@ -81,16 +81,24 @@ public class Options {
     public static boolean frameGeneration = false;
     /** Frames DLSS generates per rendered frame: 0 is off, 1 is 2x, up to 5 for 6x. */
     public static int generatedFrames = 1;
+    /** NVIDIA Reflex low latency mode. Loads Streamline at startup, so turning it on takes a restart. */
+    public static boolean reflex = false;
 
     /** Ray tracing can be switched off with a key, which hands the world back to Minecraft's own renderer. */
     public static boolean rayTracingEnabled = true;
     /** Set when the player chooses to run on OpenGL, where this renderer cannot work at all. */
     public static boolean useOpenGl = false;
 
+    /**
+     * Half the logical cores. Section building shares the machine with the render thread and, in singleplayer,
+     * the integrated server generating those same chunks; measured on a 24-thread CPU, 20 builders dropped the frame
+     * rate from 120 to about 65 for several seconds after every teleport, while 4 held it above 110 and loaded the
+     * area as quickly. More threads than this only take time away from rendering.
+     */
     public static int getMaxChunkBuildingThreads() {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         boolean is64Bits = System.getProperty("os.arch", "").contains("64");
-        return Math.max(1, is64Bits ? availableProcessors : Math.min(availableProcessors, 4));
+        return Math.max(1, is64Bits ? availableProcessors / 2 : Math.min(availableProcessors, 4));
     }
 
     public static int clampChunkBuildingThreads(int chunkBuildingThreads) {
@@ -98,8 +106,7 @@ public class Options {
     }
 
     private static int getDefaultChunkBuildingThreads() {
-        return clampChunkBuildingThreads(
-            Math.max(1, (int) (Runtime.getRuntime().availableProcessors() * 0.6)));
+        return clampChunkBuildingThreads(Math.max(2, Math.min(6, Runtime.getRuntime().availableProcessors() / 4)));
     }
 
     public static void readOptions() {
@@ -144,6 +151,7 @@ public class Options {
                 String.valueOf(frameGeneration)));
             generatedFrames = Integer.parseInt(props.getProperty("generatedFrames",
                 String.valueOf(generatedFrames)));
+            reflex = Boolean.parseBoolean(props.getProperty("reflex", String.valueOf(reflex)));
 
             overwriteConfig();
 //            System.out.println("Successfully read options: " + path);
@@ -174,6 +182,7 @@ public class Options {
         props.setProperty("useOpenGl", String.valueOf(useOpenGl));
         props.setProperty("frameGeneration", String.valueOf(frameGeneration));
         props.setProperty("generatedFrames", String.valueOf(generatedFrames));
+        props.setProperty("reflex", String.valueOf(reflex));
 
         try {
             Files.createDirectories(path.getParent());

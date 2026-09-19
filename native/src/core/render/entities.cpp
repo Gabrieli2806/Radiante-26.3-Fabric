@@ -60,7 +60,7 @@ struct TriangleHash {
 static void buildEntityPackedVertices(const std::vector<std::vector<vk::VertexFormat::PBRVertex>> &vertices,
                                       const std::vector<std::vector<uint32_t>> &indices,
                                       std::vector<vk::VertexFormat::PositionVertex> &packedPositions,
-                                      std::vector<vk::VertexFormat::MaterialVertex> &packedMaterials,
+                                      std::vector<vk::VertexFormat::PackedMaterialVertex> &packedMaterials,
                                       std::vector<uint32_t> &packedIndices) {
     for (int i = 0; i < static_cast<int>(vertices.size()); i++) {
         const auto &geometryVertices = vertices[i];
@@ -147,7 +147,7 @@ void EntityBuildDataBatch::build() {
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
             VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     materialBuffer = vk::DeviceLocalBuffer::create(
-        vma, device, false, totalVertexCount * sizeof(vk::VertexFormat::MaterialVertex),
+        vma, device, false, totalVertexCount * sizeof(vk::VertexFormat::PackedMaterialVertex),
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     indexBuffer = vk::DeviceLocalBuffer::create(
         vma, device, false, totalIndexCount * sizeof(uint32_t),
@@ -155,7 +155,7 @@ void EntityBuildDataBatch::build() {
             VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
     std::vector<vk::VertexFormat::PositionVertex> packedPositions;
-    std::vector<vk::VertexFormat::MaterialVertex> packedMaterials;
+    std::vector<vk::VertexFormat::PackedMaterialVertex> packedMaterials;
     std::vector<uint32_t> packedIndices;
     packedPositions.reserve(totalVertexCount);
     packedMaterials.reserve(totalVertexCount);
@@ -168,7 +168,7 @@ void EntityBuildDataBatch::build() {
         positionBuffer->uploadToStagingBuffer(packedPositions.data(),
                                               packedPositions.size() * sizeof(vk::VertexFormat::PositionVertex), 0);
         materialBuffer->uploadToStagingBuffer(packedMaterials.data(),
-                                              packedMaterials.size() * sizeof(vk::VertexFormat::MaterialVertex), 0);
+                                              packedMaterials.size() * sizeof(vk::VertexFormat::PackedMaterialVertex), 0);
     }
     if (!packedIndices.empty()) {
         indexBuffer->uploadToStagingBuffer(packedIndices.data(), packedIndices.size() * sizeof(uint32_t), 0);
@@ -196,7 +196,7 @@ void EntityBuildDataBatch::build() {
                 geometryVertexOffsets[instanceOffset + i] * sizeof(vk::VertexFormat::PositionVertex);
             VkDeviceAddress materialBufferAddress =
                 materialBuffer->bufferAddress() +
-                geometryVertexOffsets[instanceOffset + i] * sizeof(vk::VertexFormat::MaterialVertex);
+                geometryVertexOffsets[instanceOffset + i] * sizeof(vk::VertexFormat::PackedMaterialVertex);
             data->indexBufferAddresses.push_back(indexBufferAddress);
             data->positionBufferAddresses.push_back(positionBufferAddress);
             data->materialBufferAddresses.push_back(materialBufferAddress);

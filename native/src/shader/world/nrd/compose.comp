@@ -51,8 +51,8 @@ void main() {
 
     vec4 diffData = imageLoad(denoisedDiffuseRadianceImage, pixel);
     vec4 specData = imageLoad(denoisedSpecularRadianceImage, pixel);
-    vec3 diffRadiance = REBLUR_BackEnd_UnpackRadianceAndNormHitDist(diffData).rgb;
-    vec3 specRadiance = REBLUR_BackEnd_UnpackRadianceAndNormHitDist(specData).rgb;
+    vec3 diffRadiance = RELAX_BackEnd_UnpackRadiance(diffData).rgb;
+    vec3 specRadiance = RELAX_BackEnd_UnpackRadiance(specData).rgb;
 
     vec3 diffAlbedo = imageLoad(diffuseAlbedoMetallicImage, pixel).rgb;
     vec3 specAlbedo = imageLoad(specularAlbedoImage, pixel).rgb;

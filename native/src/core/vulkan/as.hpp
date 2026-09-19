@@ -79,6 +79,16 @@ class BLASBuilder : public SharedObject<BLASBuilder> {
                                                     uint32_t numIndices,
                                                     bool isOpaque);
 
+        // Triangles with an explicit vertex format, stride and index type.
+        BLASGeometryBuilder &defineTriangleGeometryRaw(VkDeviceAddress vertexBufferAddress,
+                                                       VkFormat vertexFormat,
+                                                       VkDeviceSize vertexStride,
+                                                       uint32_t numVertices,
+                                                       VkDeviceAddress indexBufferAddress,
+                                                       VkIndexType indexType,
+                                                       uint32_t numIndices,
+                                                       bool isOpaque);
+
         BLASGeometryBuilder &definePlaceholderGeometry();
 
         std::shared_ptr<BLASBuilder> endGeometries();
@@ -130,6 +140,7 @@ class BLASBatchBuilder : public SharedObject<BLASBatchBuilder> {
                                                       std::shared_ptr<VMA> vma);
     std::vector<std::shared_ptr<BLAS>> build(std::shared_ptr<Device> device);
     void submit(std::shared_ptr<CommandBuffer> commandBuffer);
+    VkDeviceSize totalBlasBytes() const { return blasBuffer_ != nullptr ? blasBuffer_->size() : 0; }
 
   private:
     std::vector<std::shared_ptr<BLASBuilder>> builders_;

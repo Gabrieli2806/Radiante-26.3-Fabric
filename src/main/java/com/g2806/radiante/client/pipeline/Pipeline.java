@@ -239,10 +239,9 @@ public class Pipeline {
     }
 
     public static final String DLSS_MODE_ATTRIBUTE = "render_pipeline.module.dlss.attribute.mode";
-    // Ultra Performance is left out: with Ray Reconstruction it hangs the GPU a few seconds into a world
-    // (VK_ERROR_DEVICE_LOST / semaphore timeout), while every other mode runs. The native module also maps it to
-    // Performance, for configs that already have it saved.
+    // Ultra Performance runs as Performance on small windows; see DLSSModule for the render size floor.
     public static final List<String> DLSS_MODES = List.of(
+            "render_pipeline.module.dlss.attribute.mode.ultra_performance",
             "render_pipeline.module.dlss.attribute.mode.performance",
             "render_pipeline.module.dlss.attribute.mode.balanced",
             "render_pipeline.module.dlss.attribute.mode.quality",

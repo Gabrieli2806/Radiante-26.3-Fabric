@@ -968,6 +968,10 @@ void main() {
             vec3 originRelativeToPrevCam = origin + orgDirection * selectedFirstHit.tracedDistance + cameraDelta;
             if (mainRay.hasPrevScenePos > 0u) { originRelativeToPrevCam = mainRay.prevScenePos; }
             vec2 motionVec = computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(originRelativeToPrevCam, 1.0));
+            // The held item and arm are fixed to the camera, so they sit on the same pixel frame to frame. Motion
+            // from their world position would send the denoiser's history looking for them where the world was,
+            // and they smear into ghosts whenever the camera turns.
+            if (isHand == 1) { motionVec = vec2(0.0); }
             imageStore(motionVectorImage, pixel, vec4(motionVec, 0.0, 0.0));
         }
 

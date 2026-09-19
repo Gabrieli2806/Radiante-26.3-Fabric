@@ -1,4 +1,6 @@
 #pragma once
+#include <atomic>
+#include <functional>
 
 #include "common/shared.hpp"
 #include "common/singleton.hpp"
@@ -89,9 +91,22 @@ struct ChunkBuildData : public SharedObject<ChunkBuildData> {
                           const std::shared_ptr<vk::Device> &device,
                           bool persistStaging = true);
     void build(bool persistStaging = true);
+    // Packs this chunk's geometry into one buffer in the compact chunk layout and defines its triangles on
+    // `builder`. See the notes above packChunkGeometry in chunks.cpp.
+    void packGeometry(const std::shared_ptr<vk::VMA> &vma,
+                      const std::shared_ptr<vk::Device> &device,
+                      bool persistStaging,
+                      const std::shared_ptr<vk::BLASBuilder> &builder);
 };
 
 struct Chunk1;
+
+// A chunk acceleration structure that has finished building, with the size it will have once compacted.
+struct ChunkCompaction {
+    int64_t chunkId;
+    std::shared_ptr<vk::BLAS> source;
+    VkDeviceSize compactedSize;
+};
 
 struct ChunkBuildDataBatch : public SharedObject<ChunkBuildDataBatch> {
     std::vector<std::shared_ptr<ChunkBuildData>> batchData;
@@ -99,6 +114,10 @@ struct ChunkBuildDataBatch : public SharedObject<ChunkBuildDataBatch> {
     std::shared_ptr<vk::DeviceLocalBuffer> positionBuffer;
     std::shared_ptr<vk::DeviceLocalBuffer> materialBuffer;
     std::shared_ptr<vk::BLASBatchBuilder> blasBatchBuilder;
+    // The acceleration structures this batch built, in build order, and a query pool the build writes their
+    // compacted sizes into, so they can be compacted once the build has finished.
+    std::vector<std::shared_ptr<vk::BLAS>> builtBlases;
+    VkQueryPool compactionQueryPool = VK_NULL_HANDLE;
 
     ChunkBuildDataBatch(std::vector<std::shared_ptr<ChunkBuildData>> &&batchData);
     ChunkBuildDataBatch(uint32_t maxBatchSize,
@@ -121,6 +140,8 @@ class ChunkBuildScheduler : public SharedObject<ChunkBuildScheduler> {
 
     void tryCheckBatchesFinish();
     void waitAllBatchesFinish();
+    // Where finished batches report the compacted sizes of the structures they built.
+    void setCompactionSink(std::function<void(std::vector<ChunkCompaction> &&)> sink) { compactionSink_ = std::move(sink); }
     void tryScheduleBatches(uint32_t maxBatchSize);
 
     uint32_t chunkBuildingBatchSize();
@@ -132,6 +153,9 @@ class ChunkBuildScheduler : public SharedObject<ChunkBuildScheduler> {
     std::vector<std::shared_ptr<ChunkBuildData>> &chunkBuildDatas_;
     std::recursive_mutex &mutex_;
     std::vector<ChunkPackedData> &chunkPackedData_;
+
+    void collectCompactions(const std::shared_ptr<ChunkBuildDataBatch> &batch);
+    std::function<void(std::vector<ChunkCompaction> &&)> compactionSink_;
 
     std::queue<std::shared_ptr<vk::Fence>> freeFences_;
     std::queue<std::shared_ptr<vk::CommandBuffer>> freeCommandBuffers_;
@@ -189,6 +213,8 @@ struct Chunk1 : public SharedObject<Chunk1> {
     uint32_t lightCount = 0;
     uint32_t geometryCount;
     std::shared_ptr<std::vector<std::string>> geometryGroupNames;
+    // This chunk's entry in Chunks::occupied(), kept equal to (blas != nullptr).
+    uint8_t *occupiedFlag = nullptr;
 
     float buildFactor(std::chrono::steady_clock::time_point currentTime, glm::vec3 cameraPos, glm::vec3 chunkPos);
 
@@ -219,6 +245,20 @@ class Chunks : public SharedObject<Chunks> {
 
     std::recursive_mutex &mutex();
     std::vector<std::shared_ptr<Chunk1>> &chunks();
+    // One byte per chunk slot, set while that slot has geometry. Reading this flat array lets the per-frame walk
+    // skip the empty slots (most of them, far out) without touching each chunk object.
+    const std::vector<uint8_t> &occupied();
+    // Replaces freshly built chunk acceleration structures with compacted copies, recorded into `commandBuffer`
+    // ahead of the TLAS build. Call under mutex(), after the scheduler has collected finished batches.
+    void compactFinishedBlases(std::shared_ptr<vk::CommandBuffer> commandBuffer);
+
+    using PendingCompaction = ChunkCompaction;
+    void addPendingCompactions(std::vector<PendingCompaction> &&compactions);
+    // Bumped whenever any chunk's geometry is replaced or dropped, so per-frame work can cache what depends on it.
+    static uint64_t contentVersion();
+    // Development counters: bytes ever allocated for chunk positions, materials, indices, BLAS, and triangles.
+    static std::atomic<uint64_t> devBytes[5];
+    static void bumpContentVersion();
     std::shared_ptr<ChunkBuildScheduler> chunkBuildScheduler();
     std::vector<std::shared_ptr<vk::BLASBuilder>> &importantBLASBuilders();
     std::shared_ptr<vk::DeviceLocalBuffer> chunkPackedData();
@@ -232,6 +272,8 @@ class Chunks : public SharedObject<Chunks> {
 
     std::recursive_mutex mutex_;
     std::vector<std::shared_ptr<Chunk1>> chunks_;
+    std::vector<uint8_t> occupied_;
+    std::vector<PendingCompaction> pendingCompactions_;
     std::vector<ChunkPackedData> chunkPackedData_;
     std::vector<std::shared_ptr<vk::DeviceLocalBuffer>> chunkPackedDataBuffers_;
     std::vector<std::shared_ptr<ChunkBuildData>> chunkBuildDatas_;

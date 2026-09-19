@@ -169,7 +169,25 @@ public final class EntityCollector implements SubmitNodeCollector {
     public <S> void submitCrumblingOverlay(Model<? super S> model, S state, PoseStack poseStack,
         RenderType renderType, int lightCoords, int overlayCoords, int tintedColor,
         ModelFeatureRenderer.CrumblingOverlay crumblingOverlay) {
-        // Block breaking overlays are drawn by the terrain pass instead.
+        // A block entity being mined: its model again, with the destroy-stage texture projected onto it.
+        if (crumblingOverlay == null) {
+            return;
+        }
+        PBRVertexWriter writer = this.crumblingWriter(crumblingOverlay.progress());
+        model.setupAnim(state);
+        model.renderToBuffer(poseStack,
+            new com.mojang.blaze3d.vertex.SheetedDecalTextureGenerator(writer, crumblingOverlay.cameraPose(), 1.0f),
+            lightCoords, overlayCoords, -1);
+    }
+
+    /**
+     * The destroy-stage layer. Vanilla multiplies it onto the block at twice its value, so its mid-grey texels leave
+     * the block alone and only the dark ones darken it. A tracer has no destination colour to multiply; the decal
+     * alpha mode keeps a crack texel in proportion to how much it would darken, which reads the same.
+     */
+    private PBRVertexWriter crumblingWriter(int progress) {
+        RenderType renderType = ModelBakery.DESTROY_TYPES.get(Math.clamp(progress, 0, ModelBakery.DESTROY_TYPES.size() - 1));
+        return this.writer(renderType).alphaMode(PBRVertexWriter.ALPHA_MODE_DECAL);
     }
 
     @Override
@@ -363,6 +381,44 @@ public final class EntityCollector implements SubmitNodeCollector {
     @Override
     public void submitBreakingBlockModel(PoseStack poseStack, List<BlockStateModelPart> parts, int progress,
         boolean isBlockTranslucent) {
+        PBRVertexWriter writer = this.crumblingWriter(progress);
+        PoseStack.Pose pose = poseStack.last();
+        org.joml.Matrix4f inverse = new org.joml.Matrix4f(pose.pose()).invert();
+        Vector3f position = new Vector3f();
+        Vector3f local = new Vector3f();
+        Vector3f decal = new Vector3f();
+        for (BlockStateModelPart part : parts) {
+            for (Direction direction : DIRECTIONS) {
+                putBreakingQuads(part.getQuads(direction), pose, inverse, writer, position, local, decal);
+            }
+            putBreakingQuads(part.getQuads(null), pose, inverse, writer, position, local, decal);
+        }
+    }
+
+    /** How far the cracks sit in front of the block face, in blocks, so they are hit before the face itself. */
+    private static final float CRUMBLING_OFFSET = 0.002f;
+
+    /** Decal UVs exactly as vanilla's SheetedDecalTextureGenerator derives them from position and face. */
+    private static void putBreakingQuads(List<BakedQuad> quads, PoseStack.Pose pose, org.joml.Matrix4f inverse,
+        PBRVertexWriter writer, Vector3f position, Vector3f local, Vector3f decal) {
+        for (BakedQuad quad : quads) {
+            Direction face = quad.direction();
+            Vector3fc unit = face.getUnitVec3f();
+            Vector3f normal = pose.transformNormal(unit, new Vector3f());
+            for (int vertex = 0; vertex < 4; vertex++) {
+                Vector3fc corner = quad.position(vertex);
+                pose.pose().transformPosition(corner.x() + unit.x() * CRUMBLING_OFFSET,
+                    corner.y() + unit.y() * CRUMBLING_OFFSET, corner.z() + unit.z() * CRUMBLING_OFFSET, position);
+                inverse.transformPosition(position, local);
+                decal.set(local).rotateY((float) Math.PI).rotateX((float) (-Math.PI / 2)).rotate(face.getRotation());
+                writer.addVertex(position.x(), position.y(), position.z())
+                    .setColor(-1)
+                    .setUv(-decal.x(), -decal.y())
+                    .setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY)
+                    .setLight(LightCoordsUtil.FULL_BRIGHT)
+                    .setNormal(normal.x(), normal.y(), normal.z());
+            }
+        }
     }
 
     @Override

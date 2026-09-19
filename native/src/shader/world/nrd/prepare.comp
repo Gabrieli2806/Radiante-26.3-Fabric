@@ -42,8 +42,6 @@ layout(set = 2, binding = 0) uniform WorldUniform {
     WorldUBO worldUBO;
 };
 
-const vec4 gDiffHitDistParams = vec4(3.0, 0.1, 20.0, -25.0);
-const vec4 gSpecHitDistParams = vec4(3.0, 0.1, 20.0, -25.0);
 const float NRD_INF_DEPTH = 65504.0;
 
 vec3 safeDiv(vec3 a, vec3 b) {
@@ -86,15 +84,11 @@ void main() {
     float diffHitDist = max(imageLoad(diffuseHitDepthImage, pixel).r, 0.001);
     vec3 diffAlbedo = max(imageLoad(diffuseAlbedoMetallicImage, pixel).rgb, vec3(0.05));
     vec3 demodDiffuse = safeDiv(diffRadiance, diffAlbedo);
-    float normDiffHitDist = REBLUR_FrontEnd_GetNormHitDist(diffHitDist, linearDepth, gDiffHitDistParams, 1.0);
-    imageStore(nrdDiffuseRadianceImage, pixel,
-               REBLUR_FrontEnd_PackRadianceAndNormHitDist(demodDiffuse, normDiffHitDist, true));
+    imageStore(nrdDiffuseRadianceImage, pixel, RELAX_FrontEnd_PackRadianceAndHitDist(demodDiffuse, diffHitDist, true));
 
     vec3 specRadiance = imageLoad(specularIndirectRadianceImage, pixel).rgb + refractionRadiance;
     specHitDist = NRD_FrontEnd_TrimHitDistance(specHitDist, 1e-3);
     vec3 specAlbedo = max(imageLoad(specularAlbedoImage, pixel).rgb, vec3(0.04));
     vec3 demodSpecular = safeDiv(specRadiance, specAlbedo);
-    float normSpecHitDist = REBLUR_FrontEnd_GetNormHitDist(specHitDist, linearDepth, gSpecHitDistParams, roughness);
-    imageStore(nrdSpecularRadianceImage, pixel,
-               REBLUR_FrontEnd_PackRadianceAndNormHitDist(demodSpecular, normSpecHitDist, true));
+    imageStore(nrdSpecularRadianceImage, pixel, RELAX_FrontEnd_PackRadianceAndHitDist(demodSpecular, specHitDist, true));
 }

@@ -45,6 +45,7 @@ class NrdModule : public WorldModule, public SharedObject<NrdModule> {
 
   private:
     static nrd::ReblurSettings makeDefaultReblurSettings();
+    static nrd::RelaxSettings makeRelaxSettings();
     void updateReblurSettings();
 
     void initDescriptorTables();

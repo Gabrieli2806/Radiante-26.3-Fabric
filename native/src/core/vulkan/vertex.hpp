@@ -37,10 +37,10 @@ struct Vertex {
 
     static uint32_t packMaterialFlags(const VertexFormat::PBRVertex &vertex);
     static VertexFormat::PositionVertex makePositionVertex(const VertexFormat::PBRVertex &vertex);
-    static VertexFormat::MaterialVertex makeMaterialVertex(const VertexFormat::PBRVertex &vertex);
+    static VertexFormat::PackedMaterialVertex makeMaterialVertex(const VertexFormat::PBRVertex &vertex);
     static std::vector<VertexFormat::PositionVertex>
     buildPositionVertices(const std::vector<VertexFormat::PBRVertex> &vertices);
-    static std::vector<VertexFormat::MaterialVertex>
+    static std::vector<VertexFormat::PackedMaterialVertex>
     buildMaterialVertices(const std::vector<VertexFormat::PBRVertex> &vertices);
 };
 

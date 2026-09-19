@@ -38,6 +38,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private boolean pendingBiomeFog = Options.biomeFog;
     private int pendingBiomeFogStrength = Options.biomeFogStrength;
     private Boolean pendingVolumetricFog;
+    private boolean pendingReflex = Options.reflex;
     private boolean applied;
 
     public RadianteOptionsScreen(Screen lastScreen, net.minecraft.client.Options options) {
@@ -60,6 +61,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingBiomeFog = previous.pendingBiomeFog;
         this.pendingBiomeFogStrength = previous.pendingBiomeFogStrength;
         this.pendingVolumetricFog = previous.pendingVolumetricFog;
+        this.pendingReflex = previous.pendingReflex;
     }
 
     /**
@@ -244,6 +246,14 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             this.list.addSmall(frameGeneration);
         }
 
+        // Reflex comes with Streamline, which has to be loaded before Minecraft creates its Vulkan device: the
+        // first time it is turned on it takes effect after a restart, the same as frame generation.
+        this.list.addSmall(OptionInstance.createBoolean("options.radiante.reflex",
+            OptionInstance.cachedConstantTooltip(Component.translatable(
+                RadianteClient.streamlineLoaded() ? "options.radiante.reflex.tooltip"
+                    : "options.radiante.reflex.tooltip_restart")),
+            this.pendingReflex, value -> this.pendingReflex = value));
+
         OptionInstance<String> clouds = cloudModeOption();
         if (clouds != null) {
             this.list.addSmall(clouds);
@@ -312,6 +322,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             Options.setCollectChunkEmission(this.pendingCollectEmission, false);
         }
         Options.biomeFog = this.pendingBiomeFog;
+        if (this.pendingReflex != Options.reflex) {
+            Options.reflex = this.pendingReflex;
+            FrameGeneration.applyReflex();
+        }
         Options.biomeFogStrength = this.pendingBiomeFogStrength;
         if (this.pendingDebugLogging != Options.debugLogging) {
             Options.setDebugLogging(this.pendingDebugLogging, false);

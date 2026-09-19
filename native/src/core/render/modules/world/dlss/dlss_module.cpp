@@ -89,22 +89,16 @@ bool DLSSModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::DeviceLo
 
     if (images.size() != inputImageNum) return false;
 
-    // Ray Reconstruction at Ultra Performance hangs the GPU shortly after a world loads; until that is understood,
-    // run it at Performance instead. A config saved with Ultra Performance would otherwise crash on every join.
-    if (rayReconstruction_ && mode_ == NVSDK_NGX_PerfQuality_Value_UltraPerformance) {
-        mode_ = NVSDK_NGX_PerfQuality_Value_MaxPerf;
-    }
-
     NgxContext::QuerySizeInfo querySizeInfo{};
     querySizeInfo.outputSize.width = outputWidth_;
     querySizeInfo.outputSize.height = outputHeight_;
-    querySizeInfo.quality = mode_;
+    effectiveMode_ = mode_;
+    querySizeInfo.quality = effectiveMode_;
     if (rayReconstruction_) {
         ngxContext_->querySupportedDlssInputSizes(querySizeInfo, supportedSizes_);
     } else {
         ngxContext_->querySupportedDlssSRInputSizes(querySizeInfo, supportedSizes_);
     }
-#ifdef DEBUG
     radiante::out() << "DLSS sizes:" << std::endl;
     radiante::out() << "\tminSize: [" << supportedSizes_.minSize.width << ", " << supportedSizes_.minSize.height << "]"
               << std::endl;
@@ -112,7 +106,21 @@ bool DLSSModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::DeviceLo
               << std::endl;
     radiante::out() << "\toptimalSize: [" << supportedSizes_.optimalSize.width << ", " << supportedSizes_.optimalSize.height
               << "]" << std::endl;
-#endif
+
+    // Ray Reconstruction at Ultra Performance hangs the GPU a few frames in when the render resolution it picks
+    // is tiny: at an 854x480 window (a 285x160 render) the device is lost within seconds, while the same render
+    // size at Performance, and Ultra Performance from 1280x720 up (427x240), both run. NGX still reports the tiny
+    // size as supported, so the floor is ours: below it, Ultra Performance becomes Performance.
+    constexpr uint32_t kMinUltraPerformanceRenderHeight = 240;
+    if (rayReconstruction_ && effectiveMode_ == NVSDK_NGX_PerfQuality_Value_UltraPerformance &&
+        supportedSizes_.optimalSize.height < kMinUltraPerformanceRenderHeight) {
+        radiante::out() << "[DLSS] Ultra Performance would render at " << supportedSizes_.optimalSize.width << "x"
+                        << supportedSizes_.optimalSize.height << "; using Performance at this window size"
+                        << std::endl;
+        effectiveMode_ = NVSDK_NGX_PerfQuality_Value_MaxPerf;
+        querySizeInfo.quality = effectiveMode_;
+        ngxContext_->querySupportedDlssInputSizes(querySizeInfo, supportedSizes_);
+    }
 
     inputWidth_ = supportedSizes_.optimalSize.width;
     inputHeight_ = supportedSizes_.optimalSize.height;
@@ -265,13 +273,13 @@ void DLSSModule::build() {
         NgxContext::DlssRRInitInfo dlssRRInitInfo{};
         dlssRRInitInfo.inputSize = {inputWidth_, inputHeight_};
         dlssRRInitInfo.outputSize = {outputWidth_, outputHeight_};
-        dlssRRInitInfo.quality = mode_;
+        dlssRRInitInfo.quality = effectiveMode_;
         ngxContext_->initDlssRR(dlssRRInitInfo, framework->mainCommandPool(), dlss_);
     } else {
         NgxContext::DlssSRInitInfo dlssSRInitInfo{};
         dlssSRInitInfo.inputSize = {inputWidth_, inputHeight_};
         dlssSRInitInfo.outputSize = {outputWidth_, outputHeight_};
-        dlssSRInitInfo.quality = mode_;
+        dlssSRInitInfo.quality = effectiveMode_;
         ngxContext_->initDlssSR(dlssSRInitInfo, framework->mainCommandPool(), dlssSR_);
     }
 

@@ -72,6 +72,8 @@ class DLSSModule : public WorldModule, public SharedObject<DLSSModule> {
     bool rayReconstruction_ = true;
     NgxContext::SupportedSizes supportedSizes_{};
     NVSDK_NGX_PerfQuality_Value mode_ = NVSDK_NGX_PerfQuality_Value_Balanced;
+    // The mode actually run at the current size; differs from mode_ where a size floor applies.
+    NVSDK_NGX_PerfQuality_Value effectiveMode_ = NVSDK_NGX_PerfQuality_Value_Balanced;
 
     // output
     std::vector<std::shared_ptr<vk::DeviceLocalImage>> processedImages_;

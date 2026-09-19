@@ -9,6 +9,8 @@
 #include <limits>
 #include "core/util/logging.hpp"
 
+#include <glm/gtc/matrix_transform.hpp>
+
 nrd::ReblurSettings NrdModule::makeDefaultReblurSettings() {
     nrd::ReblurSettings settings = {};
     settings.maxAccumulatedFrameNum = 60;
@@ -70,6 +72,12 @@ void NrdModule::updateReblurSettings() {
 }
 
 NrdModule::NrdModule() : reblurSettings_(makeDefaultReblurSettings()) {}
+
+nrd::RelaxSettings NrdModule::makeRelaxSettings() {
+    nrd::RelaxSettings settings = {};
+    settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_3X3;
+    return settings;
+}
 
 NrdModule::~NrdModule() {
     wrapper_ = nullptr;
@@ -163,6 +171,7 @@ void NrdModule::build() {
 
     updateReblurSettings();
     wrapper_->setREBLURSettings(reblurSettings_);
+    wrapper_->setRELAXSettings(makeRelaxSettings());
     lastRefractionHistoryFrameIndex_ = -1;
     nrdFrameIndex_ = 0;
 
@@ -665,13 +674,23 @@ void NrdModuleContext::render() {
             nrdViewToClipPrev[column][1] *= -1.0f;
         }
 
+        // NRD reconstructs a view-space position as (frustum ray) * viewZ, so viewZ has to be the actual z of the
+        // view space its matrices describe. Ours looks down -Z while the prepare pass hands NRD a positive linear
+        // depth: with a static camera the mirrored reconstruction cancels out, but any camera motion made every
+        // reprojected pixel land somewhere else, NRD judged the whole frame disoccluded and threw its history away,
+        // and the image stayed at one noisy sample per pixel. Flipping Z on both sides gives NRD a +Z-forward view
+        // in which the depth we pass is exactly viewZ.
+        const glm::mat4 flipZ = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, -1.0f));
+        nrdViewToClip = nrdViewToClip * flipZ;
+        nrdViewToClipPrev = nrdViewToClipPrev * flipZ;
+        glm::mat4 nrdWorldToView = flipZ * worldUBO->cameraEffectedViewMat;
+        glm::mat4 nrdWorldToViewPrev = flipZ * lastWorldUBO->cameraEffectedViewMat;
+
         std::memcpy(commonSettings.viewToClipMatrix, glm::value_ptr(nrdViewToClip), sizeof(glm::mat4));
         std::memcpy(commonSettings.viewToClipMatrixPrev, glm::value_ptr(nrdViewToClipPrev),
                     sizeof(glm::mat4));
-        std::memcpy(commonSettings.worldToViewMatrix, glm::value_ptr(worldUBO->cameraEffectedViewMat),
-                    sizeof(glm::mat4));
-        std::memcpy(commonSettings.worldToViewMatrixPrev, glm::value_ptr(lastWorldUBO->cameraEffectedViewMat),
-                    sizeof(glm::mat4));
+        std::memcpy(commonSettings.worldToViewMatrix, glm::value_ptr(nrdWorldToView), sizeof(glm::mat4));
+        std::memcpy(commonSettings.worldToViewMatrixPrev, glm::value_ptr(nrdWorldToViewPrev), sizeof(glm::mat4));
 
         commonSettings.resourceSize[0] = static_cast<uint16_t>(module->width_);
         commonSettings.resourceSize[1] = static_cast<uint16_t>(module->height_);
@@ -749,7 +768,12 @@ void NrdModuleContext::render() {
 
         worldCommandBuffer->barriersBufferImage({}, imageBarriers);
 
-        nrd::Identifier denoiser = nrd::Identifier(nrd::Denoiser::REBLUR_DIFFUSE_SPECULAR);
+        // RELAX rather than REBLUR. On this path tracer's one-sample signal REBLUR converged to blotches when
+        // still and to streaky noise whenever the camera moved (roughly 2.5x DLSS-RR's high-frequency noise), and
+        // lost about a quarter of the light in dim, bounce-lit rooms. RELAX on the same inputs is as clean as DLSS-RR
+        // in motion and within a few percent of its brightness. The REBLUR settings are still passed to NRD so the
+        // module's attributes keep working if it is switched back.
+        nrd::Identifier denoiser = nrd::Identifier(nrd::Denoiser::RELAX_DIFFUSE_SPECULAR);
         module->wrapper_->denoise(&denoiser, 1, worldCommandBuffer->vkCommandBuffer());
     }
 

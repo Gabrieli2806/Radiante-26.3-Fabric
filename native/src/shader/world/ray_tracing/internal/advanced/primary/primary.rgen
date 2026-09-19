@@ -403,6 +403,8 @@ void main() {
         vec3 originRelativeToPrevCam = origin + orgDirection * selectedFirstHit.tracedDistance + cameraDelta;
         if (mainRay.hasPrevScenePos > 0u) { originRelativeToPrevCam = mainRay.prevScenePos; }
         vec2 motionVec = computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(originRelativeToPrevCam, 1.0));
+        // The held item and arm are fixed to the camera and stay on the same pixel frame to frame.
+        if (isHand) { motionVec = vec2(0.0); }
         imageStore(motionVectorImage, pixel, vec4(motionVec, 0.0, 0.0));
     }
 

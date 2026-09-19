@@ -166,9 +166,34 @@ namespace VertexFormat {
         T_UINT packedData;
         T_UINT pad0;
     };
+    // What the material buffers actually hold: MaterialVertex packed into 40 bytes instead of 80. At far render
+    // distances these buffers were most of the video memory in use (5.4 GB of 9 at 32 chunks). The shaders unpack
+    // it back into a MaterialVertex in loadTriangleMaterial, so nothing past that point changes.
+    //   normal         octahedral, 2 x snorm16 (0x80008000 = no normal)
+    //   textures       textureID in the low 16 bits, glintTexture in the high 16
+    //   color          colorLayer as 4 x unorm8
+    //   u, v           textureUV, full floats (weather and some entity UVs run far past 1)
+    //   overlay        overlayUV as 2 x int16
+    //   glintUV        2 x half
+    //   albedoEmission full float
+    //   light          lightUV as 2 x uint16
+    //   packedData     unchanged
+    struct PackedMaterialVertex {
+        T_UINT normal;
+        T_UINT textures;
+        T_UINT color;
+        T_FLOAT u;
+        T_FLOAT v;
+        T_UINT overlay;
+        T_UINT glintUV;
+        T_FLOAT albedoEmission;
+        T_UINT light;
+        T_UINT packedData;
+    };
 #ifdef __cplusplus
 }; // namespace VertexFormat
 
+static_assert(sizeof(VertexFormat::PackedMaterialVertex) == 40);
 static_assert(sizeof(VertexFormat::MaterialVertex) == 80);
 static_assert(offsetof(VertexFormat::MaterialVertex, lightUV) == 64);
 static_assert(offsetof(VertexFormat::MaterialVertex, packedData) == 72);

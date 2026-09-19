@@ -50,6 +50,7 @@ public class RadianteClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ensureNativeLoaded();
+        DevAutomation.register();
 
         KeyMapping openSettings = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.radiante.open_settings",
             InputConstants.KEY_F6, KeyMapping.Category.MISC));

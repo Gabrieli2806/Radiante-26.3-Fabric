@@ -72,10 +72,14 @@ void main() {
         computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, dposdu, dposdv);
         lod = lodWithCone(textures[nonuniformEXT(textureID)], uv, coneRadiusWorld, dposdu, dposdv);
 
-        alpha *= sampleTexture(textures[nonuniformEXT(textureID)], uv, lod, false).a;
+        vec4 texel = sampleTexture(textures[nonuniformEXT(textureID)], uv, lod, false);
+        alpha *= texel.a;
+        if (alphaMode == ALPHA_MODE_DECAL) {
+            alpha *= clamp(1.0 - 2.0 * dot(texel.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+        }
     }
 
-    if (alphaMode == ALPHA_MODE_STOCHASTIC && alpha >= 0.05 && alpha < 0.999) {
+    if ((alphaMode == ALPHA_MODE_STOCHASTIC || alphaMode == ALPHA_MODE_DECAL) && alpha >= 0.05 && alpha < 0.999) {
         uint seed = xxhash32(uvec3(gl_LaunchIDEXT.xy, ubo.seed ^ uint(gl_PrimitiveID)));
         if (rand(seed) >= alpha) {
             ignoreIntersectionEXT;

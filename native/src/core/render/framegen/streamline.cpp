@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "core/render/framegen/streamline.hpp"
 
 #ifdef MCVR_ENABLE_STREAMLINE
@@ -35,6 +36,8 @@ struct Api {
 Api g_api;
 bool g_initialised = false;
 bool g_supported = false;
+bool g_reflexSupported = false;
+bool g_reflexEnabled = false;
 uint32_t g_maxGeneratedFrames = 0;
 uint32_t g_generatedFrames = 0;
 VkDevice g_device = VK_NULL_HANDLE;
@@ -192,6 +195,9 @@ void framegen::Streamline::setVulkanInfo(VkInstance instance,
     sl::Result result;
     sl::AdapterInfo adapter{};
     adapter.vkPhysicalDevice = physicalDevice;
+    // Reflex runs on far more GPUs than frame generation, so it is checked on its own.
+    g_reflexSupported = g_api.isFeatureSupported(sl::kFeatureReflex, adapter) == sl::Result::eOk;
+    slCout() << "Reflex " << (g_reflexSupported ? "available" : "not supported here") << std::endl;
     result = g_api.isFeatureSupported(sl::kFeatureDLSS_G, adapter);
     g_supported = result == sl::Result::eOk;
     if (!g_supported) {
@@ -217,30 +223,53 @@ void framegen::Streamline::setVulkanInfo(VkInstance instance,
 }
 
 namespace {
-bool featureRequirements(sl::FeatureRequirements &requirements) {
+bool featureRequirements(sl::FeatureRequirements &requirements, sl::Feature feature = sl::kFeatureDLSS_G) {
     if (!g_initialised || g_api.getFeatureRequirements == nullptr) return false;
-    return g_api.getFeatureRequirements(sl::kFeatureDLSS_G, requirements) == sl::Result::eOk;
+    return g_api.getFeatureRequirements(feature, requirements) == sl::Result::eOk;
+}
+
+void appendUnique(std::vector<std::string> &into, const char *const *names, uint32_t count) {
+    for (uint32_t i = 0; i < count; i++) {
+        if (names[i] != nullptr && std::find(into.begin(), into.end(), names[i]) == into.end()) {
+            into.emplace_back(names[i]);
+        }
+    }
 }
 } // namespace
 
+// Frame generation and Reflex each list what they need; a GPU without frame generation still needs Reflex's.
 std::vector<std::string> framegen::Streamline::requiredInstanceExtensions() {
     std::vector<std::string> extensions;
-    sl::FeatureRequirements requirements{};
-    if (!featureRequirements(requirements)) return extensions;
-    for (uint32_t i = 0; i < requirements.vkNumInstanceExtensions; i++) {
-        extensions.emplace_back(requirements.vkInstanceExtensions[i]);
+    for (sl::Feature feature : {sl::kFeatureDLSS_G, sl::kFeatureReflex}) {
+        sl::FeatureRequirements requirements{};
+        if (featureRequirements(requirements, feature)) {
+            appendUnique(extensions, requirements.vkInstanceExtensions, requirements.vkNumInstanceExtensions);
+        }
     }
     return extensions;
 }
 
 std::vector<std::string> framegen::Streamline::requiredDeviceExtensions() {
     std::vector<std::string> extensions;
-    sl::FeatureRequirements requirements{};
-    if (!featureRequirements(requirements)) return extensions;
-    for (uint32_t i = 0; i < requirements.vkNumDeviceExtensions; i++) {
-        extensions.emplace_back(requirements.vkDeviceExtensions[i]);
+    for (sl::Feature feature : {sl::kFeatureDLSS_G, sl::kFeatureReflex}) {
+        sl::FeatureRequirements requirements{};
+        if (featureRequirements(requirements, feature)) {
+            appendUnique(extensions, requirements.vkDeviceExtensions, requirements.vkNumDeviceExtensions);
+        }
     }
     return extensions;
+}
+
+bool framegen::Streamline::isReflexSupported() {
+    return g_reflexSupported;
+}
+
+void framegen::Streamline::setReflexEnabled(bool enabled) {
+    g_reflexEnabled = enabled;
+}
+
+bool framegen::Streamline::reflexEnabled() {
+    return g_reflexEnabled && g_reflexSupported;
 }
 
 uint32_t framegen::Streamline::requiredExtraComputeQueues() {
@@ -317,6 +346,16 @@ bool framegen::Streamline::isSupported() {
 
 uint32_t framegen::Streamline::maxGeneratedFrames() {
     return 0;
+}
+
+bool framegen::Streamline::isReflexSupported() {
+    return false;
+}
+
+void framegen::Streamline::setReflexEnabled(bool) {}
+
+bool framegen::Streamline::reflexEnabled() {
+    return false;
 }
 
 void framegen::Streamline::setVulkanInfo(VkInstance, VkPhysicalDevice, VkDevice, uint32_t, uint32_t, uint32_t,

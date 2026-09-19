@@ -59,4 +59,9 @@ public class RendererProxy {
 
     /** Latency marker for Reflex (see FrameGeneration.Marker). */
     public static native void frameGenerationMarker(int marker);
+
+    /** NVIDIA Reflex low latency; only has an effect where Streamline is loaded and the GPU supports it. */
+    public static native void setReflexEnabled(boolean enabled);
+
+    public static native boolean isReflexSupported();
 }

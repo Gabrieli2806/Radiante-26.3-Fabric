@@ -1,3 +1,5 @@
+#include <atomic>
+#include <glm/gtc/packing.hpp>
 #include "core/render/chunks.hpp"
 
 #include "core/render/buffers.hpp"
@@ -27,7 +29,7 @@ static_assert(sizeof(LightData) == sizeof(glm::vec4) * 7);
 static void buildChunkPackedVertices(const std::vector<std::vector<vk::VertexFormat::PBRVertex>> &vertices,
                                      const std::vector<std::vector<uint32_t>> &indices,
                                      std::vector<vk::VertexFormat::PositionVertex> &packedPositions,
-                                     std::vector<vk::VertexFormat::MaterialVertex> &packedMaterials,
+                                     std::vector<vk::VertexFormat::PackedMaterialVertex> &packedMaterials,
                                      std::vector<uint32_t> &packedIndices) {
     for (int i = 0; i < static_cast<int>(vertices.size()); i++) {
         const auto &geometryVertices = vertices[i];
@@ -120,12 +122,7 @@ static void releaseChunkBuildDataStaging(const std::shared_ptr<ChunkBuildData> &
     if (chunkBuildData->indexBuffer != nullptr) {
         chunkBuildData->indexBuffer->releaseStaging();
     }
-    if (chunkBuildData->positionBuffer != nullptr) {
-        chunkBuildData->positionBuffer->releaseStaging();
-    }
-    if (chunkBuildData->materialBuffer != nullptr) {
-        chunkBuildData->materialBuffer->releaseStaging();
-    }
+
     if (chunkBuildData->lightBuffer != nullptr) {
         chunkBuildData->lightBuffer->releaseStaging();
     }
@@ -479,6 +476,167 @@ void ChunkBuildData::buildLightInfos(const Emission &emission) {
     }
 }
 
+namespace {
+// Chunk geometry goes to the GPU in a compact form of its own; entities keep the general layout. Each tagged
+// buffer address has its lowest bit set, which is free because every region is at least 2-byte aligned, and the
+// shaders' loaders in util/vertex.glsl read the compact layout wherever they see it.
+//   indices    16-bit when the geometry has at most 65535 vertices (tag), otherwise 32-bit
+//   positions  4 x half, relative to the section origin (tag, always). Block geometry lies on a 1/16 grid, which
+//              half floats represent exactly over a section's range, so shared edges stay exactly shared.
+//   materials  when every vertex of a geometry shares its texture, flags, emission, overlay and glint (terrain
+//              always does): a 5-word header with those, then 5 words per vertex (normal, colour, u, v, light)
+//              (tag). Otherwise the regular 40-byte PackedMaterialVertex.
+constexpr VkDeviceAddress kCompactTag = 1;
+
+size_t alignTo(size_t value, size_t alignment) {
+    return (value + alignment - 1) / alignment * alignment;
+}
+
+bool hasUniformMaterial(const std::vector<vk::VertexFormat::PBRVertex> &vertices) {
+    if (vertices.empty()) return false;
+    const auto first = vk::Vertex::makeMaterialVertex(vertices[0]);
+    for (const auto &vertex : vertices) {
+        const auto m = vk::Vertex::makeMaterialVertex(vertex);
+        if (m.textures != first.textures || m.overlay != first.overlay || m.glintUV != first.glintUV ||
+            m.packedData != first.packedData ||
+            std::memcmp(&m.albedoEmission, &first.albedoEmission, sizeof(float)) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+struct PackedChunkGeometry {
+    std::vector<uint8_t> bytes;
+    std::vector<size_t> indexOffsets;
+    std::vector<size_t> positionOffsets;
+    std::vector<size_t> materialOffsets;
+    std::vector<uint8_t> index16;
+    std::vector<uint8_t> compactMaterial;
+};
+
+PackedChunkGeometry packChunkGeometry(const std::vector<std::vector<vk::VertexFormat::PBRVertex>> &vertices,
+                                      const std::vector<std::vector<uint32_t>> &indices) {
+    PackedChunkGeometry packed;
+    const size_t count = vertices.size();
+    packed.indexOffsets.resize(count);
+    packed.positionOffsets.resize(count);
+    packed.materialOffsets.resize(count);
+    packed.index16.resize(count);
+    packed.compactMaterial.resize(count);
+
+    size_t size = 0;
+    for (size_t g = 0; g < count; g++) {
+        packed.index16[g] = vertices[g].size() <= 65535 ? 1 : 0;
+        packed.indexOffsets[g] = size;
+        size = alignTo(size + indices[g].size() * (packed.index16[g] ? 2 : 4), 8);
+    }
+    for (size_t g = 0; g < count; g++) {
+        packed.positionOffsets[g] = size;
+        size = alignTo(size + vertices[g].size() * 8, 8);
+    }
+    for (size_t g = 0; g < count; g++) {
+        packed.compactMaterial[g] = hasUniformMaterial(vertices[g]) ? 1 : 0;
+        packed.materialOffsets[g] = size;
+        size_t bytes = packed.compactMaterial[g] ? (5 + vertices[g].size() * 5) * sizeof(uint32_t) :
+                                                   vertices[g].size() * sizeof(vk::VertexFormat::PackedMaterialVertex);
+        size = alignTo(size + bytes, 8);
+    }
+    packed.bytes.assign(std::max<size_t>(size, 16), 0);
+    uint8_t *base = packed.bytes.data();
+
+    for (size_t g = 0; g < count; g++) {
+        const auto &geometryIndices = indices[g];
+        if (packed.index16[g]) {
+            auto *out = reinterpret_cast<uint16_t *>(base + packed.indexOffsets[g]);
+            for (size_t i = 0; i < geometryIndices.size(); i++) { out[i] = static_cast<uint16_t>(geometryIndices[i]); }
+        } else {
+            std::memcpy(base + packed.indexOffsets[g], geometryIndices.data(), geometryIndices.size() * 4);
+        }
+
+        auto *positions = reinterpret_cast<uint32_t *>(base + packed.positionOffsets[g]);
+        for (size_t v = 0; v < vertices[g].size(); v++) {
+            const glm::vec3 &pos = vertices[g][v].pos;
+            positions[v * 2] = glm::packHalf2x16(glm::vec2(pos.x, pos.y));
+            positions[v * 2 + 1] = glm::packHalf2x16(glm::vec2(pos.z, 0.0f));
+        }
+
+        if (packed.compactMaterial[g]) {
+            auto *words = reinterpret_cast<uint32_t *>(base + packed.materialOffsets[g]);
+            const auto first = vk::Vertex::makeMaterialVertex(vertices[g][0]);
+            words[0] = first.textures;
+            words[1] = first.overlay;
+            words[2] = first.glintUV;
+            std::memcpy(&words[3], &first.albedoEmission, sizeof(float));
+            words[4] = first.packedData;
+            for (size_t v = 0; v < vertices[g].size(); v++) {
+                const auto m = vk::Vertex::makeMaterialVertex(vertices[g][v]);
+                uint32_t *w = words + 5 + v * 5;
+                w[0] = m.normal;
+                w[1] = m.color;
+                std::memcpy(&w[2], &m.u, sizeof(float));
+                std::memcpy(&w[3], &m.v, sizeof(float));
+                w[4] = m.light;
+            }
+        } else {
+            auto *materials =
+                reinterpret_cast<vk::VertexFormat::PackedMaterialVertex *>(base + packed.materialOffsets[g]);
+            for (size_t v = 0; v < vertices[g].size(); v++) {
+                materials[v] = vk::Vertex::makeMaterialVertex(vertices[g][v]);
+            }
+        }
+    }
+    return packed;
+}
+} // namespace
+
+void ChunkBuildData::packGeometry(const std::shared_ptr<vk::VMA> &vma,
+                                  const std::shared_ptr<vk::Device> &device,
+                                  bool persistStaging,
+                                  const std::shared_ptr<vk::BLASBuilder> &builder) {
+    PackedChunkGeometry packed = packChunkGeometry(vertices, indices);
+
+    // One buffer per chunk holds all of its geometry. Chunks used to share buffers with the rest of their build
+    // batch, so rebuilding one chunk left the whole batch's memory alive until every chunk in it was rebuilt too,
+    // and video memory crept up over a long session.
+    auto buffer = vk::DeviceLocalBuffer::create(vma, device, persistStaging, packed.bytes.size(),
+                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                                    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    buffer->uploadToStagingBuffer(packed.bytes.data(), packed.bytes.size(), 0);
+    buffer->flushStagingBuffer();
+    Chunks::devBytes[0] += packed.bytes.size();
+
+    indexBuffer = buffer;
+    positionBuffer = buffer;
+    materialBuffer = buffer;
+
+    indexBufferAddresses.clear();
+    positionBufferAddresses.clear();
+    materialBufferAddresses.clear();
+    indexBufferAddresses.reserve(geometryCount);
+    positionBufferAddresses.reserve(geometryCount);
+    materialBufferAddresses.reserve(geometryCount);
+
+    const VkDeviceAddress address = buffer->bufferAddress();
+    auto geometryBuilder = builder->beginGeometries();
+    for (uint32_t i = 0; i < geometryCount; i++) {
+        const VkDeviceAddress indexAddress = address + packed.indexOffsets[i];
+        const VkDeviceAddress positionAddress = address + packed.positionOffsets[i];
+        const VkDeviceAddress materialAddress = address + packed.materialOffsets[i];
+        indexBufferAddresses.push_back(indexAddress | (packed.index16[i] ? kCompactTag : 0));
+        positionBufferAddresses.push_back(positionAddress | kCompactTag);
+        materialBufferAddresses.push_back(materialAddress | (packed.compactMaterial[i] ? kCompactTag : 0));
+
+        geometryBuilder->defineTriangleGeometryRaw(positionAddress, VK_FORMAT_R16G16B16A16_SFLOAT, 8,
+                                                   static_cast<uint32_t>(vertices[i].size()), indexAddress,
+                                                   packed.index16[i] ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32,
+                                                   static_cast<uint32_t>(indices[i].size()),
+                                                   geometryTypes[i] == World::WORLD_SOLID);
+    }
+    geometryBuilder->endGeometries();
+}
+
 void ChunkBuildData::build(bool persistStaging) {
     auto framework = Renderer::instance().framework();
     auto vma = framework->vma();
@@ -493,80 +651,8 @@ void ChunkBuildData::build(bool persistStaging) {
         return;
     }
 
-    std::vector<uint32_t> geometryVertexOffsets;
-    std::vector<uint32_t> geometryIndexOffsets;
-    geometryVertexOffsets.reserve(geometryCount);
-    geometryIndexOffsets.reserve(geometryCount);
-
-    uint32_t totalVertexCount = 0;
-    uint32_t totalIndexCount = 0;
-    for (int i = 0; i < geometryCount; i++) {
-        geometryVertexOffsets.push_back(totalVertexCount);
-        geometryIndexOffsets.push_back(totalIndexCount);
-        totalVertexCount += vertices[i].size();
-        totalIndexCount += indices[i].size();
-    }
-
-    positionBuffer = vk::DeviceLocalBuffer::create(vma, device, persistStaging,
-                                                   totalVertexCount * sizeof(vk::VertexFormat::PositionVertex),
-                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                                       VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    materialBuffer = vk::DeviceLocalBuffer::create(vma, device, persistStaging,
-                                                   totalVertexCount * sizeof(vk::VertexFormat::MaterialVertex),
-                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    indexBuffer = vk::DeviceLocalBuffer::create(
-        vma, device, persistStaging, totalIndexCount * sizeof(uint32_t),
-        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-
-    std::vector<vk::VertexFormat::PositionVertex> packedPositions;
-    std::vector<vk::VertexFormat::MaterialVertex> packedMaterials;
-    std::vector<uint32_t> packedIndices;
-    packedPositions.reserve(totalVertexCount);
-    packedMaterials.reserve(totalVertexCount);
-    packedIndices.reserve(totalIndexCount);
-    buildChunkPackedVertices(vertices, indices, packedPositions, packedMaterials, packedIndices);
-
-    if (!packedPositions.empty()) {
-        positionBuffer->uploadToStagingBuffer(packedPositions.data(),
-                                              packedPositions.size() * sizeof(vk::VertexFormat::PositionVertex), 0);
-        materialBuffer->uploadToStagingBuffer(packedMaterials.data(),
-                                              packedMaterials.size() * sizeof(vk::VertexFormat::MaterialVertex), 0);
-    }
-    if (!packedIndices.empty()) {
-        indexBuffer->uploadToStagingBuffer(packedIndices.data(), packedIndices.size() * sizeof(uint32_t), 0);
-    }
-
-    indexBufferAddresses.reserve(geometryCount);
-    positionBufferAddresses.reserve(geometryCount);
-    materialBufferAddresses.reserve(geometryCount);
-
     blasBuilder = vk::BLASBuilder::create();
-    auto blasGeometryBuilder = blasBuilder->beginGeometries();
-    for (int i = 0; i < geometryCount; i++) {
-        const VkDeviceAddress geometryIndexAddress =
-            indexBuffer->bufferAddress() + geometryIndexOffsets[i] * sizeof(uint32_t);
-        const VkDeviceAddress geometryPositionAddress =
-            positionBuffer->bufferAddress() + geometryVertexOffsets[i] * sizeof(vk::VertexFormat::PositionVertex);
-        const VkDeviceAddress geometryMaterialAddress =
-            materialBuffer->bufferAddress() + geometryVertexOffsets[i] * sizeof(vk::VertexFormat::MaterialVertex);
-
-        indexBufferAddresses.push_back(geometryIndexAddress);
-        positionBufferAddresses.push_back(geometryPositionAddress);
-        materialBufferAddresses.push_back(geometryMaterialAddress);
-
-        blasGeometryBuilder->defineTriangleGeomrtry<vk::VertexFormat::PositionVertex>(
-            geometryPositionAddress, vertices[i].size(), geometryIndexAddress, indices[i].size(),
-            geometryTypes[i] == World::WORLD_SOLID);
-    }
-
-    positionBuffer->flushStagingBuffer();
-    materialBuffer->flushStagingBuffer();
-    indexBuffer->flushStagingBuffer();
-
-    blasGeometryBuilder->endGeometries();
+    packGeometry(vma, device, persistStaging, blasBuilder);
     blas = blasBuilder->defineBuildProperty(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR)
                ->querySizeInfo(device)
                ->allocateBuffers(physicalDevice, device, vma)
@@ -624,39 +710,13 @@ void ChunkBuildDataBatch::build() {
     auto device = framework->device();
     auto physicalDevice = framework->physicalDevice();
 
-    for (auto &data : batchData) {
-        if (data == nullptr) {
-            continue;
-        }
+    blasBatchBuilder = vk::BLASBatchBuilder::create();
+    std::vector<size_t> builtIndices;
+    for (size_t i = 0; i < batchData.size(); i++) {
+        auto &data = batchData[i];
+        if (data == nullptr) continue;
         data->buildLightBuffer(vma, device, true);
-    }
-
-    std::vector<uint32_t> instanceOffsets;
-    std::vector<uint32_t> geometryVertexOffsets;
-    std::vector<uint32_t> geometryIndexOffsets;
-    instanceOffsets.reserve(batchData.size());
-
-    uint32_t totalGeometryCount = 0;
-    uint32_t totalVertexCount = 0;
-    uint32_t totalIndexCount = 0;
-
-    for (const auto &data : batchData) {
-        if (data == nullptr) {
-            instanceOffsets.push_back(totalGeometryCount);
-            continue;
-        }
-        instanceOffsets.push_back(totalGeometryCount);
-        for (int i = 0; i < data->geometryCount; i++) {
-            geometryVertexOffsets.push_back(totalVertexCount);
-            geometryIndexOffsets.push_back(totalIndexCount);
-            totalVertexCount += data->vertices[i].size();
-            totalIndexCount += data->indices[i].size();
-        }
-        totalGeometryCount += data->geometryCount;
-    }
-
-    if (totalGeometryCount == 0) {
-        for (const auto &data : batchData) {
+        if (data->geometryCount == 0) {
             data->indexBufferAddresses.clear();
             data->positionBufferAddresses.clear();
             data->materialBufferAddresses.clear();
@@ -665,114 +725,36 @@ void ChunkBuildDataBatch::build() {
             data->materialBuffer = nullptr;
             data->blas = nullptr;
             data->blasBuilder = nullptr;
+            continue;
         }
+
+        auto builder = blasBatchBuilder->defineBLASBuilder();
+        data->packGeometry(vma, device, true, builder);
+        data->blasBuilder = builder
+                                ->defineBuildProperty(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR |
+                                                      VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
+                                ->querySizeInfo(device);
+        builtIndices.push_back(i);
+    }
+
+    if (builtIndices.empty()) {
+        blasBatchBuilder = nullptr;
         return;
     }
 
-    positionBuffer = vk::DeviceLocalBuffer::create(vma, device, true,
-                                                   totalVertexCount * sizeof(vk::VertexFormat::PositionVertex),
-                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                                       VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    materialBuffer = vk::DeviceLocalBuffer::create(vma, device, true,
-                                                   totalVertexCount * sizeof(vk::VertexFormat::MaterialVertex),
-                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    indexBuffer = vk::DeviceLocalBuffer::create(
-        vma, device, true, totalIndexCount * sizeof(uint32_t),
-        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-
-    std::vector<vk::VertexFormat::PositionVertex> packedPositions;
-    std::vector<vk::VertexFormat::MaterialVertex> packedMaterials;
-    std::vector<uint32_t> packedIndices;
-    packedPositions.reserve(totalVertexCount);
-    packedMaterials.reserve(totalVertexCount);
-    packedIndices.reserve(totalIndexCount);
-    for (const auto &data : batchData) {
-        if (data == nullptr) {
-            continue;
-        }
-        buildChunkPackedVertices(data->vertices, data->indices, packedPositions, packedMaterials, packedIndices);
-    }
-
-    if (!packedPositions.empty()) {
-        positionBuffer->uploadToStagingBuffer(packedPositions.data(),
-                                              packedPositions.size() * sizeof(vk::VertexFormat::PositionVertex), 0);
-        materialBuffer->uploadToStagingBuffer(packedMaterials.data(),
-                                              packedMaterials.size() * sizeof(vk::VertexFormat::MaterialVertex), 0);
-    }
-    if (!packedIndices.empty()) {
-        indexBuffer->uploadToStagingBuffer(packedIndices.data(), packedIndices.size() * sizeof(uint32_t), 0);
-    }
-
-    blasBatchBuilder = vk::BLASBatchBuilder::create();
-    std::vector<uint32_t> nonEmptyInstanceIndices;
-    nonEmptyInstanceIndices.reserve(batchData.size());
-
-    for (int chunkIndex = 0; auto &data : batchData) {
-        if (data == nullptr) {
-            chunkIndex++;
-            continue;
-        }
-        const auto instanceOffset = instanceOffsets[chunkIndex];
-        data->indexBufferAddresses.clear();
-        data->positionBufferAddresses.clear();
-        data->materialBufferAddresses.clear();
-        data->indexBufferAddresses.reserve(data->geometryCount);
-        data->positionBufferAddresses.reserve(data->geometryCount);
-        data->materialBufferAddresses.reserve(data->geometryCount);
-
-        if (data->geometryCount == 0) {
-            data->indexBuffer = nullptr;
-            data->positionBuffer = nullptr;
-            data->materialBuffer = nullptr;
-            data->blas = nullptr;
-            data->blasBuilder = nullptr;
-            chunkIndex++;
-            continue;
-        }
-
-        data->indexBuffer = indexBuffer;
-        data->positionBuffer = positionBuffer;
-        data->materialBuffer = materialBuffer;
-
-        auto blasBuilder = blasBatchBuilder->defineBLASBuilder();
-        auto blasGeometryBuilder = blasBuilder->beginGeometries();
-
-        for (int i = 0; i < data->geometryCount; i++) {
-            const VkDeviceAddress geometryIndexAddress =
-                indexBuffer->bufferAddress() + geometryIndexOffsets[instanceOffset + i] * sizeof(uint32_t);
-            const VkDeviceAddress geometryPositionAddress =
-                positionBuffer->bufferAddress() +
-                geometryVertexOffsets[instanceOffset + i] * sizeof(vk::VertexFormat::PositionVertex);
-            const VkDeviceAddress geometryMaterialAddress =
-                materialBuffer->bufferAddress() +
-                geometryVertexOffsets[instanceOffset + i] * sizeof(vk::VertexFormat::MaterialVertex);
-
-            data->indexBufferAddresses.push_back(geometryIndexAddress);
-            data->positionBufferAddresses.push_back(geometryPositionAddress);
-            data->materialBufferAddresses.push_back(geometryMaterialAddress);
-
-            blasGeometryBuilder->defineTriangleGeomrtry<vk::VertexFormat::PositionVertex>(
-                geometryPositionAddress, data->vertices[i].size(), geometryIndexAddress, data->indices[i].size(),
-                data->geometryTypes[i] == World::WORLD_SOLID);
-        }
-
-        blasGeometryBuilder->endGeometries();
-        data->blasBuilder = blasBuilder->defineBuildProperty(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR)
-                                ->querySizeInfo(device);
-        nonEmptyInstanceIndices.push_back(chunkIndex);
-        chunkIndex++;
-    }
-
-    positionBuffer->flushStagingBuffer();
-    materialBuffer->flushStagingBuffer();
-    indexBuffer->flushStagingBuffer();
-
     auto blases = blasBatchBuilder->allocateBuffers(physicalDevice, device, vma)->build(device);
-    for (int i = 0; i < nonEmptyInstanceIndices.size(); i++) {
-        batchData[nonEmptyInstanceIndices[i]]->blas = blases[i];
+    Chunks::devBytes[3] += blasBatchBuilder->totalBlasBytes();
+    for (size_t i = 0; i < builtIndices.size(); i++) {
+        batchData[builtIndices[i]]->blas = blases[i];
+    }
+
+    builtBlases = blases;
+    VkQueryPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    poolInfo.queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR;
+    poolInfo.queryCount = static_cast<uint32_t>(blases.size());
+    if (vkCreateQueryPool(device->vkDevice(), &poolInfo, nullptr, &compactionQueryPool) != VK_SUCCESS) {
+        compactionQueryPool = VK_NULL_HANDLE;
     }
 }
 
@@ -803,6 +785,31 @@ ChunkBuildScheduler::ChunkBuildScheduler(std::set<int64_t> &queuedIndex,
     }
 }
 
+void ChunkBuildScheduler::collectCompactions(const std::shared_ptr<ChunkBuildDataBatch> &batch) {
+    if (batch->compactionQueryPool == VK_NULL_HANDLE) return;
+    auto device = Renderer::instance().framework()->device();
+    const uint32_t count = static_cast<uint32_t>(batch->builtBlases.size());
+    std::vector<uint64_t> sizes(count, 0);
+    VkResult result = vkGetQueryPoolResults(device->vkDevice(), batch->compactionQueryPool, 0, count,
+                                            sizes.size() * sizeof(uint64_t), sizes.data(), sizeof(uint64_t),
+                                            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+    vkDestroyQueryPool(device->vkDevice(), batch->compactionQueryPool, nullptr);
+    batch->compactionQueryPool = VK_NULL_HANDLE;
+    if (result != VK_SUCCESS || compactionSink_ == nullptr) return;
+
+    std::vector<ChunkCompaction> compactions;
+    for (const auto &data : batch->batchData) {
+        if (data == nullptr || data->blas == nullptr) continue;
+        for (uint32_t i = 0; i < count; i++) {
+            if (batch->builtBlases[i] == data->blas && sizes[i] > 0) {
+                compactions.push_back({data->id, data->blas, sizes[i]});
+                break;
+            }
+        }
+    }
+    compactionSink_(std::move(compactions));
+}
+
 void ChunkBuildScheduler::tryCheckBatchesFinish() {
     auto framework = Renderer::instance().framework();
     auto device = framework->device();
@@ -819,6 +826,7 @@ void ChunkBuildScheduler::tryCheckBatchesFinish() {
             freeFences_.push(*iterFence);
             freeCommandBuffers_.push(*iterCommandBuffer);
 
+            collectCompactions(*iterBatch);
             for (auto chunkBuildData : (*iterBatch)->batchData) {
                 bool wasEnqueued = chunks_[chunkBuildData->id]->enqueue(chunkBuildData);
                 releaseChunkBuildDataStaging(chunkBuildData);
@@ -859,6 +867,7 @@ void ChunkBuildScheduler::waitAllBatchesFinish() {
             freeFences_.push(*iterFence);
             freeCommandBuffers_.push(*iterCommandBuffer);
 
+            collectCompactions(*iterBatch);
             for (auto chunkBuildData : (*iterBatch)->batchData) {
                 bool wasEnqueued = chunks_[chunkBuildData->id]->enqueue(chunkBuildData);
                 releaseChunkBuildDataStaging(chunkBuildData);
@@ -964,75 +973,45 @@ void ChunkBuildScheduler::tryScheduleBatches(uint32_t maxBatchSize) {
             useSecondaryQueue_ ? physicalDevice->secondaryQueueIndex() : physicalDevice->mainQueueIndex();
 
         commandBuffer->begin();
-        if (chunkBuildDataBatch->positionBuffer != nullptr) {
-            chunkBuildDataBatch->indexBuffer->uploadToBuffer(commandBuffer);
-            chunkBuildDataBatch->positionBuffer->uploadToBuffer(commandBuffer);
-            chunkBuildDataBatch->materialBuffer->uploadToBuffer(commandBuffer);
-        }
+        bool uploadedAnything = false;
         for (const auto &chunkBuildData : chunkBuildDataBatch->batchData) {
+            if (chunkBuildData->indexBuffer != nullptr) {
+                chunkBuildData->indexBuffer->uploadToBuffer(commandBuffer);
+                uploadedAnything = true;
+            }
             if (chunkBuildData->lightBuffer != nullptr) {
                 chunkBuildData->lightBuffer->uploadToBuffer(commandBuffer);
+                uploadedAnything = true;
             }
         }
-
-        std::vector<vk::CommandBuffer::BufferMemoryBarrier> geometryBarriers;
-        if (chunkBuildDataBatch->positionBuffer != nullptr) {
-            geometryBarriers = {
-                {
-                    .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                    .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    .dstStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR |
-                                    VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-                    .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    .srcQueueFamilyIndex = queueFamilyIndex,
-                    .dstQueueFamilyIndex = queueFamilyIndex,
-                    .buffer = chunkBuildDataBatch->indexBuffer,
-                },
-                {
-                    .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                    .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    .dstStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR |
-                                    VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-                    .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    .srcQueueFamilyIndex = queueFamilyIndex,
-                    .dstQueueFamilyIndex = queueFamilyIndex,
-                    .buffer = chunkBuildDataBatch->positionBuffer,
-                },
-                {
-                    .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                    .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    .dstStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-                    .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    .srcQueueFamilyIndex = queueFamilyIndex,
-                    .dstQueueFamilyIndex = queueFamilyIndex,
-                    .buffer = chunkBuildDataBatch->materialBuffer,
-                },
-            };
-            commandBuffer->barriersBufferImage(geometryBarriers, {});
-        }
-
-        std::vector<vk::CommandBuffer::BufferMemoryBarrier> lightBarriers;
-        for (const auto &chunkBuildData : chunkBuildDataBatch->batchData) {
-            if (chunkBuildData->lightBuffer == nullptr) {
-                continue;
-            }
-
-            lightBarriers.push_back({
+        if (uploadedAnything) {
+            commandBuffer->barriersMemory({vk::CommandBuffer::MemoryBarrier{
                 .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .dstStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .srcQueueFamilyIndex = queueFamilyIndex,
-                .dstQueueFamilyIndex = queueFamilyIndex,
-                .buffer = chunkBuildData->lightBuffer,
-            });
-        }
-        if (!lightBarriers.empty()) {
-            commandBuffer->barriersBufferImage(lightBarriers, {});
+                .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR |
+                                VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT,
+            }});
         }
 
         if (chunkBuildDataBatch->blasBatchBuilder != nullptr) {
             chunkBuildDataBatch->blasBatchBuilder->submit(commandBuffer);
+        }
+        if (chunkBuildDataBatch->compactionQueryPool != VK_NULL_HANDLE) {
+            const uint32_t count = static_cast<uint32_t>(chunkBuildDataBatch->builtBlases.size());
+            std::vector<VkAccelerationStructureKHR> handles;
+            handles.reserve(count);
+            for (const auto &blas : chunkBuildDataBatch->builtBlases) { handles.push_back(blas->blas()); }
+            commandBuffer->barriersMemory({vk::CommandBuffer::MemoryBarrier{
+                .srcStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                .srcAccessMask = VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+                .dstStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                .dstAccessMask = VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+            }});
+            vkCmdResetQueryPool(commandBuffer->vkCommandBuffer(), chunkBuildDataBatch->compactionQueryPool, 0, count);
+            vkCmdWriteAccelerationStructuresPropertiesKHR(
+                commandBuffer->vkCommandBuffer(), count, handles.data(),
+                VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, chunkBuildDataBatch->compactionQueryPool, 0);
         }
         commandBuffer->end();
 
@@ -1121,6 +1100,8 @@ bool Chunk1::enqueue(std::shared_ptr<ChunkBuildData> chunkBuildData) {
 
         frr.retain(geometryGroupNames);
         geometryGroupNames = std::make_shared<std::vector<std::string>>(std::move(chunkBuildData->geometryGroupNames));
+        if (occupiedFlag != nullptr) { *occupiedFlag = blas != nullptr ? 1 : 0; }
+        Chunks::bumpContentVersion();
         return true;
     } else {
         frr.retain(chunkBuildData->blas);
@@ -1172,6 +1153,8 @@ void Chunk1::invalidate() {
 
     frr.retain(geometryGroupNames);
     geometryGroupNames = nullptr;
+    if (occupiedFlag != nullptr) { *occupiedFlag = 0; }
+    Chunks::bumpContentVersion();
 }
 
 void Chunk1::retainResources(FrameResourceRetainer &frr) {
@@ -1284,6 +1267,10 @@ void Chunks::reset(uint32_t numChunks,
     vkQueueWaitIdle(device->mainVkQueue());
     vkQueueWaitIdle(device->secondaryQueue());
     auto &retainer = framework->frameResourceRetainer();
+    // The old chunks point into occupied_, which is about to be replaced.
+    for (auto &chunk : chunks_) {
+        if (chunk != nullptr) { chunk->occupiedFlag = nullptr; }
+    }
     retainer.retain(std::make_shared<std::vector<std::shared_ptr<Chunk1>>>(std::move(chunks_)));
     retainer.retain(std::make_shared<std::vector<std::shared_ptr<ChunkBuildData>>>(std::move(chunkBuildDatas_)));
     retainer.retain(
@@ -1309,8 +1296,11 @@ void Chunks::reset(uint32_t numChunks,
     chunkBuildDatas_.resize(numChunks);
     queuedIndex_.clear();
 
+    occupied_.assign(numChunks, 0);
+    bumpContentVersion();
     for (int i = 0; i < numChunks; i++) {
         chunks_[i] = Chunk1::create();
+        chunks_[i]->occupiedFlag = &occupied_[i];
         chunkBuildDatas_[i] = nullptr;
     }
 
@@ -1319,6 +1309,8 @@ void Chunks::reset(uint32_t numChunks,
     chunkBuildScheduler_ =
         ChunkBuildScheduler::create(queuedIndex_, chunks_, chunkBuildDatas_, mutex_, chunkPackedData_,
                                     chunkBuildingBatchSize, chunkBuildingTotalBatches);
+    chunkBuildScheduler_->setCompactionSink(
+        [this](std::vector<ChunkCompaction> &&compactions) { addPendingCompactions(std::move(compactions)); });
 }
 
 void Chunks::resetScheduler() {
@@ -1333,6 +1325,8 @@ void Chunks::resetScheduler() {
     chunkBuildScheduler_ =
         ChunkBuildScheduler::create(queuedIndex_, chunks_, chunkBuildDatas_, mutex_, chunkPackedData_,
                                     chunkBuildingBatchSize, chunkBuildingTotalBatches);
+    chunkBuildScheduler_->setCompactionSink(
+        [this](std::vector<ChunkCompaction> &&compactions) { addPendingCompactions(std::move(compactions)); });
 }
 
 void Chunks::setCollectChunkEmission(bool collect) {
@@ -1488,10 +1482,9 @@ void Chunks::queueChunkBuild(ChunkBuildTask task) {
         chunkBuildDatas_[task.id] = nullptr;
 
         chunkBuildData->build(false);
-        if (chunkBuildData->positionBuffer != nullptr) {
+        if (chunkBuildData->indexBuffer != nullptr) {
+            // Indices, positions and materials share one buffer; see ChunkBuildData::packGeometry.
             Renderer::instance().buffers()->queueImportantWorldUpload(chunkBuildData->indexBuffer);
-            Renderer::instance().buffers()->queueImportantWorldUpload(chunkBuildData->positionBuffer);
-            Renderer::instance().buffers()->queueImportantWorldUpload(chunkBuildData->materialBuffer);
         }
         if (chunkBuildData->lightBuffer != nullptr) {
             Renderer::instance().buffers()->queueImportantWorldUpload(chunkBuildData->lightBuffer);
@@ -1540,6 +1533,83 @@ void Chunks::close() {
 
 std::recursive_mutex &Chunks::mutex() {
     return mutex_;
+}
+
+namespace {
+std::atomic<uint64_t> g_chunkContentVersion{0};
+}
+std::atomic<uint64_t> Chunks::devBytes[5] = {};
+
+uint64_t Chunks::contentVersion() {
+    return g_chunkContentVersion.load(std::memory_order_acquire);
+}
+
+void Chunks::bumpContentVersion() {
+    g_chunkContentVersion.fetch_add(1, std::memory_order_acq_rel);
+}
+
+void Chunks::addPendingCompactions(std::vector<PendingCompaction> &&compactions) {
+    std::unique_lock<std::recursive_mutex> lock(mutex_);
+    pendingCompactions_.insert(pendingCompactions_.end(), std::make_move_iterator(compactions.begin()),
+                               std::make_move_iterator(compactions.end()));
+}
+
+void Chunks::compactFinishedBlases(std::shared_ptr<vk::CommandBuffer> commandBuffer) {
+    std::unique_lock<std::recursive_mutex> lock(mutex_);
+    if (pendingCompactions_.empty()) return;
+
+    auto framework = Renderer::instance().framework();
+    auto device = framework->device();
+    auto vma = framework->vma();
+    auto &frr = framework->frameResourceRetainer();
+
+    // Only chunks still showing the structure that was built; anything rebuilt or dropped since is skipped.
+    std::vector<PendingCompaction> live;
+    for (auto &pending : pendingCompactions_) {
+        if (pending.chunkId >= 0 && pending.chunkId < static_cast<int64_t>(chunks_.size()) &&
+            chunks_[pending.chunkId]->blas == pending.source) {
+            live.push_back(std::move(pending));
+        }
+    }
+    pendingCompactions_.clear();
+    if (live.empty()) return;
+
+    VkDeviceSize total = 0;
+    for (size_t i = 0; i < live.size(); i++) {
+        // Each compacted structure gets its own buffer, so replacing one chunk frees exactly its memory.
+        auto buffer = vk::DeviceLocalBuffer::create(vma, device, false, live[i].compactedSize,
+                                                    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+                                                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                    0, VMA_MEMORY_USAGE_GPU_ONLY, 256);
+        VkAccelerationStructureCreateInfoKHR createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+        createInfo.buffer = buffer->vkBuffer();
+        createInfo.offset = 0;
+        createInfo.size = live[i].compactedSize;
+        createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+        VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
+        if (vkCreateAccelerationStructureKHR(device->vkDevice(), &createInfo, nullptr, &handle) != VK_SUCCESS) {
+            continue;
+        }
+
+        VkCopyAccelerationStructureInfoKHR copyInfo{};
+        copyInfo.sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR;
+        copyInfo.src = live[i].source->blas();
+        copyInfo.dst = handle;
+        copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
+        vkCmdCopyAccelerationStructureKHR(commandBuffer->vkCommandBuffer(), &copyInfo);
+
+        auto &chunk = chunks_[live[i].chunkId];
+        frr.retain(chunk->blas);
+        chunk->blas = vk::BLAS::create(device, handle, buffer);
+        total += live[i].compactedSize;
+    }
+    bumpContentVersion();
+    devBytes[3] += total;
+}
+
+const std::vector<uint8_t> &Chunks::occupied() {
+    return occupied_;
 }
 
 std::vector<std::shared_ptr<Chunk1>> &Chunks::chunks() {

@@ -56,6 +56,7 @@ public final class EntityManager {
     private static final PBRVertexWriter PARTICLE_WRITER = new PBRVertexWriter(4096);
     private static final int HAND_ID = "radiante:hand".hashCode();
     private static final int WEATHER_ID = "radiante:weather".hashCode();
+    private static final int BREAKING_ID_SALT = 0x62726B21;
     private static final int RAY_TRACING_WEATHER = 0b00010000;
     private static final PBRVertexWriter WEATHER_WRITER = new PBRVertexWriter(4096);
     private static final net.minecraft.resources.Identifier RAIN_TEXTURE =
@@ -106,6 +107,7 @@ public final class EntityManager {
             collectBlockEntity(minecraft, cameraState, state);
         }
 
+        collectBlockBreaking(minecraft, levelRenderState);
         collectParticles(levelRenderState, cameraState);
         collectWeather(levelRenderState, cameraState);
         collectHands(minecraft, levelRenderState, cameraState);
@@ -232,6 +234,42 @@ public final class EntityManager {
         }
         RadianteRenderer.LOGGER.info("block entity kind reaching the renderer: {} at {}",
             state.getClass().getSimpleName(), state.blockPos);
+    }
+
+    /**
+     * The cracks on a block being mined. Minecraft extracts one state per block in progress; each is drawn the way
+     * vanilla's breaking pass does it, as the block's own model with the destroy-stage texture projected onto it,
+     * placed at the block like any block entity.
+     */
+    private static void collectBlockBreaking(Minecraft minecraft, LevelRenderState levelRenderState) {
+        if (levelRenderState.blockBreakingRenderStates.isEmpty()) {
+            return;
+        }
+
+        List<net.minecraft.client.renderer.block.dispatch.BlockStateModelPart> parts = new ArrayList<>();
+        net.minecraft.util.RandomSource random = net.minecraft.util.RandomSource.createThreadLocalInstance();
+        for (net.minecraft.client.renderer.state.level.BlockBreakingRenderState state
+            : levelRenderState.blockBreakingRenderStates) {
+            if (state.blockState().getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL) {
+                continue;
+            }
+
+            BlockPos pos = state.blockPos();
+            COLLECTOR.reset();
+            POSE_STACK.setIdentity();
+            POSE_STACK.translate(state.blockState().getOffset(pos));
+            net.minecraft.client.renderer.block.dispatch.BlockStateModel model =
+                minecraft.getModelManager().getBlockStateModelSet().get(state.blockState());
+            random.setSeed(state.blockState().getSeed(pos));
+            parts.clear();
+            model.collectParts(random, parts);
+            COLLECTOR.submitBreakingBlockModel(POSE_STACK, parts, state.progress(), model.hasMaterialFlag(1));
+            if (!COLLECTOR.isEmpty()) {
+                // Under the particle mask: the cracks sit a hair in front of the block, and as shadow casters they
+                // would shade the very face they are drawn on.
+                addPending(pos.hashCode() ^ BREAKING_ID_SALT, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_PARTICLE);
+            }
+        }
     }
 
     /** Particles arrive already positioned relative to the camera and facing it. */

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "core/vulkan/as.hpp"
 
 #include "core/vulkan/command.hpp"
@@ -196,6 +197,36 @@ std::shared_ptr<vk::BLAS> vk::BLASBuilder::build(std::shared_ptr<Device> device)
     }
 
     return BLAS::create(device, dstBLAS_, blasBuffer_);
+}
+
+vk::BLASBuilder::BLASGeometryBuilder &
+vk::BLASBuilder::BLASGeometryBuilder::defineTriangleGeometryRaw(VkDeviceAddress vertexBufferAddress,
+                                                                VkFormat vertexFormat,
+                                                                VkDeviceSize vertexStride,
+                                                                uint32_t numVertices,
+                                                                VkDeviceAddress indexBufferAddress,
+                                                                VkIndexType indexType,
+                                                                uint32_t numIndices,
+                                                                bool isOpaque) {
+    if (numVertices == 0 || numIndices < 3) { return definePlaceholderGeometry(); }
+
+    VkAccelerationStructureGeometryKHR geom{};
+    geom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    geom.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+    geom.flags = isOpaque ? VK_GEOMETRY_OPAQUE_BIT_KHR : VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+
+    auto &triangles = geom.geometry.triangles;
+    triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+    triangles.vertexFormat = vertexFormat;
+    triangles.vertexData.deviceAddress = vertexBufferAddress;
+    triangles.vertexStride = vertexStride;
+    triangles.maxVertex = numVertices - 1;
+    triangles.indexType = indexType;
+    triangles.indexData.deviceAddress = indexBufferAddress;
+
+    geometries.push_back(geom);
+    primitiveCounts.push_back(numIndices / 3);
+    return *this;
 }
 
 std::shared_ptr<vk::BLAS> vk::BLASBuilder::buildExternal(std::shared_ptr<Device> device,
@@ -417,7 +448,8 @@ vk::TLASBuilder::TLASInstanceBuilder::defineInstance(VkTransformMatrixKHR transf
                                                      uint32_t offset,
                                                      VkGeometryInstanceFlagsKHR flag,
                                                      std::shared_ptr<BLAS> blas) {
-    instances.emplace_back(transform, customIndex, mask, offset, flag, blas);
+    if (instances.size() == instances.capacity()) { instances.reserve(std::max<size_t>(1024, instances.size() * 2)); }
+    instances.emplace_back(transform, customIndex, mask, offset, flag, std::move(blas));
     return *this;
 }
 

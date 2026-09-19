@@ -23,7 +23,9 @@ public class RadiantePreLaunch implements PreLaunchEntrypoint {
             return;
         }
 
-        if (!com.g2806.radiante.client.option.Options.frameGeneration) {
+        // Streamline carries both frame generation and Reflex, so either one is a reason to load it.
+        if (!com.g2806.radiante.client.option.Options.frameGeneration
+            && !com.g2806.radiante.client.option.Options.reflex) {
             return;
         }
 

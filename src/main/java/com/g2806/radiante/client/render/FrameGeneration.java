@@ -49,14 +49,26 @@ public final class FrameGeneration {
     }
 
     public static void beginClientFrame() {
-        if (active) {
+        if (active || reflexActive()) {
             RendererProxy.beginFrameGenerationFrame();
         }
     }
 
     public static void marker(int marker) {
-        if (active) {
+        if (active || reflexActive()) {
             RendererProxy.frameGenerationMarker(marker);
+        }
+    }
+
+    /** Reflex paces frames from the same markers, so they are sent whenever it is on, frame generation or not. */
+    private static boolean reflexActive() {
+        return Options.reflex && RadianteClient.streamlineLoaded();
+    }
+
+    /** Hands the player's Reflex choice to the renderer; harmless before Streamline or the device exist. */
+    public static void applyReflex() {
+        if (RadianteClient.streamlineLoaded()) {
+            RendererProxy.setReflexEnabled(Options.reflex);
         }
     }
 }

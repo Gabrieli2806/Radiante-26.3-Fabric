@@ -176,8 +176,22 @@ void Framework::acquireContext() {
     Renderer::instance().world()->entities()->resetFrame();
 }
 
+namespace {
+// Development timings (RADIANTE_DEV_PROFILE): where renderFrame spends its CPU time, averaged over 300 frames.
+struct DevFrameProfile {
+    bool enabled = std::getenv("RADIANTE_DEV_PROFILE") != nullptr;
+    double acquire = 0, upload = 0, world = 0, fuse = 0;
+    int frames = 0;
+};
+DevFrameProfile g_devProfile;
+double devMs(std::chrono::steady_clock::time_point from, std::chrono::steady_clock::time_point to) {
+    return std::chrono::duration<double, std::milli>(to - from).count();
+}
+} // namespace
+
 std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t width, uint32_t height, VkFormat format) {
     std::unique_lock<std::recursive_mutex> lck(recreateMtx_);
+    auto devT0 = std::chrono::steady_clock::now();
     if (!running_) return {};
 
     auto extent = swapchain_->vkExtent();
@@ -188,13 +202,17 @@ std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t wid
     }
 
     auto context = safeAcquireCurrentContext();
+    auto devT1 = std::chrono::steady_clock::now();
 
     Renderer::instance().textures()->performQueuedUpload();
     Renderer::instance().buffers()->performQueuedUpload();
+    auto devT2 = std::chrono::steady_clock::now();
+    auto devT3 = devT2;
 
     auto pipelineContext = pipeline_->acquirePipelineContext(context);
     if (Renderer::instance().world()->shouldRender() && pipelineContext->worldPipelineContext != nullptr) {
         pipelineContext->worldPipelineContext->render();
+        devT3 = std::chrono::steady_clock::now();
 
         // Frame generation reads the finished world image plus the depth and motion vectors behind it.
         auto worldPipeline = pipeline_->worldPipeline();
@@ -226,6 +244,19 @@ std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t wid
     };
 
     currentContext_ = nullptr;
+    if (g_devProfile.enabled) {
+        auto devT4 = std::chrono::steady_clock::now();
+        g_devProfile.acquire += devMs(devT0, devT1);
+        g_devProfile.upload += devMs(devT1, devT2);
+        g_devProfile.world += devMs(devT2, devT3);
+        g_devProfile.fuse += devMs(devT3, devT4);
+        if (++g_devProfile.frames == 300) {
+            std::cout << "[native profile] acquire(wait)=" << g_devProfile.acquire / 300
+                      << "ms upload=" << g_devProfile.upload / 300 << "ms world=" << g_devProfile.world / 300
+                      << "ms fuse=" << g_devProfile.fuse / 300 << "ms" << std::endl;
+            g_devProfile = DevFrameProfile{};
+        }
+    }
     return result;
 }
 

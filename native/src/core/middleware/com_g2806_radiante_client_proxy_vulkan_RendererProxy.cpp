@@ -207,6 +207,17 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
     framegen::Streamline::setGeneratedFrames(static_cast<uint32_t>(frames < 0 ? 0 : frames));
 }
 
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setReflexEnabled(JNIEnv *,
+                                                                                                 jclass,
+                                                                                                 jboolean enabled) {
+    framegen::Streamline::setReflexEnabled(enabled == JNI_TRUE);
+}
+
+JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_isReflexSupported(JNIEnv *,
+                                                                                                      jclass) {
+    return framegen::Streamline::isReflexSupported() ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_presentedFrameRate(JNIEnv *, jclass) {
     return static_cast<jint>(framegen::FrameGeneration::presentedFrameRate());
 }

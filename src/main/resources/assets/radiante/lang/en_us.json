@@ -216,5 +216,8 @@
   "options.radiante.biome_fog.tooltip": "Per-biome haze in every dimension: warm dust over deserts, thick green air over swamps, red haze in crimson forests, purple haze in the End. Fades between biomes and stays out of overworld caves.",
   "options.radiante.biome_fog_strength": "Biome Fog Strength",
   "options.radiante.volumetric_fog": "Volumetric Fog",
-  "options.radiante.volumetric_fog.tooltip": "Ray marches the air like Bedrock RTX: sunlight and moonlight scatter in the biome fog and trees and terrain cast light shafts through it. Costs noticeably more GPU time than the plain haze."
+  "options.radiante.volumetric_fog.tooltip": "Ray marches the air like Bedrock RTX: sunlight and moonlight scatter in the biome fog and trees and terrain cast light shafts through it. Costs noticeably more GPU time than the plain haze.",
+  "options.radiante.reflex": "NVIDIA Reflex",
+  "options.radiante.reflex.tooltip": "Low latency mode: holds the CPU back so each frame starts as late as the GPU allows, cutting input lag. NVIDIA GPUs only.",
+  "options.radiante.reflex.tooltip_restart": "Low latency mode for NVIDIA GPUs, cutting input lag. Takes effect after restarting the game."
 }

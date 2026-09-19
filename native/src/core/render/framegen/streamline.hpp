@@ -23,6 +23,12 @@ class Streamline {
     // Highest number of generated frames the driver reports, 0 when frame generation is unavailable.
     static uint32_t maxGeneratedFrames();
 
+    // NVIDIA Reflex low latency mode. Supported is decided once the device is known; enabled is the player's choice
+    // and only takes effect where it is supported.
+    static bool isReflexSupported();
+    static void setReflexEnabled(bool enabled);
+    static bool reflexEnabled();
+
     // Hands Streamline the shared Vulkan device; call right after Minecraft's device is created.
     static void setVulkanInfo(VkInstance instance,
                               VkPhysicalDevice physicalDevice,

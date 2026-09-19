@@ -1,0 +1,72 @@
+package com.g2806.radiante.client;
+
+import java.util.ArrayList;
+import java.util.List;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+
+/**
+ * Scripted test runs for development, driven entirely by the {@code RADIANTE_DEV_SCRIPT} environment variable and
+ * inert without it. The script is a {@code ;}-separated list of {@code tick:action} steps counted from the moment
+ * the player is in a world, where the action is {@code shot=name} (screenshot to {@code screenshots/name.png}),
+ * {@code cmd=/command} (run a chat command), {@code break=x,y,z,stage} (show block cracks), {@code fps} (log
+ * the frame rate) or {@code quit}.
+ */
+public final class DevAutomation {
+
+    private record Step(int tick, String action) {
+    }
+
+    private static final List<Step> STEPS = new ArrayList<>();
+    private static int worldTicks = -1;
+    private static int next;
+
+    private DevAutomation() {
+    }
+
+    public static void register() {
+        String script = System.getenv("RADIANTE_DEV_SCRIPT");
+        if (script == null || script.isBlank()) {
+            return;
+        }
+        for (String part : script.split(";")) {
+            int colon = part.indexOf(':');
+            if (colon > 0) {
+                STEPS.add(new Step(Integer.parseInt(part.substring(0, colon).trim()), part.substring(colon + 1)));
+            }
+        }
+        STEPS.sort((a, b) -> Integer.compare(a.tick(), b.tick()));
+        ClientTickEvents.END_CLIENT_TICK.register(DevAutomation::tick);
+        RadianteClient.LOGGER.info("[dev] script with {} steps", STEPS.size());
+    }
+
+    private static void tick(Minecraft minecraft) {
+        if (minecraft.player == null || minecraft.level == null) {
+            return;
+        }
+        worldTicks++;
+        while (next < STEPS.size() && STEPS.get(next).tick() <= worldTicks) {
+            run(minecraft, STEPS.get(next++).action());
+        }
+    }
+
+    private static void run(Minecraft minecraft, String action) {
+        if (action.startsWith("shot=")) {
+            String name = action.substring(5) + ".png";
+            Screenshot.grab(minecraft.gameDirectory, name, minecraft.gameRenderer.mainRenderTarget(), 1,
+                message -> RadianteClient.LOGGER.info("[dev] screenshot {}", name));
+        } else if (action.startsWith("cmd=/")) {
+            minecraft.player.connection.sendCommand(action.substring(5));
+            RadianteClient.LOGGER.info("[dev] command {}", action.substring(4));
+        } else if (action.startsWith("break=")) {
+            String[] v = action.substring(6).split(",");
+            minecraft.level.destroyBlockProgress(-4242, new net.minecraft.core.BlockPos(Integer.parseInt(v[0]),
+                Integer.parseInt(v[1]), Integer.parseInt(v[2])), Integer.parseInt(v[3]));
+        } else if (action.equals("fps")) {
+            RadianteClient.LOGGER.info("[dev] fps {} at tick {}", minecraft.getFps(), worldTicks);
+        } else if (action.equals("quit")) {
+            minecraft.stop();
+        }
+    }
+}

@@ -2,7 +2,9 @@ package com.g2806.radiante.client.render;
 
 import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.proxy.world.ChunkProxy;
-import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -58,7 +60,6 @@ public final class ChunkManager {
     private static int gridSizeXZ;
     private static int gridSizeY;
     private static int minSectionY;
-    private static final Long2IntOpenHashMap sectionNodeBySlot = new Long2IntOpenHashMap();
     private static final LongOpenHashSet compiledSections = new LongOpenHashSet();
     private static boolean forceAllDirty;
     /**
@@ -97,7 +98,9 @@ public final class ChunkManager {
         gridSizeXZ = renderDistance * 2 + 1;
         gridSizeY = maxSection - minSection + 1;
         minSectionY = minSection;
-        sectionNodeBySlot.clear();
+        synchronized (CHANGED) {
+            CHANGED.clear();
+        }
         synchronized (compiledSections) {
             compiledSections.clear();
         }
@@ -110,6 +113,8 @@ public final class ChunkManager {
         executor = Executors.newFixedThreadPool(Math.max(1, Options.chunkBuildingThreads), runnable -> {
             Thread thread = new Thread(runnable, "Radiante Section Builder");
             thread.setDaemon(true);
+            // Below the render thread, so a burst of loading chunks costs load time rather than frame rate.
+            thread.setPriority(Thread.NORM_PRIORITY - 2);
             return thread;
         });
         ChunkProxy.init(gridSizeXZ * gridSizeXZ * gridSizeY, gridSizeXZ, gridSizeY, gridSizeXZ, minSection);
@@ -137,7 +142,39 @@ public final class ChunkManager {
         return (gridZ * gridSizeY + gridY) * gridSizeXZ + gridX;
     }
 
-    /** Snapshots dirty sections on the render thread and queues them for compilation. */
+    /**
+     * Sections whose tracker state changed since the last frame: made dirty by a block change, or scrolled into view
+     * by the tracker's rotating grid. Filled from {@code SectionDirtyStateMixin}.
+     */
+    private static final LongArrayList CHANGED = new LongArrayList();
+    /** Dirty sections still waiting to be built, typically because their neighbours are not loaded yet. */
+    private static final LongOpenHashSet pendingDirty = new LongOpenHashSet();
+    /** Per frame: whether all chunks around a column are loaded. All sections of a column share the answer. */
+    private static final Long2ByteOpenHashMap columnReady = new Long2ByteOpenHashMap();
+    private static long[] readyNodes = new long[256];
+    private static long[] readyKeys = new long[256];
+
+    public static void onSectionChanged(long sectionNode) {
+        synchronized (CHANGED) {
+            CHANGED.add(sectionNode);
+        }
+    }
+
+    private static long[] drainChanged() {
+        synchronized (CHANGED) {
+            long[] nodes = CHANGED.toLongArray();
+            CHANGED.clear();
+            return nodes;
+        }
+    }
+
+    /**
+     * Snapshots dirty sections on the render thread and queues them for compilation.
+     *
+     * <p>Only the sections the tracker reports as changed are looked at; walking every section each frame cost
+     * over ten milliseconds at a 32 chunk render distance, most of it re-checking the neighbours of sections at the
+     * edge of the loaded area that could not be built yet anyway.
+     */
     public static void update(ClientLevel level, SectionUpdateTracker tracker, SectionPos cameraSection) {
         if (executor == null || level == null) {
             return;
@@ -147,78 +184,93 @@ public final class ChunkManager {
 
         boolean rebuildAll = forceAllDirty;
         forceAllDirty = false;
-        RenderRegionCache cache = new RenderRegionCache();
-        List<SectionUpdateTracker.SectionDirtyState> candidates = new ArrayList<>();
         // Relocating a slot takes the grid's write lock, so a builder thread cannot check the slot's owner, lose it
         // to the relocation, and then upload the old section into it anyway. Taken only on frames that move a slot.
         boolean[] relocating = new boolean[1];
         try {
-            ((SectionTrackerAccess) tracker).radiante$forEachSection(state -> {
-                long node = state.getSectionNode();
-                int slot = slotOf(node);
-                if (slot < 0) {
-                    return;
-                }
-
-                int previous = sectionNodeBySlot.getOrDefault(slot, Integer.MIN_VALUE);
-                boolean moved = previous != slotHash(node);
-                if (moved) {
-                    if (!relocating[0]) {
-                        GRID_LOCK.writeLock().lock();
-                        relocating[0] = true;
-                    }
-                    sectionNodeBySlot.put(slot, slotHash(node));
-                    long evicted = slot < slotOwner.length() ? slotOwner.getAndSet(slot, node) : NO_OWNER;
-                    synchronized (compiledSections) {
-                        compiledSections.remove(node);
-                        if (evicted != NO_OWNER) {
-                            compiledSections.remove(evicted);
-                        }
-                    }
-                    if (evicted != NO_OWNER) {
-                        latestBuild.remove(evicted);
-                    }
-                    ChunkProxy.relocateSingle(slot, SectionPos.sectionToBlockCoord(SectionPos.x(node)),
-                        SectionPos.sectionToBlockCoord(SectionPos.y(node)),
-                        SectionPos.sectionToBlockCoord(SectionPos.z(node)));
+            if (rebuildAll) {
+                pendingDirty.clear();
+                ((SectionTrackerAccess) tracker).radiante$forEachSection(state -> {
+                    long node = state.getSectionNode();
+                    relocateIfMoved(node, relocating);
                     state.setDirty(false);
-                }
-
-                if (rebuildAll) {
-                    state.setDirty(false);
-                }
-
-                if (state.isDirty()) {
-                    candidates.add(state);
-                }
-            });
+                });
+            }
+            for (long node : drainChanged()) {
+                relocateIfMoved(node, relocating);
+                pendingDirty.add(node);
+            }
         } finally {
             if (relocating[0]) {
                 GRID_LOCK.writeLock().unlock();
             }
         }
 
-        if (candidates.isEmpty()) {
+        if (pendingDirty.isEmpty()) {
             return;
         }
 
-        BlockPos cameraBlock = cameraSection.center();
-        candidates.sort((a, b) -> Double.compare(distanceSqr(a.getSectionNode(), cameraBlock),
-            distanceSqr(b.getSectionNode(), cameraBlock)));
+        int cameraX = cameraSection.x();
+        int cameraY = cameraSection.y();
+        int cameraZ = cameraSection.z();
+        columnReady.clear();
+        int readyCount = 0;
+        LongIterator iterator = pendingDirty.iterator();
+        while (iterator.hasNext()) {
+            long node = iterator.nextLong();
+            SectionUpdateTracker.SectionDirtyState state = tracker.getDirtyState(node);
+            if (state == null || state.getSectionNode() != node || !state.isDirty() || slotOf(node) < 0) {
+                iterator.remove();
+                continue;
+            }
+            long column = ((long) SectionPos.x(node) << 32) | (SectionPos.z(node) & 0xFFFFFFFFL);
+            byte ready = columnReady.getOrDefault(column, (byte) -1);
+            if (ready < 0) {
+                ready = tracker.hasAllNeighbors(level, node) ? (byte) 1 : (byte) 0;
+                columnReady.put(column, ready);
+            }
+            if (ready == 0) {
+                continue;
+            }
+            if (readyCount == readyNodes.length) {
+                readyNodes = java.util.Arrays.copyOf(readyNodes, readyCount * 2);
+                readyKeys = java.util.Arrays.copyOf(readyKeys, readyCount * 2);
+            }
+            long dx = SectionPos.x(node) - cameraX;
+            long dy = SectionPos.y(node) - cameraY;
+            long dz = SectionPos.z(node) - cameraZ;
+            readyNodes[readyCount] = node;
+            // Nearest first: distance in the high bits, the index in the low ones, sorted as plain longs.
+            readyKeys[readyCount] = ((dx * dx + dy * dy + dz * dz) << 32) | readyCount;
+            readyCount++;
+        }
+        if (readyCount == 0) {
+            return;
+        }
+        java.util.Arrays.sort(readyKeys, 0, readyCount);
 
+        RenderRegionCache cache = new RenderRegionCache();
+        BlockPos cameraBlock = cameraSection.center();
         int snapshots = 0;
         int syncRebuilds = 0;
-        for (SectionUpdateTracker.SectionDirtyState state : candidates) {
-            if (snapshots >= MAX_REGION_SNAPSHOTS_PER_FRAME) {
+        // Snapshots are taken on the render thread, and each copies the blocks of a section and its neighbours.
+        // Taking more than the builders can work through only moves that cost into the frame and leaves a backlog
+        // that goes stale the moment the player moves on, so the queue is kept a few sections deep per builder.
+        int backlogLimit = Math.max(8, Options.chunkBuildingThreads * 4);
+        for (int i = 0; i < readyCount; i++) {
+            if (snapshots >= MAX_REGION_SNAPSHOTS_PER_FRAME || pendingBuilds.get() >= backlogLimit) {
                 break;
             }
 
-            long node = state.getSectionNode();
-            if (!tracker.hasAllNeighbors(level, node)) {
+            long node = readyNodes[(int) (readyKeys[i] & 0xFFFFFFFFL)];
+            SectionUpdateTracker.SectionDirtyState state = tracker.getDirtyState(node);
+            if (state == null) {
+                pendingDirty.remove(node);
                 continue;
             }
 
             state.setNotDirty();
+            pendingDirty.remove(node);
             snapshots++;
             int slot = slotOf(node);
             RenderSectionRegion region = cache.createRegion(level, node);
@@ -252,8 +304,29 @@ public final class ChunkManager {
         }
     }
 
-    private static int slotHash(long sectionNode) {
-        return (int) (sectionNode ^ sectionNode >>> 32);
+    /** Points a grid slot at the section now occupying it, dropping whatever the old section left there. */
+    private static void relocateIfMoved(long node, boolean[] relocating) {
+        int slot = slotOf(node);
+        if (slot < 0 || slot >= slotOwner.length() || slotOwner.get(slot) == node) {
+            return;
+        }
+        if (!relocating[0]) {
+            GRID_LOCK.writeLock().lock();
+            relocating[0] = true;
+        }
+        long evicted = slotOwner.getAndSet(slot, node);
+        synchronized (compiledSections) {
+            compiledSections.remove(node);
+            if (evicted != NO_OWNER) {
+                compiledSections.remove(evicted);
+            }
+        }
+        if (evicted != NO_OWNER) {
+            latestBuild.remove(evicted);
+            pendingDirty.remove(evicted);
+        }
+        ChunkProxy.relocateSingle(slot, SectionPos.sectionToBlockCoord(SectionPos.x(node)),
+            SectionPos.sectionToBlockCoord(SectionPos.y(node)), SectionPos.sectionToBlockCoord(SectionPos.z(node)));
     }
 
     private static double distanceSqr(long sectionNode, BlockPos cameraBlock) {

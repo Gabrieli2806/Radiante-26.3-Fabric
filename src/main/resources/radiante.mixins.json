@@ -30,6 +30,7 @@
     "world.GameRendererMixin",
     "world.LevelExtractorMixin",
     "world.LevelRendererMixin",
+    "world.SectionDirtyStateMixin",
     "world.SectionUpdateTrackerMixin"
   ],
   "injectors": {

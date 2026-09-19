@@ -96,7 +96,15 @@ vec4 evalSunBillboard(vec3 rayDir) {
     vec2 a = abs(q);
     if (a.x > tanHalf || a.y > tanHalf) return vec4(0.0);
     vec2 uv = q / tanHalf * 0.5 + 0.5;
-    return sampleSpriteLod0(textures[nonuniformEXT(skyUBO.sunTextureID)], uv, skyUBO.sunUvRect);
+    vec4 sun = sampleSpriteLod0(textures[nonuniformEXT(skyUBO.sunTextureID)], uv, skyUBO.sunUvRect);
+    // sun.png is a small bright disc inside a faint glow. Vanilla adds the glow on top of the sky, where it stays
+    // soft; scaled up by the sun's radiance it became a staircase of square rings. The sky model already draws the
+    // glow around the sun, so only the disc itself is kept.
+    if (max(sun.r, max(sun.g, sun.b)) < 0.5) return vec4(0.0);
+    // The disc's outermost texels are a darker amber than the rest; traced, they read as a hard frame around it.
+    // They take the colour of the ring inside them instead, so the edge is the disc's own.
+    if (sun.b < 0.4) sun.rgb = vec3(1.0, 1.0, 0.667);
+    return sun;
 }
 
 vec4 evalMoonBillboard(vec3 rayDir) {

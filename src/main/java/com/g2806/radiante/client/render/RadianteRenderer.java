@@ -127,6 +127,7 @@ public final class RadianteRenderer {
 
         active = true;
         FrameGeneration.setGeneratedFrames(Options.frameGeneration ? Options.generatedFrames : 0);
+        FrameGeneration.applyReflex();
         reserveFallbackTexture();
         Pipeline.loadPipeline();
         Pipeline.build();
@@ -164,21 +165,27 @@ public final class RadianteRenderer {
             return;
         }
 
+        DevProfiler.begin();
         PlayerProxy.setCameraPos(cameraState.pos.x(), cameraState.pos.y(), cameraState.pos.z());
         RendererProxy.shouldRenderWorld(true);
 
         updateUniforms(minecraft, gameRenderer, levelRenderState);
+        DevProfiler.mark(0);
         BufferProxy.updateMapping();
+        DevProfiler.mark(1);
 
         if (minecraft.level != null && minecraft.levelExtractor != null) {
             SectionTrackerHolder.update(minecraft, cameraState.pos);
         }
+        DevProfiler.mark(2);
 
         keepOcclusionGraphFed(minecraft, levelRenderState);
+        DevProfiler.mark(3);
 
         EmissionTiles.registerIfNeeded(minecraft);
         ChunkManager.applyImportantUploads();
         EntityManager.render(minecraft, levelRenderState);
+        DevProfiler.mark(4);
 
         // Vanilla's "loading terrain" screen waits for the section under the player to be compiled.
         Runnable compiledCallback = levelRenderState.playerCompiledSectionCallback;
@@ -190,7 +197,9 @@ public final class RadianteRenderer {
         int format = VulkanConst.toVk(colorTexture.getFormat());
         int count = RendererProxy.renderFrame(image, mainTarget.width, mainTarget.height, format,
             commandBufferHandles);
+        DevProfiler.mark(5);
         if (count <= 0) {
+            DevProfiler.endFrame();
             return;
         }
 
@@ -202,6 +211,8 @@ public final class RadianteRenderer {
 
         VulkanCommandEncoderAccessor accessor = (VulkanCommandEncoderAccessor) encoder;
         RendererProxy.markSubmitted(accessor.radiante$getSubmitSemaphore(), accessor.radiante$getCurrentSubmitIndex());
+        DevProfiler.mark(6);
+        DevProfiler.endFrame();
     }
 
     private static void updateUniforms(Minecraft minecraft, GameRenderer gameRenderer,

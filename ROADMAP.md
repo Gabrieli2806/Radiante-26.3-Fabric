@@ -60,6 +60,35 @@ far terrain/horizon; advanced adds it to `volumetric_light.rgen` and to the
 transmittance in `world.rgen`, with the plain haze covering the stretch past
 the march. Plain haze still used when the option is off and in Nether/End.
 
+## Far render distance performance — done
+
+Measured at 32 chunks, 1080p, RTX 5070 12 GB: 22 fps while loading and ~7 fps once
+loaded, because video memory filled up (11.7 of 12.2 GB) and spilled. Now ~90 fps
+steady, ~10.2 GB in use. What changed:
+- `PackedMaterialVertex`: material vertices 80 -> 40 bytes (unpacked in
+  `loadTriangleMaterial`); material buffers were 5.4 of ~9 GB.
+- Chunk BLAS built with `ALLOW_COMPACTION` and swapped for compacted copies once
+  their batch finishes (`Chunks::compactFinishedBlases`), ~35% smaller.
+- Per-frame CPU: chunk instance data cached between chunk changes, chunks no
+  longer re-retained every frame, hit-group names by pointer with a small
+  resolve cache, per-frame metadata buffers reused, empty slots skipped via a
+  flat `occupied` array. World prepare went from ~38 ms to ~10 ms.
+- Java: `ChunkManager` reacts to the sections the tracker reports changed
+  (`SectionDirtyStateMixin`) instead of walking ~100k sections a frame, and
+  checks neighbour readiness once per column.
+Set `RADIANTE_DEV_PROFILE=1` to log per-step timings and chunk memory.
+
+Second pass (compact chunk geometry, `packChunkGeometry` in chunks.cpp):
+16-bit indices, half-float positions relative to the section (exact on the 1/16
+block grid), and a per-geometry material header plus 20 bytes per vertex when
+the geometry's texture/flags/emission are uniform (terrain always is). Tagged
+by the low bit of each buffer address; `util/vertex.glsl` decodes it, entities
+keep the general layout. Chunk geometry went from ~4.2 GB to ~2.2 GB at 32
+chunks (process ~7.6 -> ~5.6 GB). Each chunk now owns one geometry buffer and
+each compacted BLAS its own buffer, so rebuilding a chunk frees exactly its
+memory instead of pinning its whole build batch (slow growth over long
+sessions). Still possible: fewer TLAS instances by merging sections.
+
 ## Advanced settings menu
 
 Bring back something like Radiance's fuller customization screen — the current
@@ -111,18 +140,21 @@ both renderers. The moon's "hollow square" look is not a bug either - it is the 
 
 ## Also open from earlier sessions (not new, just not yet done)
 
-- NRD denoiser is visibly noisier than DLSS Ray Reconstruction — confirmed and
-  measured (99.9% drop in indirect-light coverage vs. DLSS-RR on the same
-  scene), root cause not yet found. Blocks offering NRD-based presets
-  (FSR/XeSS/plain NRD) as a real alternative to DLSS.
-- `VK_ERROR_DEVICE_LOST` / 5 s semaphore timeout a few seconds into a world:
-  reproduced, and it is DLSS Ray Reconstruction at **Ultra Performance** —
-  clean HEAD crashes with it, Balanced and Performance run. Worked around (mode
-  hidden in the options, mapped to Performance natively); the root cause of the
-  GPU hang is still open. Older reports may have been the same thing.
+- NRD — fixed. REBLUR converged to blotches when still, streaky noise in motion
+  (~2.5x DLSS-RR's high-frequency noise) and lost ~25% of the light in dim
+  bounce-lit rooms. Switched the module to RELAX on the same inputs: as clean as
+  DLSS-RR in motion (measured 0.27 vs 0.65 high-pass noise), within ~10% of its
+  brightness. Also: NRD now gets a +Z-forward view matching the positive viewZ,
+  and hand pixels carry zero motion (they ghosted under both denoisers).
+- `VK_ERROR_DEVICE_LOST` on join — root cause narrowed down: DLSS-RR at Ultra
+  Performance hangs the GPU when its render size is tiny (854x480 window ->
+  285x160). Same render size at Performance runs; Ultra Performance from 720p up
+  runs. DLSSModule now drops to Performance below a 240-pixel render height;
+  Ultra Performance is back in the menu.
 - Held-item light (a torch in hand doesn't light its surroundings, only itself).
 - Vanilla (non-volumetric) cloud rendering — needs decoding Minecraft's packed
   cloud face format.
-- Block selection outline, block-breaking animation, enchantment glint, damage
-  flash — not ported yet. (Weather is in: rain/snow sheets from
+- Block selection outline, enchantment glint, damage flash — not ported yet.
+  (Block breaking cracks are in: blocks and block entities, drawn as a
+  multiplicative decal via `ALPHA_MODE_DECAL` = 10, under the particle mask.) (Weather is in: rain/snow sheets from
   `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)

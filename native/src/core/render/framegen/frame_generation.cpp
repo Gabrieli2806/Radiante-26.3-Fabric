@@ -63,6 +63,7 @@ struct SlApi {
     PFun_slGetNewFrameToken *getNewFrameToken = nullptr;
     PFun_slPCLSetMarker *setMarker = nullptr;
     PFun_slReflexSetOptions *setReflexOptions = nullptr;
+    PFun_slReflexSleep *reflexSleep = nullptr;
     PFun_slSetConstants *setConstants = nullptr;
     PFun_slSetTagForFrame *setTagForFrame = nullptr;
     PFun_slDLSSGSetOptions *setOptions = nullptr;
@@ -90,6 +91,8 @@ bool resolveApi() {
         reinterpret_cast<PFun_slPCLSetMarker *>(framegen::Streamline::featureFunction(sl::kFeaturePCL, "slPCLSetMarker"));
     g_sl.setReflexOptions = reinterpret_cast<PFun_slReflexSetOptions *>(
         framegen::Streamline::featureFunction(sl::kFeatureReflex, "slReflexSetOptions"));
+    g_sl.reflexSleep = reinterpret_cast<PFun_slReflexSleep *>(
+        framegen::Streamline::featureFunction(sl::kFeatureReflex, "slReflexSleep"));
 
     g_sl.usable = g_sl.getNewFrameToken != nullptr && g_sl.setConstants != nullptr &&
                   g_sl.setTagForFrame != nullptr && g_sl.setOptions != nullptr;
@@ -123,16 +126,27 @@ void framegen::FrameGeneration::reset() {
 }
 
 void framegen::FrameGeneration::beginClientFrame() {
-    if (!Streamline::isSupported() || Streamline::generatedFrames() == 0 || !resolveApi()) {
-        g_frame = nullptr;
-        return;
+    resolveApi();
+    bool generating = Streamline::isSupported() && Streamline::generatedFrames() > 0 && g_sl.usable;
+    bool reflex = Streamline::reflexEnabled() && g_sl.getNewFrameToken != nullptr && g_sl.setReflexOptions != nullptr;
+
+    // Frame generation needs Reflex to pace the frames it inserts, and the player can also ask for Reflex alone.
+    // Streamline keeps the last mode it was given, so turning both off has to be sent once as well.
+    static int lastMode = -1;
+    int mode = (generating || reflex) ? static_cast<int>(sl::ReflexMode::eLowLatency)
+                                      : static_cast<int>(sl::ReflexMode::eOff);
+    if (mode != lastMode && g_sl.setReflexOptions != nullptr) {
+        sl::ReflexOptions options{};
+        options.mode = static_cast<sl::ReflexMode>(mode);
+        if (g_sl.setReflexOptions(options) == sl::Result::eOk) {
+            lastMode = mode;
+            radiante::out() << "[Streamline] Reflex " << (mode == 0 ? "off" : "low latency") << std::endl;
+        }
     }
 
-    // Frame generation needs Reflex to pace the frames it inserts.
-    if (g_sl.setReflexOptions != nullptr) {
-        sl::ReflexOptions reflex{};
-        reflex.mode = sl::ReflexMode::eLowLatency;
-        g_sl.setReflexOptions(reflex);
+    if (!generating && !reflex) {
+        g_frame = nullptr;
+        return;
     }
 
     sl::FrameToken *frame = nullptr;
@@ -141,6 +155,12 @@ void framegen::FrameGeneration::beginClientFrame() {
         return;
     }
     g_frame = frame;
+
+    // The sleep is what lowers latency: it holds the CPU back just long enough that input is sampled as late as
+    // the GPU allows, instead of queueing frames ahead of it.
+    if (g_sl.reflexSleep != nullptr) {
+        g_sl.reflexSleep(*frame);
+    }
 }
 
 void framegen::FrameGeneration::marker(int marker) {

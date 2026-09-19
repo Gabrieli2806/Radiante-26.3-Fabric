@@ -175,6 +175,22 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_frameGenerationMarker
   (JNIEnv *, jclass, jint);
 
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    setReflexEnabled
+ * Signature: (Z)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setReflexEnabled
+  (JNIEnv *, jclass, jboolean);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    isReflexSupported
+ * Signature: ()Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_isReflexSupported
+  (JNIEnv *, jclass);
+
 #ifdef __cplusplus
 }
 #endif
