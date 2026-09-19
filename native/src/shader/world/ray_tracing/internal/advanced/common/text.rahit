@@ -74,4 +74,12 @@ void main() {
 
     float alpha = resolveTextCoverage(textureColor, useTexture, colorLayerAlpha, textMode);
     if (alpha < 0.05) { ignoreIntersectionEXT; }
+
+    // Partly transparent text surfaces - a name tag's backing plate is a quarter-opaque black - are hit only that
+    // share of the time, so the plate darkens what is behind it instead of hiding it. Letters are fully opaque and
+    // never take this branch.
+    if (alpha < 0.95) {
+        uint seed = xxhash32(uvec3(gl_LaunchIDEXT.xy, ubo.seed ^ uint(gl_PrimitiveID)));
+        if (rand(seed) >= alpha) { ignoreIntersectionEXT; }
+    }
 }

@@ -12,12 +12,17 @@ path) are stable enough between 26.1 and 26.3 to share a codebase, or whether it
 needs its own mixin set behind a version-specific module. This is exploratory:
 the answer could be "not worth it" if the two versions diverge too much.
 
-## NameTag support
+## NameTag support — implemented, pending in-game check
 
-Entity name tags aren't submitted through the ray tracer yet and don't render.
-Likely the same `submitText`/`TextRenderable` path used for signs, but for
-billboarded text that always faces the camera — needs its own investigation,
-signs don't face the camera.
+`EntityCollector.submitNameTag` was empty. It now places the tag like vanilla
+(attachment point + 0.5, rotated by `camera.orientation`, scaled 0.025) and
+writes it through the sign text path in the `POLYGON_OFFSET` layer, so the
+text any-hit shader cuts the letters out. The letters are mildly emissive so
+they read in the dark. The translucent backing plate is vanilla's colour; the
+text any-hit shader accepts partly transparent text surfaces stochastically
+(hit with probability = alpha), and name tag layers are submitted as their own
+instance under the particle mask, which shadow rays skip — so neither the
+plate nor the letters cast shadows. Vanilla's see-through copy is not drawn.
 
 ## Moving block geometry — fixed, pending in-game check
 

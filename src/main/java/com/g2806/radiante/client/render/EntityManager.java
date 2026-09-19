@@ -51,6 +51,7 @@ public final class EntityManager {
     private static final int RAY_TRACING_WORLD = 0b00000001;
     private static final int RAY_TRACING_HAND = 0b00001000;
     private static final int RAY_TRACING_PARTICLE = 0b00100000;
+    private static final int NAME_TAG_ID_SALT = 0x6E616D65;
     private static final int PARTICLES_ID = "radiante:particles".hashCode();
     private static final PBRVertexWriter PARTICLE_WRITER = new PBRVertexWriter(4096);
     private static final int HAND_ID = "radiante:hand".hashCode();
@@ -282,6 +283,7 @@ public final class EntityManager {
         }
 
         List<PendingLayer> layers = new ArrayList<>();
+        List<PendingLayer> nameTagLayers = new ArrayList<>();
         for (Map.Entry<RenderType, PBRVertexWriter> entry : COLLECTOR.layers().entrySet()) {
             PBRVertexWriter writer = entry.getValue();
             writer.finish();
@@ -301,12 +303,18 @@ public final class EntityManager {
                 RadianteRenderer.LOGGER.info("layer accepted: group={} geometry={} textureId={} vertices={}",
                     info.groupName(), info.geometryType(), info.textureId(), writer.vertexCount());
             }
-            layers.add(new PendingLayer(info.geometryType(), info.textureId(), writer.vertexCount(),
-                copyVertices(writer), info.groupName()));
+            PendingLayer layer = new PendingLayer(info.geometryType(), info.textureId(), writer.vertexCount(),
+                copyVertices(writer), info.groupName());
+            (COLLECTOR.isNameTagLayer(entry.getKey()) ? nameTagLayers : layers).add(layer);
         }
 
         if (!layers.isEmpty()) {
             PENDING.add(new PendingEntity(id, x, y, z, rayTracingFlag, layers));
+        }
+        // Name tags go in as their own instance under the particle mask: seen by camera rays, skipped by shadow
+        // rays, so neither the letters nor the plate behind them cast a shadow on the world.
+        if (!nameTagLayers.isEmpty()) {
+            PENDING.add(new PendingEntity(id ^ NAME_TAG_ID_SALT, x, y, z, RAY_TRACING_PARTICLE, nameTagLayers));
         }
     }
 

@@ -66,6 +66,7 @@ public final class EntityCollector implements SubmitNodeCollector {
 
     /** How far world text is lifted off the surface it is written on, in blocks. */
     private static final float TEXT_SURFACE_OFFSET = 0.02f;
+    private static final float NAME_TAG_EMISSION = 1.0f;
 
     private final Map<RenderType, PBRVertexWriter> writers = new LinkedHashMap<>();
 
@@ -75,17 +76,25 @@ public final class EntityCollector implements SubmitNodeCollector {
     private final List<PBRVertexWriter> pool = new ArrayList<>();
     private final QuadInstance quadInstance = new QuadInstance();
     private @Nullable ModelBlockRenderer movingBlockRenderer;
+    /** Layers written by name tags; traced as overlay geometry that casts no shadow. */
+    private final java.util.Set<RenderType> nameTagLayers = new java.util.HashSet<>();
+    private boolean collectingNameTag;
     private int used;
 
     /** Drops the geometry of the previous entity, keeping the buffers for reuse. */
     public void reset() {
         this.writers.clear();
+        this.nameTagLayers.clear();
         this.used = 0;
         this.entityEmission = 0.0f;
     }
 
     public Map<RenderType, PBRVertexWriter> layers() {
         return this.writers;
+    }
+
+    public boolean isNameTagLayer(RenderType renderType) {
+        return this.nameTagLayers.contains(renderType);
     }
 
     public boolean isEmpty() {
@@ -369,6 +378,36 @@ public final class EntityCollector implements SubmitNodeCollector {
     @Override
     public void submitNameTag(PoseStack poseStack, @Nullable Vec3 nameTagAttachment, int offset, Component name,
         boolean seeThrough, int lightCoords, CameraRenderState camera) {
+        if (nameTagAttachment == null) {
+            return;
+        }
+
+        // Placed and turned to face the camera exactly as vanilla does it, then written as ordinary world text.
+        // The polygon offset layer is the one the shader packs give the text any-hit shader, which is what cuts
+        // each letter out of its cell. Vanilla's see-through copy has no meaning to a ray tracer and is skipped.
+        poseStack.pushPose();
+        poseStack.translate(nameTagAttachment.x, nameTagAttachment.y + 0.5, nameTagAttachment.z);
+        poseStack.rotate(camera.orientation);
+        poseStack.scale(0.025f, -0.025f, 0.025f);
+        float x = -Minecraft.getInstance().font.width(name) / 2.0f;
+
+        // The backing plate is vanilla's translucent black; the text any-hit shader hits it only that share of the
+        // time, and name tag layers are kept out of shadow rays, so it darkens what is behind it without becoming a
+        // board that throws a shadow. The letters glow so the name still reads at night and in caves.
+        float backgroundAlpha = Minecraft.getInstance().gameRenderer.gameRenderState().optionsRenderState
+            .getBackgroundOpacity(0.25f);
+        int backgroundColor = ARGB.color(backgroundAlpha, 0xFF000000);
+        float previousEmission = this.entityEmission;
+        this.entityEmission = NAME_TAG_EMISSION;
+        this.collectingNameTag = true;
+        try {
+            this.submitText(poseStack, x, offset, name.getVisualOrderText(), false, Font.DisplayMode.POLYGON_OFFSET,
+                LightCoordsUtil.FULL_BRIGHT, -1, backgroundColor, 0);
+        } finally {
+            this.collectingNameTag = false;
+            this.entityEmission = previousEmission;
+            poseStack.popPose();
+        }
     }
 
     /**
@@ -402,6 +441,9 @@ public final class EntityCollector implements SubmitNodeCollector {
                     return;
                 }
                 PBRVertexWriter writer = EntityCollector.this.writer(renderType);
+                if (EntityCollector.this.collectingNameTag) {
+                    EntityCollector.this.nameTagLayers.add(renderType);
+                }
                 // Font pages are built at runtime and are not registered under the identifier the render layer
                 // names, so asking the texture manager for the layer's texture answers about some other sheet.
                 // Everything about a glyph - which page to sample and how many channels that page has - has to
