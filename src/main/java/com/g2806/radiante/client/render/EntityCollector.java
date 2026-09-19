@@ -14,7 +14,11 @@ import net.minecraft.client.gui.font.TextRenderable;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.renderer.OrderedSubmitNodeCollector;
 import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.block.BlockQuadOutput;
+import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.block.MovingBlockRenderState;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
@@ -70,6 +74,7 @@ public final class EntityCollector implements SubmitNodeCollector {
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
     private final List<PBRVertexWriter> pool = new ArrayList<>();
     private final QuadInstance quadInstance = new QuadInstance();
+    private @Nullable ModelBlockRenderer movingBlockRenderer;
     private int used;
 
     /** Drops the geometry of the previous entity, keeping the buffers for reuse. */
@@ -292,7 +297,58 @@ public final class EntityCollector implements SubmitNodeCollector {
     @Override
     public void submitMovingBlock(PoseStack poseStack, MovingBlockRenderState movingBlockRenderState,
         int outlineColor) {
-        // Pistons move terrain geometry; the terrain pass already rebuilds those sections.
+        // Falling blocks and the blocks a piston is pushing are not in the terrain: the section holds a moving
+        // piston block entity (or nothing) until they land, so they have to be traced here like any entity.
+        if (outlineColor != 0) {
+            return;
+        }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        BlockState blockState = movingBlockRenderState.blockState;
+        BlockStateModel model = minecraft.getModelManager().getBlockStateModelSet().get(blockState);
+        boolean translucent = model.hasMaterialFlag(1);
+        boolean forceSolid = ModelBlockRenderer.forceOpaque(minecraft.options.cutoutLeaves().get(), blockState);
+        PoseStack.Pose pose = poseStack.last();
+
+        if (this.movingBlockRenderer == null) {
+            // Ambient occlusion off, as for terrain: the path tracer computes its own.
+            this.movingBlockRenderer = new ModelBlockRenderer(false, false, minecraft.getBlockColors());
+        }
+
+        BlockQuadOutput output = (x, y, z, quad, instance) -> {
+            ChunkSectionLayer layer = translucent ? ChunkSectionLayer.TRANSLUCENT
+                : forceSolid ? ChunkSectionLayer.SOLID
+                : quad.materialInfo().layer();
+            RenderType renderType = switch (layer) {
+                case SOLID -> RenderTypes.solidMovingBlock();
+                case CUTOUT -> RenderTypes.cutoutMovingBlock();
+                case TRANSLUCENT -> RenderTypes.translucentMovingBlock();
+            };
+            putMovingBlockQuad(pose, x, y, z, quad, instance, this.writer(renderType));
+        };
+
+        this.movingBlockRenderer.tesselateBlock(output, 0.0f, 0.0f, 0.0f, movingBlockRenderState,
+            movingBlockRenderState.blockPos, blockState, model, blockState.getSeed(movingBlockRenderState.randomSeedPos));
+    }
+
+    /** One tesselated block quad, written by hand for the same reason as {@link #putQuads}. */
+    private static void putMovingBlockQuad(PoseStack.Pose pose, float x, float y, float z, BakedQuad quad,
+        QuadInstance instance, VertexConsumer buffer) {
+        Vector3f normal = pose.transformNormal(quad.direction().getUnitVec3f(), new Vector3f());
+        Vector3f position = new Vector3f();
+        int lightEmission = quad.materialInfo().lightEmission();
+
+        for (int vertex = 0; vertex < 4; vertex++) {
+            long packedUv = quad.packedUV(vertex);
+            Vector3fc local = quad.position(vertex);
+            pose.pose().transformPosition(local.x() + x, local.y() + y, local.z() + z, position);
+            buffer.addVertex(position.x(), position.y(), position.z())
+                .setColor(instance.getColor(vertex))
+                .setUv(UVPair.unpackU(packedUv), UVPair.unpackV(packedUv))
+                .setOverlay(instance.overlayCoords())
+                .setLight(instance.getLightCoordsWithEmission(vertex, lightEmission))
+                .setNormal(normal.x(), normal.y(), normal.z());
+        }
     }
 
     @Override

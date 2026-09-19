@@ -19,14 +19,15 @@ Likely the same `submitText`/`TextRenderable` path used for signs, but for
 billboarded text that always faces the camera — needs its own investigation,
 signs don't face the camera.
 
-## Moving block geometry
+## Moving block geometry — fixed, pending in-game check
 
-Falling sand/gravel, moving pistons, and primed TNT don't render correctly.
-These are all entity-like block renders (`FallingBlockRenderState`,
-`PistonMovingBlockRenderState`, `PrimedTntRenderState`) that go through
-`EntityCollector`/`EntityManager` already, but each likely has its own quirk
-(interpolated block model in the case of the piston head, a spinning/growing
-billboard for TNT) that hasn't been tested against yet.
+Primed TNT already worked (it submits a block model). Falling blocks and
+piston-moved blocks (including the extending head) go through
+`SubmitNodeCollector.submitMovingBlock`, which `EntityCollector` left empty on
+the wrong assumption that the terrain pass covered them — the section only holds
+an invisible `moving_piston` (or air) while they move. It now tesselates them
+with a `ModelBlockRenderer` the way vanilla's `MovingBlockFeatureRenderer` does
+and writes the quads into the solid/cutout/translucent moving-block layers.
 
 ## Per-biome fog/ambiance
 
