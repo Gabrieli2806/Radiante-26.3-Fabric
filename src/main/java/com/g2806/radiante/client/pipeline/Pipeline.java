@@ -323,6 +323,34 @@ public class Pipeline {
         return findAttribute(getRayTracingModule(), CLOUD_MODE_ATTRIBUTE) != null;
     }
 
+    public static final String VOLUMETRIC_LIGHT_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode";
+    private static final String VOLUMETRIC_LIGHT_ON = VOLUMETRIC_LIGHT_ATTRIBUTE + ".volumetric";
+    private static final String VOLUMETRIC_LIGHT_OFF = VOLUMETRIC_LIGHT_ATTRIBUTE + ".vanilla";
+
+    /**
+     * Volumetric fog: the shader pack ray marches the air with a shadow ray per step, which is what gives light
+     * shafts, and the biome fog becomes part of that medium. Returns true when the pipeline needs rebuilding.
+     */
+    public static boolean setVolumetricFog(boolean enabled) {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), VOLUMETRIC_LIGHT_ATTRIBUTE);
+        String value = enabled ? VOLUMETRIC_LIGHT_ON : VOLUMETRIC_LIGHT_OFF;
+        if (attribute == null || Objects.equals(attribute.value, value)) {
+            return false;
+        }
+        attribute.value = value;
+        return true;
+    }
+
+    public static boolean isVolumetricFog() {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), VOLUMETRIC_LIGHT_ATTRIBUTE);
+        return attribute != null && Objects.equals(attribute.value, VOLUMETRIC_LIGHT_ON);
+    }
+
+    public static boolean supportsVolumetricFog() {
+        return findAttribute(getRayTracingModule(), VOLUMETRIC_LIGHT_ATTRIBUTE) != null;
+    }
+
     public static final String PIXELATED_LIGHTING_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.pixelated_lighting";
 

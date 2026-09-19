@@ -213,5 +213,8 @@
   "render_pipeline.module.dlss.attribute.ray_reconstruction": "Ray Reconstruction",
   "options.radiante.debug_logging": "Debug Logging",
   "options.radiante.biome_fog": "Biome Fog",
-  "options.radiante.biome_fog.tooltip": "Per-biome haze in the overworld: warm dust over deserts, thick green air over swamps, cool air over snow. Fades between biomes and stays out of caves."
+  "options.radiante.biome_fog.tooltip": "Per-biome haze in every dimension: warm dust over deserts, thick green air over swamps, red haze in crimson forests, purple haze in the End. Fades between biomes and stays out of overworld caves.",
+  "options.radiante.biome_fog_strength": "Biome Fog Strength",
+  "options.radiante.volumetric_fog": "Volumetric Fog",
+  "options.radiante.volumetric_fog.tooltip": "Ray marches the air like Bedrock RTX: sunlight and moonlight scatter in the biome fog and trees and terrain cast light shafts through it. Costs noticeably more GPU time than the plain haze."
 }

@@ -36,6 +36,8 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private boolean pendingCollectEmission = Options.collectChunkEmission;
     private boolean pendingDebugLogging = Options.debugLogging;
     private boolean pendingBiomeFog = Options.biomeFog;
+    private int pendingBiomeFogStrength = Options.biomeFogStrength;
+    private Boolean pendingVolumetricFog;
     private boolean applied;
 
     public RadianteOptionsScreen(Screen lastScreen, net.minecraft.client.Options options) {
@@ -56,6 +58,8 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingCollectEmission = previous.pendingCollectEmission;
         this.pendingDebugLogging = previous.pendingDebugLogging;
         this.pendingBiomeFog = previous.pendingBiomeFog;
+        this.pendingBiomeFogStrength = previous.pendingBiomeFogStrength;
+        this.pendingVolumetricFog = previous.pendingVolumetricFog;
     }
 
     /**
@@ -261,8 +265,26 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             OptionInstance.createBoolean("options.radiante.biome_fog",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
                 this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
-            OptionInstance.createBoolean("options.radiante.debug_logging", this.pendingDebugLogging,
-                value -> this.pendingDebugLogging = value));
+            new OptionInstance<>("options.radiante.biome_fog_strength", OptionInstance.noTooltip(),
+                (caption, value) -> Component.translatable("options.percent_value", caption, value),
+                new OptionInstance.IntRange(0, 400, false), this.pendingBiomeFogStrength,
+                value -> this.pendingBiomeFogStrength = value));
+
+        OptionInstance<Boolean> debugLogging = OptionInstance.createBoolean("options.radiante.debug_logging",
+            this.pendingDebugLogging, value -> this.pendingDebugLogging = value);
+        if (Pipeline.supportsVolumetricFog()) {
+            if (this.pendingVolumetricFog == null) {
+                this.pendingVolumetricFog = Pipeline.isVolumetricFog();
+            }
+            this.list.addSmall(
+                OptionInstance.createBoolean("options.radiante.volumetric_fog",
+                    OptionInstance.cachedConstantTooltip(
+                        Component.translatable("options.radiante.volumetric_fog.tooltip")),
+                    this.pendingVolumetricFog, value -> this.pendingVolumetricFog = value),
+                debugLogging);
+        } else {
+            this.list.addSmall(debugLogging);
+        }
     }
 
     @Override
@@ -290,6 +312,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             Options.setCollectChunkEmission(this.pendingCollectEmission, false);
         }
         Options.biomeFog = this.pendingBiomeFog;
+        Options.biomeFogStrength = this.pendingBiomeFogStrength;
         if (this.pendingDebugLogging != Options.debugLogging) {
             Options.setDebugLogging(this.pendingDebugLogging, false);
         }
@@ -312,6 +335,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingShaderPack != null && !Pipeline.isShaderPackActive(this.pendingShaderPack)) {
             rebuild |= Pipeline.setShaderPack(this.pendingShaderPack, false);
+        }
+        if (this.pendingVolumetricFog != null) {
+            rebuild |= Pipeline.setVolumetricFog(this.pendingVolumetricFog);
         }
         if (this.pendingCloudMode != null && !Objects.equals(this.pendingCloudMode, Pipeline.getCloudMode())) {
             rebuild |= Pipeline.setCloudMode(this.pendingCloudMode);

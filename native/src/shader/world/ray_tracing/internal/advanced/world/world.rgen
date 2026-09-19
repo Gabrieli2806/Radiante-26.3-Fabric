@@ -234,8 +234,22 @@ vec3 volumetricWaterSigmaTBase() {
     return (vec3(1.0) - waterTint) * waterDensity * 1.20 + waterTint * waterDensity * 0.18;
 }
 
-vec3 integrateVolumetricFogTransmittance(float endDistance, bool underwater) {
+// Per-biome fog as a participating medium (see world.rgen): how far along a ray it reaches. The hit itself, or for the
+// sky a distance that is long at the horizon and short towards the zenith, so looking up stays clear.
+const float BIOME_FOG_MAX_DISTANCE = 320.0;
+
+float biomeFogDensity() {
+    return worldUBO.skyType == 1 ? max(skyUBO.biomeFog.a, 0.0) : 0.0;
+}
+
+float biomeFogReach(vec3 rayDir, bool hitSky, float hitDistance) {
+    return hitSky ? BIOME_FOG_MAX_DISTANCE * (1.0 - smoothstep(0.0, 0.45, rayDir.y)) :
+                    min(hitDistance, BIOME_FOG_MAX_DISTANCE);
+}
+
+vec3 integrateVolumetricFogTransmittance(float endDistance, float biomeReach, bool underwater) {
     if (endDistance <= 0.05) { return vec3(1.0); }
+    float biomeDensity = underwater ? 0.0 : biomeFogDensity();
 
     const int stepCount = 4;
     float stepLength = endDistance / float(stepCount);
@@ -247,6 +261,7 @@ vec3 integrateVolumetricFogTransmittance(float endDistance, bool underwater) {
         float t = (float(i) + 0.5) * stepLength;
         float densityScale = underwater ? 1.0 : volumetricAirDensityFade(t);
         vec3 localSigmaT = baseSigmaT * densityScale * extinctionScale;
+        localSigmaT += vec3(t < biomeReach ? biomeDensity : 0.0);
         transmittance *= exp(-localSigmaT * stepLength);
 
         if (max(transmittance.r, max(transmittance.g, transmittance.b)) < 1e-3) { break; }
@@ -264,24 +279,32 @@ float volumetricDepthWeight(float fullDepth, float sampleDepth) {
     return exp(-abs(sampleDepth - fullDepth) / depthSigma);
 }
 
-// Per-biome haze (skyUBO.biomeFog: rgb = tint, a = extinction per block, 0 when off or out of the sky). Lit by the
-// sky along the view's horizon, tinted towards the biome's colour, thickest at the horizon and clear at the zenith.
+// Per-biome haze (skyUBO.biomeFog: a = extinction per block, 0 when off). In the overworld rgb is a tint and the
+// haze is lit by the sky along the view's horizon, thickest at the horizon and clear at the zenith. The Nether and
+// the End have no sky to light it, so there rgb is the haze's own colour, worked out on the Java side from the
+// biome's vanilla fog colour.
 const float BIOME_HAZE_MAX_DISTANCE = 320.0;
 
 bool biomeHazeActive() {
-    return skyUBO.biomeFog.a > 0.0 && worldUBO.skyType == 1 && skyUBO.cameraSubmersionType == 3 &&
-           skyUBO.hasBlindnessOrDarkness == 0;
+    return skyUBO.biomeFog.a > 0.0 && skyUBO.cameraSubmersionType == 3 && skyUBO.hasBlindnessOrDarkness == 0;
 }
 
-void biomeHaze(vec3 rayDir, bool hitSky, float hitDistance, out float transmittance, out vec3 additive) {
-    float hazeDistance = hitSky ? BIOME_HAZE_MAX_DISTANCE * (1.0 - smoothstep(0.0, 0.45, rayDir.y)) :
-                              min(hitDistance, BIOME_HAZE_MAX_DISTANCE);
+void biomeHaze(vec3 rayDir, bool hitSky, float hitDistance, float skipDistance, out float transmittance,
+               out vec3 additive) {
+    bool overworld = worldUBO.skyType == 1;
+    float skyDistance = overworld ? BIOME_HAZE_MAX_DISTANCE * (1.0 - smoothstep(0.0, 0.45, rayDir.y)) :
+                                    BIOME_HAZE_MAX_DISTANCE;
+    float hazeDistance = hitSky ? skyDistance : min(hitDistance, BIOME_HAZE_MAX_DISTANCE);
+    hazeDistance -= skipDistance;
     transmittance = exp(-skyUBO.biomeFog.a * max(hazeDistance, 0.0));
 
-    vec3 horizonDir = normalize(vec3(rayDir.x, 0.12, rayDir.z));
-    vec3 skyLight = texture(skyFull, horizonDir).rgb;
-    float skyLuma = dot(skyLight, vec3(0.2126, 0.7152, 0.0722));
-    vec3 hazeRadiance = mix(skyLight, skyLuma * skyUBO.biomeFog.rgb, 0.75);
+    vec3 hazeRadiance = skyUBO.biomeFog.rgb;
+    if (overworld) {
+        vec3 horizonDir = normalize(vec3(rayDir.x, 0.12, rayDir.z));
+        vec3 skyLight = texture(skyFull, horizonDir).rgb;
+        float skyLuma = dot(skyLight, vec3(0.2126, 0.7152, 0.0722));
+        hazeRadiance = mix(skyLight, skyLuma * skyUBO.biomeFog.rgb, 0.75);
+    }
     additive = hazeRadiance * (1.0 - transmittance);
 }
 
@@ -1437,7 +1460,11 @@ void main() {
     if (!raySkipFog(mainRay) && biomeHazeActive()) {
         float hazeTransmittance;
         vec3 hazeAdditive;
-        biomeHaze(orgDirection, psrHitSky, length(psrHitPosition - eyePos), hazeTransmittance, hazeAdditive);
+        // With volumetric fog on, the overworld's biome fog near the camera is part of that march (lit through
+        // shadow rays); this only covers the far stretch the march does not reach.
+        float hazeSkip = useVolumetricFog && worldUBO.skyType == 1 ? volumetricMediumMaxDistance(false) : 0.0;
+        biomeHaze(orgDirection, psrHitSky, length(psrHitPosition - eyePos), hazeSkip, hazeTransmittance,
+                  hazeAdditive);
         if (isFirstHitTransparent) {
             transparentReflectionRadiance *= hazeTransmittance;
             transparentRefractionRadiance *= hazeTransmittance;
@@ -1507,7 +1534,9 @@ void main() {
         float volumetricDistance = psrHitSky ? volumetricMediumMaxDistance(false) : length(psrHitPosition - eyePos);
         volumetricDistance = min(volumetricDistance, volumetricMediumMaxDistance(false));
 
-        vec3 volumetricTransmittance = integrateVolumetricFogTransmittance(volumetricDistance, false);
+        float biomeReach =
+            biomeFogReach(orgDirection, psrHitSky, psrHitSky ? 0.0 : length(psrHitPosition - eyePos));
+        vec3 volumetricTransmittance = integrateVolumetricFogTransmittance(volumetricDistance, biomeReach, false);
         vec3 volumetricLight = sampleVolumetricLight(pixel);
         mainRay.radiance = mainRay.radiance * volumetricTransmittance + volumetricLight;
 

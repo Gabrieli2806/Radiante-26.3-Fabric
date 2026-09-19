@@ -183,5 +183,8 @@
   "render_pipeline.module.ray_tracing.attribute.cloud_mode.off": "关闭",
   "render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric": "体积云",
   "options.radiante.biome_fog": "生物群系雾",
-  "options.radiante.biome_fog.tooltip": "主世界按生物群系变化的雾气：沙漠温暖多尘，沼泽浓重偏绿，雪地清冷。在生物群系之间平滑过渡，不会进入洞穴。"
+  "options.radiante.biome_fog.tooltip": "所有维度按生物群系变化的雾气：沙漠温暖多尘，沼泽浓重偏绿，绯红森林泛红，末地呈紫色。在生物群系之间平滑过渡，不会进入主世界洞穴。",
+  "options.radiante.biome_fog_strength": "生物群系雾强度",
+  "options.radiante.volumetric_fog": "体积雾",
+  "options.radiante.volumetric_fog.tooltip": "像基岩版 RTX 一样对空气进行光线步进：阳光和月光在生物群系雾中散射，树木和地形会投下光束。比普通雾气明显更耗 GPU。"
 }

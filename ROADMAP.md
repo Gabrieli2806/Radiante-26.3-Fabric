@@ -45,8 +45,20 @@ as `SkyUBO.biomeFog` (rgb tint, a density). Both packs apply it in `world.rgen`
 as an extra exponential haze lit by the sky's horizon colour, folded into the
 DLSS-RR output and the NRD compose fog alike; the volumetric branch now
 combines with it instead of overwriting it. Values are our own, not copied
-from any Bedrock pack. Overworld only: Nether fog already comes per biome from
-vanilla's fog colour.
+from any Bedrock pack. Also in the Nether and the End: there is no sky to light
+it, so the haze colour is the biome's vanilla fog colour (per biome, blended by
+vanilla) times a small tint, with the End lifted off near-black. A "Biome Fog
+Strength" slider (0-400 %) scales every density. With Debug Logging on, the
+log prints the current biome, colour, density and sky exposure every 5 s.
+
+"Volumetric Fog" option (the packs' `volumetric_light_mode`): the overworld
+biome fog becomes part of the ray-marched medium — extinction plus in-scatter
+of the sun/moon through the march's shadow rays (light shafts) and of the sky
+(ambient), HG g=0.55 blended with isotropic. vanilla-pt integrates it in
+`integrateVolumetricFog` and continues it analytically past the march to the
+far terrain/horizon; advanced adds it to `volumetric_light.rgen` and to the
+transmittance in `world.rgen`, with the plain haze covering the stretch past
+the march. Plain haze still used when the option is off and in Nether/End.
 
 ## Advanced settings menu
 

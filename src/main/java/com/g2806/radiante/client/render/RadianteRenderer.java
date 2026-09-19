@@ -251,7 +251,7 @@ public final class RadianteRenderer {
             sky.moonPhase.ordinal(), 1.0f - sky.rainBrightness, celestialsId, celestialsId,
             spriteRect(celestials, SUN_SPRITE),
             spriteRect(celestials, moonSprite(sky.moonPhase)),
-            BiomeAmbiance.update(minecraft, cameraState.pos, skyType, 1.0f - sky.rainBrightness)));
+            BiomeAmbiance.update(minecraft, cameraState.pos, skyType, 1.0f - sky.rainBrightness, fog.color)));
     }
 
     private static final Identifier SUN_SPRITE = Identifier.withDefaultNamespace("sun");

@@ -51,6 +51,20 @@ public final class BiomeAmbiance {
     private static final Haze WARM_OCEAN = new Haze(0.78f, 0.96f, 1.02f, 0.0050f);
     private static final Haze RIVER = new Haze(0.90f, 0.95f, 1.00f, 0.0040f);
 
+    // Nether and End: rgb multiplies the biome's vanilla fog colour, which already carries each biome's hue (red in
+    // the crimson forest, teal in the warped forest, and so on) and is what the haze is drawn in.
+    private static final Haze NETHER_WASTES = new Haze(1.00f, 0.92f, 0.86f, 0.0100f);
+    private static final Haze CRIMSON_FOREST = new Haze(1.10f, 0.86f, 0.86f, 0.0160f);
+    private static final Haze WARPED_FOREST = new Haze(0.90f, 1.00f, 1.10f, 0.0130f);
+    private static final Haze SOUL_SAND_VALLEY = new Haze(0.90f, 1.00f, 1.12f, 0.0180f);
+    private static final Haze BASALT_DELTAS = new Haze(1.00f, 1.00f, 1.00f, 0.0280f);
+    private static final Haze END_CENTER = new Haze(1.00f, 1.00f, 1.00f, 0.0040f);
+    private static final Haze END_OUTER = new Haze(1.00f, 1.00f, 1.00f, 0.0060f);
+    /** Vanilla's End fog is close to black, which as haze would only darken; this is the least it is lifted to. */
+    private static final float END_FLOOR_R = 0.10f;
+    private static final float END_FLOOR_G = 0.07f;
+    private static final float END_FLOOR_B = 0.15f;
+
     private static final Map<ResourceKey<Biome>, Haze> BY_BIOME = new HashMap<>();
 
     static {
@@ -76,6 +90,13 @@ public final class BiomeAmbiance {
         put(RIVER, Biomes.RIVER, Biomes.BEACH);
         // Cave biomes: the sky light check already keeps the haze out, this keeps their colour out of the average.
         put(NONE, Biomes.LUSH_CAVES, Biomes.DRIPSTONE_CAVES, Biomes.DEEP_DARK, Biomes.SULFUR_CAVES);
+        put(NETHER_WASTES, Biomes.NETHER_WASTES);
+        put(CRIMSON_FOREST, Biomes.CRIMSON_FOREST);
+        put(WARPED_FOREST, Biomes.WARPED_FOREST);
+        put(SOUL_SAND_VALLEY, Biomes.SOUL_SAND_VALLEY);
+        put(BASALT_DELTAS, Biomes.BASALT_DELTAS);
+        put(END_CENTER, Biomes.THE_END);
+        put(END_OUTER, Biomes.END_HIGHLANDS, Biomes.END_MIDLANDS, Biomes.SMALL_END_ISLANDS, Biomes.END_BARRENS);
     }
 
     @SafeVarargs
@@ -92,10 +113,12 @@ public final class BiomeAmbiance {
     /** Rain thickens the haze by up to this factor. */
     private static final float RAIN_THICKENING = 1.5f;
     private static final int OVERWORLD_SKY = 1;
+    private static final int END_SKY = 2;
 
     private static final Vector4f current = new Vector4f();
     private static float currentExposure;
     private static boolean hasCurrent;
+    private static int currentSkyType = -1;
     private static long lastNanos;
     private static long lastLogNanos;
 
@@ -103,15 +126,22 @@ public final class BiomeAmbiance {
     }
 
     /**
-     * The value handed to the shaders: tint in xyz, extinction per block in w. Zero when the option is off or the
-     * camera is not under the overworld sky.
+     * The value handed to the shaders: extinction per block in w, zero when the option is off. In the overworld xyz
+     * is a tint for sky-lit haze; in the Nether and the End it is the haze colour itself.
      */
-    public static Vector4f update(Minecraft minecraft, Vec3 cameraPos, int skyType, float rain) {
+    public static Vector4f update(Minecraft minecraft, Vec3 cameraPos, int skyType, float rain,
+        org.joml.Vector4fc vanillaFogColor) {
         ClientLevel level = minecraft.level;
-        if (!Options.biomeFog || level == null || skyType != OVERWORLD_SKY) {
+        if (!Options.biomeFog || level == null || Options.biomeFogStrength <= 0) {
             hasCurrent = false;
             return new Vector4f(1.0f, 1.0f, 1.0f, 0.0f);
         }
+        // The colour means something different in each kind of dimension, so never blend across a change.
+        if (skyType != currentSkyType) {
+            hasCurrent = false;
+            currentSkyType = skyType;
+        }
+        boolean overworld = skyType == OVERWORLD_SKY;
 
         float r = 0.0f;
         float g = 0.0f;
@@ -137,9 +167,24 @@ public final class BiomeAmbiance {
         g /= samples;
         b /= samples;
         density /= samples;
-        density *= 1.0f + RAIN_THICKENING * Mth.clamp(rain, 0.0f, 1.0f);
-
-        float exposure = level.getBrightness(LightLayer.SKY, pos.set(cx, cy, cz)) / 15.0f;
+        float exposure = 1.0f;
+        if (overworld) {
+            density *= 1.0f + RAIN_THICKENING * Mth.clamp(rain, 0.0f, 1.0f);
+            exposure = level.getBrightness(LightLayer.SKY, pos.set(cx, cy, cz)) / 15.0f;
+        } else {
+            float fogR = vanillaFogColor.x();
+            float fogG = vanillaFogColor.y();
+            float fogB = vanillaFogColor.z();
+            if (skyType == END_SKY) {
+                fogR = Math.max(fogR, END_FLOOR_R);
+                fogG = Math.max(fogG, END_FLOOR_G);
+                fogB = Math.max(fogB, END_FLOOR_B);
+            }
+            r *= fogR;
+            g *= fogG;
+            b *= fogB;
+        }
+        density *= Options.biomeFogStrength / 100.0f;
 
         long now = System.nanoTime();
         if (!hasCurrent) {
@@ -171,6 +216,12 @@ public final class BiomeAmbiance {
         }
 
         // Modded biomes: go by the tags they share with vanilla ones, then by climate.
+        if (biome.is(BiomeTags.IS_NETHER)) {
+            return NETHER_WASTES;
+        }
+        if (biome.is(BiomeTags.IS_END)) {
+            return END_OUTER;
+        }
         if (biome.is(BiomeTags.IS_OCEAN)) {
             return OCEAN;
         }
