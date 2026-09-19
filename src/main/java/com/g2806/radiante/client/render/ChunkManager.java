@@ -40,6 +40,12 @@ public final class ChunkManager {
     private static final int GEOMETRY_TYPE_WORLD_SOLID = 1;
     private static final int GEOMETRY_TYPE_WORLD_TRANSPARENT = 2;
     private static final int MAX_REGION_SNAPSHOTS_PER_FRAME = 96;
+    /**
+     * Rebuilds of nearby sections compiled on the render thread per frame. A falling block landing or a piston
+     * finishing its move swaps the moving block for terrain in one tick; built in the background, the terrain
+     * arrives a frame or more after the moving block is gone and the block blinks out in between.
+     */
+    private static final int MAX_SYNC_REBUILDS_PER_FRAME = 4;
 
     private static final ThreadLocal<SectionCompileScratch> SCRATCH = ThreadLocal.withInitial(SectionCompileScratch::new);
 
@@ -55,6 +61,13 @@ public final class ChunkManager {
     private static final Long2IntOpenHashMap sectionNodeBySlot = new Long2IntOpenHashMap();
     private static final LongOpenHashSet compiledSections = new LongOpenHashSet();
     private static boolean forceAllDirty;
+    /**
+     * Newest build handed out for each section. A synchronous rebuild can overtake an older one still running in
+     * the background, and the older one must not land on top of it afterwards.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<Long, Integer> latestBuild =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    private static final AtomicInteger buildSequence = new AtomicInteger();
 
     private ChunkManager() {
     }
@@ -79,6 +92,7 @@ public final class ChunkManager {
         synchronized (compiledSections) {
             compiledSections.clear();
         }
+        latestBuild.clear();
         forceAllDirty = true;
         executor = Executors.newFixedThreadPool(Math.max(1, Options.chunkBuildingThreads), runnable -> {
             Thread thread = new Thread(runnable, "Radiante Section Builder");
@@ -160,6 +174,7 @@ public final class ChunkManager {
             distanceSqr(b.getSectionNode(), cameraBlock)));
 
         int snapshots = 0;
+        int syncRebuilds = 0;
         for (SectionUpdateTracker.SectionDirtyState state : candidates) {
             if (snapshots >= MAX_REGION_SNAPSHOTS_PER_FRAME) {
                 break;
@@ -175,11 +190,26 @@ public final class ChunkManager {
             int slot = slotOf(node);
             RenderSectionRegion region = cache.createRegion(level, node);
             boolean important = distanceSqr(node, cameraBlock) < 768.0;
-            pendingBuilds.incrementAndGet();
             int buildGeneration = generation;
+            int sequence = buildSequence.incrementAndGet();
+            latestBuild.put(node, sequence);
+
+            // Only rebuilds: a first build near the player happens while loading in, where a hitch is worse than
+            // a section showing up a frame late.
+            if (important && syncRebuilds < MAX_SYNC_REBUILDS_PER_FRAME && isSectionReady(node)) {
+                syncRebuilds++;
+                try {
+                    compile(slot, node, region, true, buildGeneration, sequence);
+                } catch (Throwable t) {
+                    RadianteRenderer.LOGGER.error("Failed to compile section {}", SectionPos.of(node), t);
+                }
+                continue;
+            }
+
+            pendingBuilds.incrementAndGet();
             executor.execute(() -> {
                 try {
-                    compile(slot, node, region, important, buildGeneration);
+                    compile(slot, node, region, important, buildGeneration, sequence);
                 } catch (Throwable t) {
                     RadianteRenderer.LOGGER.error("Failed to compile section {}", SectionPos.of(node), t);
                 } finally {
@@ -197,8 +227,13 @@ public final class ChunkManager {
         return SectionPos.of(sectionNode).center().distSqr(cameraBlock);
     }
 
+    private static boolean isLatestBuild(long sectionNode, int sequence) {
+        Integer latest = latestBuild.get(sectionNode);
+        return latest == null || latest == sequence;
+    }
+
     private static void compile(int slot, long sectionNode, RenderSectionRegion region, boolean important,
-        int buildGeneration) {
+        int buildGeneration, int sequence) {
         SectionCompileScratch scratch = SCRATCH.get();
         scratch.reset();
 
@@ -239,8 +274,8 @@ public final class ChunkManager {
         GRID_LOCK.readLock().lock();
         try {
             // A section compiled for the previous world would land in a slot of the new grid.
-            if (buildGeneration == generation) {
-                upload(slot, origin, scratch, atlasId, important);
+            if (buildGeneration == generation && isLatestBuild(sectionNode, sequence)) {
+                upload(slot, sectionNode, sequence, origin, scratch, atlasId, important);
             }
         } finally {
             GRID_LOCK.readLock().unlock();
@@ -252,7 +287,10 @@ public final class ChunkManager {
 
     /** True once the section covering this position has been handed to the renderer. */
     public static boolean isSectionReady(BlockPos pos) {
-        long node = SectionPos.asLong(pos);
+        return isSectionReady(SectionPos.asLong(pos));
+    }
+
+    private static boolean isSectionReady(long node) {
         synchronized (compiledSections) {
             return compiledSections.contains(node);
         }
@@ -266,7 +304,7 @@ public final class ChunkManager {
      */
     private static final ConcurrentLinkedQueue<SectionUpload> IMPORTANT_UPLOADS = new ConcurrentLinkedQueue<>();
 
-    private record SectionUpload(int generation, int slot, BlockPos origin, int[] geometryTypes, String[] names,
+    private record SectionUpload(int generation, long sectionNode, int sequence, int slot, BlockPos origin, int[] geometryTypes, String[] names,
         int atlasId, int[] vertexCounts, long[] vertices) {
 
         void apply() {
@@ -326,7 +364,7 @@ public final class ChunkManager {
         SectionUpload upload;
         while ((upload = IMPORTANT_UPLOADS.poll()) != null) {
             try {
-                if (upload.generation() == generation) {
+                if (upload.generation() == generation && isLatestBuild(upload.sectionNode(), upload.sequence())) {
                     upload.apply();
                 }
             } finally {
@@ -335,8 +373,8 @@ public final class ChunkManager {
         }
     }
 
-    private static void upload(int slot, BlockPos origin, SectionCompileScratch scratch, int atlasId,
-        boolean important) {
+    private static void upload(int slot, long sectionNode, int sequence, BlockPos origin,
+        SectionCompileScratch scratch, int atlasId, boolean important) {
         List<ChunkSectionLayer> layers = new ArrayList<>();
         for (Map.Entry<ChunkSectionLayer, PBRVertexWriter> entry : scratch.writers.entrySet()) {
             entry.getValue().finish();
@@ -367,7 +405,7 @@ public final class ChunkManager {
             MemoryUtil.memCopy(writer.address(), vertices[i], size);
         }
 
-        SectionUpload sectionUpload = new SectionUpload(generation, slot, origin, geometryTypes, names, atlasId,
+        SectionUpload sectionUpload = new SectionUpload(generation, sectionNode, sequence, slot, origin, geometryTypes, names, atlasId,
             vertexCounts, vertices);
         if (important) {
             IMPORTANT_UPLOADS.add(sectionUpload);
