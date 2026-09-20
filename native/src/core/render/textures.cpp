@@ -1,5 +1,6 @@
 #include "core/render/textures.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <tuple>
 
@@ -104,6 +105,13 @@ void Textures::initializeTexture(uint32_t id, uint32_t maxLevel, uint32_t width,
     samplers[id] = acquireSharedSampler(device, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
                                         VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
+    // Uploads queued for the id belong to the image that was just replaced, and their regions were sized for it.
+    // Minecraft closes and creates textures constantly - a font page or a GUI sprite dropped and a smaller one
+    // taking the freed id in the same frame - so replaying them into the new image copies past its extent, which
+    // is a write outside the image's memory and a device loss a moment later.
+    if (uploadQueue_ != nullptr) { uploadQueue_->erase(id); }
+    if (auto cacheIter = caches_.find(id); cacheIter != caches_.end()) { cacheIter->second->reset(); }
+
     // A new image starts in VK_IMAGE_LAYOUT_UNDEFINED and only becomes readable when its first upload
     // transitions it. It is bound into the descriptor table right here though, so between now and that upload the
     // ray tracing shaders sample an image in the wrong layout - undefined behaviour that the driver is free to
@@ -187,6 +195,18 @@ void Textures::queueUpload(uint8_t *srcPointer,
     }
 
     auto cache = cacheIter->second;
+
+    // A copy that reaches past the mip level's extent writes outside the image's memory. The driver is free to
+    // fault on that, and it showed up as a device loss shortly after a world was entered.
+    const uint32_t mipWidth = std::max(1u, dstTexture->width() >> level);
+    const uint32_t mipHeight = std::max(1u, dstTexture->height() >> level);
+    if (dstOffsetX < 0 || dstOffsetY < 0 || static_cast<uint32_t>(dstOffsetX) + width > mipWidth ||
+        static_cast<uint32_t>(dstOffsetY) + height > mipHeight) {
+        texturesCerr() << "Dropped an out of bounds upload into texture " << dstId << " level " << level << ": "
+                       << width << "x" << height << " at " << dstOffsetX << "," << dstOffsetY << " does not fit "
+                       << mipWidth << "x" << mipHeight << std::endl;
+        return;
+    }
 
     auto format = dstTexture->vkFormat();
     uint32_t bytePerPixel = vk::formatToByte(format);

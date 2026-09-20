@@ -271,7 +271,10 @@ namespace Data {
         T_UINT endSkyTextureID;
         T_UINT endPortalTextureID;
         T_UINT lightMapTextureID;
-        T_UINT pad4;
+        // tan(hudFov/2) / tan(fov/2). Minecraft draws the first person hand with its own fixed field of view
+        // (Camera.calculateHudFov is 70 degrees whatever the setting), so the hand keeps its size while the world
+        // opens up or narrows. Primary rays that look for the hand are widened or narrowed by this to match.
+        T_FLOAT handFovScale;
     };
 
     struct SkyUBO {

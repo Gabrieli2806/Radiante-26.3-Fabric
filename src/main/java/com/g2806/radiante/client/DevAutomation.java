@@ -20,6 +20,10 @@ public final class DevAutomation {
     }
 
     private static final List<Step> STEPS = new ArrayList<>();
+    /** Steps counted from the client's first tick, for everything that has to happen before a world is open. */
+    private static final List<Step> PRE_STEPS = new ArrayList<>();
+    private static int clientTicks = -1;
+    private static int nextPre;
     private static int worldTicks = -1;
     private static int next;
 
@@ -27,8 +31,23 @@ public final class DevAutomation {
     }
 
     public static void register() {
+        String preScript = System.getenv("RADIANTE_DEV_PRESCRIPT");
+        if (preScript != null && !preScript.isBlank()) {
+            for (String part : preScript.split(";")) {
+                int colon = part.indexOf(':');
+                if (colon > 0) {
+                    PRE_STEPS.add(new Step(Integer.parseInt(part.substring(0, colon).trim()),
+                        part.substring(colon + 1)));
+                }
+            }
+            PRE_STEPS.sort((a, b) -> Integer.compare(a.tick(), b.tick()));
+        }
+
         String script = System.getenv("RADIANTE_DEV_SCRIPT");
         if (script == null || script.isBlank()) {
+            if (!PRE_STEPS.isEmpty()) {
+                ClientTickEvents.END_CLIENT_TICK.register(DevAutomation::tick);
+            }
             return;
         }
         for (String part : script.split(";")) {
@@ -43,6 +62,11 @@ public final class DevAutomation {
     }
 
     private static void tick(Minecraft minecraft) {
+        clientTicks++;
+        while (nextPre < PRE_STEPS.size() && PRE_STEPS.get(nextPre).tick() <= clientTicks) {
+            run(minecraft, PRE_STEPS.get(nextPre++).action());
+        }
+
         if (minecraft.player == null || minecraft.level == null) {
             return;
         }
@@ -77,6 +101,20 @@ public final class DevAutomation {
         } else if (action.equals("reload")) {
             minecraft.reloadResourcePacks();
             RadianteClient.LOGGER.info("[dev] reload");
+        } else if (action.startsWith("join=")) {
+            String levelId = action.substring(5);
+            minecraft.createWorldOpenFlows().openWorld(levelId, () -> RadianteClient.LOGGER.info("[dev] join failed"));
+            RadianteClient.LOGGER.info("[dev] join {}", levelId);
+        } else if (action.startsWith("fov=")) {
+            minecraft.options.fov().set(Integer.parseInt(action.substring(4)));
+            RadianteClient.LOGGER.info("[dev] fov {}", action.substring(4));
+        } else if (action.startsWith("camera=")) {
+            String value = action.substring(7);
+            minecraft.options.setCameraType(value.equals("third") ?
+                    net.minecraft.client.CameraType.THIRD_PERSON_BACK :
+                    value.equals("front") ? net.minecraft.client.CameraType.THIRD_PERSON_FRONT :
+                                            net.minecraft.client.CameraType.FIRST_PERSON);
+            RadianteClient.LOGGER.info("[dev] camera {}", value);
         } else if (action.equals("fps")) {
             RadianteClient.LOGGER.info("[dev] fps {} at tick {}", minecraft.getFps(), worldTicks);
         } else if (action.equals("quit")) {

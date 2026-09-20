@@ -45,6 +45,18 @@ public final class EntityManager {
     private static final float GLOW_FRAME_EMISSION = 1.5f;
     /** An end crystal burns from inside; vanilla draws it at full brightness whatever the light around it. */
     private static final float END_CRYSTAL_EMISSION = 3.0f;
+    /**
+     * How brightly an entity that lights itself glows at full strength. Vanilla says "this mob is lit" by handing
+     * the renderer a block light of its own instead of the one at its position - a glow squid at 15, a blaze, a
+     * magma cube - and the path tracer has no lightmap to read that from, so it becomes emission scaled by how far
+     * the entity's own light exceeds the light actually around it.
+     */
+    private static final float SELF_LIT_EMISSION = 2.5f;
+    /** Below this the difference is the lightmap disagreeing with the block below the entity, not a glow. */
+    private static final int SELF_LIT_MIN_EXCESS = 5;
+    private static final double[] SELF_LIT_SAMPLE_HEIGHTS = {0.0, 0.5, 1.0};
+    /** The glowing effect (a spectral arrow, /effect glowing). Vanilla draws an outline; here the mob lights up. */
+    private static final float GLOWING_EMISSION = 2.0f;
     private static int DEBUG_TEXT_LAYERS;
 
     /** Masks the ray tracing shaders select geometry with. */
@@ -127,13 +139,23 @@ public final class EntityManager {
 
         // A glow item frame is lit from within in vanilla rather than by the world around it, and nothing in its
         // model says so; the entity does.
+        float emission = 0.0f;
         if (state instanceof net.minecraft.client.renderer.entity.state.ItemFrameRenderState frame
             && frame.isGlowFrame) {
-            COLLECTOR.entityEmission(GLOW_FRAME_EMISSION);
+            emission = GLOW_FRAME_EMISSION;
         } else if (state instanceof net.minecraft.client.renderer.entity.state.EndCrystalRenderState) {
             // An end crystal is a light source in its own right, and its texture is what gives it its colour, so
             // the glow is kept modest: multiplied by a bright texture, a large value burns the whole thing white.
-            COLLECTOR.entityEmission(END_CRYSTAL_EMISSION);
+            emission = END_CRYSTAL_EMISSION;
+        }
+        emission = Math.max(emission, selfLitEmission(minecraft, state));
+        // The glowing effect has no geometry of its own in vanilla either: it is an outline drawn by a post
+        // effect this renderer never runs. The mob glowing in the dark is the part of it that reads as the effect.
+        if (state.appearsGlowing()) {
+            emission = Math.max(emission, GLOWING_EMISSION);
+        }
+        if (emission > 0.0f) {
+            COLLECTOR.entityEmission(emission);
         }
 
         try {
@@ -189,6 +211,36 @@ public final class EntityManager {
             }
         }
         return states;
+    }
+
+    /**
+     * How much of an entity's brightness comes from the entity rather than from the world. Vanilla mobs that light
+     * themselves do it by overriding the block light handed to the renderer (GlowSquidRenderer returns 15, and so
+     * do the blaze and the magma cube), which a lightmap would pick up and a path tracer cannot. Whatever that
+     * light exceeds the block light actually at the entity's feet is taken as the entity's own glow.
+     */
+    private static float selfLitEmission(Minecraft minecraft, EntityRenderState state) {
+        if (minecraft.level == null) {
+            return 0.0f;
+        }
+
+        int ownBlockLight = net.minecraft.util.LightCoordsUtil.block(state.lightCoords);
+        if (ownBlockLight <= 0) {
+            return 0.0f;
+        }
+
+        // Vanilla samples the light for an entity at a block this does not always agree on - a mob by a torch can
+        // report a level or two more than the block under it - so the brightest of its feet, middle and head is
+        // what counts, and only a wide gap on top of that is the entity lighting itself.
+        int worldBlockLight = 0;
+        for (double offset : SELF_LIT_SAMPLE_HEIGHTS) {
+            BlockPos pos = BlockPos.containing(state.x, state.y + state.boundingBoxHeight * offset, state.z);
+            worldBlockLight = Math.max(worldBlockLight,
+                minecraft.level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, pos));
+        }
+
+        int excess = ownBlockLight - worldBlockLight;
+        return excess < SELF_LIT_MIN_EXCESS ? 0.0f : SELF_LIT_EMISSION * excess / 15.0f;
     }
 
     private static void collectBlockEntity(Minecraft minecraft, CameraRenderState cameraState,

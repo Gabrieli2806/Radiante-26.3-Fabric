@@ -240,7 +240,7 @@ public final class RadianteRenderer {
             cameraState.isFirstPerson, fogStart, fogEnd, new Vector4f(fog.color), skyType,
             TextureTracker.idOf(AbstractEndPortalRenderer.END_SKY_LOCATION),
             TextureTracker.idOf(AbstractEndPortalRenderer.END_PORTAL_LOCATION),
-            TextureTracker.idOf(gameRenderer.levelLightmap().texture())));
+            TextureTracker.idOf(gameRenderer.levelLightmap().texture()), handFovScale(cameraState, projection)));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
         Vector3f skyColor = sky.skyColor == null ? new Vector3f(0.5f, 0.6f, 1.0f) : new Vector3f(sky.skyColor);
@@ -288,6 +288,21 @@ public final class RadianteRenderer {
      * The shaders reconstruct view rays looking down the opposite Z axis to the render pearl camera, so the traced
      * view faced backwards. Turning the view half a revolution around its up axis faces it forward again.
      */
+    /**
+     * How much wider or narrower the hand's field of view is than the world's. Minecraft draws the first person
+     * hand in a pass of its own with a fixed 70 degrees ({@code Camera.calculateHudFov}), so changing the FOV
+     * setting opens up the world without touching the hand; a path tracer that shoots one ray per pixel has to
+     * widen the hand's ray instead. {@code projection.m11()} is {@code 1 / tan(fov / 2)}, so this is the ratio of
+     * the two half angle tangents and comes out at 1 when the setting is left at 70.
+     */
+    private static float handFovScale(CameraRenderState cameraState, Matrix4f projection) {
+        float worldTanTerm = projection.m11();
+        if (!Float.isFinite(worldTanTerm) || worldTanTerm <= 0.0f || cameraState.hudFov <= 0.0f) {
+            return 1.0f;
+        }
+        return (float) Math.tan(Math.toRadians(cameraState.hudFov) * 0.5) * worldTanTerm;
+    }
+
     private static Matrix4f toRendererView(Matrix4f viewRotation) {
         return new Matrix4f().scaling(-1.0f, 1.0f, -1.0f).mul(viewRotation);
     }

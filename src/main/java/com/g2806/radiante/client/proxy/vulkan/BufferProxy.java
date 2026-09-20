@@ -36,7 +36,8 @@ public class BufferProxy {
                                int skyType,
                                int endSkyTextureId,
                                int endPortalTextureId,
-                               int lightMapTextureId) {
+                               int lightMapTextureId,
+                               float handFovScale) {
     }
 
     public static void updateWorldUniform(WorldUniform uniform) {
@@ -96,7 +97,8 @@ public class BufferProxy {
             bb.putInt(offset, uniform.endPortalTextureId());
             offset += Integer.BYTES;
             bb.putInt(offset, uniform.lightMapTextureId());
-
+            offset += Integer.BYTES;
+            bb.putFloat(offset, uniform.handFovScale());
             updateWorldUniform(addr);
         }
     }

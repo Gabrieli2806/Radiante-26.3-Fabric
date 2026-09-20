@@ -292,10 +292,21 @@ void main() {
     FirstHitPayload worldFirstHit;
     tracePrimary(origin, orgDirection, ADV_RAY_FLAGS, 0, worldRay, worldFirstHit);
 
+
+    // Minecraft draws the hand with a fixed field of view of its own, so it keeps its size when the FOV setting
+    // changes (GameRenderer.render3dHud builds its projection from cameraState.hudFov). The rays that look for the
+    // hand carry the same frustum; everything else keeps the world's.
+    vec3 handDirection = orgDirection;
+    if (worldUBO.handFovScale > 0.0 && abs(worldUBO.handFovScale - 1.0) > 1e-4) {
+        handDirection = normalize(vec3(worldUBO.cameraEffectedViewMatInv *
+                                       vec4(viewNear.xy * worldUBO.handFovScale, viewNear.z, 0.0)));
+    }
+
     MainRay handRay;
-    initMainRay(origin, direction, worldUBO.seed ^ 0x9E3779B9u, coneSpreadFromFov(fovY, fovX, resolution), handRay);
+    initMainRay(origin, handDirection, worldUBO.seed ^ 0x9E3779B9u, coneSpreadFromFov(fovY, fovX, resolution),
+                handRay);
     FirstHitPayload handFirstHit;
-    tracePrimary(origin, orgDirection, ADV_RAY_FLAGS, 1, handRay, handFirstHit);
+    tracePrimary(origin, handDirection, ADV_RAY_FLAGS, 1, handRay, handFirstHit);
 
     bool isHand = false;
     FirstHitPayload selectedFirstHit = worldFirstHit;

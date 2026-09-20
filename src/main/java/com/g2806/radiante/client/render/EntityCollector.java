@@ -152,10 +152,9 @@ public final class EntityCollector implements SubmitNodeCollector {
     @Override
     public <S> void submitModel(Model<? super S> model, S state, PoseStack poseStack, RenderType renderType,
         int lightCoords, int overlayCoords, int tintedColor, @Nullable UvMapping uvMapping, int outlineColor) {
-        if (outlineColor != 0) {
-            return;
-        }
-
+        // An outline colour means the glowing effect. Vanilla still draws the model, and draws the silhouette on
+        // top from a post effect this renderer does not run; dropping the submission made a glowing mob or player
+        // disappear instead. The glow is applied as emission in EntityManager.
         VertexConsumer buffer = this.writer(renderType);
         if (uvMapping != null) {
             buffer = uvMapping.wrap(buffer);
@@ -194,9 +193,6 @@ public final class EntityCollector implements SubmitNodeCollector {
     public void submitBlockModel(PoseStack poseStack, RenderType renderType, List<BlockStateModelPart> parts,
         int[] tintLayers, int lightCoords, int overlayCoords, int outlineColor) {
 
-        if (outlineColor != 0) {
-            return;
-        }
 
         PBRVertexWriter buffer = this.writer(renderType);
         int before = buffer.vertexCount();
@@ -233,7 +229,7 @@ public final class EntityCollector implements SubmitNodeCollector {
         // Only models Fabric keeps entirely in its mesh need this: those are the ones vanilla hands over empty, an
         // item frame among them. Where vanilla parts exist they have already been written above, and adding the mesh
         // on top of them would trace the same model twice.
-        if (mesh == null || mesh.size() == 0 || outlineColor != 0 || !parts.isEmpty()) {
+        if (mesh == null || mesh.size() == 0 || !parts.isEmpty()) {
             return;
         }
 
@@ -299,10 +295,6 @@ public final class EntityCollector implements SubmitNodeCollector {
     public void submitItem(PoseStack poseStack, ItemDisplayContext displayContext, int lightCoords,
         int overlayCoords, int outlineColor, int[] tintLayers, ItemQuads quads,
         ItemStackRenderState.FoilType foilType) {
-        if (outlineColor != 0) {
-            return;
-        }
-
         this.quadInstance.setLightCoords(lightCoords);
         this.quadInstance.setOverlayCoords(overlayCoords);
         for (BakedQuad quad : quads.all()) {
@@ -326,10 +318,6 @@ public final class EntityCollector implements SubmitNodeCollector {
         int outlineColor) {
         // Falling blocks and the blocks a piston is pushing are not in the terrain: the section holds a moving
         // piston block entity (or nothing) until they land, so they have to be traced here like any entity.
-        if (outlineColor != 0) {
-            return;
-        }
-
         Minecraft minecraft = Minecraft.getInstance();
         BlockState blockState = movingBlockRenderState.blockState;
         BlockStateModel model = minecraft.getModelManager().getBlockStateModelSet().get(blockState);

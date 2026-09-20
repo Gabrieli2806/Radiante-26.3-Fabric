@@ -129,6 +129,55 @@ existing image when size, format and mip count are unchanged would close both.
 
 `RADIANTE_DEV_SCRIPT` gained `reload` and `packs=a,b` / `packs=none` for this.
 
+## Hand and held items at other field of view settings — fixed
+
+The hand grew as the FOV setting went down and shrank as it went up, and only
+looked right at 70. Minecraft draws the first person hand in a pass of its own
+with a fixed field of view - `Camera.calculateHudFov` is 70 degrees whatever the
+setting, and `GameRenderer.render3dHud` builds the hand's projection from it -
+so in vanilla the hand keeps its size while the world opens up or narrows. A
+path tracer shoots one ray per pixel and had the hand sharing the world's
+frustum, which is the whole of the difference.
+
+`WorldUBO.handFovScale` (the last padding word, so the layout is unchanged)
+carries `tan(hudFov/2) / tan(fov/2)`, and the primary rays that look for the
+hand are widened or narrowed by it in both packs. It is 1 at 70 with no FOV
+effects, and the hand measures the same on screen at 30, 70 and 110.
+
+## Glowing mobs and the glowing effect — done
+
+A glow squid was as dark as any other mob and the glowing effect did nothing.
+Neither has geometry or a texture that says it glows: vanilla lights a glow
+squid by overriding the block light it hands the renderer (`GlowSquidRenderer`
+returns 15, as do the blaze and the magma cube) and draws the glowing effect as
+an outline in a post effect this renderer never runs.
+
+`EntityManager` now derives both as emission. Whatever an entity's own block
+light exceeds the brightest block light around it (feet, middle, head) counts as
+self-illumination, scaled to `SELF_LIT_EMISSION` at a full 15 and ignored below a
+gap of 5 so a mob standing by a torch does not glow. `EntityRenderState
+.appearsGlowing()` adds `GLOWING_EMISSION`. `EntityCollector` also used to drop
+every submission that carried an outline colour, which is what made a glowing
+player or mob vanish entirely: vanilla still draws the model and puts the
+silhouette on top, so the models are now written as usual and the outline colour
+is ignored. Emissive entity surfaces light the
+world around them, so a glow squid now casts a pool of cyan light on the ground.
+The effect is a glow on the mob rather than vanilla's silhouette through walls.
+
+## Out of bounds texture uploads — fixed, pending confirmation
+
+Sync validation while entering a world caught
+`vkCmdCopyBufferToImage(): pRegions[0].imageOffset.x (0) + extent.width (64)
+exceeds imageSubresource width extent (16)` — a copy writing past the end of a
+16x16 image, which is memory corruption the driver may answer with a device
+loss. Minecraft closes and creates textures constantly, and `TextureTracker`
+hands a closed texture's id to the next one; uploads already queued for the old
+image were then replayed into the new, smaller one. `Textures::initializeTexture`
+now drops the queued regions and resets the staging cache for the id it replaces,
+and `queueUpload` refuses (and logs) any copy that does not fit the mip level it
+targets. Whether this is the `VK_ERROR_DEVICE_LOST` seen on joining a world is
+not confirmed: that crash reproduced once in about a dozen scripted joins.
+
 ## Advanced settings menu
 
 Bring back something like Radiance's fuller customization screen — the current
