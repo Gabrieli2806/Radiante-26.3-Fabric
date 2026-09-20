@@ -62,6 +62,8 @@ class Textures : public SharedObject<Textures> {
     std::vector<std::shared_ptr<vk::CommandBuffer>> freeUploadCommandBuffers_;
     std::vector<std::shared_ptr<vk::HostVisibleBuffer>> freeUploadStagingBuffers_;
     std::vector<std::shared_ptr<vk::Fence>> freeUploadFences_;
+    // Textures created this frame and not written yet. See flushQueuedUploadImpl.
+    std::vector<uint32_t> pendingInitializations_;
     size_t queuedUploadBytes_ = 0;
 
   private:

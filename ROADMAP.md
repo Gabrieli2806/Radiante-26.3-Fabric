@@ -104,6 +104,31 @@ both shader packs, and to ice and other see-through blocks. Verified A/B on the
 same scene: with the fix the wall behind lime stained glass and red panes is
 visible through them; before it was not.
 
+## Crash when resource packs change — hazard fixed, crash not reproduced
+
+Removing resource packs crashed the game a few seconds after the reload with
+`IllegalStateException: 5s timeout reached when waiting for VK semaphore`
+(a GPU hang, reported by Minecraft's own submit).
+
+A resource reload destroys and recreates every atlas. `Textures::initializeTexture`
+created the replacement image and bound it into the descriptor table right away,
+but an image only reaches `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL` when its
+first upload transitions it, and the atlas contents are stitched back several
+frames later. In between, the ray tracing shaders sampled images still in
+`VK_IMAGE_LAYOUT_UNDEFINED` — undefined behaviour the driver may fault on, which
+is what a hung queue looks like. New images are now cleared and transitioned in
+the next upload flush, before anything can sample them.
+
+Not confirmed as the cause: about twenty pack add/remove cycles never reproduced
+the hang here (neither did a validation-layer run, which reports no errors across
+a reload), so the fix is a removed hazard rather than a verified repro. A second
+reload-window hazard is still open: texture descriptors are rewritten while
+frames that may sample them are in flight, legal only under
+`UPDATE_UNUSED_WHILE_PENDING` if the descriptor really is unused. Reusing the
+existing image when size, format and mip count are unchanged would close both.
+
+`RADIANTE_DEV_SCRIPT` gained `reload` and `packs=a,b` / `packs=none` for this.
+
 ## Advanced settings menu
 
 Bring back something like Radiance's fuller customization screen — the current

@@ -104,6 +104,14 @@ void Textures::initializeTexture(uint32_t id, uint32_t maxLevel, uint32_t width,
     samplers[id] = acquireSharedSampler(device, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
                                         VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
+    // A new image starts in VK_IMAGE_LAYOUT_UNDEFINED and only becomes readable when its first upload
+    // transitions it. It is bound into the descriptor table right here though, so between now and that upload the
+    // ray tracing shaders sample an image in the wrong layout - undefined behaviour that the driver is free to
+    // fault on. It is a wide window on a resource reload, where every atlas is destroyed and recreated frames
+    // before its contents are stitched back. The next flush clears the image and puts it in the layout the
+    // shaders expect.
+    pendingInitializations_.push_back(id);
+
     Renderer::instance().framework()->pipeline()->bindTexture(samplers[id], textures_[id], id);
 }
 
@@ -267,7 +275,8 @@ void Textures::collectCompletedUploadsImpl() {
 }
 
 void Textures::flushQueuedUploadImpl() {
-    if (uploadQueue_ == nullptr || uploadQueue_->empty()) {
+    bool hasUploads = uploadQueue_ != nullptr && !uploadQueue_->empty();
+    if (!hasUploads && pendingInitializations_.empty()) {
         queuedUploadBytes_ = 0;
         return;
     }
@@ -328,6 +337,51 @@ void Textures::flushQueuedUploadImpl() {
         });
         texture->imageLayout() = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
+
+    // Freshly created images: clear them to transparent black and move them into the layout the shaders read, so
+    // nothing ever samples an image still in VK_IMAGE_LAYOUT_UNDEFINED.
+    for (uint32_t initId : pendingInitializations_) {
+        auto initIter = textures_.find(initId);
+        if (initIter == textures_.end() || initIter->second == nullptr) { continue; }
+        auto image = initIter->second;
+        if (image->imageLayout() != VK_IMAGE_LAYOUT_UNDEFINED) { continue; }
+        // One with an upload waiting is about to be filled and transitioned anyway.
+        if (hasUploads && uploadQueue_->find(initId) != uploadQueue_->end()) { continue; }
+
+        cmdBuffer->barriersBufferImage({}, {{
+                                               .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                               .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT,
+                                               .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                               .dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                               .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                                               .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                               .srcQueueFamilyIndex = mainQueueIndex,
+                                               .dstQueueFamilyIndex = mainQueueIndex,
+                                               .image = image,
+                                               .subresourceRange = vk::wholeColorSubresourceRange,
+                                           }});
+        VkClearColorValue clearColor = {};
+        vkCmdClearColorImage(cmdBuffer->vkCommandBuffer(), image->vkImage(),
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1,
+                             &vk::wholeColorSubresourceRange);
+        cmdBuffer->barriersBufferImage({}, {{
+                                               .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                               .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                               .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+                                                               VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                                               VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR |
+                                                               VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                               .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT,
+                                               .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                               .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                               .srcQueueFamilyIndex = mainQueueIndex,
+                                               .dstQueueFamilyIndex = mainQueueIndex,
+                                               .image = image,
+                                               .subresourceRange = vk::wholeColorSubresourceRange,
+                                           }});
+        image->imageLayout() = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+    pendingInitializations_.clear();
 
     cmdBuffer->barriersBufferImage({}, uploadPreImageBarriers);
 
