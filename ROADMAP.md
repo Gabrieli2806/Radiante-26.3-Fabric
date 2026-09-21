@@ -6,6 +6,24 @@ backlog, not a promise.
 
 ## Open work and verification
 
+### Debug hitboxes and chunk borders are not visible — investigate
+
+Entity hitboxes enabled with F3 + B and chunk borders enabled with F3 + G
+are not visible with the mod enabled. Investigate rendering of both debug
+overlays so they appear when their respective shortcuts are toggled on.
+
+### Sun and moon positioning mode — planned
+
+Add a setting to choose between the custom inclination of the sun and moon
+and vanilla positioning. The vanilla mode should match their positions and
+path across the sky in vanilla Minecraft for the same time of day.
+
+### Everything looks transparent while inside lava — investigate
+
+When the camera is submerged in lava, everything looks transparent instead of
+the lava obscuring the view. Investigate the rendering from inside lava and
+restore the expected limited visibility.
+
 ### Powder snow block appearance — investigate
 
 The powder snow block looks wrong with the mod enabled. Reproduce the visual
