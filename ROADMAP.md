@@ -1,9 +1,41 @@
 # Radiante — Roadmap
 
-Post-0.1.0 items, roughly in the order they came up. Nothing here is scheduled; it's
-a backlog, not a promise.
+Post-0.1.0 backlog. Open work and items awaiting in-game verification come first;
+completed work is collected at the bottom. Nothing here is scheduled; it's a
+backlog, not a promise.
 
-## Investigate: backport to 26.1
+## Open work and verification
+
+### Powder snow block appearance — investigate
+
+The powder snow block looks wrong with the mod enabled. Reproduce the visual
+issue and check its material and rendering so it has the expected appearance.
+
+### Glass visibility and transparency — improve
+
+Tinted glass, all stained-glass colours, and stained-glass panes look too dark
+when viewed through. Improve visibility and transparency so the scene behind
+them is easier to see, while preserving their intended tint. This is a separate
+report from the previously fixed frosted-glass appearance.
+
+### Black corners with PBR / 3D resource packs — investigate
+
+With resource packs that use PBR and 3D block effects, parts of some blocks,
+usually the corners, render black. Those areas may be intended to be transparent;
+check the affected materials and transparency handling before choosing a fix.
+
+### Hollow-looking door and trapdoor cutouts — improve
+
+Doors and trapdoors with cutouts look hollow inside when viewed through their
+openings. Investigate how to make the exposed interior and cutout edges look
+natural.
+
+### Enchantment glint is not visible — pending
+
+The enchantment glint is missing. Port its rendering so enchanted items and
+equipment show their expected animated glint with the mod enabled.
+
+### Investigate: backport to 26.1
 
 Check whether the render pearl Vulkan backend (`com.mojang.renderpearl`) exists in
 26.1, and if the mixin targets (`VulkanInstance`, `VulkanBackend`, `VulkanDevice`,
@@ -12,7 +44,7 @@ path) are stable enough between 26.1 and 26.3 to share a codebase, or whether it
 needs its own mixin set behind a version-specific module. This is exploratory:
 the answer could be "not worth it" if the two versions diverge too much.
 
-## NameTag support — implemented, pending in-game check
+### NameTag support — implemented, pending in-game check
 
 `EntityCollector.submitNameTag` was empty. It now places the tag like vanilla
 (attachment point + 0.5, rotated by `camera.orientation`, scaled 0.025) and
@@ -24,17 +56,7 @@ text any-hit shader accepts partly transparent text surfaces stochastically
 instance under the particle mask, which shadow rays skip — so neither the
 plate nor the letters cast shadows. Vanilla's see-through copy is not drawn.
 
-## Moving block geometry — fixed, pending in-game check
-
-Primed TNT already worked (it submits a block model). Falling blocks and
-piston-moved blocks (including the extending head) go through
-`SubmitNodeCollector.submitMovingBlock`, which `EntityCollector` left empty on
-the wrong assumption that the terrain pass covered them — the section only holds
-an invisible `moving_piston` (or air) while they move. It now tesselates them
-with a `ModelBlockRenderer` the way vanilla's `MovingBlockFeatureRenderer` does
-and writes the quads into the solid/cutout/translucent moving-block layers.
-
-## Per-biome fog/ambiance — implemented, pending in-game tuning
+### Per-biome fog/ambiance — implemented, pending in-game tuning
 
 Option "Biome Fog" (`Options.biomeFog`, on by default). `BiomeAmbiance` samples
 a 3x3 grid of biomes 12 blocks apart around the camera, maps each to a tint and
@@ -60,51 +82,7 @@ far terrain/horizon; advanced adds it to `volumetric_light.rgen` and to the
 transmittance in `world.rgen`, with the plain haze covering the stretch past
 the march. Plain haze still used when the option is off and in Nether/End.
 
-## Far render distance performance — done
-
-Measured at 32 chunks, 1080p, RTX 5070 12 GB: 22 fps while loading and ~7 fps once
-loaded, because video memory filled up (11.7 of 12.2 GB) and spilled. Now ~90 fps
-steady, ~10.2 GB in use. What changed:
-- `PackedMaterialVertex`: material vertices 80 -> 40 bytes (unpacked in
-  `loadTriangleMaterial`); material buffers were 5.4 of ~9 GB.
-- Chunk BLAS built with `ALLOW_COMPACTION` and swapped for compacted copies once
-  their batch finishes (`Chunks::compactFinishedBlases`), ~35% smaller.
-- Per-frame CPU: chunk instance data cached between chunk changes, chunks no
-  longer re-retained every frame, hit-group names by pointer with a small
-  resolve cache, per-frame metadata buffers reused, empty slots skipped via a
-  flat `occupied` array. World prepare went from ~38 ms to ~10 ms.
-- Java: `ChunkManager` reacts to the sections the tracker reports changed
-  (`SectionDirtyStateMixin`) instead of walking ~100k sections a frame, and
-  checks neighbour readiness once per column.
-Set `RADIANTE_DEV_PROFILE=1` to log per-step timings and chunk memory.
-
-Second pass (compact chunk geometry, `packChunkGeometry` in chunks.cpp):
-16-bit indices, half-float positions relative to the section (exact on the 1/16
-block grid), and a per-geometry material header plus 20 bytes per vertex when
-the geometry's texture/flags/emission are uniform (terrain always is). Tagged
-by the low bit of each buffer address; `util/vertex.glsl` decodes it, entities
-keep the general layout. Chunk geometry went from ~4.2 GB to ~2.2 GB at 32
-chunks (process ~7.6 -> ~5.6 GB). Each chunk now owns one geometry buffer and
-each compacted BLAS its own buffer, so rebuilding a chunk frees exactly its
-memory instead of pinning its whole build batch (slow growth over long
-sessions). Still possible: fewer TLAS instances by merging sections.
-
-## Frosted glass (inherited from Radiance) — fixed
-
-Glass, stained glass and panes read as blurry/frosted instead of clear.
-`convertLabPBRMaterial` (`util/labpbr.glsl`) derives roughness from the specular
-map's red channel, and vanilla blocks have no specular map: the sample comes
-back all zeros, which decodes as a fully rough surface. Combined with
-`texAlbedo.a < 1` setting `transmission = 1`, light passing through scattered in
-every direction, so nothing behind the block was visible — only its tint.
-Now a transmissive surface whose specular sample is entirely zero (nothing
-authored for it) is treated as smooth glass: roughness 0.02, f0 0.04, ior 1.5.
-Resource packs that do author a specular map keep their own values. Applies to
-both shader packs, and to ice and other see-through blocks. Verified A/B on the
-same scene: with the fix the wall behind lime stained glass and red panes is
-visible through them; before it was not.
-
-## Crash when resource packs change — hazard fixed, crash not reproduced
+### Crash when resource packs change — hazard fixed, crash not reproduced
 
 Removing resource packs crashed the game a few seconds after the reload with
 `IllegalStateException: 5s timeout reached when waiting for VK semaphore`
@@ -129,40 +107,7 @@ existing image when size, format and mip count are unchanged would close both.
 
 `RADIANTE_DEV_SCRIPT` gained `reload` and `packs=a,b` / `packs=none` for this.
 
-## Hand and held items at other field of view settings — fixed
-
-The hand grew as the FOV setting went down and shrank as it went up, and only
-looked right at 70. Minecraft draws the first person hand in a pass of its own
-with a fixed field of view - `Camera.calculateHudFov` is 70 degrees whatever the
-setting, and `GameRenderer.render3dHud` builds the hand's projection from it -
-so in vanilla the hand keeps its size while the world opens up or narrows. A
-path tracer shoots one ray per pixel and had the hand sharing the world's
-frustum, which is the whole of the difference.
-
-`WorldUBO.handFovScale` (the last padding word, so the layout is unchanged)
-carries `tan(hudFov/2) / tan(fov/2)`, and the primary rays that look for the
-hand are widened or narrowed by it in both packs. It is 1 at 70 with no FOV
-effects, and the hand measures the same on screen at 30, 70 and 110.
-
-## Glowing mobs and the glowing effect — done
-
-A glow squid was as dark as any other mob and the glowing effect did nothing.
-Neither has geometry or a texture that says it glows: vanilla lights a glow
-squid by overriding the block light it hands the renderer (`GlowSquidRenderer`
-returns 15, as do the blaze and the magma cube) and draws the glowing effect as
-an outline in a post effect this renderer never runs.
-
-`EntityManager` now derives both as emission. Whatever an entity's own block
-light exceeds the brightest block light around it (feet, middle, head) counts as
-self-illumination, scaled to `SELF_LIT_EMISSION` at a full 15 and ignored below a
-gap of 5 so a mob standing by a torch does not glow. `EntityRenderState
-.appearsGlowing()` adds `GLOWING_EMISSION`. `EntityCollector` also used to drop
-every submission that carried an outline colour, which is what made a glowing
-player or mob vanish entirely: vanilla still draws the model and puts the
-silhouette on top, so the models are now written as usual and the outline colour
-is ignored.
-
-### Still wanted: the real outline, in the team's colour, through walls
+### Glowing effect outline — pending
 
 The glow is not what vanilla draws. Vanilla outlines the entity in its team's
 colour and shows that outline through blocks. An attempt at it is reverted but
@@ -194,7 +139,7 @@ worth writing down, because most of the way is mapped:
 world around them, so a glow squid now casts a pool of cyan light on the ground.
 The effect is a glow on the mob rather than vanilla's silhouette through walls.
 
-## Out of bounds texture uploads — fixed, pending confirmation
+### Out of bounds texture uploads — fixed, pending confirmation
 
 Sync validation while entering a world caught
 `vkCmdCopyBufferToImage(): pRegions[0].imageOffset.x (0) + extent.width (64)
@@ -208,7 +153,110 @@ and `queueUpload` refuses (and logs) any copy that does not fit the mip level it
 targets. Whether this is the `VK_ERROR_DEVICE_LOST` seen on joining a world is
 not confirmed: that crash reproduced once in about a dozen scripted joins.
 
-## Lit redstone lamps cast no light — fixed
+### Advanced settings menu
+
+Bring back something like Radiance's fuller customization screen — the current
+`RadianteOptionsScreen` only exposes a handful of high-level toggles (preset,
+shader pack, chunk building, debug logging). Radiance's had per-module
+attribute editing exposed directly. Needs a design decision: expose the raw
+module/attribute graph, or a curated set of the ones that actually matter to
+players (ray bounces, denoiser strength, etc).
+
+### Other open work from earlier sessions
+
+- `VK_ERROR_DEVICE_LOST` on join — root cause narrowed down: DLSS-RR at Ultra
+  Performance hangs the GPU when its render size is tiny (854x480 window ->
+  285x160). Same render size at Performance runs; Ultra Performance from 720p up
+  runs. DLSSModule now drops to Performance below a 240-pixel render height;
+  Ultra Performance is back in the menu.
+- Held-item light (a torch in hand doesn't light its surroundings, only itself).
+- Vanilla (non-volumetric) cloud rendering — needs decoding Minecraft's packed
+  cloud face format.
+- Block selection outline and damage flash — not ported yet.
+  (Block breaking cracks are in: blocks and block entities, drawn as a
+  multiplicative decal via `ALPHA_MODE_DECAL` = 10, under the particle mask.) (Weather is in: rain/snow sheets from
+  `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
+
+## Completed
+
+### Far render distance performance — done
+
+Measured at 32 chunks, 1080p, RTX 5070 12 GB: 22 fps while loading and ~7 fps once
+loaded, because video memory filled up (11.7 of 12.2 GB) and spilled. Now ~90 fps
+steady, ~10.2 GB in use. What changed:
+- `PackedMaterialVertex`: material vertices 80 -> 40 bytes (unpacked in
+  `loadTriangleMaterial`); material buffers were 5.4 of ~9 GB.
+- Chunk BLAS built with `ALLOW_COMPACTION` and swapped for compacted copies once
+  their batch finishes (`Chunks::compactFinishedBlases`), ~35% smaller.
+- Per-frame CPU: chunk instance data cached between chunk changes, chunks no
+  longer re-retained every frame, hit-group names by pointer with a small
+  resolve cache, per-frame metadata buffers reused, empty slots skipped via a
+  flat `occupied` array. World prepare went from ~38 ms to ~10 ms.
+- Java: `ChunkManager` reacts to the sections the tracker reports changed
+  (`SectionDirtyStateMixin`) instead of walking ~100k sections a frame, and
+  checks neighbour readiness once per column.
+Set `RADIANTE_DEV_PROFILE=1` to log per-step timings and chunk memory.
+
+Second pass (compact chunk geometry, `packChunkGeometry` in chunks.cpp):
+16-bit indices, half-float positions relative to the section (exact on the 1/16
+block grid), and a per-geometry material header plus 20 bytes per vertex when
+the geometry's texture/flags/emission are uniform (terrain always is). Tagged
+by the low bit of each buffer address; `util/vertex.glsl` decodes it, entities
+keep the general layout. Chunk geometry went from ~4.2 GB to ~2.2 GB at 32
+chunks (process ~7.6 -> ~5.6 GB). Each chunk now owns one geometry buffer and
+each compacted BLAS its own buffer, so rebuilding a chunk frees exactly its
+memory instead of pinning its whole build batch (slow growth over long
+sessions). Still possible: fewer TLAS instances by merging sections.
+
+### Frosted glass (inherited from Radiance) — fixed
+
+Glass, stained glass and panes read as blurry/frosted instead of clear.
+`convertLabPBRMaterial` (`util/labpbr.glsl`) derives roughness from the specular
+map's red channel, and vanilla blocks have no specular map: the sample comes
+back all zeros, which decodes as a fully rough surface. Combined with
+`texAlbedo.a < 1` setting `transmission = 1`, light passing through scattered in
+every direction, so nothing behind the block was visible — only its tint.
+Now a transmissive surface whose specular sample is entirely zero (nothing
+authored for it) is treated as smooth glass: roughness 0.02, f0 0.04, ior 1.5.
+Resource packs that do author a specular map keep their own values. Applies to
+both shader packs, and to ice and other see-through blocks. Verified A/B on the
+same scene: with the fix the wall behind lime stained glass and red panes is
+visible through them; before it was not.
+
+### Hand and held items at other field of view settings — fixed
+
+The hand grew as the FOV setting went down and shrank as it went up, and only
+looked right at 70. Minecraft draws the first person hand in a pass of its own
+with a fixed field of view - `Camera.calculateHudFov` is 70 degrees whatever the
+setting, and `GameRenderer.render3dHud` builds the hand's projection from it -
+so in vanilla the hand keeps its size while the world opens up or narrows. A
+path tracer shoots one ray per pixel and had the hand sharing the world's
+frustum, which is the whole of the difference.
+
+`WorldUBO.handFovScale` (the last padding word, so the layout is unchanged)
+carries `tan(hudFov/2) / tan(fov/2)`, and the primary rays that look for the
+hand are widened or narrowed by it in both packs. It is 1 at 70 with no FOV
+effects, and the hand measures the same on screen at 30, 70 and 110.
+
+### Glowing mobs and the glowing effect — done
+
+A glow squid was as dark as any other mob and the glowing effect did nothing.
+Neither has geometry or a texture that says it glows: vanilla lights a glow
+squid by overriding the block light it hands the renderer (`GlowSquidRenderer`
+returns 15, as do the blaze and the magma cube) and draws the glowing effect as
+an outline in a post effect this renderer never runs.
+
+`EntityManager` now derives both as emission. Whatever an entity's own block
+light exceeds the brightest block light around it (feet, middle, head) counts as
+self-illumination, scaled to `SELF_LIT_EMISSION` at a full 15 and ignored below a
+gap of 5 so a mob standing by a torch does not glow. `EntityRenderState
+.appearsGlowing()` adds `GLOWING_EMISSION`. `EntityCollector` also used to drop
+every submission that carried an outline colour, which is what made a glowing
+player or mob vanish entirely: vanilla still draws the model and puts the
+silhouette on top, so the models are now written as usual and the outline colour
+is ignored.
+
+### Lit redstone lamps cast no light — fixed
 
 A lit redstone lamp was dark with vanilla textures and correct with a PBR pack.
 Radiante ships its own LabPBR specular maps for 154 vanilla textures, and
@@ -225,7 +273,7 @@ blocks and not others leaves the rest glowing. Measured in a sealed stone room
 at midnight, mean frame brightness: lamp 3.4 -> 22.0, with glowstone at 34.4
 and a sea lantern at 40.9 for scale.
 
-## No world icon with ray tracing on — fixed
+### No world icon with ray tracing on — fixed
 
 A world played with ray tracing on got no picture in the world list; with it
 off the picture appeared. Minecraft takes that picture itself a second or so
@@ -241,7 +289,7 @@ have been traced. Without that last part the picture was taken on the first
 frame in the world and came out a flat grey square. Everything is unchanged with
 ray tracing off.
 
-## Light through coloured glass stayed white — fixed
+### Light through coloured glass stayed white — fixed
 
 A red pane threw an almost white patch on the floor. The shadow ray's any hit
 blended the glass colour towards white by the texture's alpha
@@ -253,7 +301,7 @@ Measured on white concrete at noon, normalised to the brightest channel: red
 glass (1.00, 0.38, 0.35), lime glass (0.66, 1.00, 0.17), clear glass
 (1.00, 1.00, 0.96).
 
-## The player casts no shadow in first person — done
+### The player casts no shadow in first person — done
 
 Radiance showed the player's own shadow in first person; this renderer did not.
 Minecraft extracts no model for the camera entity, so nothing of the player
@@ -265,7 +313,7 @@ first hit in first person while shadow rays and later bounces keep it, so
 option "First Person Shadow" (`Options.firstPersonShadow`, on by default) turns
 it off for anyone who would rather not have it.
 
-## Night vision did nothing — fixed
+### Night vision did nothing — fixed
 
 The effect only brightens Minecraft's lightmap, and a path tracer never reads
 one, so a sealed room stayed exactly as black with night vision as without it.
@@ -281,16 +329,7 @@ radiance image, which is what DLSS Ray Reconstruction is handed. Neither pass
 reads both, so nothing is counted twice. Both packs. Measured in a sealed stone
 room at midnight, mean frame brightness 5.0 -> 77.8.
 
-## Advanced settings menu
-
-Bring back something like Radiance's fuller customization screen — the current
-`RadianteOptionsScreen` only exposes a handful of high-level toggles (preset,
-shader pack, chunk building, debug logging). Radiance's had per-module
-attribute editing exposed directly. Needs a design decision: expose the raw
-module/attribute graph, or a curated set of the ones that actually matter to
-players (ray bounces, denoiser strength, etc).
-
-## Sun and moon color — DONE
+### Sun and moon color — DONE
 
 Root cause was not the tint: `RadianteRenderer` passed `0, 0` as `sunTextureId` and
 `moonTextureId`, and id 0 is the 1x1 white fallback texture. Neither body had ever
@@ -330,23 +369,21 @@ itself, and comparing crops: the sun's disc and the moon's disc are the same siz
 both renderers. The moon's "hollow square" look is not a bug either - it is the real
 `new_moon` sprite, and vanilla draws the identical silhouette.
 
-## Also open from earlier sessions (not new, just not yet done)
+### NRD denoising — fixed
 
-- NRD — fixed. REBLUR converged to blotches when still, streaky noise in motion
-  (~2.5x DLSS-RR's high-frequency noise) and lost ~25% of the light in dim
-  bounce-lit rooms. Switched the module to RELAX on the same inputs: as clean as
-  DLSS-RR in motion (measured 0.27 vs 0.65 high-pass noise), within ~10% of its
-  brightness. Also: NRD now gets a +Z-forward view matching the positive viewZ,
-  and hand pixels carry zero motion (they ghosted under both denoisers).
-- `VK_ERROR_DEVICE_LOST` on join — root cause narrowed down: DLSS-RR at Ultra
-  Performance hangs the GPU when its render size is tiny (854x480 window ->
-  285x160). Same render size at Performance runs; Ultra Performance from 720p up
-  runs. DLSSModule now drops to Performance below a 240-pixel render height;
-  Ultra Performance is back in the menu.
-- Held-item light (a torch in hand doesn't light its surroundings, only itself).
-- Vanilla (non-volumetric) cloud rendering — needs decoding Minecraft's packed
-  cloud face format.
-- Block selection outline, enchantment glint, damage flash — not ported yet.
-  (Block breaking cracks are in: blocks and block entities, drawn as a
-  multiplicative decal via `ALPHA_MODE_DECAL` = 10, under the particle mask.) (Weather is in: rain/snow sheets from
-  `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
+REBLUR converged to blotches when still, streaky noise in motion
+(~2.5x DLSS-RR's high-frequency noise) and lost ~25% of the light in dim
+bounce-lit rooms. Switched the module to RELAX on the same inputs: as clean as
+DLSS-RR in motion (measured 0.27 vs 0.65 high-pass noise), within ~10% of its
+brightness. Also: NRD now gets a +Z-forward view matching the positive viewZ,
+and hand pixels carry zero motion (they ghosted under both denoisers).
+
+### Moving block geometry — fixed
+
+Primed TNT already worked (it submits a block model). Falling blocks and
+piston-moved blocks (including the extending head) go through
+`SubmitNodeCollector.submitMovingBlock`, which `EntityCollector` left empty on
+the wrong assumption that the terrain pass covered them — the section only holds
+an invisible `moving_piston` (or air) while they move. It now tesselates them
+with a `ModelBlockRenderer` the way vanilla's `MovingBlockFeatureRenderer` does
+and writes the quads into the solid/cutout/translucent moving-block layers.
