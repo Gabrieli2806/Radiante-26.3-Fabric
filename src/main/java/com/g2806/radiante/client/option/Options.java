@@ -75,6 +75,11 @@ public class Options {
     public static boolean debugLogging = false;
     /** Per-biome haze in the overworld: warm dust over deserts, thick green air over swamps, and so on. */
     public static boolean biomeFog = true;
+    /**
+     * Whether the player casts a shadow (and shows up in reflections) while the camera is in first person.
+     * Minecraft does not draw the player at all then, so nothing of them would reach the world without this.
+     */
+    public static boolean firstPersonShadow = true;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
@@ -139,6 +144,8 @@ public class Options {
             setDebugLogging(Boolean.parseBoolean(props.getProperty("debugLogging",
                     String.valueOf(debugLogging))), false);
             biomeFog = Boolean.parseBoolean(props.getProperty("biomeFog", String.valueOf(biomeFog)));
+            firstPersonShadow = Boolean.parseBoolean(
+                props.getProperty("firstPersonShadow", String.valueOf(firstPersonShadow)));
             biomeFogStrength = Math.max(0, Math.min(400, Integer.parseInt(
                 props.getProperty("biomeFogStrength", String.valueOf(biomeFogStrength)))));
             setCollectChunkEmission(Boolean.parseBoolean(props.getProperty("collectChunkEmission",
@@ -177,6 +184,7 @@ public class Options {
         props.setProperty("collectChunkEmission", String.valueOf(collectChunkEmission));
         props.setProperty("debugLogging", String.valueOf(debugLogging));
         props.setProperty("biomeFog", String.valueOf(biomeFog));
+        props.setProperty("firstPersonShadow", String.valueOf(firstPersonShadow));
         props.setProperty("biomeFogStrength", String.valueOf(biomeFogStrength));
         props.setProperty("rayTracingEnabled", String.valueOf(rayTracingEnabled));
         props.setProperty("useOpenGl", String.valueOf(useOpenGl));

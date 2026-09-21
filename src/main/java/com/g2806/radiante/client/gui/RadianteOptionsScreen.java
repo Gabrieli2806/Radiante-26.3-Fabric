@@ -36,6 +36,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private boolean pendingCollectEmission = Options.collectChunkEmission;
     private boolean pendingDebugLogging = Options.debugLogging;
     private boolean pendingBiomeFog = Options.biomeFog;
+    private boolean pendingFirstPersonShadow = Options.firstPersonShadow;
     private int pendingBiomeFogStrength = Options.biomeFogStrength;
     private Boolean pendingVolumetricFog;
     private boolean pendingReflex = Options.reflex;
@@ -59,6 +60,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingCollectEmission = previous.pendingCollectEmission;
         this.pendingDebugLogging = previous.pendingDebugLogging;
         this.pendingBiomeFog = previous.pendingBiomeFog;
+        this.pendingFirstPersonShadow = previous.pendingFirstPersonShadow;
         this.pendingBiomeFogStrength = previous.pendingBiomeFogStrength;
         this.pendingVolumetricFog = previous.pendingVolumetricFog;
         this.pendingReflex = previous.pendingReflex;
@@ -280,6 +282,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 new OptionInstance.IntRange(0, 400, false), this.pendingBiomeFogStrength,
                 value -> this.pendingBiomeFogStrength = value));
 
+        OptionInstance<Boolean> firstPersonShadow = OptionInstance.createBoolean(
+            "options.radiante.first_person_shadow",
+            OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.first_person_shadow.tooltip")),
+            this.pendingFirstPersonShadow, value -> this.pendingFirstPersonShadow = value);
         OptionInstance<Boolean> debugLogging = OptionInstance.createBoolean("options.radiante.debug_logging",
             this.pendingDebugLogging, value -> this.pendingDebugLogging = value);
         if (Pipeline.supportsVolumetricFog()) {
@@ -291,9 +297,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                     OptionInstance.cachedConstantTooltip(
                         Component.translatable("options.radiante.volumetric_fog.tooltip")),
                     this.pendingVolumetricFog, value -> this.pendingVolumetricFog = value),
-                debugLogging);
-        } else {
+                firstPersonShadow);
             this.list.addSmall(debugLogging);
+        } else {
+            this.list.addSmall(firstPersonShadow, debugLogging);
         }
     }
 
@@ -322,6 +329,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             Options.setCollectChunkEmission(this.pendingCollectEmission, false);
         }
         Options.biomeFog = this.pendingBiomeFog;
+        Options.firstPersonShadow = this.pendingFirstPersonShadow;
         if (this.pendingReflex != Options.reflex) {
             Options.reflex = this.pendingReflex;
             FrameGeneration.applyReflex();

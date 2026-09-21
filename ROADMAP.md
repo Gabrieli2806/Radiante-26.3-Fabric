@@ -241,6 +241,30 @@ have been traced. Without that last part the picture was taken on the first
 frame in the world and came out a flat grey square. Everything is unchanged with
 ray tracing off.
 
+## Light through coloured glass stayed white — fixed
+
+A red pane threw an almost white patch on the floor. The shadow ray's any hit
+blended the glass colour towards white by the texture's alpha
+(`mix(vec3(1.0), tint, alpha)`), and vanilla stained glass is only about half
+opaque, so half the colour was thrown away. How much light a pane lets past and
+the colour it absorbs by are two different things: a surface that transmits now
+takes its tint whole, everything else keeps the old blend. Both packs.
+Measured on white concrete at noon, normalised to the brightest channel: red
+glass (1.00, 0.38, 0.35), lime glass (0.66, 1.00, 0.17), clear glass
+(1.00, 1.00, 0.96).
+
+## The player casts no shadow in first person — done
+
+Radiance showed the player's own shadow in first person; this renderer did not.
+Minecraft extracts no model for the camera entity, so nothing of the player
+reached the world: no shadow, and nothing of them in reflections either. The
+avatar state is there all along (`LevelRenderState.playerRenderState
+.avatarRenderState`), and the packs already skip the player mask on the camera's
+first hit in first person while shadow rays and later bounces keep it, so
+`EntityManager.collectPlayerShadow` submits the model under that mask. New
+option "First Person Shadow" (`Options.firstPersonShadow`, on by default) turns
+it off for anyone who would rather not have it.
+
 ## Advanced settings menu
 
 Bring back something like Radiance's fuller customization screen — the current

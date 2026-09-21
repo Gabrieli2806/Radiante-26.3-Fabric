@@ -187,6 +187,8 @@
   "options.radiante.biome_fog_strength": "生物群系雾强度",
   "options.radiante.volumetric_fog": "体积雾",
   "options.radiante.volumetric_fog.tooltip": "像基岩版 RTX 一样对空气进行光线步进：阳光和月光在生物群系雾中散射，树木和地形会投下光束。比普通雾气明显更耗 GPU。",
+  "options.radiante.first_person_shadow": "第一人称阴影",
+  "options.radiante.first_person_shadow.tooltip": "第一人称视角下仍然绘制玩家，用于投射阴影和出现在反射中。原版在第一人称下不绘制玩家，因此关闭时你不会有影子，也不会出现在水面或玻璃的反射里。",
   "options.radiante.reflex": "NVIDIA Reflex",
   "options.radiante.reflex.tooltip": "低延迟模式：让每一帧在 GPU 允许的最晚时刻开始，降低输入延迟。仅限 NVIDIA 显卡。",
   "options.radiante.reflex.tooltip_restart": "NVIDIA 显卡的低延迟模式，降低输入延迟。重启游戏后生效。"

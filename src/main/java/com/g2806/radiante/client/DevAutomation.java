@@ -115,6 +115,9 @@ public final class DevAutomation {
                     value.equals("front") ? net.minecraft.client.CameraType.THIRD_PERSON_FRONT :
                                             net.minecraft.client.CameraType.FIRST_PERSON);
             RadianteClient.LOGGER.info("[dev] camera {}", value);
+        } else if (action.equals("options")) {
+            minecraft.gui.setScreen(new com.g2806.radiante.client.gui.RadianteOptionsScreen(null, minecraft.options));
+            RadianteClient.LOGGER.info("[dev] options screen");
         } else if (action.equals("fps")) {
             RadianteClient.LOGGER.info("[dev] fps {} at tick {}", minecraft.getFps(), worldTicks);
         } else if (action.equals("quit")) {

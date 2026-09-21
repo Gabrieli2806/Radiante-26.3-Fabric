@@ -127,8 +127,13 @@ void main() {
     LabPBRMat mat = convertLabPBRMaterial(shadedAlbedo, specular, vec4(0.0));
 
     if (isWaterMaterial || mat.transmission > 0.0 || alpha < 0.95) {
+        // Light that gets through coloured glass takes the glass's colour. Mixing towards white by the texture's
+        // alpha left a red pane throwing almost white light on the floor, because vanilla stained glass is only
+        // about half opaque - but how much light a pane lets past and the colour it absorbs by are two different
+        // things. A surface that transmits takes its tint whole; anything else keeps the old blend.
+        float tintStrength = mat.transmission > 0.0 ? 1.0 : alpha;
         vec3 shadowTransmission =
-            isWaterMaterial ? vec3(1.0) : clamp(mix(vec3(1.0), tint, alpha), vec3(0.0), vec3(1.0));
+            isWaterMaterial ? vec3(1.0) : clamp(mix(vec3(1.0), tint, tintStrength), vec3(0.0), vec3(1.0));
         if (isWaterMaterial && ADV_WATER_SURFACE_MODE == 1u) {
             vec3 dposdu;
             vec3 dposdv;

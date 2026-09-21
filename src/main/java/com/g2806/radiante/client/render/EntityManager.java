@@ -61,12 +61,15 @@ public final class EntityManager {
 
     /** Masks the ray tracing shaders select geometry with. */
     private static final int RAY_TRACING_WORLD = 0b00000001;
+    /** Geometry camera rays skip in first person, while shadow rays and later bounces still see it. */
+    private static final int RAY_TRACING_PLAYER = 0b00000010;
     private static final int RAY_TRACING_HAND = 0b00001000;
     private static final int RAY_TRACING_PARTICLE = 0b00100000;
     private static final int NAME_TAG_ID_SALT = 0x6E616D65;
     private static final int PARTICLES_ID = "radiante:particles".hashCode();
     private static final PBRVertexWriter PARTICLE_WRITER = new PBRVertexWriter(4096);
     private static final int HAND_ID = "radiante:hand".hashCode();
+    private static final int PLAYER_SHADOW_ID = "radiante:player_shadow".hashCode();
     private static final int WEATHER_ID = "radiante:weather".hashCode();
     private static final int BREAKING_ID_SALT = 0x62726B21;
     private static final int RAY_TRACING_WEATHER = 0b00010000;
@@ -119,6 +122,7 @@ public final class EntityManager {
             collectBlockEntity(minecraft, cameraState, state);
         }
 
+        collectPlayerShadow(minecraft, levelRenderState, cameraState);
         collectBlockBreaking(minecraft, levelRenderState);
         collectParticles(levelRenderState, cameraState);
         collectWeather(levelRenderState, cameraState);
@@ -444,6 +448,38 @@ public final class EntityManager {
     }
 
     /** The held items and arms are submitted separately from the world and follow the camera. */
+    /**
+     * The player, in first person. Minecraft draws nothing of them then - no model is extracted for the camera
+     * entity - so the world around the player had no shadow of them in it and they were missing from every
+     * reflection. Their model is submitted here under the mask camera rays skip and shadow rays and later bounces
+     * keep, which is how the original Radiance did it. Off with the "First Person Shadow" option.
+     */
+    private static void collectPlayerShadow(Minecraft minecraft, LevelRenderState levelRenderState,
+        CameraRenderState cameraState) {
+        PlayerRenderState playerState = levelRenderState.playerRenderState;
+        if (!Options.firstPersonShadow || !playerState.hasPlayer || playerState.avatarRenderState == null
+            || !minecraft.options.getCameraType().isFirstPerson() || cameraState.entityRenderState.isSleeping
+            || minecraft.gameMode == null || minecraft.gameMode.getPlayerMode() == GameType.SPECTATOR) {
+            return;
+        }
+
+        EntityRenderState state = playerState.avatarRenderState;
+        COLLECTOR.reset();
+        POSE_STACK.setIdentity();
+
+        try {
+            minecraft.getEntityRenderDispatcher().submit(state, cameraState, 0.0, 0.0, 0.0, POSE_STACK, COLLECTOR);
+        } catch (RuntimeException e) {
+            return;
+        }
+
+        if (COLLECTOR.isEmpty()) {
+            return;
+        }
+
+        addPending(PLAYER_SHADOW_ID, state.x, state.y, state.z, RAY_TRACING_PLAYER);
+    }
+
     private static void collectHands(Minecraft minecraft, LevelRenderState levelRenderState,
         CameraRenderState cameraState) {
         PlayerRenderState playerState = levelRenderState.playerRenderState;
