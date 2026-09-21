@@ -242,6 +242,9 @@ float biomeFogDensity() {
     return worldUBO.skyType == 1 ? max(skyUBO.biomeFog.a, 0.0) : 0.0;
 }
 
+/** How bright night vision makes a surface, in the renderer's radiance units. */
+#define ADV_NIGHT_VISION_AMBIENT 0.8
+
 float biomeFogReach(vec3 rayDir, bool hitSky, float hitDistance) {
     return hitSky ? BIOME_FOG_MAX_DISTANCE * (1.0 - smoothstep(0.0, 0.45, rayDir.y)) :
                     min(hitDistance, BIOME_FOG_MAX_DISTANCE);
@@ -1517,6 +1520,18 @@ void main() {
         imageStore(firstHitClearImage, ivec2(pixel), vec4(mainRay.radiance, 1.0));
         imageStore(firstHitRefractionImage, ivec2(pixel), vec4(vec3(0.0), 0.0));
     }
+
+    // Night vision brightens Minecraft's lightmap, and a path tracer reads no lightmap, so the effect did nothing
+    // at all: a cave stayed as black with it as without. The surface the camera sees gets a flat term of its own
+    // colour instead, which is how the lightmap's floor reads in vanilla - everything visible, washed out, no
+    // shadows of its own. It goes into the emission channel, which the NRD compose reads and leaves undenoised,
+    // and onto the radiance below, which is what DLSS Ray Reconstruction is handed; neither pass reads both.
+    vec3 nightVisionAmbient = vec3(0.0);
+    if (skyUBO.nightVision > 0.0 && !hitSky) {
+        nightVisionAmbient = skyUBO.nightVision * ADV_NIGHT_VISION_AMBIENT * firstHitMat.albedoValue.rgb *
+                             firstHitMat.albedoValue.a;
+    }
+    firstHitEmission += nightVisionAmbient;
     imageStore(firstHitBaseEmissionImage, ivec2(pixel), vec4(firstHitEmission, 1.0));
     bool isFirstHitSpecular =
         isFirstHitTransparent ? hasTransparentReflection : (isFirstHitNoisy && !isFirstHitDiffuse);
@@ -1588,7 +1603,7 @@ void main() {
     if (isnan(mainRay.radiance.r) || isinf(mainRay.radiance.r)) { mainRay.radiance = vec3(0.0, 0.0, 0.0); }
     if (isnan(mainRay.radiance.g) || isinf(mainRay.radiance.g)) { mainRay.radiance = vec3(0.0, 0.0, 0.0); }
     if (isnan(mainRay.radiance.b) || isinf(mainRay.radiance.b)) { mainRay.radiance = vec3(0.0, 0.0, 0.0); }
-    imageStore(outputImage, ivec2(pixel), vec4(mainRay.radiance, 1.0));
+    imageStore(outputImage, ivec2(pixel), vec4(mainRay.radiance + nightVisionAmbient, 1.0));
 #    endif
 #endif
 }

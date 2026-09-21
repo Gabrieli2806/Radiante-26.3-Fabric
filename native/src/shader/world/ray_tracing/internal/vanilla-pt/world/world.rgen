@@ -500,6 +500,9 @@ void resetMainRay(inout MainRay ray, int bounce) {
     ray.pad0 = 0u;
 }
 
+/** How bright night vision makes a surface, in the renderer's radiance units. */
+#define NIGHT_VISION_AMBIENT 0.8
+
 void preparePrimary(int step, int isHand, out float len, out uint mask, out uint missId) {
     if (isHand == 0) {
         missId = step == 0 ? VPT_WORLD_MISS_INDEX : VPT_WORLD_NO_VOLUMETRIC_MISS_INDEX;
@@ -1207,6 +1210,18 @@ void main() {
         imageStore(firstHitClearImage, ivec2(pixel), vec4(mainRay.radiance, 1.0));
         imageStore(firstHitRefractionImage, ivec2(pixel), vec4(vec3(0.0), 0.0));
     }
+
+    // Night vision brightens Minecraft's lightmap, and a path tracer reads no lightmap, so the effect did nothing
+    // at all: a cave stayed as black with it as without. The surface the camera sees gets a flat term of its own
+    // colour instead, which is how the lightmap's floor reads in vanilla - everything visible, washed out, no
+    // shadows of its own. It goes into the emission channel, which the NRD compose reads and leaves undenoised,
+    // and onto the radiance below, which is what DLSS Ray Reconstruction is handed; neither pass reads both.
+    vec3 nightVisionAmbient = vec3(0.0);
+    if (skyUBO.nightVision > 0.0 && !hitSky) {
+        nightVisionAmbient = skyUBO.nightVision * NIGHT_VISION_AMBIENT * firstHitMat.albedoValue.rgb *
+                             firstHitMat.albedoValue.a;
+    }
+    firstHitEmission += nightVisionAmbient;
     imageStore(firstHitBaseEmissionImage, ivec2(pixel), vec4(firstHitEmission, 1.0));
     bool applyVolumetricCompose =
         useVolumetricFog && !raySkipFog(mainRay) && skyUBO.cameraSubmersionType != 1 && worldUBO.skyType == 1;
@@ -1259,6 +1274,6 @@ void main() {
         mainRay.radiance = heat;
     }
 #    endif
-    imageStore(outputImage, ivec2(pixel), vec4(mainRay.radiance, 1.0));
+    imageStore(outputImage, ivec2(pixel), vec4(mainRay.radiance + nightVisionAmbient, 1.0));
 #endif
 }

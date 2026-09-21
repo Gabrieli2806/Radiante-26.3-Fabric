@@ -294,7 +294,9 @@ namespace Data {
 
         T_UINT sunTextureID;
         T_UINT moonTextureID;
-        T_UINT pad0;
+        // How strong the night vision effect is, 0 to 1, fading out the way vanilla's does in its last ten
+        // seconds. Minecraft applies it to the lightmap, which a path tracer never reads.
+        T_FLOAT nightVision;
 
         // Where each body sits in the celestials atlas, as (u0, v0, u1, v1). Minecraft 26.3 stitches the sun and
         // the eight moon phases into one runtime atlas, so neither can be sampled as a whole texture and the moon

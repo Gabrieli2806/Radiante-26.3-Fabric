@@ -265,6 +265,22 @@ first hit in first person while shadow rays and later bounces keep it, so
 option "First Person Shadow" (`Options.firstPersonShadow`, on by default) turns
 it off for anyone who would rather not have it.
 
+## Night vision did nothing — fixed
+
+The effect only brightens Minecraft's lightmap, and a path tracer never reads
+one, so a sealed room stayed exactly as black with night vision as without it.
+The surface the camera sees now gets a flat term of its own colour,
+`SkyUBO.nightVision` (the intensity vanilla already works out in
+`LightmapRenderState.nightVisionEffectIntensity`, fade at the end included)
+times `NIGHT_VISION_AMBIENT`, which reads the way the lightmap's floor does in
+vanilla: everything visible, washed out, no shadows of its own.
+
+It is added in two places because the two denoisers read different images: the
+emission channel, which the NRD compose takes and leaves undenoised, and the
+radiance image, which is what DLSS Ray Reconstruction is handed. Neither pass
+reads both, so nothing is counted twice. Both packs. Measured in a sealed stone
+room at midnight, mean frame brightness 5.0 -> 77.8.
+
 ## Advanced settings menu
 
 Bring back something like Radiance's fuller customization screen — the current

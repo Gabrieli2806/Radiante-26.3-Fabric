@@ -117,7 +117,8 @@ public class BufferProxy {
                              int moonTextureId,
                              Vector4fc sunUvRect,
                              Vector4fc moonUvRect,
-                             Vector4fc biomeFog) {
+                             Vector4fc biomeFog,
+                             float nightVision) {
     }
 
     public static void updateSkyUniform(SkyUniform uniform) {
@@ -167,7 +168,8 @@ public class BufferProxy {
             offset += Integer.BYTES;
             bb.putInt(offset, uniform.moonTextureId());
             offset += Integer.BYTES;
-            offset += Integer.BYTES; // pad0
+            bb.putFloat(offset, uniform.nightVision());
+            offset += Float.BYTES;
 
             bb.putFloat(offset, uniform.sunUvRect().x());
             offset += Float.BYTES;
