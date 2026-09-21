@@ -156,6 +156,20 @@ public final class RadianteRenderer {
     }
 
     /** Replaces {@code GameRenderer.renderLevel} while the renderer is active. */
+    /** Frames of the world this renderer has drawn since the level was opened. See {@link #levelFrames()}. */
+    private static final java.util.concurrent.atomic.AtomicInteger LEVEL_FRAMES =
+        new java.util.concurrent.atomic.AtomicInteger();
+
+    /** How many frames of the world have been traced since the level loaded; zero while none has. */
+    public static int levelFrames() {
+        return LEVEL_FRAMES.get();
+    }
+
+    /** Called when a level is opened or left, so the count means "of this level". */
+    public static void resetLevelFrames() {
+        LEVEL_FRAMES.set(0);
+    }
+
     public static void renderLevel(GameRenderer gameRenderer, LevelRenderState levelRenderState) {
         Minecraft minecraft = Minecraft.getInstance();
         CameraRenderState cameraState = levelRenderState.cameraRenderState;
@@ -165,6 +179,7 @@ public final class RadianteRenderer {
             return;
         }
 
+        LEVEL_FRAMES.incrementAndGet();
         DevProfiler.begin();
         PlayerProxy.setCameraPos(cameraState.pos.x(), cameraState.pos.y(), cameraState.pos.z());
         RendererProxy.shouldRenderWorld(true);

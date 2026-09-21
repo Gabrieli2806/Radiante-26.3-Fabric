@@ -62,7 +62,8 @@ public final class PbrAtlases {
      * Builds both maps for an atlas. Returns the number of sprites a map was found for, zero when the pack ships
      * none, in which case nothing is uploaded and the renderer keeps its own generated emission.
      */
-    public static int build(Minecraft minecraft, TextureAtlas atlas, int albedoTextureId) {
+    public static int build(Minecraft minecraft, TextureAtlas atlas, int albedoTextureId,
+        @org.jetbrains.annotations.Nullable ByteBuffer specularSeed) {
         Map<Identifier, TextureAtlasSprite> sprites = ((TextureAtlasAccessor) (Object) atlas).radiante$texturesByName();
         if (sprites.isEmpty()) {
             return 0;
@@ -73,7 +74,12 @@ public final class PbrAtlases {
         int mipLevels = atlas.getTexture().getMipLevels();
         ResourceManager resources = minecraft.getResourceManager();
 
-        ByteBuffer specular = fill(width, height, SPECULAR_DEFAULT);
+        // Emission Radiante derived from the albedo comes in as the seed, so a block whose map nobody authored -
+        // a lit redstone lamp, say - keeps the glow that was worked out for it, and an authored map simply writes
+        // over its own texels. Without this a single authored map anywhere turned the derived emission off for
+        // every block at once, which is what left redstone lamps dark with vanilla textures.
+        ByteBuffer specular = specularSeed != null ? specularSeed : fill(width, height, SPECULAR_DEFAULT);
+        boolean ownsSpecular = specularSeed == null;
         ByteBuffer normal = fill(width, height, NORMAL_DEFAULT);
         int found = 0;
         try {
@@ -95,7 +101,9 @@ public final class PbrAtlases {
             specularTextureId = upload(specularTextureId, specular, width, height, mipLevels);
             normalTextureId = upload(normalTextureId, normal, width, height, mipLevels);
         } finally {
-            MemoryUtil.memFree(specular);
+            if (ownsSpecular) {
+                MemoryUtil.memFree(specular);
+            }
             MemoryUtil.memFree(normal);
         }
 

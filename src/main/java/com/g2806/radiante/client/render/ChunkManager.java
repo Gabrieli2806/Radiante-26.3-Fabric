@@ -121,6 +121,7 @@ public final class ChunkManager {
     }
 
     public static synchronized void shutdown() {
+        RadianteRenderer.resetLevelFrames();
         if (executor != null) {
             executor.shutdownNow();
             executor = null;
@@ -405,6 +406,23 @@ public final class ChunkManager {
                 compiledSections.add(sectionNode);
             }
         }
+    }
+
+    /** How many sections the renderer holds geometry for. Minecraft's own count reads zero while it is off. */
+    public static int compiledSectionCount() {
+        synchronized (compiledSections) {
+            return compiledSections.size();
+        }
+    }
+
+    /**
+     * True when the builders have caught up, which is what {@code LevelRenderer.hasRenderedAllSections} reports
+     * for Minecraft's own terrain. Only the builds actually in flight count: sections waiting to be looked at
+     * again trickle in the whole time a world is open, and waiting for that list to empty would be waiting for
+     * something that never happens.
+     */
+    public static boolean hasBuiltEverything() {
+        return pendingBuilds.get() == 0;
     }
 
     /** True once the section covering this position has been handed to the renderer. */

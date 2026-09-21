@@ -94,21 +94,21 @@ public final class EmissionTiles {
         }
         registeredFor = key;
 
-        // A resource pack that ships its own PBR maps knows better than anything we can derive from the albedo,
-        // but the emitter cells are still needed either way: they are what makes a torch light up the room rather
-        // than merely look bright.
-        boolean packMaps = PbrAtlases.build(minecraft, atlas, atlasId) > 0;
-
         Map<TextureAtlasSprite, Integer> emitters = collectEmissiveSprites(minecraft, atlas);
         int atlasWidth = atlas.getTexture().getWidth(0);
         int atlasHeight = atlas.getTexture().getHeight(0);
         int mipLevels = atlas.getTexture().getMipLevels();
+        // The emission worked out from the albedo is written first and the authored maps go over it, so a pack
+        // that covers some blocks and not others - Radiante's own built in maps are exactly that - leaves the rest
+        // glowing instead of turning the derived emission off everywhere. A lit redstone lamp has no built in map
+        // and was dark for that reason.
         ByteBuffer specular = MemoryUtil.memCalloc(atlasWidth * atlasHeight * 4);
+        boolean packMaps = false;
         try {
             for (Map.Entry<TextureAtlasSprite, Integer> entry : emitters.entrySet()) {
-                upload(atlasId, entry.getKey(), entry.getValue(), atlasWidth, atlasHeight,
-                    packMaps ? null : specular);
+                upload(atlasId, entry.getKey(), entry.getValue(), atlasWidth, atlasHeight, specular);
             }
+            packMaps = PbrAtlases.build(minecraft, atlas, atlasId, specular) > 0;
             if (!packMaps) {
                 uploadSpecularAtlas(atlasId, specular, atlasWidth, atlasHeight, mipLevels);
             }

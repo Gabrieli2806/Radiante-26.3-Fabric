@@ -160,7 +160,37 @@ gap of 5 so a mob standing by a torch does not glow. `EntityRenderState
 every submission that carried an outline colour, which is what made a glowing
 player or mob vanish entirely: vanilla still draws the model and puts the
 silhouette on top, so the models are now written as usual and the outline colour
-is ignored. Emissive entity surfaces light the
+is ignored.
+
+### Still wanted: the real outline, in the team's colour, through walls
+
+The glow is not what vanilla draws. Vanilla outlines the entity in its team's
+colour and shows that outline through blocks. An attempt at it is reverted but
+worth writing down, because most of the way is mapped:
+
+- The packs already describe post render passes that rasterise entity geometry
+  over the traced image (`content` is one of weather, particle, text, name_tag,
+  star, selected by `EntityBuildData::postRenderFlag`). Nothing in this fork
+  sets that flag - `EntityManager` writes zeros - so the path has never drawn
+  anything here. Setting it does reach the draw loop; the draw calls are issued.
+- Full screen post passes do reach the presented image (confirmed by tinting
+  `out:ldr` from one). Render passes can only target `out:ldr` and
+  `out:first_hit_depth`, so a silhouette mask of its own is not available;
+  the outline has to be drawn as an expanded hull and the middle then put back
+  from a copy of the image taken before it.
+- A raster pass cannot use `WorldUBO.cameraEffectedViewMat` as it stands:
+  `RadianteRenderer.toRendererView` negates x and z for the tracer's
+  convention, and a triangle transformed with it lands behind the camera.
+  Multiplying by `diag(-1, 1, -1, 1)` again fixes that, and with it the
+  silhouette draws, takes the outline colour from the vertices and shows
+  through walls.
+- What is left is placement: the copy lands too far away and too high. Entity
+  layers carry `coordinate = CAMERA` per vertex while the acceleration
+  structure instance places them as `WORLD` (`world_prepare.cpp`), and
+  `WorldUBO.cameraPos` reads as zero in the post pass, so neither `postBase`
+  nor a position baked in on the Java side put the geometry where the traced
+  entity is. Sorting out which space post render geometry is meant to be in is
+  the next step. Emissive entity surfaces light the
 world around them, so a glow squid now casts a pool of cyan light on the ground.
 The effect is a glow on the mob rather than vanilla's silhouette through walls.
 
@@ -177,6 +207,39 @@ now drops the queued regions and resets the staging cache for the id it replaces
 and `queueUpload` refuses (and logs) any copy that does not fit the mip level it
 targets. Whether this is the `VK_ERROR_DEVICE_LOST` seen on joining a world is
 not confirmed: that crash reproduced once in about a dozen scripted joins.
+
+## Lit redstone lamps cast no light — fixed
+
+A lit redstone lamp was dark with vanilla textures and correct with a PBR pack.
+Radiante ships its own LabPBR specular maps for 154 vanilla textures, and
+`EmissionTiles` treated "any authored map exists" as "the pack knows better",
+dropping the emission it derives from the albedo for *every* block. Anything
+without a built in map - `redstone_lamp_on`, `beacon` - then had no emission at
+all: the glow the shader reads comes from the specular map's alpha, and the
+lamp had none. A custom pack that covers the lamp supplied it, which is why it
+only looked broken on vanilla.
+
+The derived emission is now written first and authored maps are stitched over
+it (`PbrAtlases.build` takes the buffer as a seed), so a pack that covers some
+blocks and not others leaves the rest glowing. Measured in a sealed stone room
+at midnight, mean frame brightness: lamp 3.4 -> 22.0, with glowstone at 34.4
+and a sea lantern at 40.9 for scale.
+
+## No world icon with ray tracing on — fixed
+
+A world played with ray tracing on got no picture in the world list; with it
+off the picture appeared. Minecraft takes that picture itself a second or so
+after joining (`GameRenderer.takeAutoScreenshot`) and only once it has drawn
+more than ten sections of terrain and its queue is empty. With ray tracing on it
+draws none of them - Radiante has the terrain - so the count stayed at zero and
+the picture was never taken.
+
+`GameRendererMixin` now answers both of those from the renderer:
+`ChunkManager.compiledSectionCount()` for the count and "no builds in flight"
+for the queue, and only once the loading screen is gone and 120 frames of world
+have been traced. Without that last part the picture was taken on the first
+frame in the world and came out a flat grey square. Everything is unchanged with
+ray tracing off.
 
 ## Advanced settings menu
 
