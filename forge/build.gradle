@@ -16,7 +16,7 @@ minecraft {
 		configureEach {
 			// Shared with the other loaders' runs, so worlds and settings carry over.
 			workingDir = rootProject.layout.projectDirectory.dir('run-26.2')
-			args '-mixin.config=radiante.mixins.json'
+			args '-mixin.config=radiante.mixins.json', '-mixin.config=radiante.forge.mixins.json'
 		}
 		register('client') {
 			args '--width', '1280', '--height', '720'
@@ -84,7 +84,7 @@ rootProject.packNatives(tasks.jar)
 jar {
 	archiveFileName.set("${rootProject.archives_base_name}-forge-${project.version}+${rootProject.minecraft_version}.jar")
 	manifest {
-		attributes 'MixinConfigs': 'radiante.mixins.json'
+		attributes 'MixinConfigs': 'radiante.mixins.json,radiante.forge.mixins.json'
 	}
 	from(configurations.bundled) {
 		into 'META-INF/jarjar'

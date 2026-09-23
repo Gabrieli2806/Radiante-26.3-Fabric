@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.g2806.radiante.forge.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "EarlyWindowMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

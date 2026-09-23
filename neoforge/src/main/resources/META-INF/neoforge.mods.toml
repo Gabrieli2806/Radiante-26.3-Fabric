@@ -16,6 +16,9 @@ description = '''Hardware ray-traced renderer with DLSS, FSR and XeSS running on
 [[mixins]]
 config = "radiante.mixins.json"
 
+[[mixins]]
+config = "radiante.neoforge.mixins.json"
+
 [[dependencies.radiante]]
 modId = "neoforge"
 type = "required"
