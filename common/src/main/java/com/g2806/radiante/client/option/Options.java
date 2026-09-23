@@ -105,6 +105,8 @@ public class Options {
     public static boolean rayTracingEnabled = true;
     /** Set when the player chooses to run on OpenGL, where this renderer cannot work at all. */
     public static boolean useOpenGl = false;
+    /** OpenGL for this session only, after Minecraft detected a failed start; never saved. */
+    public static boolean openGlAfterFailedStart = false;
 
     /**
      * Half the logical cores. Section building shares the machine with the render thread and, in singleplayer,

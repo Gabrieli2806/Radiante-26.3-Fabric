@@ -224,6 +224,14 @@ players (ray bounces, denoiser strength, etc).
 
 ## Completed
 
+### Graphics API fallback after a failed start — done
+
+After a start that never finished, Minecraft switches the preferred graphics API
+to OpenGL for safety, and that value was then saved with the other options on
+exit. The mod reads a saved OpenGL as the player's own choice, so a single crash
+left ray tracing off for good. The fallback still covers the session it protects,
+but is no longer saved.
+
 ### Fabric, NeoForge and Forge support — done
 
 The project is split into `common/` (plain Minecraft, compiled against vanilla
