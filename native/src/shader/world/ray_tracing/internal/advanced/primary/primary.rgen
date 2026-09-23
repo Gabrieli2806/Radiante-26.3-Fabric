@@ -232,7 +232,7 @@ bool initTransparentRefractionScratch(MainRay sourceRay,
     }
     branchDirection *= inversesqrt(branchDirectionLen2);
 
-    vec3 branchThroughput = pow(max(mat.albedoValue.rgb, vec3(0.0)), vec3(0.5)) * (1.0 - fresnel);
+    vec3 branchThroughput = pow(clamp(mix(vec3(1.0), mat.albedoValue.rgb, mat.albedoValue.a), vec3(0.0), vec3(1.0)), vec3(0.5)) * (1.0 - fresnel);
     if (!restirFiniteVec3(branchThroughput) ||
         max(branchThroughput.r, max(branchThroughput.g, branchThroughput.b)) <= 1e-6) {
         return false;

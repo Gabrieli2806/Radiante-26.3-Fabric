@@ -60,6 +60,10 @@ LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal
 
         if (texAlbedo.a < 1.0 - EPS) {
             mat.transmission = 1.0;
+            // Vanilla blends see-through blocks by their alpha, so a half-opaque red pane still passes half the scene
+            // behind it untinted. Filtering the view by the full saturated colour made stained and tinted glass read
+            // near-opaque; the alpha sets how strongly the colour filters instead.
+            mat.albedo = mix(vec3(1.0), texAlbedo.rgb, texAlbedo.a);
             // Vanilla glass, stained glass and panes have no specular map, and an absent one decodes as a fully
             // rough surface: the light passing through them scatters and they read as frosted rather than clear.
             // With nothing authored for them, see-through blocks are treated as smooth glass instead.

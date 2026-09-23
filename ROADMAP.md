@@ -23,13 +23,6 @@ restore the expected limited visibility.
 The powder snow block looks wrong with the mod enabled. Reproduce the visual
 issue and check its material and rendering so it has the expected appearance.
 
-### Glass visibility and transparency — improve
-
-Tinted glass, all stained-glass colours, and stained-glass panes look too dark
-when viewed through. Improve visibility and transparency so the scene behind
-them is easier to see, while preserving their intended tint. This is a separate
-report from the previously fixed frosted-glass appearance.
-
 ### Black corners with PBR / 3D resource packs — investigate
 
 With resource packs that use PBR and 3D block effects, parts of some blocks,
@@ -185,6 +178,25 @@ players (ray bounces, denoiser strength, etc).
   `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
 
 ## Completed
+
+### Glass visibility and transparency — done
+
+Tinted glass, stained glass, and stained-glass panes were hard to see through.
+The view ray passing a transmissive surface was filtered by the texture's full
+colour (`sqrt(albedo)` per face, so the full colour across a block's two
+faces). Vanilla stained glass is a saturated colour at roughly half alpha and
+vanilla blends it by that alpha, so half the scene behind still shows through
+untinted; filtering by the whole colour instead cut most of the light (a red
+pane blocks nearly all green and blue) and the glass read almost opaque.
+
+The see-through filter is now `mix(1, colour, alpha)` - set as the transmissive
+albedo in `convertLabPBRMaterial` (used by `DisneySample`'s glass lobe) and in
+the deterministic transparent-split branch in both packs' `world.rgen` and
+`advanced`'s `primary.rgen`. Coloured light cast through glass (`shadow.rahit`)
+keeps the full tint on purpose, so coloured shadows are unchanged.
+
+Verified in a test world: a yellow wall is clearly visible through red,
+light-blue and tinted glass and a green pane, each keeping its tint.
 
 ### Debug hitboxes and chunk borders — done
 
