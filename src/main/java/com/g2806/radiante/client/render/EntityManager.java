@@ -57,8 +57,6 @@ public final class EntityManager {
     /** Below this the difference is the lightmap disagreeing with the block below the entity, not a glow. */
     private static final int SELF_LIT_MIN_EXCESS = 5;
     private static final double[] SELF_LIT_SAMPLE_HEIGHTS = {0.0, 0.5, 1.0};
-    /** The glowing effect (a spectral arrow, /effect glowing). Vanilla draws an outline; here the mob lights up. */
-    private static final float GLOWING_EMISSION = 2.0f;
     private static int DEBUG_TEXT_LAYERS;
     private static final int GIZMO_ID = "radiante:gizmo".hashCode();
     private static final PBRVertexWriter GIZMO_WRITER = new PBRVertexWriter(2048);
@@ -79,6 +77,9 @@ public final class EntityManager {
     /** Geometry camera rays skip in first person, while shadow rays and later bounces still see it. */
     private static final int RAY_TRACING_PLAYER = 0b00000010;
     private static final int RAY_TRACING_HAND = 0b00001000;
+    /** Seen only by the glowing effect's outline rays (GLOW_OUTLINE_MASK in the shaders). */
+    private static final int RAY_TRACING_GLOW_OUTLINE = 0b00000100;
+    private static final int GLOW_OUTLINE_ID_SALT = 0x676C6F77;
     private static final int RAY_TRACING_PARTICLE = 0b00100000;
     private static final int NAME_TAG_ID_SALT = 0x6E616D65;
     private static final int PARTICLES_ID = "radiante:particles".hashCode();
@@ -169,11 +170,6 @@ public final class EntityManager {
             emission = END_CRYSTAL_EMISSION;
         }
         emission = Math.max(emission, selfLitEmission(minecraft, state));
-        // The glowing effect has no geometry of its own in vanilla either: it is an outline drawn by a post
-        // effect this renderer never runs. The mob glowing in the dark is the part of it that reads as the effect.
-        if (state.appearsGlowing()) {
-            emission = Math.max(emission, GLOWING_EMISSION);
-        }
         if (emission > 0.0f) {
             COLLECTOR.entityEmission(emission);
         }
@@ -190,6 +186,24 @@ public final class EntityManager {
         }
 
         addPending(System.identityHashCode(state), state.x, state.y, state.z, RAY_TRACING_WORLD);
+
+        if (state.appearsGlowing()) {
+            // Vanilla's glowing effect is an outline of the entity in its team colour, seen through walls. A copy of
+            // the entity painted in that colour goes under a mask of its own that only the outline rays in
+            // world.rgen look for; they draw the rim wherever a pixel misses the copy but a neighbour hits it.
+            COLLECTOR.reset();
+            COLLECTOR.colorOverride(state.outlineColor & 0xFFFFFF | 0x010101);
+            POSE_STACK.setIdentity();
+            try {
+                minecraft.getEntityRenderDispatcher().submit(state, cameraState, 0.0, 0.0, 0.0, POSE_STACK, COLLECTOR);
+            } catch (RuntimeException e) {
+                return;
+            }
+            if (!COLLECTOR.isEmpty()) {
+                addPending(System.identityHashCode(state) ^ GLOW_OUTLINE_ID_SALT, state.x, state.y, state.z,
+                    RAY_TRACING_GLOW_OUTLINE);
+            }
+        }
     }
 
     /**
@@ -660,7 +674,7 @@ public final class EntityManager {
         }
         // Name tags go in as their own instance under the particle mask: seen by camera rays, skipped by shadow
         // rays, so neither the letters nor the plate behind them cast a shadow on the world.
-        if (!nameTagLayers.isEmpty()) {
+        if (!nameTagLayers.isEmpty() && rayTracingFlag != RAY_TRACING_GLOW_OUTLINE) {
             PENDING.add(new PendingEntity(id ^ NAME_TAG_ID_SALT, x, y, z, RAY_TRACING_PARTICLE, nameTagLayers));
         }
     }

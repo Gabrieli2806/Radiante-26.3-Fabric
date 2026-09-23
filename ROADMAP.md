@@ -96,11 +96,25 @@ existing image when size, format and mip count are unchanged would close both.
 
 `RADIANTE_DEV_SCRIPT` gained `reload` and `packs=a,b` / `packs=none` for this.
 
-### Glowing effect outline — pending
+### Glowing effect outline — done (vanilla-pt)
 
-The glow is not what vanilla draws. Vanilla outlines the entity in its team's
-colour and shows that outline through blocks. An attempt at it is reverted but
-worth writing down, because most of the way is mapped:
+Done in the tracer instead of a raster pass. `EntityManager` submits a glowing
+entity a second time with every vertex painted its outline colour
+(`EntityRenderState.outlineColor`, the team colour) under mask bit 4, which
+was `FISHING_BOBBER_MASK` - nothing ever set it, so it is now defined as 0 and
+the bit is `GLOW_OUTLINE_MASK`; no existing ray sees the copy. When
+`WorldUBO.hasGlowOutline` is set, `world.rgen` traces a centre ray plus eight
+around it (radius ~resolution/540 px) against that mask only, through the
+shadow hit group with `ShadowRay.pad0 = GLOW_OUTLINE_QUERY`: `shadow.rahit`
+returns the copy's vertex colour and stops, `shadow.rmiss` does nothing. A
+pixel whose centre misses but a neighbour hits is rim: it is written as flat
+colour into the RR output and the NRD clear channel. Walls are not in the
+mask, so the rim shows through them. The advanced pack has no ShadowRay
+payload in its `world.rgen` yet and draws no outline. The old stand-in (the
+mob itself emitting light) is gone. Verified: a glowing cow behind a stone
+wall shows as a white rim through it, a pig on a red team gets a red rim.
+
+Earlier attempt, reverted, kept for reference:
 
 - The packs already describe post render passes that rasterise entity geometry
   over the traced image (`content` is one of weather, particle, text, name_tag,

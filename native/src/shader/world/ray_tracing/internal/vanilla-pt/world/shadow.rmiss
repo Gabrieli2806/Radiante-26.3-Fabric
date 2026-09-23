@@ -32,6 +32,7 @@ vec3 sampleTransmittance(float r, float mu) {
 }
 
 void main() {
+    if (shadowRay.pad0 == GLOW_OUTLINE_QUERY) { return; }
     vec3 toSun = celestialSunDirection();
     vec3 radiance;
 

@@ -37,7 +37,8 @@ public class BufferProxy {
                                int endSkyTextureId,
                                int endPortalTextureId,
                                int lightMapTextureId,
-                               float handFovScale) {
+                               float handFovScale,
+                               boolean glowOutline) {
     }
 
     public static void updateWorldUniform(WorldUniform uniform) {
@@ -85,7 +86,9 @@ public class BufferProxy {
             bb.putInt(offset, 0); // fog shape: sphere
             offset += Integer.BYTES;
             bb.putInt(offset, uniform.skyType());
-            offset += Integer.BYTES * 3; // + two padding words
+            offset += Integer.BYTES;
+            bb.putInt(offset, uniform.glowOutline() ? 1 : 0);
+            offset += Integer.BYTES * 2; // + one padding word
 
             // cameraPos (dvec4), chunkGridInfo and chunkStorageSectionPos are filled in natively.
             offset += Double.BYTES * 4;

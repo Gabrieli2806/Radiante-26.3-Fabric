@@ -72,6 +72,7 @@ public final class EntityCollector implements SubmitNodeCollector {
 
     /** Extra glow the current entity gives off whatever layer it is drawn with, such as a glow item frame. */
     private float entityEmission;
+    private int colorOverride;
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
     /** Debug gizmo groups (F3+B hitboxes, F3+G chunk borders, ...) since the last drain; see drainGizmoGroups. */
     private final List<DrawableGizmoPrimitives.Group> gizmoGroups = new ArrayList<>();
@@ -89,6 +90,12 @@ public final class EntityCollector implements SubmitNodeCollector {
         this.nameTagLayers.clear();
         this.used = 0;
         this.entityEmission = 0.0f;
+        this.colorOverride = 0;
+    }
+
+    /** Paints everything collected from here on in one colour; the glowing effect's outline copy uses it. */
+    public void colorOverride(int colorOverride) {
+        this.colorOverride = colorOverride;
     }
 
     public Map<RenderType, PBRVertexWriter> layers() {
@@ -137,7 +144,8 @@ public final class EntityCollector implements SubmitNodeCollector {
             .coordinate(NativeGeometry.COORDINATE_CAMERA)
             .albedoEmission(info.emission() + this.entityEmission)
             .overlayEnabled(info.useOverlay())
-            .computeQuadNormals(info.needsComputedNormals());
+            .computeQuadNormals(info.needsComputedNormals())
+            .colorOverride(this.colorOverride);
         this.writers.put(renderType, writer);
         return writer;
     }

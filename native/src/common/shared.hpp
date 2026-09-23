@@ -261,7 +261,8 @@ namespace Data {
 
         T_UINT fogType;
         T_UINT skyType;
-        T_UINT pad2;
+        // Non-zero while some entity has the glowing effect, so the outline rays only run when they can find one.
+        T_UINT hasGlowOutline;
         T_UINT pad3;
 
         T_DVEC4 cameraPos; // w for padding

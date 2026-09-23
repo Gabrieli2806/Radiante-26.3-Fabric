@@ -87,6 +87,13 @@ void main() {
         return;
     }
 
+    if (shadowRay.pad0 == GLOW_OUTLINE_QUERY) {
+        shadowRay.radiance = colorLayer.rgb;
+        shadowRay.throughput = vec3(-1.0);
+        terminateRayEXT;
+        return;
+    }
+
     if (shadowRay.insideBoat > 0u && hasTexture(packedData)) {
         if ((flags.r & 0x1) > 0) {
             ignoreIntersectionEXT;

@@ -28,7 +28,12 @@
 #    define T_DVEC4 dvec4
 #    define WORLD_MASK 1
 #    define PLAYER_MASK 2
-#    define FISHING_BOBBER_MASK 4
+// Nothing ever placed an instance under the fishing bobber bit, so it is free for the glowing effect: copies of
+// glowing entities that only the outline rays see. Every mask that used to name it now leaves it out.
+#    define FISHING_BOBBER_MASK 0
+#    define GLOW_OUTLINE_MASK 4
+// Set in ShadowRay.pad0 by rays that look for the glow outline copies rather than for shadows.
+#    define GLOW_OUTLINE_QUERY 1u
 #    define HAND_MASK 8
 #    define WEATHER_MASK 16
 #    define PARTICLE_MASK 32
