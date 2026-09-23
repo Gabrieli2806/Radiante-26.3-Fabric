@@ -39,6 +39,8 @@ public final class RenderTypeInfo {
      * so it is light, not a lit surface.
      */
     private static final float ENERGY_SWIRL_EMISSION = 1.2f;
+    /** The wither's shield texture is far darker than the creeper's, so it needs more to read as the same glow. */
+    private static final float WITHER_ARMOR_EMISSION = 4.0f;
     /** Flames wrapped around a burning entity. */
     public static final float FLAME_EMISSION = 6.0f;
 
@@ -187,7 +189,8 @@ public final class RenderTypeInfo {
             return BEACON_BEAM_EMISSION;
         }
         if (this.name.equals("energy_swirl")) {
-            return ENERGY_SWIRL_EMISSION;
+            return this.texture != null && this.texture.getPath().contains("wither_armor") ? WITHER_ARMOR_EMISSION
+                : ENERGY_SWIRL_EMISSION;
         }
         // "eyes" covers endermen, spiders and blazes; the emissive variant covers the overlays other mobs add.
         if (this.name.equals("eyes") || this.name.contains("emissive")) {

@@ -215,19 +215,24 @@ players (ray bounces, denoiser strength, etc).
 
 ### Ice, wither glow, charged creeper light — done
 
-- Ice: a frosted specular map alone left it far clearer than packed/blue ice.
-  Vanilla blends ice at its texture's 75% opacity with no refraction, so ice
-  quads are now written with `ALPHA_MODE_STOCHASTIC` (`ChunkManager`): a ray
-  keeps the hit with that probability and shades it as a solid frosted
-  surface (`ice_s.png`), which averages to vanilla's blend. `shadow.rahit`
-  applies the same probability, so its shadow lets 25% through. Verified next
-  to packed and blue ice: reads as the same family, the wall behind only
-  faintly visible.
+- Ice and frosted ice: a frosted specular map alone left ice far clearer than
+  packed/blue ice. A first fix (stochastic alpha: each ray hit or missed the
+  ice with 75% probability) matched vanilla's blend but was grainy up close,
+  because even the denoiser's depth/normal guides flickered. Now Radiante's
+  ice maps (`ice_s.png`, `frosted_ice_0..3_s.png`) author subsurface
+  scattering, and `convertLabPBRMaterial` treats a see-through surface with
+  subsurface as a translucent solid: always hit and shaded, with transmission
+  `1 - alpha` (25%) instead of full glass. `world.rgen`'s deterministic glass
+  split now only applies to fully transmissive surfaces, so the frames that
+  happen to pass through are not recomposed as glass. Verified close up: ice
+  and frosted ice flicker no more than packed ice, and the three read as one
+  family.
 - Wither: glowed at all times. Its renderer reports block light 15 (vanilla
   draws it full bright), which `selfLitEmission` took for a mob giving off
-  light; the wither is now excluded. Verified dark at night at full health.
+  light; the wither and its skulls (same override) are now excluded. Verified
+  dark at night at full health, and a floating skull no longer reads white.
 - Charged creeper / wither armor shell: emission raised to 1.2 so it reads as
-  a glow. Its light on the surroundings is weak: entity emission only reaches
+  a glow; the wither's shield texture is much darker, so it gets 4.0. Its light on the surroundings is weak: entity emission only reaches
   other surfaces through random bounces (block light sampling covers blocks).
 
 ### Charged creeper / wither armor swirl — done

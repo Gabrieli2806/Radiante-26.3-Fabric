@@ -1052,7 +1052,10 @@ void main() {
 
         if (isFirstHitNoisy) {
             if (isFirstHitTransparent) {
-                useTransparentSplit = VPT_TRANSPARENT_SPLIT_MODE == VPT_TRANSPARENT_SPLIT_MODE_DETERMINISTIC;
+                // Only for glass. A translucent solid (ice) is mostly shaded as a surface and only partly let
+                // through; recomposing the frames that happened to go through as pure glass made it flicker.
+                useTransparentSplit = VPT_TRANSPARENT_SPLIT_MODE == VPT_TRANSPARENT_SPLIT_MODE_DETERMINISTIC &&
+                                      firstHitMat.transmission > 0.95;
 
                 if (useTransparentSplit) {
                     MainRay transparentReflectionRay;

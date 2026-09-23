@@ -64,6 +64,13 @@ LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal
             // behind it untinted. Filtering the view by the full saturated colour made stained and tinted glass read
             // near-opaque; the alpha sets how strongly the colour filters instead.
             mat.albedo = mix(vec3(1.0), texAlbedo.rgb, texAlbedo.a);
+            // A see-through block with subsurface scattering authored (Radiante's own ice maps) is a translucent
+            // solid, not glass: its alpha is how much of it is solid. The surface is always hit and shaded, and only
+            // the rest of the light goes through, which is vanilla's blend without per-pixel hit-or-miss noise.
+            if (mat.subSurface > 0.0) {
+                mat.transmission = 1.0 - texAlbedo.a;
+                mat.albedo = texAlbedo.rgb;
+            }
             // Vanilla glass, stained glass and panes have no specular map, and an absent one decodes as a fully
             // rough surface: the light passing through them scatters and they read as frosted rather than clear.
             // With nothing authored for them, see-through blocks are treated as smooth glass instead.

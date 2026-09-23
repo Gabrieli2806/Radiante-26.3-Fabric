@@ -373,11 +373,7 @@ public final class ChunkManager {
             if (scratch.dropInwardFaces && facesInward(quad)) {
                 return;
             }
-            PBRVertexWriter writer = scratch.writer(quad.materialInfo().layer(), atlasId);
-            if (scratch.stochasticAlpha) {
-                writer.alphaMode(PBRVertexWriter.ALPHA_MODE_STOCHASTIC);
-            }
-            writer.putBlockBakedQuad(x, y, z, quad, instance);
+            scratch.writer(quad.materialInfo().layer(), atlasId).putBlockBakedQuad(x, y, z, quad, instance);
             if (scratch.collectPanel) {
                 scratch.panelQuads.add(quad);
             }
@@ -400,10 +396,6 @@ public final class ChunkManager {
             if (blockState.getRenderShape() == RenderShape.MODEL) {
                 scratch.dropInwardFaces = blockState.is(Blocks.POWDER_SNOW);
                 scratch.collectPanel = blockState.is(BlockTags.DOORS) || blockState.is(BlockTags.TRAPDOORS);
-                // Vanilla blends ice at its texture's 75% opacity with no refraction. Traced as glass it came out
-                // nearly clear and warped whatever was behind it, unlike packed or blue ice. Stochastic alpha keeps
-                // a hit with that probability and shades it as a solid surface, which averages to vanilla's blend.
-                scratch.stochasticAlpha = blockState.is(Blocks.ICE);
                 scratch.panelQuads.clear();
                 int sx = SectionPos.sectionRelative(pos.getX());
                 int sy = SectionPos.sectionRelative(pos.getY());
@@ -609,7 +601,6 @@ public final class ChunkManager {
         private PBRVertexWriter current;
         private boolean dropInwardFaces;
         private boolean collectPanel;
-        private boolean stochasticAlpha;
         private final List<BakedQuad> panelQuads = new ArrayList<>();
 
         void reset() {
