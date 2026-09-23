@@ -12,17 +12,27 @@ Add a setting to choose between the custom inclination of the sun and moon
 and vanilla positioning. The vanilla mode should match their positions and
 path across the sky in vanilla Minecraft for the same time of day.
 
+### Inside lava / powder snow looks transparent — revisit
+
+With the camera in lava (or powder snow) the world stays visible instead of
+vanilla's opaque dark red (lava fog `0x991A00`, opaque by `fogEnd` = 1 block
+without fire resistance). Cause found: the fog pass in `world.rgen` (both
+packs) has a dense-fog branch only for water (`cameraSubmersionType == 1`);
+lava (0) and powder snow (2) fall through to the normal distance haze.
+
+A fix was tried and reverted because it did not look right in game: a
+submerged branch with exponential fog in the vanilla fog colour, plus fading
+the DLSS-RR albedo guides into the fog (RR otherwise rebuilds block texture
+through it). It went opaque but toned bright orange instead of dark red -
+auto exposure brightens an all-fog screen and the tonemapper desaturates it.
+A better attempt probably needs the colour applied after tonemapping, or
+exposure held while submerged. Reference: commit e6c92e6.
+
 ### Black corners with PBR / 3D resource packs — investigate
 
 With resource packs that use PBR and 3D block effects, parts of some blocks,
 usually the corners, render black. Those areas may be intended to be transparent;
 check the affected materials and transparency handling before choosing a fix.
-
-### Hollow-looking door and trapdoor cutouts — improve
-
-Doors and trapdoors with cutouts look hollow inside when viewed through their
-openings. Investigate how to make the exposed interior and cutout edges look
-natural.
 
 ### Investigate: backport to 26.1
 
@@ -182,6 +192,19 @@ players (ray bounces, denoiser strength, etc).
 
 ## Completed
 
+### Hollow-looking door and trapdoor cutouts — done
+
+Door and trapdoor models are two thin sheets a few pixels apart with windows
+cut out of the texture; nothing joins the sheets around a window, so traced,
+a window showed the empty gap and the shadowed inside of the far sheet.
+`CutoutWalls` (called from `ChunkManager` for `BlockTags.DOORS`/`TRAPDOORS`)
+finds each pair of opposite big faces sharing a sprite, takes the gap between
+them as the panel thickness, and for every edge between a solid and a
+transparent texel of the face adds a wall across that thickness, coloured by
+the solid texel - the same idea as vanilla's extruded item models. Works for
+any door/trapdoor texture, resource packs included. Verified on oak and jungle
+doors and an iron trapdoor: windows read as carved through solid material.
+
 ### Powder snow block appearance — done
 
 The top of powder snow broke up into large triangles of streaked, mismatched
@@ -193,26 +216,6 @@ the block through the solid layer changed nothing) nor the denoiser (same with i
 off). `ChunkManager` now drops powder snow's inward-facing quads (`facesInward`);
 from inside the block the powder snow fog covers the view anyway. Verified on a
 17x10 field: smooth surface, matching a snow block field under the same light.
-
-### Everything transparent while inside lava — done
-
-With the camera in lava (or powder snow) the world stayed fully visible. The
-fog pass in `world.rgen` (both packs) had a dense-fog branch only for water
-(`cameraSubmersionType == 1`); lava (0) and powder snow (2) fell through to the
-normal per-dimension haze, which in the overworld is a thin distance haze and
-nothing at all with volumetric fog on. Only rays hitting the sky got the
-submerged colour, from the miss shader. Both now get their own branch: fog in
-vanilla's fog colour, dense enough to be opaque by vanilla's `fogEnd` (which
-already accounts for fire resistance and spectator). Verified in a test pool:
-lava reads as solid orange a block or two out, powder snow as grey.
-
-Follow-up: with DLSS Ray Reconstruction (the default pipeline) blocks still
-showed through, because RR rebuilds texture detail from the albedo guides and
-those were written unfogged. The submerged branch now fades the diffuse and
-specular albedo guides into the fog by the same transmittance, and uses the
-fog colour as linear light. Lava now reads fully opaque. Still open: it tones
-to bright orange instead of vanilla's dark red (`0x991A00`), because auto
-exposure brightens a screen that is all fog and the tonemapper desaturates it.
 
 ### Glass visibility and transparency — done
 

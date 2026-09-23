@@ -29,6 +29,7 @@ import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
@@ -373,6 +374,9 @@ public final class ChunkManager {
                 return;
             }
             scratch.writer(quad.materialInfo().layer(), atlasId).putBlockBakedQuad(x, y, z, quad, instance);
+            if (scratch.collectPanel) {
+                scratch.panelQuads.add(quad);
+            }
         };
         FluidRenderer.Output fluidOutput = layer -> scratch.writer(layer, atlasId).computeQuadNormals(true);
 
@@ -391,10 +395,18 @@ public final class ChunkManager {
 
             if (blockState.getRenderShape() == RenderShape.MODEL) {
                 scratch.dropInwardFaces = blockState.is(Blocks.POWDER_SNOW);
-                blockRenderer.tesselateBlock(quadOutput, SectionPos.sectionRelative(pos.getX()),
-                    SectionPos.sectionRelative(pos.getY()), SectionPos.sectionRelative(pos.getZ()), region, pos,
+                scratch.collectPanel = blockState.is(BlockTags.DOORS) || blockState.is(BlockTags.TRAPDOORS);
+                scratch.panelQuads.clear();
+                int sx = SectionPos.sectionRelative(pos.getX());
+                int sy = SectionPos.sectionRelative(pos.getY());
+                int sz = SectionPos.sectionRelative(pos.getZ());
+                blockRenderer.tesselateBlock(quadOutput, sx, sy, sz, region, pos,
                     blockState, minecraft.getModelManager().getBlockStateModelSet().get(blockState),
                     blockState.getSeed(pos));
+                if (scratch.collectPanel && !scratch.panelQuads.isEmpty()) {
+                    CutoutWalls.emit(scratch.panelQuads, sx, sy, sz,
+                        scratch.writer(scratch.panelQuads.get(0).materialInfo().layer(), atlasId));
+                }
             }
         }
 
@@ -588,6 +600,8 @@ public final class ChunkManager {
         private FluidRenderer fluidRenderer;
         private PBRVertexWriter current;
         private boolean dropInwardFaces;
+        private boolean collectPanel;
+        private final List<BakedQuad> panelQuads = new ArrayList<>();
 
         void reset() {
             for (PBRVertexWriter writer : this.writers.values()) {

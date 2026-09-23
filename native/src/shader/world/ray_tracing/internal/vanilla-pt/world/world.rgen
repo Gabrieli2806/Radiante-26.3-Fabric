@@ -1132,29 +1132,6 @@ void main() {
                 applyFog(preFogRadiance, surfaceDepth, worldUBO.fogStart, densityAir, densityFog, waterColor * 0.01,
                          mainRay.radiance, composeFogTransmittance, composeFogAdditive);
             }
-        } else if (skyUBO.cameraSubmersionType == 0 || skyUBO.cameraSubmersionType == 2) {
-            // Inside lava or powder snow vanilla's fog is opaque by fogEnd, a block or two away.
-            float submergedDensity = 5.0 / max(worldUBO.fogEnd - worldUBO.fogStart, 0.05);
-            float submergedDepth = surfaceDepth == INF_DISTANCE ? 1e4 : surfaceDepth;
-            // Vanilla's fog colour is a display (sRGB) value; used as linear light it tonemaps to orange.
-            vec3 submergedFogColor = pow(max(worldUBO.fogColor.rgb, vec3(0.0)), vec3(2.2));
-            if (useTransparentSplit) {
-                applyFog(mainRay.radiance, submergedDepth, worldUBO.fogStart, densityAir, submergedDensity,
-                         submergedFogColor, mainRay.radiance, transparentFogTransmittance, transparentFogAdditive);
-                transparentReflectionRadiance *= transparentFogTransmittance;
-                transparentRefractionRadiance *= transparentFogTransmittance;
-            } else {
-                applyFog(mainRay.radiance, submergedDepth, worldUBO.fogStart, densityAir, submergedDensity,
-                         worldUBO.fogColor.rgb, mainRay.radiance, composeFogTransmittance, composeFogAdditive);
-            }
-            // DLSS Ray Reconstruction rebuilds texture detail from the albedo guides, which pulled the blocks back
-            // out of the fog; the guides have to fade into it as well.
-            float submergedT = useTransparentSplit ? transparentFogTransmittance : composeFogTransmittance;
-            vec4 diffuseGuide = imageLoad(diffuseAlbedoImage, ivec2(pixel));
-            imageStore(diffuseAlbedoImage, ivec2(pixel),
-                       vec4(mix(clamp(worldUBO.fogColor.rgb, 0.0, 1.0), diffuseGuide.rgb, submergedT),
-                            diffuseGuide.a * submergedT));
-            imageStore(specularAlbedoImage, ivec2(pixel), imageLoad(specularAlbedoImage, ivec2(pixel)) * submergedT);
         } else {
             if (worldUBO.skyType == 0) {
                 if (useTransparentSplit) {
