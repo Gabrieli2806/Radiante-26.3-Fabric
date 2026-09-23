@@ -1,9 +1,9 @@
 package com.g2806.radiante.mixin.backend;
 
 import com.g2806.radiante.client.option.Options;
-import com.mojang.renderpearl.api.device.GpuBackend;
-import com.mojang.renderpearl.backend.opengl.GlBackend;
-import com.mojang.renderpearl.backend.vulkan.VulkanBackend;
+import com.mojang.blaze3d.systems.GpuBackend;
+import com.mojang.blaze3d.opengl.GlBackend;
+import com.mojang.blaze3d.vulkan.VulkanBackend;
 import net.minecraft.client.PreferredGraphicsApi;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

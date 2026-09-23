@@ -4,7 +4,7 @@
     <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="net.neoforged.devlaunch.Main"></stringAttribute>
     <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value=" @C:\\Users\\gabri\\Documents\\CodingRepos\\1.Personal\\Radiante-26.3-Fabric\\neoforge\\build\\moddev\\clientRunProgramArgs.txt"></stringAttribute>
     <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value=" @C:\\Users\\gabri\\Documents\\CodingRepos\\1.Personal\\Radiante-26.3-Fabric\\neoforge\\build\\moddev\\clientRunVmArgs.txt -Dfml.modFolders=radiante%%C:\\Users\\gabri\\Documents\\CodingRepos\\1.Personal\\Radiante-26.3-Fabric\\neoforge\\bin\\main"></stringAttribute>
-    <stringAttribute key="org.eclipse.jdt.launching.WORKING_DIRECTORY" value="C:\Users\gabri\Documents\CodingRepos\1.Personal\Radiante-26.3-Fabric\run"></stringAttribute>
+    <stringAttribute key="org.eclipse.jdt.launching.WORKING_DIRECTORY" value="C:\Users\gabri\Documents\CodingRepos\1.Personal\Radiante-26.3-Fabric\run-26.2"></stringAttribute>
     <booleanAttribute key="org.eclipse.jdt.launching.STOP_IN_MAIN" value="false"></booleanAttribute>
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_ATTR_USE_ARGFILE" value="false"></booleanAttribute>
 </launchConfiguration>

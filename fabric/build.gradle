@@ -24,7 +24,7 @@ loom {
 	runs {
 		// Shared with the other loaders' runs, so worlds and settings carry over.
 		client {
-			runDir = "../run"
+			runDir = "../run-26.2"
 		}
 	}
 }

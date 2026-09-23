@@ -318,7 +318,6 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         return this;
     }
 
-    @Override
     public VertexConsumer setUv3(float u, float v) {
         MemoryUtil.memPutInt(this.current + OFF_USE_GLINT, 1);
         MemoryUtil.memPutFloat(this.current + OFF_GLINT_UV, u);

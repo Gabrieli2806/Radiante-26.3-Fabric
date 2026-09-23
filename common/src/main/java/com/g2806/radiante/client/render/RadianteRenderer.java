@@ -11,12 +11,11 @@ import com.g2806.radiante.mixin.backend.VulkanCommandEncoderAccessor;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
-import com.mojang.renderpearl.api.textures.GpuTexture;
-import com.mojang.renderpearl.backend.vulkan.VulkanCommandEncoder;
-import com.mojang.renderpearl.backend.vulkan.VulkanConst;
-import com.mojang.renderpearl.backend.vulkan.VulkanDevice;
-import com.mojang.renderpearl.backend.vulkan.VulkanGpuTexture;
-import com.mojang.renderpearl.frontend.FrontendCommandEncoder;
+import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.vulkan.VulkanCommandEncoder;
+import com.mojang.blaze3d.vulkan.VulkanConst;
+import com.mojang.blaze3d.vulkan.VulkanDevice;
+import com.mojang.blaze3d.vulkan.VulkanGpuTexture;
 import java.nio.ByteBuffer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.blockentity.AbstractEndPortalRenderer;
@@ -139,7 +138,7 @@ public final class RadianteRenderer {
      */
     private static void reserveFallbackTexture() {
         int id = TextureProxy.generateTextureId();
-        TextureProxy.prepareImage(id, 1, 1, 1, VulkanConst.toVk(com.mojang.renderpearl.api.GpuFormat.RGBA8_UNORM));
+        TextureProxy.prepareImage(id, 1, 1, 1, VulkanConst.toVk(com.mojang.blaze3d.GpuFormat.RGBA8_UNORM));
         ByteBuffer white = MemoryUtil.memAlloc(4);
         white.put(0, (byte) 0xFF).put(1, (byte) 0xFF).put(2, (byte) 0xFF).put(3, (byte) 0xFF);
         TextureProxy.queueUpload(MemoryUtil.memAddress(white), 4, 1, id, 0, 0, 0, 0, 1, 1, 0);
@@ -218,8 +217,8 @@ public final class RadianteRenderer {
             return;
         }
 
-        VulkanCommandEncoder encoder = (VulkanCommandEncoder) ((FrontendCommandEncoder) RenderSystem.getDevice()
-            .createCommandEncoder()).backend();
+        VulkanCommandEncoder encoder = (VulkanCommandEncoder) ((com.g2806.radiante.mixin.backend.CommandEncoderAccessor) RenderSystem.getDevice()
+            .createCommandEncoder()).radiante$backend();
         for (int i = 0; i < count; i++) {
             encoder.execute(new VkCommandBuffer(commandBufferHandles[i], vkDevice));
         }
@@ -252,7 +251,7 @@ public final class RadianteRenderer {
         BufferProxy.updateWorldUniform(new BufferProxy.WorldUniform(view, effectedView, projection,
             glintTextureMatrix(minecraft), dayFraction(levelRenderState),
             TextureTracker.idOf(gameRenderer.overlayTexture().getTextureView().texture()),
-            cameraState.isFirstPerson, fogStart, fogEnd, new Vector4f(fog.color), skyType,
+            minecraft.options.getCameraType().isFirstPerson(), fogStart, fogEnd, new Vector4f(fog.color), skyType,
             TextureTracker.idOf(AbstractEndPortalRenderer.END_SKY_LOCATION),
             TextureTracker.idOf(AbstractEndPortalRenderer.END_PORTAL_LOCATION),
             TextureTracker.idOf(gameRenderer.levelLightmap().texture()), handFovScale(cameraState, projection),
@@ -260,10 +259,12 @@ public final class RadianteRenderer {
             Options.blockLightSampling && Options.collectChunkEmission));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
-        Vector3f skyColor = sky.skyColor == null ? new Vector3f(0.5f, 0.6f, 1.0f) : new Vector3f(sky.skyColor);
-        Vector4f horizonColor = sky.sunriseAndSunsetColor == null
-            ? new Vector4f(0.0f)
-            : new Vector4f(sky.sunriseAndSunsetColor);
+        Vector3f skyColor = new Vector3f(net.minecraft.util.ARGB.redFloat(sky.skyColor),
+            net.minecraft.util.ARGB.greenFloat(sky.skyColor), net.minecraft.util.ARGB.blueFloat(sky.skyColor));
+        int horizon = sky.sunriseAndSunsetColor;
+        Vector4f horizonColor = new Vector4f(net.minecraft.util.ARGB.redFloat(horizon),
+            net.minecraft.util.ARGB.greenFloat(horizon), net.minecraft.util.ARGB.blueFloat(horizon),
+            net.minecraft.util.ARGB.alphaFloat(horizon));
         Matrix4f celestial = new Matrix4f()
             .rotateX(Options.vanillaSunPath ? 0.0f : (float) Math.toRadians(SUN_PATH_SOUTH_TILT_DEGREES))
             .rotateY((float) Math.toRadians(-90.0))
@@ -395,7 +396,7 @@ public final class RadianteRenderer {
      * portal jump about instead of drifting.
      */
     private static float dayFraction(LevelRenderState levelRenderState) {
-        return ((float) (levelRenderState.gameTime % 24000L) + levelRenderState.worldPartialTicks) / 24000.0f;
+        return ((float) (levelRenderState.gameTime % 24000L) + Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false)) / 24000.0f;
     }
 
     /** Mirrors vanilla's armor glint texture animation, which the shaders sample the glint layer with. */

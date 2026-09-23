@@ -64,7 +64,7 @@ public class LevelRendererMixin implements LevelRendererGizmoAccess {
      * sections it never compiled are ready, so almost nothing would be drawn.
      */
     @Inject(method = "isSectionCompiledAndVisible", at = @At("HEAD"), cancellable = true)
-    private void radiante$sectionReady(BlockPos pos, long fadeDuration, CallbackInfoReturnable<Boolean> cir) {
+    private void radiante$sectionReady(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
         if (RadianteRenderer.isRayTracingEnabled()) {
             cir.setReturnValue(ChunkManager.isSectionReady(pos));
         }

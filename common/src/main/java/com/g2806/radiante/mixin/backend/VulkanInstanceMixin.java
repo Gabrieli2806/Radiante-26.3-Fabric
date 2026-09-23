@@ -2,7 +2,7 @@ package com.g2806.radiante.mixin.backend;
 
 import com.g2806.radiante.client.RadianteClient;
 import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
-import com.mojang.renderpearl.backend.vulkan.VulkanInstance;
+import com.mojang.blaze3d.vulkan.VulkanInstance;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.vulkan.VkAllocationCallbacks;
 import org.lwjgl.vulkan.VkInstanceCreateInfo;

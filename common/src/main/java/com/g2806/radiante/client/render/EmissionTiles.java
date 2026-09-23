@@ -347,7 +347,7 @@ public final class EmissionTiles {
         }
         if (specularWidth != width || specularHeight != height) {
             TextureProxy.prepareImage(specularTextureId, mipLevels, width, height,
-                com.mojang.renderpearl.backend.vulkan.VulkanConst.toVk(com.mojang.renderpearl.api.GpuFormat.RGBA8_UNORM));
+                com.mojang.blaze3d.vulkan.VulkanConst.toVk(com.mojang.blaze3d.GpuFormat.RGBA8_UNORM));
             specularWidth = width;
             specularHeight = height;
         }

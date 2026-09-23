@@ -2,12 +2,12 @@ package com.g2806.radiante.client.render;
 
 import com.g2806.radiante.client.proxy.vulkan.TextureProxy;
 import com.g2806.radiante.mixin.backend.VulkanGpuBufferAccessor;
-import com.mojang.renderpearl.api.buffers.GpuBuffer;
-import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
-import com.mojang.renderpearl.api.GpuFormat;
-import com.mojang.renderpearl.api.textures.GpuTexture;
-import com.mojang.renderpearl.backend.vulkan.VulkanConst;
-import com.mojang.renderpearl.backend.vulkan.VulkanGpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.GpuFormat;
+import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.vulkan.VulkanConst;
+import com.mojang.blaze3d.vulkan.VulkanGpuBuffer;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

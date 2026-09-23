@@ -1,5 +1,5 @@
 modLoader = "javafml"
-loaderVersion = "[66,)"
+loaderVersion = "[65,)"
 license = "GPL-3.0"
 issueTrackerURL = "https://github.com/Gabrieli2806/Radiante-26.3-Fabric/issues"
 clientSideOnly = true
@@ -17,7 +17,7 @@ description = '''Hardware ray-traced renderer with DLSS, FSR and XeSS running on
 [[dependencies.radiante]]
 modId = "forge"
 mandatory = true
-versionRange = "[66,)"
+versionRange = "[65,)"
 ordering = "NONE"
 side = "CLIENT"
 

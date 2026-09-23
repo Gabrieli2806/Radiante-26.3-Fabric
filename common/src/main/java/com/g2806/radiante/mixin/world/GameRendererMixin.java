@@ -21,10 +21,11 @@ public abstract class GameRendererMixin {
     public abstract net.minecraft.client.renderer.state.GameRenderState gameRenderState();
 
     @WrapOperation(method = "render", at = @At(value = "INVOKE",
-        target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel()V"))
-    private void radiante$renderLevel(GameRenderer gameRenderer, Operation<Void> original) {
+        target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel(Lnet/minecraft/client/DeltaTracker;)V"))
+    private void radiante$renderLevel(GameRenderer gameRenderer, net.minecraft.client.DeltaTracker deltaTracker,
+        Operation<Void> original) {
         if (!RadianteRenderer.isRayTracingEnabled()) {
-            original.call(gameRenderer);
+            original.call(gameRenderer, deltaTracker);
             return;
         }
 

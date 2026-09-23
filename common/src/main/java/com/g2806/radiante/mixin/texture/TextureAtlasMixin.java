@@ -18,7 +18,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class TextureAtlasMixin {
 
     @Shadow
-    @Final
     private List<TextureAtlasSprite> sprites;
 
     @Shadow

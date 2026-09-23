@@ -18,7 +18,6 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
-import net.minecraft.client.renderer.state.level.PlayerRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
@@ -224,7 +223,7 @@ public final class EntityManager {
         int centerX = Mth.floor(camera.x()) >> 4;
         int centerZ = Mth.floor(camera.z()) >> 4;
         int radius = Math.min(BLOCK_ENTITY_CHUNK_RADIUS, minecraft.options.getEffectiveRenderDistance());
-        float partialTicks = levelRenderState.worldPartialTicks;
+        float partialTicks = minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 
         for (int x = centerX - radius; x <= centerX + radius; x++) {
             for (int z = centerZ - radius; z <= centerZ + radius; z++) {
@@ -356,7 +355,7 @@ public final class EntityManager {
             random.setSeed(state.blockState().getSeed(pos));
             parts.clear();
             model.collectParts(random, parts);
-            COLLECTOR.submitBreakingBlockModel(POSE_STACK, parts, state.progress(), model.hasMaterialFlag(1));
+            COLLECTOR.submitBreakingBlockModel(POSE_STACK, parts, state.progress());
             if (!COLLECTOR.isEmpty()) {
                 // Under the particle mask: the cracks sit a hair in front of the block, and as shadow casters they
                 // would shade the very face they are drawn on.
@@ -506,10 +505,6 @@ public final class EntityManager {
         for (SimpleGizmoCollector.GizmoInstance instance : instances) {
             instance.gizmo().emit(primitives, instance.getAlphaMultiplier(currentMillis));
         }
-        if (primitives.isEmpty()) {
-            return;
-        }
-
         COLLECTOR.reset();
         // onTop is vanilla's "ignore depth, always show through walls"; nothing here does that yet, both groups
         // are traced as ordinary depth-correct geometry.
@@ -594,14 +589,15 @@ public final class EntityManager {
      */
     private static void collectPlayerShadow(Minecraft minecraft, LevelRenderState levelRenderState,
         CameraRenderState cameraState) {
-        PlayerRenderState playerState = levelRenderState.playerRenderState;
-        if (!Options.firstPersonShadow || !playerState.hasPlayer || playerState.avatarRenderState == null
+        if (!Options.firstPersonShadow || minecraft.player == null
             || !minecraft.options.getCameraType().isFirstPerson() || cameraState.entityRenderState.isSleeping
             || minecraft.gameMode == null || minecraft.gameMode.getPlayerMode() == GameType.SPECTATOR) {
             return;
         }
 
-        EntityRenderState state = playerState.avatarRenderState;
+        // 26.2 extracts nothing for the camera entity, so the player's state is extracted here.
+        EntityRenderState state = minecraft.getEntityRenderDispatcher().extractEntity(minecraft.player,
+            minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false));
         COLLECTOR.reset();
         POSE_STACK.setIdentity();
 
@@ -620,8 +616,7 @@ public final class EntityManager {
 
     private static void collectHands(Minecraft minecraft, LevelRenderState levelRenderState,
         CameraRenderState cameraState) {
-        PlayerRenderState playerState = levelRenderState.playerRenderState;
-        if (!playerState.hasPlayer || minecraft.gameRenderer.gameRenderState().guiRenderState.isHudHidden || !minecraft.options.getCameraType().isFirstPerson()
+        if (minecraft.player == null || minecraft.gameRenderer.gameRenderState().guiRenderState.isHudHidden || !minecraft.options.getCameraType().isFirstPerson()
             || cameraState.entityRenderState.isSleeping
             || minecraft.gameMode == null || minecraft.gameMode.getPlayerMode() == GameType.SPECTATOR) {
             return;
@@ -633,9 +628,9 @@ public final class EntityManager {
         POSE_STACK.mulPose(new Matrix4f(cameraState.viewRotationMatrix).invert());
 
         try {
-            minecraft.gameRenderer.firstPersonHandsAndItemsRenderer.submitHandsWithItems(
-                cameraState.cameraEntityPartialTicks, POSE_STACK, COLLECTOR, playerState,
-                playerState.firstPersonHandsAndItems);
+            float partialTicks = minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+            minecraft.gameRenderer.itemInHandRenderer.submitHandsWithItems(partialTicks, POSE_STACK, COLLECTOR,
+                minecraft.player, minecraft.getEntityRenderDispatcher().getPackedLightCoords(minecraft.player, partialTicks));
         } catch (RuntimeException e) {
             return;
         }

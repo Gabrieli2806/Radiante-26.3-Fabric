@@ -9,6 +9,8 @@
     "backend.TextureTrackingMixins$EncoderMixin",
     "backend.TextureTrackingMixins$TextureMixin",
     "backend.VulkanBackendMixin",
+    "backend.VulkanBackendMixin$BootstrapMixin",
+    "backend.CommandEncoderAccessor",
     "backend.VulkanCommandEncoderAccessor",
     "backend.VulkanDeviceMixin",
     "backend.VulkanGpuBufferAccessor",
