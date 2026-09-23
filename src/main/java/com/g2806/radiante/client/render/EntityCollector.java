@@ -73,6 +73,8 @@ public final class EntityCollector implements SubmitNodeCollector {
     /** Extra glow the current entity gives off whatever layer it is drawn with, such as a glow item frame. */
     private float entityEmission;
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
+    /** Debug gizmo groups (F3+B hitboxes, F3+G chunk borders, ...) since the last drain; see drainGizmoGroups. */
+    private final List<DrawableGizmoPrimitives.Group> gizmoGroups = new ArrayList<>();
     private final List<PBRVertexWriter> pool = new ArrayList<>();
     private final QuadInstance quadInstance = new QuadInstance();
     private @Nullable ModelBlockRenderer movingBlockRenderer;
@@ -129,7 +131,8 @@ public final class EntityCollector implements SubmitNodeCollector {
 
         RenderTypeInfo info = RenderTypeInfo.of(renderType);
         writer.textureId(info.textureId())
-            .glintTextureId(0)
+            .glintTextureId(info.glintTextureId())
+            .glintEnabled(info.isGlint())
             .alphaMode(info.alphaMode())
             .coordinate(NativeGeometry.COORDINATE_CAMERA)
             .albedoEmission(info.emission() + this.entityEmission)
@@ -303,7 +306,16 @@ public final class EntityCollector implements SubmitNodeCollector {
             this.quadInstance.setColor(tintIndex >= 0 && tintIndex < tintLayers.length
                 ? ARGB.opaque(tintLayers[tintIndex])
                 : -1);
-            this.writer(material.itemRenderType()).putBakedQuad(poseStack.last(), quad, this.quadInstance);
+            // An enchanted item picks one of the material's own glint render types instead of its plain one;
+            // RenderTypeInfo reads the "GlintSampler" texture those carry and every writer built from one of them
+            // glints. Vanilla's "special" foil (a screen-locked decal, a handful of models) draws with the same
+            // glint render type here too - it still glints, just riding the item's own UV rather than the screen.
+            RenderType renderType = switch (foilType) {
+                case NONE -> material.itemRenderType();
+                case STANDARD -> material.itemGlintRenderType();
+                case SPECIAL -> material.itemGlintSpecialRenderType();
+            };
+            this.writer(renderType).putBakedQuad(poseStack.last(), quad, this.quadInstance);
         }
     }
 
@@ -597,5 +609,15 @@ public final class EntityCollector implements SubmitNodeCollector {
     @Override
     public void submitGizmoPrimitives(DrawableGizmoPrimitives.Group group, CameraRenderState camera,
         boolean onTop) {
+        if (!group.lines().isEmpty()) {
+            this.gizmoGroups.add(group);
+        }
+    }
+
+    /** Gizmo groups submitted since the last call; see EntityManager.collectDebugGizmos. */
+    public List<DrawableGizmoPrimitives.Group> drainGizmoGroups() {
+        List<DrawableGizmoPrimitives.Group> groups = new ArrayList<>(this.gizmoGroups);
+        this.gizmoGroups.clear();
+        return groups;
     }
 }

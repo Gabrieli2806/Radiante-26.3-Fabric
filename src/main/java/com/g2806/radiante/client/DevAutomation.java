@@ -108,6 +108,21 @@ public final class DevAutomation {
         } else if (action.startsWith("fov=")) {
             minecraft.options.fov().set(Integer.parseInt(action.substring(4)));
             RadianteClient.LOGGER.info("[dev] fov {}", action.substring(4));
+        } else if (action.startsWith("slot=")) {
+            int slot = Integer.parseInt(action.substring(5));
+            minecraft.player.getInventory().setSelectedSlot(slot);
+            RadianteClient.LOGGER.info("[dev] slot {}", slot);
+        } else if (action.startsWith("debug=")) {
+            String value = action.substring(6);
+            net.minecraft.resources.Identifier entry = switch (value) {
+                case "hitboxes" -> net.minecraft.client.gui.components.debug.DebugScreenEntries.ENTITY_HITBOXES;
+                case "chunkborders" -> net.minecraft.client.gui.components.debug.DebugScreenEntries.CHUNK_BORDERS;
+                default -> null;
+            };
+            if (entry != null) {
+                minecraft.debugEntries.toggleStatus(entry);
+            }
+            RadianteClient.LOGGER.info("[dev] debug {}", value);
         } else if (action.startsWith("camera=")) {
             String value = action.substring(7);
             minecraft.options.setCameraType(value.equals("third") ?

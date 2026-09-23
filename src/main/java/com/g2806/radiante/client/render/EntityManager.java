@@ -10,8 +10,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.gizmos.DrawableGizmoPrimitives;
 import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.gizmos.SimpleGizmoCollector;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
@@ -58,6 +60,19 @@ public final class EntityManager {
     /** The glowing effect (a spectral arrow, /effect glowing). Vanilla draws an outline; here the mob lights up. */
     private static final float GLOWING_EMISSION = 2.0f;
     private static int DEBUG_TEXT_LAYERS;
+    private static final int GIZMO_ID = "radiante:gizmo".hashCode();
+    private static final PBRVertexWriter GIZMO_WRITER = new PBRVertexWriter(2048);
+    /**
+     * How bright a debug gizmo line reads no matter the light actually there - it has to stand out in the dark,
+     * in direct sun and inside solid blocks alike, the way vanilla's own unlit line rendering does.
+     */
+    private static final float GIZMO_EMISSION = 2.0f;
+    /**
+     * A gizmo line's width is a vanilla screen pixel count (1 for most, 4 for chunk grid lines); reprojecting
+     * that every frame is not worth it for a debug overlay, so it becomes a small, fixed world thickness instead.
+     */
+    private static final float GIZMO_LINE_WIDTH_SCALE = 0.015f;
+    private static final float GIZMO_LINE_MIN_THICKNESS = 0.015f;
 
     /** Masks the ray tracing shaders select geometry with. */
     private static final int RAY_TRACING_WORLD = 0b00000001;
@@ -126,6 +141,7 @@ public final class EntityManager {
         collectBlockBreaking(minecraft, levelRenderState);
         collectParticles(levelRenderState, cameraState);
         collectWeather(levelRenderState, cameraState);
+        collectDebugGizmos(minecraft, cameraState);
         collectHands(minecraft, levelRenderState, cameraState);
 
         upload(NativeGeometry.COORDINATE_WORLD);
@@ -445,6 +461,107 @@ public final class EntityManager {
         }
         layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT, textureId, writer.vertexCount(),
             copyVertices(writer), "Entity"));
+    }
+
+    /**
+     * F3+B entity hitboxes, F3+G chunk borders, and anything else that calls {@code Gizmos.line}/{@code .cuboid}/
+     * etc. Vanilla only drains the collector these land in from inside {@code LevelRenderer.render}, which the
+     * ray tracer replaces entirely, so nothing ever emptied it and the overlays those shortcuts are meant to
+     * toggle never appeared. Drained here instead and turned into thin, camera-facing, unlit quads under the
+     * particle mask, so they show up without casting a shadow or feeding indirect light back into the scene.
+     * Quads, triangle fans and text gizmos (used by other, rarer debug views) are not handled yet - only lines,
+     * which is everything both F3+B and F3+G actually draw.
+     */
+    private static void collectDebugGizmos(Minecraft minecraft, CameraRenderState cameraState) {
+        SimpleGizmoCollector collector =
+            ((LevelRendererGizmoAccess) minecraft.levelRenderer).radiante$renderThreadGizmos();
+        List<SimpleGizmoCollector.GizmoInstance> instances = collector.drainGizmos();
+        if (instances.isEmpty()) {
+            return;
+        }
+
+        DrawableGizmoPrimitives primitives = new DrawableGizmoPrimitives();
+        long currentMillis = net.minecraft.util.Util.getMillis();
+        for (SimpleGizmoCollector.GizmoInstance instance : instances) {
+            instance.gizmo().emit(primitives, instance.getAlphaMultiplier(currentMillis));
+        }
+        if (primitives.isEmpty()) {
+            return;
+        }
+
+        COLLECTOR.reset();
+        // onTop is vanilla's "ignore depth, always show through walls"; nothing here does that yet, both groups
+        // are traced as ordinary depth-correct geometry.
+        primitives.submit(COLLECTOR, cameraState, false);
+
+        Vec3 camera = cameraState.pos;
+        List<PendingLayer> layers = new ArrayList<>();
+        PBRVertexWriter writer = GIZMO_WRITER.textureId(0)
+            .glintTextureId(0)
+            .glintEnabled(false)
+            .alphaMode(PBRVertexWriter.ALPHA_MODE_TRANSPARENT)
+            .coordinate(NativeGeometry.COORDINATE_WORLD)
+            .albedoEmission(GIZMO_EMISSION)
+            .overlayEnabled(false)
+            .computeQuadNormals(true);
+        writer.reset();
+        for (DrawableGizmoPrimitives.Group group : COLLECTOR.drainGizmoGroups()) {
+            for (DrawableGizmoPrimitives.Line line : group.lines()) {
+                addGizmoLineQuad(writer, line, camera);
+            }
+        }
+        writer.finish();
+        if (writer.vertexCount() > 0 && writer.vertexCount() % 4 == 0) {
+            layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT, 0, writer.vertexCount(),
+                copyVertices(writer), "Entity"));
+        }
+
+        if (!layers.isEmpty()) {
+            PENDING.add(new PendingEntity(GIZMO_ID, camera.x(), camera.y(), camera.z(), RAY_TRACING_PARTICLE,
+                layers));
+        }
+    }
+
+    /** One gizmo line as a thin camera-facing quad, the way vanilla's own line rasteriser fakes width too. */
+    private static void addGizmoLineQuad(PBRVertexWriter writer, DrawableGizmoPrimitives.Line line, Vec3 camera) {
+        Vec3 start = line.start();
+        Vec3 end = line.end();
+        Vec3 dir = end.subtract(start);
+        double length = dir.length();
+        if (!(length > 1.0e-5)) {
+            return;
+        }
+        dir = dir.scale(1.0 / length);
+
+        Vec3 mid = start.add(end).scale(0.5);
+        Vec3 side = dir.cross(camera.subtract(mid));
+        double sideLength = side.length();
+        if (!(sideLength > 1.0e-5)) {
+            // The line points straight at the camera; any perpendicular keeps it visible instead of vanishing.
+            side = dir.cross(new Vec3(0.0, 1.0, 0.0));
+            sideLength = side.length();
+            if (!(sideLength > 1.0e-5)) {
+                side = new Vec3(1.0, 0.0, 0.0);
+                sideLength = 1.0;
+            }
+        }
+        double halfWidth = Math.max(GIZMO_LINE_MIN_THICKNESS, line.width() * GIZMO_LINE_WIDTH_SCALE) * 0.5;
+        side = side.scale(halfWidth / sideLength);
+
+        int color = line.color();
+        float sx = (float) side.x;
+        float sy = (float) side.y;
+        float sz = (float) side.z;
+        float ax = (float) (start.x - camera.x());
+        float ay = (float) (start.y - camera.y());
+        float az = (float) (start.z - camera.z());
+        float bx = (float) (end.x - camera.x());
+        float by = (float) (end.y - camera.y());
+        float bz = (float) (end.z - camera.z());
+        writer.addVertex(ax - sx, ay - sy, az - sz).setColor(color);
+        writer.addVertex(ax + sx, ay + sy, az + sz).setColor(color);
+        writer.addVertex(bx + sx, by + sy, bz + sz).setColor(color);
+        writer.addVertex(bx - sx, by - sy, bz - sz).setColor(color);
     }
 
     /** The held items and arms are submitted separately from the world and follow the camera. */

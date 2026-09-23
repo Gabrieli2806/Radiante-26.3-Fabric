@@ -38,13 +38,16 @@ public final class RenderTypeInfo {
     public static final float FLAME_EMISSION = 6.0f;
 
     private final Identifier texture;
+    private final Identifier glintTexture;
     private final boolean useOverlay;
     private final boolean blending;
     private final boolean solid;
     private final String name;
 
-    private RenderTypeInfo(Identifier texture, boolean useOverlay, boolean blending, boolean solid, String name) {
+    private RenderTypeInfo(Identifier texture, Identifier glintTexture, boolean useOverlay, boolean blending,
+        boolean solid, String name) {
         this.texture = texture;
+        this.glintTexture = glintTexture;
         this.useOverlay = useOverlay;
         this.blending = blending;
         this.solid = solid;
@@ -61,13 +64,29 @@ public final class RenderTypeInfo {
         RenderSetupAccessor access = (RenderSetupAccessor) (Object) setup;
         Object binding = access.radiante$textures().get("Sampler0");
         Identifier texture = binding == null ? null : ((TextureBindingAccessor) binding).radiante$location();
+        // The enchantment glint: vanilla's armor and item glint render types sample it as a second texture
+        // alongside the base one ("GlintSampler"), blended in over time by a scrolling matrix. Its presence here
+        // is what tells a writer it is drawing a glinting layer at all - see PbrAtlases and RenderTypeInfo.of.
+        Object glintBinding = access.radiante$textures().get("GlintSampler");
+        Identifier glintTexture = glintBinding == null ? null : ((TextureBindingAccessor) glintBinding).radiante$location();
         String name = ((RenderTypeAccessor) (Object) renderType).radiante$name();
         // Only fully opaque types are traced as solid. Cut out layers (villager hats, zombie heads, skin overlays)
         // keep their alpha test, otherwise their transparent texels render black on top of the face.
         boolean solid = !renderType.hasBlending() && name != null && name.contains("solid");
-        info = new RenderTypeInfo(texture, access.radiante$useOverlay(), renderType.hasBlending(), solid, name);
+        info = new RenderTypeInfo(texture, glintTexture, access.radiante$useOverlay(), renderType.hasBlending(),
+            solid, name);
         CACHE.put(renderType, info);
         return info;
+    }
+
+    /** Whether this layer is one of vanilla's glint render types (armor, item, trim, shield pattern). */
+    public boolean isGlint() {
+        return this.glintTexture != null;
+    }
+
+    /** The renderer id of the glint texture this layer samples, or 0 when it is not a glint layer. */
+    public int glintTextureId() {
+        return this.glintTexture == null ? 0 : TextureTracker.idOf(this.glintTexture);
     }
 
     /** See util/text_mode.glsl: these share the alpha mode field, so they must not collide with its values. */

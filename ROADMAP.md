@@ -6,12 +6,6 @@ backlog, not a promise.
 
 ## Open work and verification
 
-### Debug hitboxes and chunk borders are not visible — investigate
-
-Entity hitboxes enabled with F3 + B and chunk borders enabled with F3 + G
-are not visible with the mod enabled. Investigate rendering of both debug
-overlays so they appear when their respective shortcuts are toggled on.
-
 ### Sun and moon positioning mode — planned
 
 Add a setting to choose between the custom inclination of the sun and moon
@@ -47,11 +41,6 @@ check the affected materials and transparency handling before choosing a fix.
 Doors and trapdoors with cutouts look hollow inside when viewed through their
 openings. Investigate how to make the exposed interior and cutout edges look
 natural.
-
-### Enchantment glint is not visible — pending
-
-The enchantment glint is missing. Port its rendering so enchanted items and
-equipment show their expected animated glint with the mod enabled.
 
 ### Investigate: backport to 26.1
 
@@ -196,6 +185,86 @@ players (ray bounces, denoiser strength, etc).
   `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
 
 ## Completed
+
+### Debug hitboxes and chunk borders — done
+
+F3+B entity hitboxes and F3+G chunk borders did nothing with the mod on.
+Neither is entity or block geometry - vanilla draws them through a separate
+"gizmo" system (`Gizmos.line`/`.cuboid`/`.point`/`.arrow`, collected into a
+`SimpleGizmoCollector` on `LevelRenderer`) that only gets drained and turned
+into drawable primitives from inside `LevelRenderer.render`, right before it
+submits them onward as `submitGizmoPrimitives` calls. The ray tracer replaces
+that whole method with its own submission pipeline (`EntityManager`), so the
+collector was never drained - it just grew, frame after frame, forever - and
+`EntityCollector.submitGizmoPrimitives` (existed already, to satisfy the
+`SubmitNodeCollector` interface) was an empty stub nothing ever reached.
+
+`LevelRendererGizmoAccess` (a mixin on `LevelRenderer`) exposes the collector;
+`EntityManager.collectDebugGizmos` drains it and finalizes each instance the
+same way `LevelRenderer` would have (`gizmo.emit(primitives, alphaMultiplier)`),
+then submits the result into the renderer's own collector to reach
+`submitGizmoPrimitives` for real. Every gizmo primitive that matters for these
+two shortcuts - `Gizmos.cuboid`'s stroke style, `.line`, `.arrow` - resolves to
+plain lines, so only `Group.lines()` is handled; points, quads, triangle fans
+and text gizmos (used by rarer debug views, not by these two) are not yet.
+Each line becomes a thin, camera-facing quad (the same trick vanilla's own
+line rasteriser uses to fake width on a GPU that draws triangles), coloured
+from the line, emissive enough to read regardless of the scene's lighting, and
+traced under the particle mask so it neither casts a shadow nor feeds light
+back into the world. Width is vanilla's screen pixel count turned into a small
+fixed world thickness rather than reprojected every frame - correct enough to
+read clearly, not literally constant in screen space.
+
+Verified in a test world: F3+G's coloured chunk grid (the red/yellow/cyan lines
+`ChunkBorderRenderer` draws) appeared exactly where expected, and F3+B put a
+tight white wireframe box and a blue view-direction arrow around a cow and a
+pig - vanilla's actual hitbox colour is white, not the green some other tools
+use, which is why it was invisible in an earlier attempt with a white floor.
+
+### Enchantment glint — done
+
+Enchanted items and armor rendered with no glint at all. The shaders had full
+support for it already - `hasGlint`/`glintUV`/`glintTexture` in the vertex
+format, `WorldUBO.textureMat` carrying the same scrolling matrix vanilla's own
+`glint.vsh` animates `UV0` through - but nothing on the Java side ever set a
+vertex's glint bit or picked a glint texture, so every writer used
+`glintTextureId(0)` (the 1x1 fallback) and glint always sampled as nothing.
+
+Two different vanilla mechanisms feed the same gap:
+- Armor and other entity models carry their foil-ness *in the `RenderType`
+  itself* - `HumanoidArmorLayer`/`EquipmentLayerRenderer` submit with
+  `RenderTypes.armorCutoutNoCullGlint(...)` or `.trimmedArmorGlint()`, whose
+  `RenderSetup` binds a second texture under the name `"GlintSampler"`
+  alongside the ordinary `"Sampler0"`. `RenderTypeInfo` now looks that binding
+  up the same way it already looks up `Sampler0`, so `isGlint()`/
+  `glintTextureId()` just read whether and what a `RenderType` glints, no name
+  matching. `EntityCollector.writer()` feeds that straight into the writer.
+- Items carry it as an explicit `ItemStackRenderState.FoilType` parameter on
+  `submitItem`, separate from the quads. `BakedQuad.MaterialInfo` already
+  carries the right `RenderType` for each case -
+  `itemRenderType()`/`itemGlintRenderType()`/`itemGlintSpecialRenderType()` -
+  which `submitItem` now picks by `foilType`, same as vanilla's own
+  `ItemFeatureRenderer` does; from there it is the same writer path as armor.
+
+The one thing left for `PBRVertexWriter` to do was tag the vertices: a writer
+in `glintEnabled(true)` state now also writes the glint bit and mirrors the
+regular texture UV into the glint UV slot every time `setUv` is called -
+matching `glint.vsh`, which scrolls a block or item's own UV rather than
+reading a second one. `VertexConsumer.setUv3` already wrote to that same slot
+for the crumbling-decal path (`SheetedDecalTextureGenerator`, unrelated), so no
+new vertex layout or shader change was needed on either side.
+
+Vanilla's screen-locked "special" foil decal (a handful of models, drawn via
+`putBakedQuadWithGlint` with its own projected UV) is approximated with the
+same UV-riding glint rather than reprojected - it still glints, just not
+locked to the screen.
+
+Verified: a sharpness-enchanted diamond sword in hand shows a clear scrolling
+purple/blue sheen on the blade, confirmed moving between two screenshots a few
+seconds apart. Diamond armor with protection worked the same way (confirmed via
+the resolved `armor_cutout_no_cull_glint` render type carrying a valid,
+distinct glint texture id from the item one), though it is hard to see by eye
+against diamond's own near-identical light blue.
 
 ### Far render distance performance — done
 

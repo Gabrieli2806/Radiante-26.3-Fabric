@@ -61,6 +61,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private float albedoEmission;
     private boolean computeQuadNormals;
     private boolean overlayEnabled;
+    private boolean glintEnabled;
 
     public PBRVertexWriter(int initialVertices) {
         this.capacity = Math.max(4, initialVertices) * (long) STRIDE;
@@ -74,6 +75,17 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
 
     public PBRVertexWriter glintTextureId(int glintTextureId) {
         this.glintTextureId = glintTextureId;
+        return this;
+    }
+
+    /**
+     * Whether every vertex from here on carries the enchantment glint, sampled at its own texture coordinate -
+     * the standard glint, the same way vanilla's own glint.vsh reuses UV0. Vanilla's screen-locked "special" foil
+     * decal (compasses, a few other models) is approximated the same way rather than reprojected; it still glints,
+     * just not locked to the screen.
+     */
+    public PBRVertexWriter glintEnabled(boolean glintEnabled) {
+        this.glintEnabled = glintEnabled;
         return this;
     }
 
@@ -252,6 +264,14 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         MemoryUtil.memPutInt(this.current + OFF_USE_TEXTURE, 1);
         MemoryUtil.memPutFloat(this.current + OFF_TEXTURE_UV, u);
         MemoryUtil.memPutFloat(this.current + OFF_TEXTURE_UV + 4, v);
+        if (this.glintEnabled) {
+            // The standard glint has no UV of its own in vanilla either - glint.vsh scrolls the block or item's
+            // own texture coordinate through a shared animation matrix (WorldUBO.textureMat here), so the glint
+            // rides the quad's UV rather than reading anything new.
+            MemoryUtil.memPutInt(this.current + OFF_USE_GLINT, 1);
+            MemoryUtil.memPutFloat(this.current + OFF_GLINT_UV, u);
+            MemoryUtil.memPutFloat(this.current + OFF_GLINT_UV + 4, v);
+        }
         return this;
     }
 

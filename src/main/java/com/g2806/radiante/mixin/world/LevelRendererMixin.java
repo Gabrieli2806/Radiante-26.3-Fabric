@@ -1,6 +1,7 @@
 package com.g2806.radiante.mixin.world;
 
 import com.g2806.radiante.client.render.ChunkManager;
+import com.g2806.radiante.client.render.LevelRendererGizmoAccess;
 import com.g2806.radiante.client.render.RadianteRenderer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -8,6 +9,7 @@ import net.minecraft.client.renderer.SkyRenderer;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.model.sprite.AtlasManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.gizmos.SimpleGizmoCollector;
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Shadow;
@@ -17,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LevelRenderer.class)
-public class LevelRendererMixin {
+public class LevelRendererMixin implements LevelRendererGizmoAccess {
 
     @Shadow
     private @Nullable SkyRenderer skyRenderer;
@@ -33,6 +35,15 @@ public class LevelRendererMixin {
     @Shadow
     @Final
     private GameRenderer gameRenderer;
+
+    @Shadow
+    @Final
+    private SimpleGizmoCollector renderThreadGizmos;
+
+    @Override
+    public SimpleGizmoCollector radiante$renderThreadGizmos() {
+        return this.renderThreadGizmos;
+    }
 
     /**
      * Vanilla creates the sky renderer inside its own render pass, which the ray tracer replaces. It is
