@@ -12,17 +12,6 @@ Add a setting to choose between the custom inclination of the sun and moon
 and vanilla positioning. The vanilla mode should match their positions and
 path across the sky in vanilla Minecraft for the same time of day.
 
-### Everything looks transparent while inside lava — investigate
-
-When the camera is submerged in lava, everything looks transparent instead of
-the lava obscuring the view. Investigate the rendering from inside lava and
-restore the expected limited visibility.
-
-### Powder snow block appearance — investigate
-
-The powder snow block looks wrong with the mod enabled. Reproduce the visual
-issue and check its material and rendering so it has the expected appearance.
-
 ### Black corners with PBR / 3D resource packs — investigate
 
 With resource packs that use PBR and 3D block effects, parts of some blocks,
@@ -178,6 +167,38 @@ players (ray bounces, denoiser strength, etc).
   `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
 
 ## Completed
+
+### Powder snow block appearance — done
+
+The top of powder snow broke up into large triangles of streaked, mismatched
+texture. Powder snow's model is not a cube: it is six paper-thin boxes, each
+drawing an outward face plus an inward one 0.002 of a block behind it with
+mirrored UVs, so the block can be seen from inside. Traced, those near-coplanar
+pairs tore the surface into triangles. It was not the translucent layer (routing
+the block through the solid layer changed nothing) nor the denoiser (same with it
+off). `ChunkManager` now drops powder snow's inward-facing quads (`facesInward`);
+from inside the block the powder snow fog covers the view anyway. Verified on a
+17x10 field: smooth surface, matching a snow block field under the same light.
+
+### Everything transparent while inside lava — done
+
+With the camera in lava (or powder snow) the world stayed fully visible. The
+fog pass in `world.rgen` (both packs) had a dense-fog branch only for water
+(`cameraSubmersionType == 1`); lava (0) and powder snow (2) fell through to the
+normal per-dimension haze, which in the overworld is a thin distance haze and
+nothing at all with volumetric fog on. Only rays hitting the sky got the
+submerged colour, from the miss shader. Both now get their own branch: fog in
+vanilla's fog colour, dense enough to be opaque by vanilla's `fogEnd` (which
+already accounts for fire resistance and spectator). Verified in a test pool:
+lava reads as solid orange a block or two out, powder snow as grey.
+
+Follow-up: with DLSS Ray Reconstruction (the default pipeline) blocks still
+showed through, because RR rebuilds texture detail from the albedo guides and
+those were written unfogged. The submerged branch now fades the diffuse and
+specular albedo guides into the fog by the same transmittance, and uses the
+fog colour as linear light. Lava now reads fully opaque. Still open: it tones
+to bright orange instead of vanilla's dark red (`0x991A00`), because auto
+exposure brightens a screen that is all fog and the tonemapper desaturates it.
 
 ### Glass visibility and transparency — done
 

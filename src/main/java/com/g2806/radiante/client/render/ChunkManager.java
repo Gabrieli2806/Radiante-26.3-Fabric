@@ -25,11 +25,15 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.RenderRegionCache;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
+import org.joml.Vector3fc;
 import org.lwjgl.system.MemoryUtil;
 
 /**
@@ -364,8 +368,12 @@ public final class ChunkManager {
         BlockPos origin = SectionPos.of(sectionNode).origin();
         BlockPos max = origin.offset(15, 15, 15);
 
-        BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> scratch.writer(quad.materialInfo().layer(), atlasId)
-            .putBlockBakedQuad(x, y, z, quad, instance);
+        BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {
+            if (scratch.dropInwardFaces && facesInward(quad)) {
+                return;
+            }
+            scratch.writer(quad.materialInfo().layer(), atlasId).putBlockBakedQuad(x, y, z, quad, instance);
+        };
         FluidRenderer.Output fluidOutput = layer -> scratch.writer(layer, atlasId).computeQuadNormals(true);
 
         for (BlockPos pos : BlockPos.betweenClosed(origin, max)) {
@@ -382,6 +390,7 @@ public final class ChunkManager {
             }
 
             if (blockState.getRenderShape() == RenderShape.MODEL) {
+                scratch.dropInwardFaces = blockState.is(Blocks.POWDER_SNOW);
                 blockRenderer.tesselateBlock(quadOutput, SectionPos.sectionRelative(pos.getX()),
                     SectionPos.sectionRelative(pos.getY()), SectionPos.sectionRelative(pos.getZ()), region, pos,
                     blockState, minecraft.getModelManager().getBlockStateModelSet().get(blockState),
@@ -406,6 +415,18 @@ public final class ChunkManager {
                 compiledSections.add(sectionNode);
             }
         }
+    }
+
+    /**
+     * Powder snow's model is a shell of paper thin boxes, each drawing an outward face and an inward one 0.002 of a
+     * block behind it with mirrored UVs. Traced, the two break up into large triangles of mismatched texture across
+     * the surface. The inward faces only show from inside the block, where the powder snow fog covers everything.
+     */
+    private static boolean facesInward(BakedQuad quad) {
+        Vector3fc corner = quad.position0();
+        Direction direction = quad.direction();
+        return direction.getStepX() * (corner.x() - 0.5f) + direction.getStepY() * (corner.y() - 0.5f)
+            + direction.getStepZ() * (corner.z() - 0.5f) < 0.0f;
     }
 
     /** How many sections the renderer holds geometry for. Minecraft's own count reads zero while it is off. */
@@ -566,6 +587,7 @@ public final class ChunkManager {
         private ModelBlockRenderer blockRenderer;
         private FluidRenderer fluidRenderer;
         private PBRVertexWriter current;
+        private boolean dropInwardFaces;
 
         void reset() {
             for (PBRVertexWriter writer : this.writers.values()) {
