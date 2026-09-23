@@ -81,6 +81,15 @@ void main() {
         }
     }
     vec4 shadedAlbedo = albedo * colorLayer;
+    // Stochastic surfaces (ice) block light with the same probability camera rays see them, so on average the
+    // shadow lets through what the surface does.
+    if (alphaMode == ALPHA_MODE_STOCHASTIC && shadedAlbedo.a >= 0.05 && shadedAlbedo.a < 0.999) {
+        uint stochasticSeed = xxhash32(uvec3(gl_LaunchIDEXT.xy, ubo.seed ^ uint(gl_PrimitiveID) ^ 0x5bd1e995u));
+        if (rand(stochasticSeed) >= shadedAlbedo.a) {
+            ignoreIntersectionEXT;
+            return;
+        }
+    }
     float alpha = resolveSurfaceAlpha(shadedAlbedo.a, alphaMode);
     if (alpha < 0.05) {
         ignoreIntersectionEXT;

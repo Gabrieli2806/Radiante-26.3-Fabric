@@ -145,7 +145,8 @@ public final class EntityCollector implements SubmitNodeCollector {
             .albedoEmission(info.emission() + this.entityEmission)
             .overlayEnabled(info.useOverlay())
             .computeQuadNormals(info.needsComputedNormals())
-            .colorOverride(this.colorOverride);
+            .colorOverride(this.colorOverride)
+            .uvOffset(info.uOffset(), info.vOffset());
         this.writers.put(renderType, writer);
         return writer;
     }
@@ -165,7 +166,7 @@ public final class EntityCollector implements SubmitNodeCollector {
         int lightCoords, int overlayCoords, int tintedColor, @Nullable UvMapping uvMapping, int outlineColor) {
         // An outline colour means the glowing effect. Vanilla still draws the model, and draws the silhouette on
         // top from a post effect this renderer does not run; dropping the submission made a glowing mob or player
-        // disappear instead. The glow is applied as emission in EntityManager.
+        // disappear instead. The outline comes from a separate copy of the entity; see EntityManager.collect.
         VertexConsumer buffer = this.writer(renderType);
         if (uvMapping != null) {
             buffer = uvMapping.wrap(buffer);

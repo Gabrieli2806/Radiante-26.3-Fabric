@@ -258,6 +258,10 @@ public final class EntityManager {
             return 0.0f;
         }
 
+        // The wither is drawn full bright in vanilla (its renderer reports block light 15) but gives off no light.
+        if (state instanceof net.minecraft.client.renderer.entity.state.WitherRenderState) {
+            return 0.0f;
+        }
         int ownBlockLight = net.minecraft.util.LightCoordsUtil.block(state.lightCoords);
         if (ownBlockLight <= 0) {
             return 0.0f;

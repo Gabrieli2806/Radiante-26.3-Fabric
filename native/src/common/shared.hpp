@@ -263,7 +263,8 @@ namespace Data {
         T_UINT skyType;
         // Non-zero while some entity has the glowing effect, so the outline rays only run when they can find one.
         T_UINT hasGlowOutline;
-        T_UINT pad3;
+        // Non-zero when block lights are sampled directly (the option, with Block Emission on to fill the list).
+        T_UINT blockLightSampling;
 
         T_DVEC4 cameraPos; // w for padding
         T_IVEC4 chunkGridInfo; // x=sizeX, y=sizeY, z=sizeZ, w=bottomSectionCoord

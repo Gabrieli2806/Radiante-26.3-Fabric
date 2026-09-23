@@ -63,6 +63,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private boolean overlayEnabled;
     private boolean glintEnabled;
     private int colorOverride;
+    private float uOffset;
+    private float vOffset;
 
     public PBRVertexWriter(int initialVertices) {
         this.capacity = Math.max(4, initialVertices) * (long) STRIDE;
@@ -93,6 +95,13 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     /** An opaque RGB every vertex takes in place of the colour it is given, keeping its alpha; 0 turns it off. */
     public PBRVertexWriter colorOverride(int colorOverride) {
         this.colorOverride = colorOverride;
+        return this;
+    }
+
+    /** Added to every texture coordinate: vanilla's scrolling texture transform (charged creeper, wither armor). */
+    public PBRVertexWriter uvOffset(float uOffset, float vOffset) {
+        this.uOffset = uOffset;
+        this.vOffset = vOffset;
         return this;
     }
 
@@ -277,8 +286,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     @Override
     public VertexConsumer setUv(float u, float v) {
         MemoryUtil.memPutInt(this.current + OFF_USE_TEXTURE, 1);
-        MemoryUtil.memPutFloat(this.current + OFF_TEXTURE_UV, u);
-        MemoryUtil.memPutFloat(this.current + OFF_TEXTURE_UV + 4, v);
+        MemoryUtil.memPutFloat(this.current + OFF_TEXTURE_UV, u + this.uOffset);
+        MemoryUtil.memPutFloat(this.current + OFF_TEXTURE_UV + 4, v + this.vOffset);
         if (this.glintEnabled) {
             // The standard glint has no UV of its own in vanilla either - glint.vsh scrolls the block or item's
             // own texture coordinate through a shared animation matrix (WorldUBO.textureMat here), so the glint

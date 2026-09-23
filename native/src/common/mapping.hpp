@@ -34,6 +34,8 @@
 #    define GLOW_OUTLINE_MASK 4
 // Set in ShadowRay.pad0 by rays that look for the glow outline copies rather than for shadows.
 #    define GLOW_OUTLINE_QUERY 1u
+// Set by visibility rays towards a sampled block light: the miss shader reports "unblocked" instead of sunlight.
+#    define BLOCK_LIGHT_QUERY 2u
 #    define HAND_MASK 8
 #    define WEATHER_MASK 16
 #    define PARTICLE_MASK 32

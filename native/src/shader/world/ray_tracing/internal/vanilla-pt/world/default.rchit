@@ -775,6 +775,8 @@ vec3 sampleSurfaceDirectLight(SampledSurface surface,
     return mix(lightRadiance, vec3(0.0), progress);
 }
 
+#include "common/block_light.glsl"
+
 bool loadPreviousScenePos(uint geometryBufferIndex, uint primitiveID, vec3 baryCoords, out vec3 prevScenePos) {
     uint64_t lastPositionAddr = lastPositionBufferAddrs.addrs[geometryBufferIndex];
     uint64_t lastIndexAddr = lastIndexBufferAddrs.addrs[geometryBufferIndex];
@@ -946,7 +948,11 @@ void main() {
     for (int localBounce = 0; localBounce < 1; ++localBounce) {
         float emissionFactor =
             (bounce == 0u && localBounce == 0) ? VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
-        vec3 emissionRadiance = emissionFactor * currentSurface.tint * currentSurface.mat.emission * mainRay.throughput;
+        float blockEmissionWeight =
+            (localBounce == 0 && bounce > 0u && vptBlockLightAlreadyCounted(gl_WorldRayOriginEXT, currentSurface.worldPos)) ?
+                0.0 : 1.0;
+        vec3 emissionRadiance =
+            blockEmissionWeight * emissionFactor * currentSurface.tint * currentSurface.mat.emission * mainRay.throughput;
         emissionRadiance += currentSurface.tint * albedoEmission * mainRay.throughput;
         mainRay.radiance += emissionRadiance;
 
@@ -954,6 +960,9 @@ void main() {
             sampleSurfaceDirectLight(currentSurface, currentViewDir, textureUV, planeHitWorldPos, atlasUvMin, atlasUvMax,
                                      dPduWorld, dPdvWorld, baseGeoNormal, traceLocalHeight,
                                      textureMap.normal, maxDepthWorld, hasFftWaterSurface);
+        vec3 blockLight = sampleBlockLight(currentSurface.worldPos, currentSurface.geometricNormal,
+                                           currentSurface.shadingNormal, currentSurface.mat);
+        directLight += blockLight;
         if (localBounce == 0) { mainRay.directLightRadiance = directLight; }
         mainRay.radiance += directLight;
 
@@ -988,6 +997,9 @@ void main() {
             bsdf = DisneySample(currentSurface.mat, currentViewDir, currentSurface.shadingNormal, sampleDir, pdf,
                                 mainRay.seed, lobeType);
         }
+
+        raySetBlockLightSampled(mainRay, worldUBO.blockLightSampling != 0u && lobeType == 0u &&
+                                             vptBlockLightDiffuseWeight(currentSurface.mat) > 1e-4);
 
         if (!storedLobeType) {
             raySetLobeType(mainRay, lobeType);

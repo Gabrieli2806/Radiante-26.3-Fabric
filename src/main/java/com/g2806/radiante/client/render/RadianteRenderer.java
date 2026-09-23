@@ -256,7 +256,8 @@ public final class RadianteRenderer {
             TextureTracker.idOf(AbstractEndPortalRenderer.END_SKY_LOCATION),
             TextureTracker.idOf(AbstractEndPortalRenderer.END_PORTAL_LOCATION),
             TextureTracker.idOf(gameRenderer.levelLightmap().texture()), handFovScale(cameraState, projection),
-            levelRenderState.entityRenderStates.stream().anyMatch(net.minecraft.client.renderer.entity.state.EntityRenderState::appearsGlowing)));
+            levelRenderState.entityRenderStates.stream().anyMatch(net.minecraft.client.renderer.entity.state.EntityRenderState::appearsGlowing),
+            Options.blockLightSampling && Options.collectChunkEmission));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
         Vector3f skyColor = sky.skyColor == null ? new Vector3f(0.5f, 0.6f, 1.0f) : new Vector3f(sky.skyColor);

@@ -5,8 +5,6 @@
 
 #if defined(VPT_MATERIAL_STATE_BINDING)
 layout(set = 5, binding = VPT_MATERIAL_STATE_BINDING, rgba16f) uniform image2DArray rayMaterialStateImage;
-#elif defined(ADV_MATERIAL_STATE_BINDING)
-layout(set = 5, binding = ADV_MATERIAL_STATE_BINDING, rgba16f) uniform image2DArray rayMaterialStateImage;
 #else
 layout(set = 5, binding = 7, rgba16f) uniform image2DArray rayMaterialStateImage;
 #endif
@@ -24,6 +22,9 @@ const uint rayCaptureSurfaceBit = 1u << 16u;
 const uint raySurfaceCacheWrittenBit = 1u << 17u;
 const uint raySurfaceCacheTargetSecondaryBit = 1u << 18u;
 const uint rayIndirectVolumetricCloudBit = 1u << 19u;
+// The surface this ray left took its block light by sampling the light list, and the ray left through the diffuse
+// lobe: a light it now hits was already counted there. Kept across bounces (resetMainRay leaves it alone).
+const uint rayBlockLightSampledBit = 1u << 20u;
 
 ivec3 rayMaterialStateCoord(int layer) {
     return ivec3(ivec2(gl_LaunchIDEXT.xy), layer);
@@ -122,6 +123,14 @@ bool rayUseIndirectVolumetricCloud(MainRay ray) {
 
 void raySetLobeType(inout MainRay ray, uint lobeType) {
     ray.stateBits = (ray.stateBits & ~rayLobeMask) | ((lobeType & 0x3u) << rayLobeShift);
+}
+
+void raySetBlockLightSampled(inout MainRay ray, bool enabled) {
+    ray.stateBits = enabled ? (ray.stateBits | rayBlockLightSampledBit) : (ray.stateBits & ~rayBlockLightSampledBit);
+}
+
+bool rayBlockLightSampled(MainRay ray) {
+    return (ray.stateBits & rayBlockLightSampledBit) != 0u;
 }
 
 uint rayLobeType(MainRay ray) {

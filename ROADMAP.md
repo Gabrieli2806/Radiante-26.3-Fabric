@@ -6,6 +6,33 @@ backlog, not a promise.
 
 ## Open work and verification
 
+### Visual smoke test suite — planned
+
+A repeatable, one-command check to run after every Minecraft version bump (and
+before releases), built from scratch rather than grown out of the ad-hoc
+`RADIANTE_DEV_SCRIPT` runs used so far.
+
+- **Scenes as data.** Each case is a small file: setup commands (blocks,
+  entities, effects, time, weather), a camera pose, settings overrides, and
+  what to check. One case per regression we have already fixed: stained/tinted
+  glass and panes, doors/trapdoors with windows, powder snow top, enchantment
+  glint on items and armor, F3+B/F3+G gizmos, glowing outline through a wall
+  (plus a team colour), name tags, particles, rain/snow, lava/powder snow
+  submersion, sun path and sun/moon rotation options, night vision, block
+  emission (torch, glowstone, lava), paintings/item frames, signs.
+- **Runner.** A dev-only mode that launches the client, creates a fresh
+  superflat world (no copying the user's saves), runs every case, takes a
+  screenshot after a fixed settle time, and quits. Never touches the user's
+  `options.txt`, `options.properties` or `debug-profile.json`: it runs with
+  its own game directory.
+- **Checks, not just pictures.** Cheap automatic ones first: the game started,
+  every shader compiled, no exceptions or validation errors in the log, no
+  frame is all black / all one colour, a region expected to show a feature
+  differs from the same scene with the feature off. Then golden images per GPU
+  vendor with a tolerant perceptual diff, updated deliberately.
+- **Report.** One HTML page per run with each case's screenshot next to its
+  golden image and diff, pass/fail, and the log excerpt; failures first.
+
 ### Inside lava / powder snow looks transparent — revisit
 
 With the camera in lava (or powder snow) the world stays visible instead of
@@ -185,6 +212,59 @@ players (ray bounces, denoiser strength, etc).
   `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
 
 ## Completed
+
+### Ice, wither glow, charged creeper light — done
+
+- Ice: a frosted specular map alone left it far clearer than packed/blue ice.
+  Vanilla blends ice at its texture's 75% opacity with no refraction, so ice
+  quads are now written with `ALPHA_MODE_STOCHASTIC` (`ChunkManager`): a ray
+  keeps the hit with that probability and shades it as a solid frosted
+  surface (`ice_s.png`), which averages to vanilla's blend. `shadow.rahit`
+  applies the same probability, so its shadow lets 25% through. Verified next
+  to packed and blue ice: reads as the same family, the wall behind only
+  faintly visible.
+- Wither: glowed at all times. Its renderer reports block light 15 (vanilla
+  draws it full bright), which `selfLitEmission` took for a mob giving off
+  light; the wither is now excluded. Verified dark at night at full health.
+- Charged creeper / wither armor shell: emission raised to 1.2 so it reads as
+  a glow. Its light on the surroundings is weak: entity emission only reaches
+  other surfaces through random bounces (block light sampling covers blocks).
+
+### Charged creeper / wither armor swirl — done
+
+The swirling shell of a charged creeper and of a wither below half health was
+frozen and read as plain dark stripes. Vanilla draws it with
+`RenderTypes.energySwirl(texture, u, v)`: an `OffsetTextureTransform` scrolls
+the texture every frame (a new render type per frame) and the layer is added
+on top of the mob. `RenderTypeInfo` now reads that offset
+(`RenderSetup.textureTransform`) and `PBRVertexWriter.uvOffset` adds it to the
+texture coordinates (textures wrap with repeat), the layer is mildly emissive
+(`ENERGY_SWIRL_EMISSION` 0.6), and these per-frame render types are no longer
+put in the `RenderTypeInfo` cache, which they grew without bound. Verified:
+the shell animates between frames on a charged creeper.
+
+### Block light sampling, Advanced pack removed — done
+
+The `advanced` pack was a second full copy of every shader plus a ReSTIR
+direct-light chain (~8 passes). Every visual fix had to be written twice and
+the glowing outline never reached it, while the only visible gain was less
+noise from block lights. It is removed (still in git history; install deletes
+a stale `advanced.zip`). With one pack left, the Shader Pack selector is gone
+from the settings screen; `vanilla-pt` is always used.
+
+`vanilla-pt` gets that gain from a new option, "Block Light Sampling"
+(`Options.blockLightSampling`, on by default, needs Block Emission; sent as
+`WorldUBO.blockLightSampling`). `common/block_light.glsl`: each surface looks
+up the light lists (set 1 binding 9, one emissive triangle per entry, built
+natively from chunk emission) of the 27 sections around it, picks among 4
+candidate lights by unshadowed diffuse contribution (RIS), and traces one
+shadow ray (`BLOCK_LIGHT_QUERY`: the miss shader reports "visible"). Only the
+diffuse lobe is lit this way; a bounce that left a sampled surface through the
+diffuse lobe (`rayBlockLightSampledBit`, kept across bounces) skips the
+emission of a light it hits within that reach, so nothing is counted twice.
+No temporal/spatial reuse. Verified in a sealed room at night: torches and
+glowstone visibly light walls and ceiling with it on; with it off the room
+stays much darker, as random bounces rarely find small lights.
 
 ### Sun and moon positioning mode — done
 

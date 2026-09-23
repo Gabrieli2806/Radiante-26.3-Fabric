@@ -87,6 +87,11 @@ public class Options {
     public static boolean vanillaSunPath = false;
     /** Sun and moon sprites keep vanilla's fixed orientation instead of turning as they cross the sky. */
     public static boolean vanillaCelestialOrientation = false;
+    /**
+     * Surfaces pick a nearby light block and trace one shadow ray to it, instead of waiting for a random bounce to
+     * find it. Much less noise from torches, lava and lamps; needs Block Emission for the list of lights.
+     */
+    public static boolean blockLightSampling = true;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
@@ -155,6 +160,8 @@ public class Options {
                 props.getProperty("firstPersonShadow", String.valueOf(firstPersonShadow)));
             vanillaSunPath = Boolean.parseBoolean(
                 props.getProperty("vanillaSunPath", String.valueOf(vanillaSunPath)));
+            blockLightSampling = Boolean.parseBoolean(
+                props.getProperty("blockLightSampling", String.valueOf(blockLightSampling)));
             vanillaCelestialOrientation = Boolean.parseBoolean(
                 props.getProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation)));
             biomeFogStrength = Math.max(0, Math.min(400, Integer.parseInt(
@@ -198,6 +205,7 @@ public class Options {
         props.setProperty("firstPersonShadow", String.valueOf(firstPersonShadow));
         props.setProperty("vanillaSunPath", String.valueOf(vanillaSunPath));
         props.setProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation));
+        props.setProperty("blockLightSampling", String.valueOf(blockLightSampling));
         props.setProperty("biomeFogStrength", String.valueOf(biomeFogStrength));
         props.setProperty("rayTracingEnabled", String.valueOf(rayTracingEnabled));
         props.setProperty("useOpenGl", String.valueOf(useOpenGl));

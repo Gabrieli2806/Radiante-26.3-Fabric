@@ -34,6 +34,11 @@ public final class RenderTypeInfo {
      * instead of purple ones.
      */
     private static final float ENTITY_EMISSION = 1.0f;
+    /**
+     * The swirling shell of a charged creeper and a wither below half health. Vanilla adds it on top of the mob,
+     * so it is light, not a lit surface.
+     */
+    private static final float ENERGY_SWIRL_EMISSION = 1.2f;
     /** Flames wrapped around a burning entity. */
     public static final float FLAME_EMISSION = 6.0f;
 
@@ -43,15 +48,19 @@ public final class RenderTypeInfo {
     private final boolean blending;
     private final boolean solid;
     private final String name;
+    private final float uOffset;
+    private final float vOffset;
 
     private RenderTypeInfo(Identifier texture, Identifier glintTexture, boolean useOverlay, boolean blending,
-        boolean solid, String name) {
+        boolean solid, String name, float uOffset, float vOffset) {
         this.texture = texture;
         this.glintTexture = glintTexture;
         this.useOverlay = useOverlay;
         this.blending = blending;
         this.solid = solid;
         this.name = name == null ? "" : name;
+        this.uOffset = uOffset;
+        this.vOffset = vOffset;
     }
 
     public static RenderTypeInfo of(RenderType renderType) {
@@ -73,10 +82,31 @@ public final class RenderTypeInfo {
         // Only fully opaque types are traced as solid. Cut out layers (villager hats, zombie heads, skin overlays)
         // keep their alpha test, otherwise their transparent texels render black on top of the face.
         boolean solid = !renderType.hasBlending() && name != null && name.contains("solid");
+        // A scrolling texture (the energy swirl) bakes this frame's offset into a render type made anew every frame.
+        // Reading it here is what makes the swirl move; caching those throwaway types would only grow the cache.
+        boolean scrolling = access.radiante$textureTransform()
+            instanceof net.minecraft.client.renderer.rendertype.TextureTransform.OffsetTextureTransform;
+        float uOffset = 0.0f;
+        float vOffset = 0.0f;
+        if (scrolling) {
+            org.joml.Matrix4f transform = access.radiante$textureTransform().createMatrix();
+            uOffset = transform.m30();
+            vOffset = transform.m31();
+        }
         info = new RenderTypeInfo(texture, glintTexture, access.radiante$useOverlay(), renderType.hasBlending(),
-            solid, name);
-        CACHE.put(renderType, info);
+            solid, name, uOffset, vOffset);
+        if (!scrolling) {
+            CACHE.put(renderType, info);
+        }
         return info;
+    }
+
+    public float uOffset() {
+        return this.uOffset;
+    }
+
+    public float vOffset() {
+        return this.vOffset;
     }
 
     /** Whether this layer is one of vanilla's glint render types (armor, item, trim, shield pattern). */
@@ -155,6 +185,9 @@ public final class RenderTypeInfo {
         }
         if (this.name.contains("beacon_beam")) {
             return BEACON_BEAM_EMISSION;
+        }
+        if (this.name.equals("energy_swirl")) {
+            return ENERGY_SWIRL_EMISSION;
         }
         // "eyes" covers endermen, spiders and blazes; the emissive variant covers the overlays other mobs add.
         if (this.name.equals("eyes") || this.name.contains("emissive")) {

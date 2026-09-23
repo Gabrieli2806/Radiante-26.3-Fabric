@@ -34,6 +34,9 @@ public final class RenderTypeAccessors {
 
         @Accessor("useOverlay")
         boolean radiante$useOverlay();
+
+        @Accessor("textureTransform")
+        net.minecraft.client.renderer.rendertype.TextureTransform radiante$textureTransform();
     }
 
     @Mixin(targets = "net.minecraft.client.renderer.rendertype.RenderSetup$TextureBinding")

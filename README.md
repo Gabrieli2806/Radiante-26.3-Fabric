@@ -14,7 +14,7 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
 - Hardware ray tracing (`VK_KHR_ray_tracing_pipeline`) for terrain, with path-traced direct lighting,
   shadows and global illumination.
 - Physically based sky, sun and atmospheric scattering.
-- Two shader packs: `vanilla-pt` (closer to vanilla look) and `advanced` (LabPBR, parallax, FFT water).
+- One built-in shader pack, `vanilla-pt`, with direct sampling of block lights (torches, lava, lamps).
 - Upscaling through DLSS, FSR 3 and XeSS, plus NRD denoising.
 - Runs on the device Minecraft creates: no second Vulkan instance, no duplicated swapchain.
 

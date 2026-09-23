@@ -5,7 +5,6 @@ import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
 import com.g2806.radiante.client.render.FrameGeneration;
 import com.g2806.radiante.client.pipeline.Pipeline;
-import com.g2806.radiante.client.pipeline.Pipeline.ShaderPackChoice;
 import com.g2806.radiante.client.pipeline.Presets;
 import com.mojang.serialization.Codec;
 import java.util.ArrayList;
@@ -17,7 +16,7 @@ import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Settings for the ray tracer: pipeline preset (upscaler and denoiser), shader pack and terrain building. Changes
+ * Settings for the ray tracer: pipeline preset (upscaler and denoiser), lighting options and terrain building. Changes
  * are collected while the screen is open and applied once it is closed with Done, so the pipeline is rebuilt at most
  * once.
  */
@@ -26,7 +25,6 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     public static final Component TITLE = Component.translatable("options.radiante.title");
 
     private Presets pendingPreset;
-    private ShaderPackChoice pendingShaderPack;
     private String pendingDlssMode;
     private int pendingGeneratedFrames = Options.frameGeneration ? Options.generatedFrames : 0;
     private String pendingCloudMode;
@@ -50,7 +48,6 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private RadianteOptionsScreen(RadianteOptionsScreen previous) {
         this(previous.lastScreen, previous.options);
         this.pendingPreset = previous.pendingPreset;
-        this.pendingShaderPack = previous.pendingShaderPack;
         this.pendingDlssMode = previous.pendingDlssMode;
         this.pendingGeneratedFrames = previous.pendingGeneratedFrames;
         this.pendingCloudMode = previous.pendingCloudMode;
@@ -81,9 +78,13 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.minecraft.gui.setScreen(new RadianteOptionsScreen(this));
     }
 
+    private static <T> OptionInstance.TooltipSupplier<T> tooltip(String key) {
+        return OptionInstance.cachedConstantTooltip(Component.translatable(key + ".tooltip"));
+    }
+
     private static OptionInstance<Integer> slider(String key, int min, int max, int initial,
         OptionInstance.ValueUpdateListener<Integer> onUpdate) {
-        return new OptionInstance<>(key, OptionInstance.noTooltip(),
+        return new OptionInstance<>(key, tooltip(key),
             (caption, value) -> Component.translatable("options.generic_value", caption, value),
             new OptionInstance.IntRange(min, max, false), Math.max(min, Math.min(max, initial)), onUpdate);
     }
@@ -125,34 +126,6 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             });
     }
 
-    private OptionInstance<ShaderPackChoice> shaderPackOption() {
-        List<ShaderPackChoice> available = new ArrayList<>();
-        for (ShaderPackChoice choice : Pipeline.getAvailableShaderPacks()) {
-            if (Pipeline.isShaderPackSelectable(choice)) {
-                available.add(choice);
-            }
-        }
-        if (available.isEmpty()) {
-            return null;
-        }
-
-        ShaderPackChoice active = available.getFirst();
-        for (ShaderPackChoice choice : available) {
-            if (Pipeline.isShaderPackActive(choice)) {
-                active = choice;
-            }
-        }
-        this.pendingShaderPack = active;
-
-        List<ShaderPackChoice> values = List.copyOf(available);
-        return new OptionInstance<>("options.radiante.shader_pack", OptionInstance.noTooltip(),
-            (caption, value) -> Component.literal(value.displayName()),
-            new OptionInstance.Enum<>(values, Codec.STRING.xmap(
-                id -> values.stream().filter(choice -> choice.id().equals(id)).findFirst().orElse(values.getFirst()),
-                ShaderPackChoice::id)),
-            active, value -> this.pendingShaderPack = value);
-    }
-
     /** Clouds come from the shader pack, which ray marches them, so nothing has to be submitted for them. */
     private OptionInstance<String> cloudModeOption() {
         if (!Pipeline.supportsClouds()) {
@@ -163,7 +136,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingCloudMode = current != null && Pipeline.CLOUD_MODES.contains(current) ? current
             : Pipeline.CLOUD_MODES.get(0);
 
-        return new OptionInstance<>("options.radiante.cloud_mode", OptionInstance.noTooltip(),
+        return new OptionInstance<>("options.radiante.cloud_mode", tooltip("options.radiante.cloud_mode"),
             (caption, value) -> Component.translatable(value),
             new OptionInstance.Enum<>(Pipeline.CLOUD_MODES, Codec.STRING), this.pendingCloudMode,
             value -> this.pendingCloudMode = value);
@@ -186,7 +159,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingDlssMode = current != null && Pipeline.DLSS_MODES.contains(current) ? current
             : "render_pipeline.module.dlss.attribute.mode.balanced";
 
-        return new OptionInstance<>("options.radiante.dlss_mode", OptionInstance.noTooltip(),
+        return new OptionInstance<>("options.radiante.dlss_mode", tooltip("options.radiante.dlss_mode"),
             (caption, value) -> Component.translatable(value),
             new OptionInstance.Enum<>(Pipeline.DLSS_MODES, Codec.STRING), this.pendingDlssMode,
             value -> this.pendingDlssMode = value);
@@ -215,7 +188,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             values.add(frames);
         }
 
-        return new OptionInstance<>("options.radiante.frame_generation", OptionInstance.noTooltip(),
+        return new OptionInstance<>("options.radiante.frame_generation", tooltip("options.radiante.frame_generation"),
             (caption, value) -> value == 0 ? Component.translatable("options.off")
                 : Component.literal((value + 1) + "x"),
             new OptionInstance.Enum<>(values, Codec.intRange(0, max)),
@@ -229,13 +202,8 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
 
         OptionInstance<Presets> preset = presetOption();
-        OptionInstance<ShaderPackChoice> shaderPack = shaderPackOption();
-        if (preset != null && shaderPack != null) {
-            this.list.addSmall(preset, shaderPack);
-        } else if (preset != null) {
+        if (preset != null) {
             this.list.addSmall(preset);
-        } else if (shaderPack != null) {
-            this.list.addSmall(shaderPack);
         }
 
         OptionInstance<String> dlssMode = dlssModeOption();
@@ -270,14 +238,15 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.list.addSmall(
             slider("options.radiante.chunk_building_total_batches", 1, 64, this.pendingChunkTotalBatches,
                 value -> this.pendingChunkTotalBatches = value),
-            OptionInstance.createBoolean("options.radiante.collect_chunk_emission", this.pendingCollectEmission,
+            OptionInstance.createBoolean("options.radiante.collect_chunk_emission",
+                tooltip("options.radiante.collect_chunk_emission"), this.pendingCollectEmission,
                 value -> this.pendingCollectEmission = value));
 
         this.list.addSmall(
             OptionInstance.createBoolean("options.radiante.biome_fog",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
                 this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
-            new OptionInstance<>("options.radiante.biome_fog_strength", OptionInstance.noTooltip(),
+            new OptionInstance<>("options.radiante.biome_fog_strength", tooltip("options.radiante.biome_fog_strength"),
                 (caption, value) -> Component.translatable("options.percent_value", caption, value),
                 new OptionInstance.IntRange(0, 400, false), this.pendingBiomeFogStrength,
                 value -> this.pendingBiomeFogStrength = value));
@@ -288,6 +257,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             this.pendingFirstPersonShadow, value -> this.pendingFirstPersonShadow = value);
         OptionInstance<Boolean> debugLogging = OptionInstance.createBoolean("options.radiante.debug_logging",
             this.pendingDebugLogging, value -> this.pendingDebugLogging = value);
+        this.list.addSmall(OptionInstance.createBoolean("options.radiante.block_light_sampling",
+            tooltip("options.radiante.block_light_sampling"), Options.blockLightSampling,
+            value -> Options.blockLightSampling = value));
         this.list.addSmall(OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
                 Options.vanillaSunPath, value -> Options.vanillaSunPath = value),
@@ -361,9 +333,6 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             && !Objects.equals(this.pendingPreset.key, Pipeline.INSTANCE.getActivePresetName())) {
             Pipeline.switchToPresetMode(this.pendingPreset.key, false);
             rebuild = true;
-        }
-        if (this.pendingShaderPack != null && !Pipeline.isShaderPackActive(this.pendingShaderPack)) {
-            rebuild |= Pipeline.setShaderPack(this.pendingShaderPack, false);
         }
         if (this.pendingVolumetricFog != null) {
             rebuild |= Pipeline.setVolumetricFog(this.pendingVolumetricFog);

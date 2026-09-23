@@ -60,7 +60,8 @@ set(RT_UTIL_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/util")
 set(RT_COMMON_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../common")
 set(RT_SHARC_SRC_DIR "${PROJECT_SOURCE_DIR}/extern/sharc/include")
 set(RT_ZIP_STAGING_DIR "${CMAKE_CURRENT_BINARY_DIR}/ray_tracing_internal_zip")
-set(RT_LEGACY_SHADER_PACK_ZIPS restir-di.zip)
+# Packs no longer built; install removes them so an old copy is not offered in the shader pack list.
+set(RT_LEGACY_SHADER_PACK_ZIPS restir-di.zip advanced.zip advanced.zip.txt)
 
 foreach(RT_PACK_NAME ${MCVR_BUILT_IN_SHADER_PACKS})
     if(NOT EXISTS "${RT_INTERNAL_ROOT_DIR}/${RT_PACK_NAME}/configs.json")

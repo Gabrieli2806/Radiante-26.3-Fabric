@@ -38,7 +38,8 @@ public class BufferProxy {
                                int endPortalTextureId,
                                int lightMapTextureId,
                                float handFovScale,
-                               boolean glowOutline) {
+                               boolean glowOutline,
+                               boolean blockLightSampling) {
     }
 
     public static void updateWorldUniform(WorldUniform uniform) {
@@ -88,7 +89,9 @@ public class BufferProxy {
             bb.putInt(offset, uniform.skyType());
             offset += Integer.BYTES;
             bb.putInt(offset, uniform.glowOutline() ? 1 : 0);
-            offset += Integer.BYTES * 2; // + one padding word
+            offset += Integer.BYTES;
+            bb.putInt(offset, uniform.blockLightSampling() ? 1 : 0);
+            offset += Integer.BYTES;
 
             // cameraPos (dvec4), chunkGridInfo and chunkStorageSectionPos are filled in natively.
             offset += Double.BYTES * 4;
