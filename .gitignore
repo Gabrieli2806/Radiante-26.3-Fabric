@@ -26,7 +26,7 @@ CMakeFiles/
 
 # The renderer, its shader packs and the vendor DLLs are build output. They are
 # assembled by the CMake INSTALL target and shipped in the jar, never committed.
-src/main/resources/radiante-native/
+common/src/main/resources/radiante-native/
 
 # Upstream reference checkouts kept locally for comparison
 upstream/

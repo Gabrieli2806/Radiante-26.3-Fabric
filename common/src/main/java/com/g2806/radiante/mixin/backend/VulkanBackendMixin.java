@@ -14,10 +14,27 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(VulkanBackend.class)
 public class VulkanBackendMixin {
+
+    /**
+     * Streamline has to be in place before LWJGL loads the Vulkan library, and these are the first two places that
+     * load it: the availability check Minecraft runs when the graphics API is left on Default, then loadLibrary. Mod
+     * entrypoints on Forge and NeoForge run too late for that; Fabric's pre-launch gets there first on its own.
+     */
+    @Inject(method = "checkBackendAvailable", at = @At("HEAD"))
+    private static void radiante$loadStreamlineBeforeCheck(
+        CallbackInfoReturnable<BackendCreationException> cir) {
+        com.g2806.radiante.client.StreamlineBootstrap.run();
+    }
+
+    @Inject(method = "loadLibrary", at = @At("HEAD"))
+    private void radiante$loadStreamline(CallbackInfo ci) {
+        com.g2806.radiante.client.StreamlineBootstrap.run();
+    }
 
     @Redirect(method = "createDevice(Lcom/mojang/renderpearl/backend/vulkan/init/FeatureSet;Lcom/mojang/renderpearl/backend/vulkan/VulkanPhysicalDevice;)Lorg/lwjgl/vulkan/VkDevice;",
         at = @At(value = "INVOKE",

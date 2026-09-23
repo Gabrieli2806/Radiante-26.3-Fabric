@@ -83,7 +83,7 @@ public final class EmissionTiles {
     /** Registers the emitters once per block atlas; call on the render thread once models are loaded. */
     public static void registerIfNeeded(Minecraft minecraft) {
         TextureAtlas atlas = minecraft.getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS);
-        Object key = atlas.getTexture();
+        Object key = TextureTracker.gpuTextureOrNull(atlas);
         if (key == null || key == registeredFor) {
             return;
         }

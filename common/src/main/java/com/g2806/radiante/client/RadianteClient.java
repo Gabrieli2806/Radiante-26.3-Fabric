@@ -2,10 +2,8 @@ package com.g2806.radiante.client;
 
 import com.g2806.radiante.client.gui.RadianteOptionsScreen;
 import com.g2806.radiante.client.render.RadianteRenderer;
-import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.minecraft.client.KeyMapping;
+import com.g2806.radiante.platform.RadiantePlatform;
+import net.minecraft.client.Minecraft;
 
 import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.pipeline.Pipeline;
@@ -25,11 +23,13 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.stream.Stream;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 
-public class RadianteClient implements ClientModInitializer {
+/**
+ * Radiante's client side, independent of the mod loader. Each loader module calls {@link #init()} from its client
+ * entrypoint, registers {@link RadianteKeys}, and calls {@link #onEndClientTick} at the end of every client tick.
+ */
+public final class RadianteClient {
 
     public static final Logger LOGGER = LogUtils.getLogger();
     private static final String NATIVE_RESOURCE_ROOT = "/radiante-native";
@@ -47,49 +47,48 @@ public class RadianteClient implements ClientModInitializer {
         streamlineLoaded = loaded;
     }
 
-    @Override
-    public void onInitializeClient() {
+    private RadianteClient() {
+    }
+
+    public static void init() {
         ensureNativeLoaded();
         DevAutomation.register();
+        LOGGER.info("Radiante running on {}", RadiantePlatform.INSTANCE.loaderName());
+    }
 
-        KeyMapping openSettings = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.radiante.open_settings",
-            InputConstants.KEY_F6, KeyMapping.Category.MISC));
-        KeyMapping toggleRayTracing = KeyMappingHelper.registerKeyMapping(
-            new KeyMapping("key.radiante.toggle_ray_tracing", InputConstants.KEY_F7, KeyMapping.Category.MISC));
-
+    public static void onEndClientTick(Minecraft minecraft) {
         // The warning has to wait for a screen to exist, so it goes up on the first menu after startup.
-        ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
-            if (!RadianteRenderer.isActive()
-                && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen title
-                && com.g2806.radiante.client.gui.UnsupportedHardwareScreen.shouldShow()) {
-                minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UnsupportedHardwareScreen(title));
+        if (!RadianteRenderer.isActive()
+            && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen title
+            && com.g2806.radiante.client.gui.UnsupportedHardwareScreen.shouldShow()) {
+            minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UnsupportedHardwareScreen(title));
+        }
+
+        while (RadianteKeys.OPEN_SETTINGS.consumeClick()) {
+            if (minecraft.gui.screen() == null) {
+                minecraft.gui.setScreen(new RadianteOptionsScreen(null, minecraft.options));
+            }
+        }
+
+        while (RadianteKeys.TOGGLE_RAY_TRACING.consumeClick()) {
+            if (!RadianteRenderer.isActive()) {
+                sendStatus(minecraft, "message.radiante.ray_tracing_unavailable");
+                continue;
+            }
+            Options.rayTracingEnabled = !Options.rayTracingEnabled;
+            Options.overwriteConfig();
+
+            // Each renderer keeps its own copy of the world, and only the one in use is kept up to date, so the one
+            // being handed the world back has to rebuild it before it can draw anything.
+            if (minecraft.level != null) {
+                minecraft.levelExtractor.allChanged();
             }
 
-            while (openSettings.consumeClick()) {
-                if (minecraft.gui.screen() == null) {
-                    minecraft.gui.setScreen(new RadianteOptionsScreen(null, minecraft.options));
-                }
-            }
+            sendStatus(minecraft, Options.rayTracingEnabled
+                ? "message.radiante.ray_tracing_on" : "message.radiante.ray_tracing_off");
+        }
 
-            while (toggleRayTracing.consumeClick()) {
-                if (!RadianteRenderer.isActive()) {
-                    sendStatus(minecraft, "message.radiante.ray_tracing_unavailable");
-                    continue;
-                }
-                com.g2806.radiante.client.option.Options.rayTracingEnabled =
-                    !com.g2806.radiante.client.option.Options.rayTracingEnabled;
-                com.g2806.radiante.client.option.Options.overwriteConfig();
-
-                // Each renderer keeps its own copy of the world, and only the one in use is kept up to date, so
-                // the one being handed the world back has to rebuild it before it can draw anything.
-                if (minecraft.level != null) {
-                    minecraft.levelExtractor.allChanged();
-                }
-
-                sendStatus(minecraft, com.g2806.radiante.client.option.Options.rayTracingEnabled
-                    ? "message.radiante.ray_tracing_on" : "message.radiante.ray_tracing_off");
-            }
-        });
+        DevAutomation.tick(minecraft);
     }
 
     /**
@@ -106,7 +105,7 @@ public class RadianteClient implements ClientModInitializer {
             throw new IllegalStateException("Radiante currently supports Windows only (detected " + osName + ")");
         }
 
-        radianceDir = FabricLoader.getInstance().getGameDir().resolve("radiante");
+        radianceDir = RadiantePlatform.INSTANCE.gameDir().resolve("radiante");
         try {
             Files.createDirectories(radianceDir);
         } catch (IOException e) {
@@ -185,14 +184,18 @@ public class RadianteClient implements ClientModInitializer {
         copyFolder(nativeSubFolder, target, NATIVE_RESOURCE_ROOT + "/" + nativeSubFolder);
     }
 
+    /**
+     * Copies a folder of the mod's resources. Folders are found through a file known to be there, not looked up
+     * directly: NeoForge serves mod resources from its own file system, which resolves files but not directories.
+     */
     private static void copyFolder(String ignored, Path target, String resourceFolder) {
-        URL url = RadianteClient.class.getResource(resourceFolder);
-        if (url == null) {
-            throw new IllegalStateException("Resource folder not found: " + resourceFolder);
+        URL anchor = RadianteClient.class.getResource(NATIVE_RESOURCE_ROOT + "/core.dll");
+        if (anchor == null) {
+            throw new IllegalStateException("Missing bundled native file: core.dll");
         }
 
         try {
-            URI uri = url.toURI();
+            URI uri = anchor.toURI();
             if ("jar".equals(uri.getScheme())) {
                 FileSystem fs;
                 boolean created = false;
@@ -203,18 +206,27 @@ public class RadianteClient implements ClientModInitializer {
                     created = true;
                 }
                 try {
-                    copyTree(fs.getPath(resourceFolder), target);
+                    copyTree(requireFolder(fs.getPath(resourceFolder), resourceFolder), target);
                 } finally {
                     if (created) {
                         fs.close();
                     }
                 }
             } else {
-                copyTree(Paths.get(uri), target);
+                // core.dll sits in radiante-native, one level below the resource root.
+                Path resourceRoot = Paths.get(uri).getParent().getParent();
+                copyTree(requireFolder(resourceRoot.resolve(resourceFolder.substring(1)), resourceFolder), target);
             }
         } catch (URISyntaxException | IOException e) {
             throw new RuntimeException("Failed to copy resource folder " + resourceFolder, e);
         }
+    }
+
+    private static Path requireFolder(Path folder, String resourceFolder) {
+        if (!Files.isDirectory(folder)) {
+            throw new IllegalStateException("Resource folder not found: " + resourceFolder);
+        }
+        return folder;
     }
 
     private static void copyTree(Path source, Path target) throws IOException {

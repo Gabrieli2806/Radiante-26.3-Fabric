@@ -1,0 +1,20 @@
+plugins {
+	id 'net.neoforged.moddev'
+}
+
+// Plain Minecraft, no loader: anything that compiles here runs on every loader. Nothing is built from this module;
+// it exists so loader-specific code cannot creep into the shared sources.
+neoForge {
+	neoFormVersion = rootProject.neoform_version
+}
+
+dependencies {
+	compileOnly "org.spongepowered:mixin:${rootProject.mixin_version}"
+	compileOnly "io.github.llamalad7:mixinextras-common:${rootProject.mixinextras_version}"
+	implementation "org.yaml:snakeyaml:${rootProject.snakeyaml_version}"
+}
+
+// JNI headers for the native renderer.
+compileJava {
+	options.compilerArgs += ['-h', rootProject.file('native/include').absolutePath]
+}

@@ -170,7 +170,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
      * first time only takes effect after a restart.
      */
     private OptionInstance<Integer> frameGenerationOption() {
-        if (!usingDlss()) {
+        if (!usingDlss() || !com.g2806.radiante.platform.RadiantePlatform.INSTANCE.supportsStreamline()) {
             return null;
         }
 
@@ -218,11 +218,13 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
 
         // Reflex comes with Streamline, which has to be loaded before Minecraft creates its Vulkan device: the
         // first time it is turned on it takes effect after a restart, the same as frame generation.
-        this.list.addSmall(OptionInstance.createBoolean("options.radiante.reflex",
-            OptionInstance.cachedConstantTooltip(Component.translatable(
-                RadianteClient.streamlineLoaded() ? "options.radiante.reflex.tooltip"
-                    : "options.radiante.reflex.tooltip_restart")),
-            this.pendingReflex, value -> this.pendingReflex = value));
+        if (com.g2806.radiante.platform.RadiantePlatform.INSTANCE.supportsStreamline()) {
+            this.list.addSmall(OptionInstance.createBoolean("options.radiante.reflex",
+                OptionInstance.cachedConstantTooltip(Component.translatable(
+                    RadianteClient.streamlineLoaded() ? "options.radiante.reflex.tooltip"
+                        : "options.radiante.reflex.tooltip_restart")),
+                this.pendingReflex, value -> this.pendingReflex = value));
+        }
 
         OptionInstance<String> clouds = cloudModeOption();
         if (clouds != null) {

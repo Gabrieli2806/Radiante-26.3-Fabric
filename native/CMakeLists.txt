@@ -27,7 +27,7 @@ message(STATUS "Include dir: ${MCVR_INCLUDE_DIR}")
 set(MCVR_INSTALL_BIN_DIR ${PROJECT_SOURCE_DIR}/bin)
 message(STATUS "Install bin dir: ${MCVR_INSTALL_BIN_DIR}")
 
-set(MCVR_INSTALL_LIB_DIR ${JAVA_PROJECT_ROOT_DIR}/src/main/resources/radiante-native/)
+set(MCVR_INSTALL_LIB_DIR ${JAVA_PROJECT_ROOT_DIR}/common/src/main/resources/radiante-native/)
 message(STATUS "Install lib dir: ${MCVR_INSTALL_LIB_DIR}")
 
 include_directories(${MCVR_INCLUDE_DIR})

@@ -1,0 +1,53 @@
+plugins {
+	id 'net.neoforged.moddev'
+}
+
+base {
+	archivesName = "${rootProject.archives_base_name}-neoforge"
+}
+
+sourceSets.main {
+	java.srcDir rootProject.commonJava
+	resources.srcDir rootProject.commonResources
+}
+
+neoForge {
+	version = rootProject.neoforge_version
+
+	runs {
+		client {
+			client()
+			// Shared with the other loaders' runs, so worlds and settings carry over.
+			gameDirectory = rootProject.file('run')
+			programArguments.addAll('--width', '1280', '--height', '720')
+		}
+	}
+
+	mods {
+		radiante {
+			sourceSet sourceSets.main
+		}
+	}
+}
+
+dependencies {
+	jarJar(implementation("org.yaml:snakeyaml")) {
+		version {
+			strictly "[${rootProject.snakeyaml_version},3)"
+			prefer rootProject.snakeyaml_version
+		}
+	}
+}
+
+processResources {
+	def props = [version: project.version, minecraft_version: rootProject.minecraft_version,
+				 neoforge_version: rootProject.neoforge_version]
+	inputs.properties props
+	filesMatching("META-INF/neoforge.mods.toml") {
+		expand props
+	}
+}
+
+jar {
+	archiveFileName.set("${rootProject.archives_base_name}-neoforge-${project.version}+${rootProject.minecraft_version}.jar")
+}

@@ -2,7 +2,6 @@ package com.g2806.radiante.client;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 
@@ -26,6 +25,7 @@ public final class DevAutomation {
     private static int nextPre;
     private static int worldTicks = -1;
     private static int next;
+    private static boolean active;
 
     private DevAutomation() {
     }
@@ -45,9 +45,7 @@ public final class DevAutomation {
 
         String script = System.getenv("RADIANTE_DEV_SCRIPT");
         if (script == null || script.isBlank()) {
-            if (!PRE_STEPS.isEmpty()) {
-                ClientTickEvents.END_CLIENT_TICK.register(DevAutomation::tick);
-            }
+            active = !PRE_STEPS.isEmpty();
             return;
         }
         for (String part : script.split(";")) {
@@ -57,11 +55,15 @@ public final class DevAutomation {
             }
         }
         STEPS.sort((a, b) -> Integer.compare(a.tick(), b.tick()));
-        ClientTickEvents.END_CLIENT_TICK.register(DevAutomation::tick);
+        active = true;
         RadianteClient.LOGGER.info("[dev] script with {} steps", STEPS.size());
     }
 
-    private static void tick(Minecraft minecraft) {
+    /** Called every client tick by RadianteClient; does nothing unless a script was given. */
+    static void tick(Minecraft minecraft) {
+        if (!active) {
+            return;
+        }
         clientTicks++;
         while (nextPre < PRE_STEPS.size() && PRE_STEPS.get(nextPre).tick() <= clientTicks) {
             run(minecraft, PRE_STEPS.get(nextPre++).action());

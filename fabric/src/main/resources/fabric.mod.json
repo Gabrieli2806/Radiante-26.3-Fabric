@@ -22,10 +22,10 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "com.g2806.radiante.client.RadianteClient"
+      "com.g2806.radiante.fabric.RadianteFabric"
     ],
     "preLaunch": [
-      "com.g2806.radiante.client.RadiantePreLaunch"
+      "com.g2806.radiante.fabric.RadianteFabricPreLaunch"
     ]
   },
   "mixins": [

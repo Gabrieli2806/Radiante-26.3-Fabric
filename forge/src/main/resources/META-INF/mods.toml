@@ -1,0 +1,29 @@
+modLoader = "javafml"
+loaderVersion = "[66,)"
+license = "GPL-3.0"
+issueTrackerURL = "https://github.com/Gabrieli2806/Radiante-26.3-Fabric/issues"
+clientSideOnly = true
+
+[[mods]]
+modId = "radiante"
+version = "${version}"
+displayName = "Radiante"
+authors = "Gabrieli2806"
+credits = "LJIONG, Interstellarss, CaSilicate-dev"
+logoFile = "assets/radiante/icon.png"
+displayURL = "https://modrinth.com/project/radiante"
+description = '''Hardware ray-traced renderer with DLSS, FSR and XeSS running on Minecraft's native Vulkan backend.'''
+
+[[dependencies.radiante]]
+modId = "forge"
+mandatory = true
+versionRange = "[66,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.radiante]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[${minecraft_version}]"
+ordering = "NONE"
+side = "CLIENT"

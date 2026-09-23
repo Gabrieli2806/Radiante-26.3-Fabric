@@ -1,6 +1,6 @@
 # Radiante
 
-Path-traced rendering for Minecraft 26.3 (Fabric), built on Minecraft's own Vulkan backend.
+Path-traced rendering for Minecraft 26.3 (Fabric, NeoForge and Forge), built on Minecraft's own Vulkan backend.
 
 [GitHub](https://github.com/Gabrieli2806/Radiante-26.3-Fabric) · [Modrinth](https://modrinth.com/project/radiante) · [Discord](https://discord.gg/DhBbAzugZ9)
 
@@ -23,7 +23,11 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
 - Windows x64 (only platform supported for now).
 - A GPU with Vulkan ray tracing support (`VK_KHR_ray_tracing_pipeline` and
   `VK_KHR_acceleration_structure`).
-- Minecraft 26.3 with Fabric Loader 0.19.5+ and Fabric API 0.160.5+26.3.
+- Minecraft 26.3 with one of:
+  - Fabric Loader 0.19.5+ and Fabric API 0.160.5+26.3,
+  - NeoForge 26.3.0.10-beta+,
+  - Forge 26.3-66.0.3+.
+- Frame generation and NVIDIA Reflex are Fabric only for now (see ROADMAP).
 - Java 25.
 
 ## Building
@@ -35,14 +39,24 @@ The mod bundles a native library (`core.dll`) built from `native/`.
 cmake -S native -B build/native -G "Visual Studio 18 2026" -A x64 -DMCVR_ENABLE_NRD=ON -DUSE_AMD=ON
 cmake --build build/native --config Release -j 16
 
-# 2. the mod
+# 2. the mod, one jar per loader in fabric/, neoforge/ and forge/ build/libs
 ./gradlew.bat build
 ```
 
-The CMake install step copies the shaders and modules into `src/main/resources/radiante-native/`; the built
-`core.dll` goes into the same folder. `./gradlew.bat runClient` launches a development client.
+The CMake install step copies the shaders and modules into `common/src/main/resources/radiante-native/`; the
+built `core.dll` goes into the same folder. `./gradlew.bat :fabric:runClient`, `:neoforge:runClient` or
+`:forge:runClient` launches a development client; all three share the `run/` folder.
 
-Useful run flags:
+### Project layout
+
+- `common/` - everything that is plain Minecraft: the renderer, mixins, settings, assets, native files. It is
+  compiled against vanilla Minecraft only, so loader-specific code cannot creep in.
+- `fabric/`, `neoforge/`, `forge/` - each compiles the common sources together with its own small glue: the
+  entrypoint (key bindings, client tick, settings screen) and a `RadiantePlatform` implementation (game
+  directory, Fabric's mesh submissions, Streamline support), registered under `META-INF/services`.
+- Versions for all of them live in the root `gradle.properties`.
+
+Useful run flags (Fabric):
 
 - `-PquickPlay="<world name>"` — boot straight into a world.
 - `-PvulkanValidation` — enable Vulkan validation layers and render debug labels.

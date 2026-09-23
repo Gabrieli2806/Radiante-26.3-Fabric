@@ -6,6 +6,17 @@ backlog, not a promise.
 
 ## Open work and verification
 
+### Frame generation and Reflex on Forge / NeoForge — investigate
+
+With Streamline loaded, Forge and NeoForge crash in the native `createDevice`
+(Fabric is fine). Streamline is now loaded from the first point LWJGL could load
+Vulkan (`VulkanBackend.checkBackendAvailable` / `loadLibrary`), so the timing
+matches Fabric's pre-launch, yet it still crashes, which points at the loaders
+loading the Vulkan library some other way first. Until that is understood both
+opt out (`RadiantePlatform.supportsStreamline`) and hide the two options.
+Also still to check: the Forge jar installed in a real Forge client (the dev run
+works; the hand-nested SnakeYAML only matters outside dev).
+
 ### Visual smoke test suite — planned
 
 A repeatable, one-command check to run after every Minecraft version bump (and
@@ -212,6 +223,25 @@ players (ray bounces, denoiser strength, etc).
   `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
 
 ## Completed
+
+### Fabric, NeoForge and Forge support — done
+
+The project is split into `common/` (plain Minecraft, compiled against vanilla
+through ModDevGradle's NeoForm mode) and one thin module per loader (Fabric Loom,
+ModDevGradle, ForgeGradle 7) that compiles the common sources with its own glue.
+Minecraft 26.x is unobfuscated, so the same mixins apply unchanged everywhere.
+Loader-specific pieces sit behind `RadiantePlatform` (ServiceLoader): game
+directory, the collector (Fabric's rendering API adds a mesh submission method,
+handled in `FabricEntityCollector`), and whether Streamline can load. Key
+bindings (`RadianteKeys`), the client tick (`RadianteClient.onEndClientTick`) and
+the settings screen are registered by each loader's entrypoint. Differences found
+while porting: NeoForge's resource file system resolves files but not folders
+(native extraction now locates folders from `core.dll`); NeoForge ticks atlas
+animations before the atlas texture exists (`TextureTracker.gpuTextureOrNull`);
+Forge's Mixin 0.8.7 only knows compatibility levels up to `JAVA_21`; ForgeGradle 7
+has no jar-in-jar, so SnakeYAML is nested by hand in the format Forge reads.
+Verified: all three boot, apply every mixin, and render the same test scene the
+same way.
 
 ### Ice, wither glow, charged creeper light — done
 

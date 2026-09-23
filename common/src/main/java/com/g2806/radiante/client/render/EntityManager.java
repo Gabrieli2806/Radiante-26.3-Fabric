@@ -33,7 +33,8 @@ import org.lwjgl.system.MemoryUtil;
  */
 public final class EntityManager {
 
-    private static final EntityCollector COLLECTOR = new EntityCollector();
+    private static final EntityCollector COLLECTOR =
+        com.g2806.radiante.platform.RadiantePlatform.INSTANCE.createEntityCollector();
     private static final PoseStack POSE_STACK = new PoseStack();
     private static final List<PendingEntity> PENDING = new ArrayList<>();
     private static boolean queued;

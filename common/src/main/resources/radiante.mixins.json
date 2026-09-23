@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.g2806.radiante.mixin",
-  "compatibilityLevel": "JAVA_25",
+  "compatibilityLevel": "JAVA_21",
   "client": [
     "backend.PreferredGraphicsApiMixin",
     "backend.TextureTrackingMixins$DeviceMixin",

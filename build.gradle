@@ -1,0 +1,25 @@
+// Settings every module shares. Loader specifics live in each module's own build.gradle.
+subprojects {
+	apply plugin: 'java'
+
+	version = rootProject.mod_version
+	group = rootProject.maven_group
+
+	java {
+		toolchain.languageVersion = JavaLanguageVersion.of(25)
+	}
+
+	tasks.withType(JavaCompile).configureEach {
+		options.encoding = 'UTF-8'
+		options.release = 25
+	}
+
+	repositories {
+		mavenCentral()
+	}
+}
+
+// The loader modules compile the common sources as their own, so there is one jar per loader with no extra
+// dependency to ship.
+ext.commonJava = file('common/src/main/java')
+ext.commonResources = file('common/src/main/resources')

@@ -16,7 +16,7 @@ public final class AtlasMirror {
     }
 
     public static void mirror(TextureAtlas atlas, List<TextureAtlasSprite> sprites, int maxMipLevel) {
-        if (!RadianteRenderer.isActive() || atlas.getTexture() == null) {
+        if (!RadianteRenderer.isActive() || TextureTracker.gpuTextureOrNull(atlas) == null) {
             return;
         }
 

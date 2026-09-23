@@ -29,7 +29,8 @@ public final class AnimationMirror {
     /** Uploads changed frames; {@code states} are the atlas animation states, in the order of its animated sprites. */
     public static void onAnimationsTicked(TextureAtlas atlas, List<TextureAtlasSprite> sprites, List<?> states,
         int maxMipLevel) {
-        if (!RadianteRenderer.isActive() || atlas.getTexture() == null || states.isEmpty() || !resolve(states)) {
+        if (!RadianteRenderer.isActive() || TextureTracker.gpuTextureOrNull(atlas) == null || states.isEmpty()
+            || !resolve(states)) {
             return;
         }
 

@@ -165,6 +165,19 @@ public final class TextureTracker {
 
     public static int idOf(Identifier location) {
         AbstractTexture texture = Minecraft.getInstance().getTextureManager().getTexture(location);
-        return texture == null ? 0 : idOf(texture.getTexture());
+        GpuTexture gpuTexture = texture == null ? null : gpuTextureOrNull(texture);
+        return gpuTexture == null ? 0 : idOf(gpuTexture);
+    }
+
+    /**
+     * The texture's GPU image, or null before it has one. {@code getTexture} throws in that case rather than
+     * returning null, and on NeoForge atlases are ticked while resources are still loading, before that point.
+     */
+    public static GpuTexture gpuTextureOrNull(AbstractTexture texture) {
+        try {
+            return texture.getTexture();
+        } catch (IllegalStateException notCreatedYet) {
+            return null;
+        }
     }
 }
