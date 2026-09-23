@@ -66,14 +66,6 @@ With resource packs that use PBR and 3D block effects, parts of some blocks,
 usually the corners, render black. Those areas may be intended to be transparent;
 check the affected materials and transparency handling before choosing a fix.
 
-### Investigate: backport to 26.1
-
-Check whether the render pearl Vulkan backend (`com.mojang.renderpearl`) exists in
-26.1, and if the mixin targets (`VulkanInstance`, `VulkanBackend`, `VulkanDevice`,
-`FrontendCommandEncoder`, the `LevelRenderState`/`SubmitNodeCollector` extraction
-path) are stable enough between 26.1 and 26.3 to share a codebase, or whether it
-needs its own mixin set behind a version-specific module. This is exploratory:
-the answer could be "not worth it" if the two versions diverge too much.
 
 ### NameTag support — implemented, pending in-game check
 
@@ -223,6 +215,34 @@ players (ray bounces, denoiser strength, etc).
   `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
 
 ## Completed
+
+### Backport — 26.2 done, 26.1 not pursued
+
+Each Minecraft version lives on its own branch: `mc/26.3` and `mc/26.2`. 26.2
+predates the render pearl split; its Vulkan backend is `com.mojang.blaze3d.vulkan`
+with the same classes, so the port was a package move plus API differences
+(device creation, both `createTexture` overloads, a protected
+`CommandEncoder.backend()`, the older submit API, no player render state). 26.2
+draws the glint as a second, coplanar copy of a model; instead of tracing that
+copy, the layers it follows (armor, shield, trident, items) are made to glint. Dev runs use `run-26.2/` so they never touch 26.3
+saves. Verified in game on Fabric, NeoForge and Forge.
+
+Two loader issues surfaced on 26.2 and are fixed there: NeoForge always, and
+Forge on the Default graphics setting, hand Minecraft an OpenGL early loading
+window, on which no Vulkan surface can be made. NeoForge's window is replaced and
+its loading screen let go; Forge is switched to its own no-early-window provider.
+
+26.1 has no Vulkan backend at all (OpenGL only). Supporting it would mean the
+renderer owning its own Vulkan device and presenting through OpenGL interop, or
+replacing OpenGL wholesale as the original Radiance did; judged not worth it.
+
+### Graphics API fallback after a failed start — done
+
+After a start that never finished, Minecraft switches the preferred graphics API
+to OpenGL for safety, and that value was then saved with the other options on
+exit. The mod reads a saved OpenGL as the player's own choice, so a single crash
+left ray tracing off for good. The fallback still covers the session it protects,
+but is no longer saved.
 
 ### Fabric, NeoForge and Forge support — done
 

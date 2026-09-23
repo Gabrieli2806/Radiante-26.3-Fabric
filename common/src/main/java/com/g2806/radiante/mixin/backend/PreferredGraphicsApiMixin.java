@@ -22,7 +22,7 @@ public class PreferredGraphicsApiMixin {
     @Inject(method = "getBackendsToTry", at = @At("HEAD"), cancellable = true)
     private void radiante$preferVulkan(CallbackInfoReturnable<GpuBackend[]> cir) {
         PreferredGraphicsApi preference = (PreferredGraphicsApi) (Object) this;
-        if (preference == PreferredGraphicsApi.OPENGL || Options.useOpenGl) {
+        if (preference == PreferredGraphicsApi.OPENGL || Options.useOpenGl || Options.openGlAfterFailedStart) {
             cir.setReturnValue(new GpuBackend[]{new GlBackend()});
             return;
         }
