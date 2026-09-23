@@ -171,6 +171,17 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         return this.droppedQuads;
     }
 
+    /** Makes already written vertices glint, sampling the glint at their own texture coordinate. */
+    public void applyGlint(int fromVertex, int toVertex, int glintTextureId) {
+        for (int i = fromVertex; i < toVertex; i++) {
+            long v = this.address + (long) i * STRIDE;
+            MemoryUtil.memPutInt(v + OFF_USE_GLINT, 1);
+            MemoryUtil.memPutInt(v + OFF_GLINT_TEXTURE, glintTextureId);
+            MemoryUtil.memPutFloat(v + OFF_GLINT_UV, MemoryUtil.memGetFloat(v + OFF_TEXTURE_UV));
+            MemoryUtil.memPutFloat(v + OFF_GLINT_UV + 4, MemoryUtil.memGetFloat(v + OFF_TEXTURE_UV + 4));
+        }
+    }
+
     public void reset() {
         this.vertexCount = 0;
         this.current = -1L;

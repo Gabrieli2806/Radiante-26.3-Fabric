@@ -80,6 +80,12 @@ public class EntityCollector implements SubmitNodeCollector {
     private final java.util.Set<RenderType> nameTagLayers = new java.util.HashSet<>();
     private boolean collectingNameTag;
     private int used;
+    /** Consecutive submissions of one model, which a following 26.2 glint pass for that model decorates. */
+    private @Nullable Object glintRunModel;
+    private final List<GlintRange> glintRun = new ArrayList<>();
+
+    private record GlintRange(PBRVertexWriter writer, int from, int to) {
+    }
 
     /** Drops the geometry of the previous entity, keeping the buffers for reuse. */
     public void reset() {
@@ -88,6 +94,8 @@ public class EntityCollector implements SubmitNodeCollector {
         this.used = 0;
         this.entityEmission = 0.0f;
         this.colorOverride = 0;
+        this.glintRunModel = null;
+        this.glintRun.clear();
     }
 
     /** Paints everything collected from here on in one colour; the glowing effect's outline copy uses it. */
@@ -162,20 +170,37 @@ public class EntityCollector implements SubmitNodeCollector {
     public <S> void submitModel(Model<? super S> model, S state, PoseStack poseStack, RenderType renderType,
         int lightCoords, int overlayCoords, int tintedColor, @Nullable TextureAtlasSprite sprite, int outlineColor,
         ModelFeatureRenderer.@Nullable CrumblingOverlay crumblingOverlay) {
-        // 26.2 draws the glint as a second, coplanar copy of the model; traced, it would z-fight what it decorates.
-        if (RenderTypeInfo.of(renderType).isGlintOverlayPass()) {
+        // 26.2 draws the glint as a second, coplanar copy of the model right after the layers it decorates; traced,
+        // it would z-fight them. Those layers are made to glint instead.
+        RenderTypeInfo info = RenderTypeInfo.of(renderType);
+        if (info.isGlintOverlayPass()) {
+            if (model == this.glintRunModel) {
+                int glintTextureId = info.textureId();
+                for (GlintRange range : this.glintRun) {
+                    range.writer().applyGlint(range.from(), range.to(), glintTextureId);
+                }
+            }
+            this.glintRunModel = null;
+            this.glintRun.clear();
             return;
         }
         // An outline colour means the glowing effect. Vanilla still draws the model, and draws the silhouette on
         // top from a post effect this renderer does not run; dropping the submission made a glowing mob or player
         // disappear instead. The outline comes from a separate copy of the entity; see EntityManager.collect.
-        VertexConsumer buffer = this.writer(renderType);
+        PBRVertexWriter writer = this.writer(renderType);
+        VertexConsumer buffer = writer;
         if (sprite != null) {
             buffer = sprite.wrap(buffer);
         }
 
+        if (model != this.glintRunModel) {
+            this.glintRunModel = model;
+            this.glintRun.clear();
+        }
+        int from = writer.vertexCount();
         model.setupAnim(state);
         model.renderToBuffer(poseStack, buffer, lightCoords, overlayCoords, tintedColor);
+        this.glintRun.add(new GlintRange(writer, from, writer.vertexCount()));
         if (crumblingOverlay != null) {
             this.submitCrumblingOverlay(model, state, poseStack, lightCoords, overlayCoords, crumblingOverlay);
         }
