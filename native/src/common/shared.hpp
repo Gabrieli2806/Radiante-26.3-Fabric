@@ -308,6 +308,10 @@ namespace Data {
         // Per-biome haze, blended around the camera on the Java side: rgb is the biome's tint, a its extinction per
         // block. Zero when the option is off, outside the overworld sky, or with the camera out of the sky light.
         T_VEC4 biomeFog;
+
+        // xyz: the axis the sun and moon turn around, which vanilla keeps as one edge of their square sprites.
+        // w: 1 to orient the sprites that way (the "Vanilla Sun/Moon Orientation" option), 0 for a free basis.
+        T_VEC4 celestialAxis;
     };
 
     struct TextureMapEntry {

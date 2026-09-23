@@ -80,6 +80,13 @@ public class Options {
      * Minecraft does not draw the player at all then, so nothing of them would reach the world without this.
      */
     public static boolean firstPersonShadow = true;
+    /**
+     * Sun and moon cross the sky exactly as in vanilla, straight overhead from east to west. Off, their path leans
+     * ten degrees to the south, so noon shadows are not all straight down.
+     */
+    public static boolean vanillaSunPath = false;
+    /** Sun and moon sprites keep vanilla's fixed orientation instead of turning as they cross the sky. */
+    public static boolean vanillaCelestialOrientation = false;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
@@ -146,6 +153,10 @@ public class Options {
             biomeFog = Boolean.parseBoolean(props.getProperty("biomeFog", String.valueOf(biomeFog)));
             firstPersonShadow = Boolean.parseBoolean(
                 props.getProperty("firstPersonShadow", String.valueOf(firstPersonShadow)));
+            vanillaSunPath = Boolean.parseBoolean(
+                props.getProperty("vanillaSunPath", String.valueOf(vanillaSunPath)));
+            vanillaCelestialOrientation = Boolean.parseBoolean(
+                props.getProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation)));
             biomeFogStrength = Math.max(0, Math.min(400, Integer.parseInt(
                 props.getProperty("biomeFogStrength", String.valueOf(biomeFogStrength)))));
             setCollectChunkEmission(Boolean.parseBoolean(props.getProperty("collectChunkEmission",
@@ -185,6 +196,8 @@ public class Options {
         props.setProperty("debugLogging", String.valueOf(debugLogging));
         props.setProperty("biomeFog", String.valueOf(biomeFog));
         props.setProperty("firstPersonShadow", String.valueOf(firstPersonShadow));
+        props.setProperty("vanillaSunPath", String.valueOf(vanillaSunPath));
+        props.setProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation));
         props.setProperty("biomeFogStrength", String.valueOf(biomeFogStrength));
         props.setProperty("rayTracingEnabled", String.valueOf(rayTracingEnabled));
         props.setProperty("useOpenGl", String.valueOf(useOpenGl));

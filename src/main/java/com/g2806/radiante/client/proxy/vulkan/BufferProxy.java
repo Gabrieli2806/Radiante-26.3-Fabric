@@ -14,7 +14,7 @@ import org.lwjgl.system.MemoryStack;
 public class BufferProxy {
 
     private static final int WORLD_UBO_SIZE = 592;
-    private static final int SKY_UBO_SIZE = 128;
+    private static final int SKY_UBO_SIZE = 144;
     private static final int TEXTURE_MAPPING_ENTRIES = 4096;
 
     private static native void updateWorldUniform(long ptr);
@@ -121,7 +121,8 @@ public class BufferProxy {
                              Vector4fc sunUvRect,
                              Vector4fc moonUvRect,
                              Vector4fc biomeFog,
-                             float nightVision) {
+                             float nightVision,
+                             Vector4fc celestialAxis) {
     }
 
     public static void updateSkyUniform(SkyUniform uniform) {
@@ -199,6 +200,15 @@ public class BufferProxy {
             bb.putFloat(offset, uniform.biomeFog().z());
             offset += Float.BYTES;
             bb.putFloat(offset, uniform.biomeFog().w());
+            offset += Float.BYTES;
+
+            bb.putFloat(offset, uniform.celestialAxis().x());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.celestialAxis().y());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.celestialAxis().z());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.celestialAxis().w());
 
             updateSkyUniform(addr);
         }

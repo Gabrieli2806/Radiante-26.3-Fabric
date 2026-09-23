@@ -288,6 +288,13 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             this.pendingFirstPersonShadow, value -> this.pendingFirstPersonShadow = value);
         OptionInstance<Boolean> debugLogging = OptionInstance.createBoolean("options.radiante.debug_logging",
             this.pendingDebugLogging, value -> this.pendingDebugLogging = value);
+        this.list.addSmall(OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
+                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
+                Options.vanillaSunPath, value -> Options.vanillaSunPath = value),
+            OptionInstance.createBoolean("options.radiante.vanilla_celestial_orientation",
+                OptionInstance.cachedConstantTooltip(
+                    Component.translatable("options.radiante.vanilla_celestial_orientation.tooltip")),
+                Options.vanillaCelestialOrientation, value -> Options.vanillaCelestialOrientation = value));
         if (Pipeline.supportsVolumetricFog()) {
             if (this.pendingVolumetricFog == null) {
                 this.pendingVolumetricFog = Pipeline.isVolumetricFog();

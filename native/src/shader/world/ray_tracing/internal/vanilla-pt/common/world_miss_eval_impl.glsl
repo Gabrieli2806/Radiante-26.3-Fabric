@@ -79,6 +79,17 @@ vec4 sampleAtlasLod0(sampler2D tex, vec2 uv01, uvec2 tileCount, uvec2 tile) {
     return sampleTexture(tex, atlasUv, 0.0, false);
 }
 
+// The sun and moon sprites' frame. Vanilla keeps one edge along the axis the sky turns around, so the squares
+// never turn as they cross the sky; the free basis turns them with the direction.
+void celestialBasis(vec3 dir, out vec3 right, out vec3 up) {
+    if (skyUBO.celestialAxis.w > 0.5) {
+        right = normalize(skyUBO.celestialAxis.xyz);
+        up = normalize(cross(right, celestialSunDirection()));
+        return;
+    }
+    makeBasis(dir, right, up);
+}
+
 vec4 evalSunBillboard(vec3 rayDir) {
     vec3 sunDir = celestialSunDirection();
     rayDir = normalize(rayDir);
@@ -86,7 +97,7 @@ vec4 evalSunBillboard(vec3 rayDir) {
     if (z <= 0.0) return vec4(0.0);
 
     vec3 right, up;
-    makeBasis(sunDir, right, up);
+    celestialBasis(sunDir, right, up);
     vec2 p = vec2(dot(rayDir, right), dot(rayDir, up));
     vec2 q = p / max(z, 1e-4);
     // Vanilla draws the sun as a quad of half-width 30 at distance 100 (SkyRenderer.renderSun ->
@@ -114,7 +125,7 @@ vec4 evalMoonBillboard(vec3 rayDir) {
     if (z <= 0.0) return vec4(0.0);
 
     vec3 right, up;
-    makeBasis(moonDir, right, up);
+    celestialBasis(moonDir, right, up);
     vec2 p = vec2(dot(rayDir, right), dot(rayDir, up));
     vec2 q = p / max(z, 1e-4);
     // Same derivation as the sun, with vanilla's moon half-width of 20 at distance 100.

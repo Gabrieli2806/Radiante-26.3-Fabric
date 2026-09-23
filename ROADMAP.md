@@ -6,12 +6,6 @@ backlog, not a promise.
 
 ## Open work and verification
 
-### Sun and moon positioning mode — planned
-
-Add a setting to choose between the custom inclination of the sun and moon
-and vanilla positioning. The vanilla mode should match their positions and
-path across the sky in vanilla Minecraft for the same time of day.
-
 ### Inside lava / powder snow looks transparent — revisit
 
 With the camera in lava (or powder snow) the world stays visible instead of
@@ -191,6 +185,25 @@ players (ray bounces, denoiser strength, etc).
   `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
 
 ## Completed
+
+### Sun and moon positioning mode — done
+
+New option "Vanilla Sun Path" (`Options.vanillaSunPath`, off by default,
+saved in options.properties). The custom inclination was a fixed 10 degree
+southward tilt applied in both packs' `celestial.glsl`; it now lives in
+`RadianteRenderer` (a rotateX before vanilla's own rotateY(-90)/rotateX(sun
+angle)), skipped when the option is on, so the shaders take the direction
+as-is. Vanilla mode matches vanilla's sky transform, sun straight overhead
+at noon. Verified at time 6000: vanilla mode throws a pillar's shadow
+straight down, custom mode throws it north.
+
+Second option "Vanilla Sun/Moon Rotation" (`Options.vanillaCelestialOrientation`,
+off by default). The sprites were laid on a free basis around their direction
+(`makeBasis`), so the squares turned as they crossed the sky and read as
+diamonds. With the option on, `celestialBasis` in both packs' miss shader uses
+the axis the sky turns around (sent as `SkyUBO.celestialAxis`, the celestial
+transform's local x) as one edge, like vanilla's quads. Verified: sun and moon
+show as upright squares with it on, diamonds with it off.
 
 ### Hollow-looking door and trapdoor cutouts — done
 

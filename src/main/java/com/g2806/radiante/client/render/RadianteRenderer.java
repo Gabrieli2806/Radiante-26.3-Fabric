@@ -263,10 +263,14 @@ public final class RadianteRenderer {
         Vector4f horizonColor = sky.sunriseAndSunsetColor == null
             ? new Vector4f(0.0f)
             : new Vector4f(sky.sunriseAndSunsetColor);
-        Vector3f sunDirection = new Matrix4f().rotateY((float) Math.toRadians(-90.0))
-            .rotateX(sky.sunAngle)
-            .transformPosition(new Vector3f(0.0f, 1.0f, 0.0f))
-            .normalize();
+        Matrix4f celestial = new Matrix4f()
+            .rotateX(Options.vanillaSunPath ? 0.0f : (float) Math.toRadians(SUN_PATH_SOUTH_TILT_DEGREES))
+            .rotateY((float) Math.toRadians(-90.0))
+            .rotateX(sky.sunAngle);
+        Vector3f sunDirection = celestial.transformDirection(new Vector3f(0.0f, 1.0f, 0.0f)).normalize();
+        // Vanilla's sun and moon quads lie along the transform's local x and z, so their edges stay lined up with
+        // the path; x is the axis the sky turns around.
+        Vector3f celestialAxis = celestial.transformDirection(new Vector3f(1.0f, 0.0f, 0.0f)).normalize();
 
 
         TextureAtlas celestials = minecraft.getAtlasManager().getAtlasOrThrow(AtlasIds.CELESTIALS);
@@ -279,10 +283,14 @@ public final class RadianteRenderer {
             spriteRect(celestials, SUN_SPRITE),
             spriteRect(celestials, moonSprite(sky.moonPhase)),
             BiomeAmbiance.update(minecraft, cameraState.pos, skyType, 1.0f - sky.rainBrightness, fog.color),
-            gameRenderer.gameRenderState().lightmapRenderState.nightVisionEffectIntensity));
+            gameRenderer.gameRenderState().lightmapRenderState.nightVisionEffectIntensity,
+            new Vector4f(celestialAxis, Options.vanillaCelestialOrientation ? 1.0f : 0.0f)));
     }
 
-    private static final Identifier SUN_SPRITE = Identifier.withDefaultNamespace("sun");
+    /** How far the custom sun path leans south of vanilla's overhead arc. */
+    private static final double SUN_PATH_SOUTH_TILT_DEGREES = 10.0;
+
+    private static final Identifier SUN_SPRITE =Identifier.withDefaultNamespace("sun");
 
     /** The eight phases are separate sprites named after the phase, not tiles of a fixed grid. */
     private static Identifier moonSprite(MoonPhase phase) {
