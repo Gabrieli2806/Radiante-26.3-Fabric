@@ -26,6 +26,7 @@
     "render.RenderTypeAccessors$RenderSetupAccessor",
     "render.RenderTypeAccessors$RenderTypeAccessor",
     "render.RenderTypeAccessors$TextureBindingAccessor",
+    "texture.PackDetectorMixin",
     "texture.SpriteContentsMixin",
     "texture.TextureAtlasAccessor",
     "texture.TextureAtlasMixin",

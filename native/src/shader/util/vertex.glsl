@@ -13,6 +13,8 @@ const uint USE_LIGHT_BIT = 1u << 5u;
 const uint ALPHA_MODE_SHIFT = 8u;
 const uint COORDINATE_SHIFT = 12u;
 const uint NO_HEIGHT_SURFACE_BIT = 1u << 16u;
+// The surface of water, marked by the section builder.
+const uint WATER_SURFACE_BIT = 1u << 17u;
 
 #ifndef CONST_ONLY
 layout(set = 1, binding = 4) readonly buffer PositionBufferAddr {
@@ -105,6 +107,10 @@ bool hasNorm(uint packedData) {
 
 bool hasLight(uint packedData) {
     return (packedData & USE_LIGHT_BIT) != 0u;
+}
+
+bool isWaterSurface(uint packedData) {
+    return (packedData & WATER_SURFACE_BIT) != 0u;
 }
 
 bool hasNoHeightSurface(uint packedData) {

@@ -198,6 +198,7 @@ public final class RadianteRenderer {
         DevProfiler.mark(3);
 
         EmissionTiles.registerIfNeeded(minecraft);
+        BiomeAmbiance.reloadPackFogIfNeeded(minecraft);
         ChunkManager.applyImportantUploads();
         EntityManager.render(minecraft, levelRenderState);
         DevProfiler.mark(4);
@@ -262,7 +263,7 @@ public final class RadianteRenderer {
                 minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false)) : new Vector4f(0.0f),
             Options.heldItemLight ? HeldLight.color(minecraft) : new Vector4f(0.0f),
             Options.parallaxTransparentEdges, Options.dayBrightness / 100.0f, Options.nightBrightness / 100.0f,
-            Options.emissionBrightness / 100.0f));
+            Options.emissionBrightness / 100.0f, Options.pixelLighting));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
         Vector3f skyColor = sky.skyColor == null ? new Vector3f(0.5f, 0.6f, 1.0f) : new Vector3f(sky.skyColor);
@@ -287,7 +288,9 @@ public final class RadianteRenderer {
             spriteRect(celestials, moonSprite(sky.moonPhase)),
             BiomeAmbiance.update(minecraft, cameraState.pos, skyType, 1.0f - sky.rainBrightness, fog.color),
             gameRenderer.gameRenderState().lightmapRenderState.nightVisionEffectIntensity,
-            new Vector4f(celestialAxis, Options.vanillaCelestialOrientation ? 1.0f : 0.0f)));
+            new Vector4f(celestialAxis, Options.vanillaCelestialOrientation ? 1.0f : 0.0f),
+            BiomeAmbiance.chroma(), BiomeAmbiance.heights(), BiomeAmbiance.waterExtinction(),
+            BiomeAmbiance.waterAlbedo()));
     }
 
     /** How far the custom sun path leans south of vanilla's overhead arc. */

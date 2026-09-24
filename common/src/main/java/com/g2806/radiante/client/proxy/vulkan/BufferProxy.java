@@ -13,8 +13,8 @@ import org.lwjgl.system.MemoryStack;
 /** Uploads the uniform blocks the ray tracing shaders read (see native common/shared.hpp). */
 public class BufferProxy {
 
-    private static final int WORLD_UBO_SIZE = 640;
-    private static final int SKY_UBO_SIZE = 144;
+    private static final int WORLD_UBO_SIZE = 656;
+    private static final int SKY_UBO_SIZE = 208;
     private static final int TEXTURE_MAPPING_ENTRIES = 4096;
 
     private static native void updateWorldUniform(long ptr);
@@ -45,7 +45,8 @@ public class BufferProxy {
                                boolean parallaxTransparentEdges,
                                float sunBrightness,
                                float moonBrightness,
-                               float emissionBrightness) {
+                               float emissionBrightness,
+                               boolean pixelLighting) {
     }
 
     public static void updateWorldUniform(WorldUniform uniform) {
@@ -125,6 +126,8 @@ public class BufferProxy {
             bb.putFloat(offset, uniform.moonBrightness());
             offset += Float.BYTES;
             bb.putFloat(offset, uniform.emissionBrightness());
+            offset += Float.BYTES;
+            bb.putInt(offset, uniform.pixelLighting() ? 1 : 0);
             updateWorldUniform(addr);
         }
     }
@@ -145,7 +148,11 @@ public class BufferProxy {
                              Vector4fc moonUvRect,
                              Vector4fc biomeFog,
                              float nightVision,
-                             Vector4fc celestialAxis) {
+                             Vector4fc celestialAxis,
+                             Vector4fc biomeFogChroma,
+                             Vector4fc biomeFogHeights,
+                             Vector4fc waterExtinction,
+                             Vector4fc waterAlbedo) {
     }
 
     public static void updateSkyUniform(SkyUniform uniform) {
@@ -232,9 +239,23 @@ public class BufferProxy {
             bb.putFloat(offset, uniform.celestialAxis().z());
             offset += Float.BYTES;
             bb.putFloat(offset, uniform.celestialAxis().w());
+            offset += Float.BYTES;
+
+            offset = putVec4(bb, offset, uniform.biomeFogChroma());
+            offset = putVec4(bb, offset, uniform.biomeFogHeights());
+            offset = putVec4(bb, offset, uniform.waterExtinction());
+            putVec4(bb, offset, uniform.waterAlbedo());
 
             updateSkyUniform(addr);
         }
+    }
+
+    private static int putVec4(ByteBuffer bb, int offset, Vector4fc value) {
+        bb.putFloat(offset, value.x());
+        bb.putFloat(offset + Float.BYTES, value.y());
+        bb.putFloat(offset + 2 * Float.BYTES, value.z());
+        bb.putFloat(offset + 3 * Float.BYTES, value.w());
+        return offset + 4 * Float.BYTES;
     }
 
     /** Uploads the specular/normal/flag texture mapping used by PBR resource packs. */

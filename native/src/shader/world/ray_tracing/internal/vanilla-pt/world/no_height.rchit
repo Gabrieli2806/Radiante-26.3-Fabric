@@ -71,6 +71,7 @@ indexBuffer;
 
 #include "util/vertex.glsl"
 #include "common/constants.glsl"
+#include "common/water_medium.glsl"
 
 layout(location = 0) rayPayloadInEXT MainRay mainRay;
 layout(location = 1) rayPayloadEXT ShadowRay shadowRay;
@@ -178,7 +179,9 @@ void sampleSurfaceState(bool useTexture,
     vec3 shadingNormal = geometricNormal;
     bool useWaterMaterial = isWaterMaterial && !localHit.sideWall;
     if (useWaterMaterial) {
-        vec3 waterTint = vec3(0.95, 0.98, 1.0);
+        // The biome's water colour, as vanilla tints it; the refraction takes its square root, so the surface reads
+        // the colour lightly and depth (the pack's water medium, when there is one) does the rest.
+        vec3 waterTint = clamp(colorLayer, vec3(0.05), vec3(1.0));
         albedoValue.rgb = waterTint;
         tint = waterTint;
         mat.f0 = vec3(0.02);
@@ -828,6 +831,20 @@ void main() {
     vec3 colorLayer = colorLayerValue.rgb;
     uint bounce = rayBounce(mainRay);
 
+    // The stretch of water this ray just crossed. The camera's own stretch, when it is under water, is the ray
+    // generation's to fog; the rays leaving the first surface it sees are still in the water.
+    if (waterMediumActive()) {
+        if (rayInWater(mainRay)) {
+            vec3 waterTransmittance;
+            vec3 waterScatter;
+            waterMediumSegment(gl_HitTEXT, waterTransmittance, waterScatter);
+            mainRay.radiance += mainRay.throughput * waterScatter;
+            mainRay.throughput *= waterTransmittance;
+        } else if (bounce == 0u && skyUBO.cameraSubmersionType == 1) {
+            raySetInWater(mainRay, true);
+        }
+    }
+
     float albedoEmission =
         baryCoords.x * m0.albedoEmission + baryCoords.y * m1.albedoEmission + baryCoords.z * m2.albedoEmission;
     uint textureID = m0.textureID;
@@ -871,9 +888,10 @@ void main() {
         baseGeoNormal = planeGeoNormal;
         if (dot(baseGeoNormal, baseViewDir) < 0.0) { baseGeoNormal = -baseGeoNormal; }
 
+        isWaterMaterial = isWaterSurface(packedData);
         if (textureMap.flag >= 0) {
             ivec4 flags = ivec4(round(sampleTexture(textures[nonuniformEXT(textureMap.flag)], textureUV, ceil(lod), false) * 255.0));
-            isWaterMaterial = (flags.r & 0x1) > 0;
+            isWaterMaterial = isWaterMaterial || (flags.r & 0x1) > 0;
         }
         hasFftWaterSurface = useRealisticWaterSurface && isWaterMaterial && abs(planeGeoNormal.y) > 0.75;
 
@@ -997,15 +1015,24 @@ void main() {
         emissionRadiance += currentSurface.tint * albedoEmission * mainRay.throughput;
         mainRay.radiance += emissionRadiance;
 
+        // Pixelated lighting: the light is gathered at the centre of the texel that was hit, so each texel of the
+        // texture is lit, and shadowed, as one flat tile.
+        SampledSurface litSurface = currentSurface;
+        if (worldUBO.pixelLighting != 0u && useTexture && !isWaterMaterial) {
+            vec2 texelCount = vec2(textureSize(textures[nonuniformEXT(textureID)], 0));
+            vec2 texelCentre = (floor(currentSurface.uv * texelCount) + 0.5) / texelCount;
+            vec2 toCentre = texelCentre - currentSurface.uv;
+            litSurface.worldPos += dPduWorld * toCentre.x + dPdvWorld * toCentre.y;
+        }
         vec3 directLight =
-            sampleSurfaceDirectLight(currentSurface, currentViewDir, textureUV, planeHitWorldPos, atlasUvMin, atlasUvMax,
+            sampleSurfaceDirectLight(litSurface, currentViewDir, textureUV, planeHitWorldPos, atlasUvMin, atlasUvMax,
                                      dPduWorld, dPdvWorld, baseGeoNormal, traceLocalHeight,
                                      textureMap.normal, maxDepthWorld, hasFftWaterSurface);
-        vec3 blockLight = sampleBlockLight(currentSurface.worldPos, currentSurface.geometricNormal,
-                                           currentSurface.shadingNormal, currentSurface.mat);
+        vec3 blockLight = sampleBlockLight(litSurface.worldPos, litSurface.geometricNormal,
+                                           litSurface.shadingNormal, litSurface.mat);
         directLight += blockLight;
-        directLight += sampleHeldLight(currentSurface.worldPos, currentSurface.geometricNormal,
-                                       currentSurface.shadingNormal, currentSurface.mat);
+        directLight += sampleHeldLight(litSurface.worldPos, litSurface.geometricNormal,
+                                       litSurface.shadingNormal, litSurface.mat);
         if (localBounce == 0) { mainRay.directLightRadiance = directLight; }
         mainRay.radiance += directLight;
 
@@ -1039,6 +1066,16 @@ void main() {
         } else {
             bsdf = DisneySample(currentSurface.mat, currentViewDir, currentSurface.shadingNormal, sampleDir, pdf,
                                 mainRay.seed, lobeType);
+        }
+
+        // Leaving the water's surface, through it or off it. Off the top, down goes into the water and up out of it;
+        // through a side, the ray swaps sides.
+        if (isWaterMaterial) {
+            if (abs(baseGeoNormal.y) > 0.5) {
+                raySetInWater(mainRay, sampleDir.y < 0.0);
+            } else if (lobeType == 2u) {
+                raySetInWater(mainRay, !rayInWater(mainRay));
+            }
         }
 
         raySetBlockLightSampled(mainRay, worldUBO.blockLightSampling != 0u && lobeType == 0u &&

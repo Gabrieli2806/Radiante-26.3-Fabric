@@ -291,6 +291,12 @@ namespace Data {
         T_FLOAT sunBrightness;
         T_FLOAT moonBrightness;
         T_FLOAT emissionBrightness;
+        // Nonzero: surfaces are lit per texel, as if each pixel of the texture were a flat tile of its own (the
+        // retro, blocky look of pixelated lighting). Zero lights them smoothly.
+        T_UINT pixelLighting;
+        T_UINT worldPad0;
+        T_UINT worldPad1;
+        T_UINT worldPad2;
     };
 
     struct SkyUBO {
@@ -320,13 +326,27 @@ namespace Data {
         T_VEC4 sunUvRect;
         T_VEC4 moonUvRect;
 
-        // Per-biome haze, blended around the camera on the Java side: rgb is the biome's tint, a its extinction per
-        // block. Zero when the option is off, outside the overworld sky, or with the camera out of the sky light.
+        // Per-biome haze, blended around the camera on the Java side: rgb is the share of the extinction that
+        // scatters (the haze's tint), a its extinction per block. Zero when the option is off, outside the overworld
+        // sky, or with the camera out of the sky light.
         T_VEC4 biomeFog;
 
         // xyz: the axis the sun and moon turn around, which vanilla keeps as one edge of their square sprites.
         // w: 1 to orient the sprites that way (the "Vanilla Sun/Moon Orientation" option), 0 for a free basis.
         T_VEC4 celestialAxis;
+
+        // rgb: how much each channel's extinction differs from biomeFog.a; a Bedrock RTX fog that absorbs more blue
+        // than red turns the distance orange. (1, 1, 1) for Radiante's own grey haze.
+        T_VEC4 biomeFogChroma;
+        // x: height (world y) the haze is at full density below, y: height it has thinned out to nothing at. Radiante's
+        // own haze does not thin out, and puts both far above the world.
+        T_VEC4 biomeFogHeights;
+
+        // Water as a medium, for the biomes at the camera: a converted Bedrock pack's where it has one, otherwise
+        // worked out from the biome's vanilla water colour. rgb extinction per block (w 1 when set), and the share
+        // of it that scatters.
+        T_VEC4 waterExtinction;
+        T_VEC4 waterAlbedo;
     };
 
     struct TextureMapEntry {

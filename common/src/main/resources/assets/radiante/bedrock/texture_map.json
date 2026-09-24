@@ -1,0 +1,3673 @@
+{
+ "_comment": "Java block texture -> Bedrock texture path. color: the Bedrock colour texture has the same layout and may replace Java's.",
+ "textures": {
+  "acacia_leaves": {
+   "bedrock": "textures/blocks/leaves_acacia",
+   "color": true
+  },
+  "acacia_log": {
+   "bedrock": "textures/blocks/log_acacia",
+   "color": true
+  },
+  "acacia_log_top": {
+   "bedrock": "textures/blocks/log_acacia_top",
+   "color": true
+  },
+  "acacia_planks": {
+   "bedrock": "textures/blocks/planks_acacia",
+   "color": true
+  },
+  "acacia_sapling": {
+   "bedrock": "textures/blocks/sapling_acacia",
+   "color": true
+  },
+  "acacia_shelf": {
+   "bedrock": "textures/blocks/acacia_shelf",
+   "color": true
+  },
+  "acacia_trapdoor": {
+   "bedrock": "textures/blocks/acacia_trapdoor",
+   "color": true
+  },
+  "activator_rail": {
+   "bedrock": "textures/blocks/rail_activator",
+   "color": true
+  },
+  "activator_rail_on": {
+   "bedrock": "textures/blocks/rail_activator_powered",
+   "color": true
+  },
+  "allium": {
+   "bedrock": "textures/blocks/flower_allium",
+   "color": true
+  },
+  "amethyst_block": {
+   "bedrock": "textures/blocks/amethyst_block",
+   "color": true
+  },
+  "amethyst_cluster": {
+   "bedrock": "textures/blocks/amethyst_cluster",
+   "color": true
+  },
+  "ancient_debris_side": {
+   "bedrock": "textures/blocks/ancient_debris_side",
+   "color": true
+  },
+  "ancient_debris_top": {
+   "bedrock": "textures/blocks/ancient_debris_top",
+   "color": true
+  },
+  "andesite": {
+   "bedrock": "textures/blocks/stone_andesite",
+   "color": true
+  },
+  "anvil": {
+   "bedrock": "textures/blocks/anvil_base",
+   "color": true
+  },
+  "anvil_top": {
+   "bedrock": "textures/blocks/anvil_top_damaged_0",
+   "color": true
+  },
+  "attached_melon_stem": {
+   "bedrock": "textures/blocks/melon_stem_connected",
+   "color": true
+  },
+  "attached_pumpkin_stem": {
+   "bedrock": "textures/blocks/pumpkin_stem_connected",
+   "color": true
+  },
+  "azalea_leaves": {
+   "bedrock": "textures/blocks/azalea_leaves",
+   "color": true
+  },
+  "azalea_plant": {
+   "bedrock": "textures/blocks/azalea_plant",
+   "color": true
+  },
+  "azalea_side": {
+   "bedrock": "textures/blocks/azalea_side",
+   "color": true
+  },
+  "azalea_top": {
+   "bedrock": "textures/blocks/azalea_top",
+   "color": true
+  },
+  "azure_bluet": {
+   "bedrock": "textures/blocks/flower_houstonia",
+   "color": true
+  },
+  "bamboo_block": {
+   "bedrock": "textures/blocks/bamboo_block",
+   "color": true
+  },
+  "bamboo_block_top": {
+   "bedrock": "textures/blocks/bamboo_block_top",
+   "color": true
+  },
+  "bamboo_door_bottom": {
+   "bedrock": "textures/blocks/bamboo_door_bottom",
+   "color": true
+  },
+  "bamboo_door_top": {
+   "bedrock": "textures/blocks/bamboo_door_top",
+   "color": true
+  },
+  "bamboo_fence": {
+   "bedrock": "textures/blocks/bamboo_fence",
+   "color": true
+  },
+  "bamboo_mosaic": {
+   "bedrock": "textures/blocks/bamboo_mosaic",
+   "color": true
+  },
+  "bamboo_planks": {
+   "bedrock": "textures/blocks/bamboo_planks",
+   "color": true
+  },
+  "bamboo_shelf": {
+   "bedrock": "textures/blocks/bamboo_shelf",
+   "color": true
+  },
+  "bamboo_singleleaf": {
+   "bedrock": "textures/blocks/bamboo_singleleaf",
+   "color": true
+  },
+  "bamboo_stage0": {
+   "bedrock": "textures/blocks/bamboo_sapling",
+   "color": true
+  },
+  "bamboo_stalk": {
+   "bedrock": "textures/blocks/bamboo_stem",
+   "color": true
+  },
+  "bamboo_trapdoor": {
+   "bedrock": "textures/blocks/bamboo_trapdoor",
+   "color": true
+  },
+  "barrel_bottom": {
+   "bedrock": "textures/blocks/barrel_bottom",
+   "color": true
+  },
+  "barrel_side": {
+   "bedrock": "textures/blocks/barrel_side",
+   "color": true
+  },
+  "barrel_top": {
+   "bedrock": "textures/blocks/barrel_top",
+   "color": true
+  },
+  "barrel_top_open": {
+   "bedrock": "textures/blocks/barrel_top_open",
+   "color": true
+  },
+  "basalt_side": {
+   "bedrock": "textures/blocks/basalt_side",
+   "color": true
+  },
+  "basalt_top": {
+   "bedrock": "textures/blocks/basalt_top",
+   "color": true
+  },
+  "beacon": {
+   "bedrock": "textures/blocks/beacon",
+   "color": true
+  },
+  "bedrock": {
+   "bedrock": "textures/blocks/bedrock",
+   "color": true
+  },
+  "bee_nest_bottom": {
+   "bedrock": "textures/blocks/bee_nest_bottom",
+   "color": true
+  },
+  "bee_nest_front": {
+   "bedrock": "textures/blocks/bee_nest_front",
+   "color": true
+  },
+  "bee_nest_front_honey": {
+   "bedrock": "textures/blocks/bee_nest_front_honey",
+   "color": true
+  },
+  "bee_nest_side": {
+   "bedrock": "textures/blocks/bee_nest_side",
+   "color": true
+  },
+  "bee_nest_top": {
+   "bedrock": "textures/blocks/bee_nest_top",
+   "color": true
+  },
+  "beehive_end": {
+   "bedrock": "textures/blocks/beehive_top",
+   "color": true
+  },
+  "beehive_front": {
+   "bedrock": "textures/blocks/beehive_front",
+   "color": true
+  },
+  "beehive_front_honey": {
+   "bedrock": "textures/blocks/beehive_front_honey",
+   "color": true
+  },
+  "beehive_side": {
+   "bedrock": "textures/blocks/beehive_side",
+   "color": true
+  },
+  "beetroots_stage0": {
+   "bedrock": "textures/blocks/beetroots_stage_0",
+   "color": true
+  },
+  "beetroots_stage1": {
+   "bedrock": "textures/blocks/beetroots_stage_1",
+   "color": true
+  },
+  "beetroots_stage2": {
+   "bedrock": "textures/blocks/beetroots_stage_2",
+   "color": true
+  },
+  "beetroots_stage3": {
+   "bedrock": "textures/blocks/beetroots_stage_3",
+   "color": true
+  },
+  "big_dripleaf_side": {
+   "bedrock": "textures/blocks/big_dripleaf_side1",
+   "color": true
+  },
+  "big_dripleaf_stem": {
+   "bedrock": "textures/blocks/big_dripleaf_stem",
+   "color": true
+  },
+  "big_dripleaf_tip": {
+   "bedrock": "textures/blocks/big_dripleaf_side2",
+   "color": true
+  },
+  "big_dripleaf_top": {
+   "bedrock": "textures/blocks/big_dripleaf_top",
+   "color": true
+  },
+  "birch_door_bottom": {
+   "bedrock": "textures/blocks/door_birch_lower",
+   "color": true
+  },
+  "birch_door_top": {
+   "bedrock": "textures/blocks/door_birch_upper",
+   "color": true
+  },
+  "birch_leaves": {
+   "bedrock": "textures/blocks/leaves_birch",
+   "color": true
+  },
+  "birch_log": {
+   "bedrock": "textures/blocks/log_birch",
+   "color": true
+  },
+  "birch_log_top": {
+   "bedrock": "textures/blocks/log_birch_top",
+   "color": true
+  },
+  "birch_planks": {
+   "bedrock": "textures/blocks/planks_birch",
+   "color": true
+  },
+  "birch_sapling": {
+   "bedrock": "textures/blocks/sapling_birch",
+   "color": true
+  },
+  "birch_shelf": {
+   "bedrock": "textures/blocks/birch_shelf",
+   "color": true
+  },
+  "birch_trapdoor": {
+   "bedrock": "textures/blocks/birch_trapdoor",
+   "color": true
+  },
+  "black_candle": {
+   "bedrock": "textures/blocks/candles/black_candle",
+   "color": true
+  },
+  "black_candle_lit": {
+   "bedrock": "textures/blocks/candles/black_candle_lit",
+   "color": true
+  },
+  "black_concrete": {
+   "bedrock": "textures/blocks/concrete_black",
+   "color": true
+  },
+  "black_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_black",
+   "color": true
+  },
+  "black_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_black",
+   "color": true
+  },
+  "black_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_black",
+   "color": true
+  },
+  "black_wool": {
+   "bedrock": "textures/blocks/wool_colored_black",
+   "color": true
+  },
+  "blackstone": {
+   "bedrock": "textures/blocks/blackstone",
+   "color": true
+  },
+  "blackstone_top": {
+   "bedrock": "textures/blocks/blackstone_top",
+   "color": true
+  },
+  "blast_furnace_front": {
+   "bedrock": "textures/blocks/blast_furnace_front_off",
+   "color": true
+  },
+  "blast_furnace_side": {
+   "bedrock": "textures/blocks/blast_furnace_side",
+   "color": true
+  },
+  "blast_furnace_top": {
+   "bedrock": "textures/blocks/blast_furnace_top",
+   "color": true
+  },
+  "blue_candle": {
+   "bedrock": "textures/blocks/candles/blue_candle",
+   "color": true
+  },
+  "blue_candle_lit": {
+   "bedrock": "textures/blocks/candles/blue_candle_lit",
+   "color": true
+  },
+  "blue_concrete": {
+   "bedrock": "textures/blocks/concrete_blue",
+   "color": true
+  },
+  "blue_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_blue",
+   "color": true
+  },
+  "blue_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_blue",
+   "color": true
+  },
+  "blue_ice": {
+   "bedrock": "textures/blocks/blue_ice",
+   "color": true
+  },
+  "blue_orchid": {
+   "bedrock": "textures/blocks/flower_blue_orchid",
+   "color": true
+  },
+  "blue_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_blue",
+   "color": true
+  },
+  "blue_wool": {
+   "bedrock": "textures/blocks/wool_colored_blue",
+   "color": true
+  },
+  "bone_block_side": {
+   "bedrock": "textures/blocks/bone_block_side",
+   "color": true
+  },
+  "bone_block_top": {
+   "bedrock": "textures/blocks/bone_block_top",
+   "color": true
+  },
+  "bookshelf": {
+   "bedrock": "textures/blocks/bookshelf",
+   "color": true
+  },
+  "brain_coral": {
+   "bedrock": "textures/blocks/coral_plant_pink",
+   "color": true
+  },
+  "brain_coral_block": {
+   "bedrock": "textures/blocks/coral_pink",
+   "color": true
+  },
+  "brain_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_pink",
+   "color": true
+  },
+  "brewing_stand": {
+   "bedrock": "textures/blocks/brewing_stand",
+   "color": true
+  },
+  "brewing_stand_base": {
+   "bedrock": "textures/blocks/brewing_stand_base",
+   "color": true
+  },
+  "bricks": {
+   "bedrock": "textures/blocks/brick",
+   "color": true
+  },
+  "brown_candle": {
+   "bedrock": "textures/blocks/candles/brown_candle",
+   "color": true
+  },
+  "brown_candle_lit": {
+   "bedrock": "textures/blocks/candles/brown_candle_lit",
+   "color": true
+  },
+  "brown_concrete": {
+   "bedrock": "textures/blocks/concrete_brown",
+   "color": true
+  },
+  "brown_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_brown",
+   "color": true
+  },
+  "brown_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_brown",
+   "color": true
+  },
+  "brown_mushroom": {
+   "bedrock": "textures/blocks/mushroom_brown",
+   "color": true
+  },
+  "brown_mushroom_block": {
+   "bedrock": "textures/blocks/mushroom_block_skin_brown",
+   "color": true
+  },
+  "brown_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_brown",
+   "color": true
+  },
+  "brown_wool": {
+   "bedrock": "textures/blocks/wool_colored_brown",
+   "color": true
+  },
+  "bubble_coral": {
+   "bedrock": "textures/blocks/coral_plant_purple",
+   "color": true
+  },
+  "bubble_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_purple",
+   "color": true
+  },
+  "budding_amethyst": {
+   "bedrock": "textures/blocks/budding_amethyst",
+   "color": true
+  },
+  "bush": {
+   "bedrock": "textures/blocks/bush",
+   "color": true
+  },
+  "cactus_bottom": {
+   "bedrock": "textures/blocks/cactus_bottom",
+   "color": true
+  },
+  "cactus_flower": {
+   "bedrock": "textures/blocks/cactus_flower",
+   "color": true
+  },
+  "cactus_side": {
+   "bedrock": "textures/blocks/cactus_side",
+   "color": true
+  },
+  "cactus_top": {
+   "bedrock": "textures/blocks/cactus_top",
+   "color": true
+  },
+  "cake_bottom": {
+   "bedrock": "textures/blocks/cake_bottom",
+   "color": true
+  },
+  "cake_inner": {
+   "bedrock": "textures/blocks/cake_inner",
+   "color": true
+  },
+  "cake_side": {
+   "bedrock": "textures/blocks/cake_side",
+   "color": true
+  },
+  "cake_top": {
+   "bedrock": "textures/blocks/cake_top",
+   "color": true
+  },
+  "calcite": {
+   "bedrock": "textures/blocks/calcite",
+   "color": true
+  },
+  "calibrated_sculk_sensor_amethyst": {
+   "bedrock": "textures/blocks/calibrated_sculk_sensor_amethyst",
+   "color": true
+  },
+  "calibrated_sculk_sensor_input_side": {
+   "bedrock": "textures/blocks/calibrated_sculk_sensor_input_side",
+   "color": true
+  },
+  "calibrated_sculk_sensor_top": {
+   "bedrock": "textures/blocks/calibrated_sculk_sensor_top",
+   "color": true
+  },
+  "campfire_log": {
+   "bedrock": "textures/blocks/campfire_log",
+   "color": true
+  },
+  "candle": {
+   "bedrock": "textures/blocks/candles/candle",
+   "color": true
+  },
+  "candle_lit": {
+   "bedrock": "textures/blocks/candles/candle_lit",
+   "color": true
+  },
+  "carrots_stage0": {
+   "bedrock": "textures/blocks/carrots_stage_0",
+   "color": true
+  },
+  "carrots_stage1": {
+   "bedrock": "textures/blocks/carrots_stage_1",
+   "color": true
+  },
+  "carrots_stage2": {
+   "bedrock": "textures/blocks/carrots_stage_2",
+   "color": true
+  },
+  "carrots_stage3": {
+   "bedrock": "textures/blocks/carrots_stage_3",
+   "color": true
+  },
+  "cartography_table_side1": {
+   "bedrock": "textures/blocks/cartography_table_side1",
+   "color": true
+  },
+  "cartography_table_side2": {
+   "bedrock": "textures/blocks/cartography_table_side2",
+   "color": true
+  },
+  "cartography_table_side3": {
+   "bedrock": "textures/blocks/cartography_table_side3",
+   "color": true
+  },
+  "cartography_table_top": {
+   "bedrock": "textures/blocks/cartography_table_top",
+   "color": true
+  },
+  "carved_pumpkin": {
+   "bedrock": "textures/blocks/pumpkin_face_off",
+   "color": true
+  },
+  "cauldron_bottom": {
+   "bedrock": "textures/blocks/cauldron_bottom",
+   "color": true
+  },
+  "cauldron_inner": {
+   "bedrock": "textures/blocks/cauldron_inner",
+   "color": true
+  },
+  "cauldron_side": {
+   "bedrock": "textures/blocks/cauldron_side",
+   "color": true
+  },
+  "cauldron_top": {
+   "bedrock": "textures/blocks/cauldron_top",
+   "color": true
+  },
+  "cave_vines": {
+   "bedrock": "textures/blocks/cave_vines_head",
+   "color": true
+  },
+  "cave_vines_lit": {
+   "bedrock": "textures/blocks/cave_vines_head_berries",
+   "color": true
+  },
+  "cave_vines_plant": {
+   "bedrock": "textures/blocks/cave_vines_body",
+   "color": true
+  },
+  "cave_vines_plant_lit": {
+   "bedrock": "textures/blocks/cave_vines_body_berries",
+   "color": true
+  },
+  "cherry_leaves": {
+   "bedrock": "textures/blocks/cherry_leaves",
+   "color": true
+  },
+  "cherry_log": {
+   "bedrock": "textures/blocks/cherry_log_side",
+   "color": true
+  },
+  "cherry_log_top": {
+   "bedrock": "textures/blocks/cherry_log_top",
+   "color": true
+  },
+  "cherry_planks": {
+   "bedrock": "textures/blocks/cherry_planks",
+   "color": true
+  },
+  "cherry_sapling": {
+   "bedrock": "textures/blocks/cherry_sapling",
+   "color": true
+  },
+  "cherry_shelf": {
+   "bedrock": "textures/blocks/cherry_shelf",
+   "color": true
+  },
+  "cherry_trapdoor": {
+   "bedrock": "textures/blocks/cherry_trapdoor",
+   "color": true
+  },
+  "chipped_anvil_top": {
+   "bedrock": "textures/blocks/anvil_top_damaged_1",
+   "color": true
+  },
+  "chiseled_bookshelf_empty": {
+   "bedrock": "textures/blocks/chiseled_bookshelf_empty",
+   "color": true
+  },
+  "chiseled_bookshelf_occupied": {
+   "bedrock": "textures/blocks/chiseled_bookshelf_occupied",
+   "color": true
+  },
+  "chiseled_bookshelf_side": {
+   "bedrock": "textures/blocks/chiseled_bookshelf_side",
+   "color": true
+  },
+  "chiseled_bookshelf_top": {
+   "bedrock": "textures/blocks/chiseled_bookshelf_top",
+   "color": true
+  },
+  "chiseled_cinnabar": {
+   "bedrock": "textures/blocks/chiseled_cinnabar",
+   "color": true
+  },
+  "chiseled_copper": {
+   "bedrock": "textures/blocks/chiseled_copper",
+   "color": true
+  },
+  "chiseled_deepslate": {
+   "bedrock": "textures/blocks/deepslate/chiseled_deepslate",
+   "color": true
+  },
+  "chiseled_nether_bricks": {
+   "bedrock": "textures/blocks/chiseled_nether_bricks",
+   "color": true
+  },
+  "chiseled_polished_blackstone": {
+   "bedrock": "textures/blocks/chiseled_polished_blackstone",
+   "color": true
+  },
+  "chiseled_quartz_block": {
+   "bedrock": "textures/blocks/quartz_block_chiseled",
+   "color": true
+  },
+  "chiseled_quartz_block_top": {
+   "bedrock": "textures/blocks/quartz_block_chiseled_top",
+   "color": true
+  },
+  "chiseled_red_sandstone": {
+   "bedrock": "textures/blocks/red_sandstone_carved",
+   "color": true
+  },
+  "chiseled_resin_bricks": {
+   "bedrock": "textures/blocks/chiseled_resin_bricks",
+   "color": true
+  },
+  "chiseled_sandstone": {
+   "bedrock": "textures/blocks/sandstone_carved",
+   "color": true
+  },
+  "chiseled_stone_bricks": {
+   "bedrock": "textures/blocks/stonebrick_carved",
+   "color": true
+  },
+  "chiseled_sulfur": {
+   "bedrock": "textures/blocks/chiseled_sulfur",
+   "color": true
+  },
+  "chiseled_tuff": {
+   "bedrock": "textures/blocks/chiseled_tuff",
+   "color": true
+  },
+  "chiseled_tuff_bricks": {
+   "bedrock": "textures/blocks/chiseled_tuff_bricks",
+   "color": true
+  },
+  "chiseled_tuff_bricks_top": {
+   "bedrock": "textures/blocks/chiseled_tuff_bricks_top",
+   "color": true
+  },
+  "chiseled_tuff_top": {
+   "bedrock": "textures/blocks/chiseled_tuff_top",
+   "color": true
+  },
+  "chorus_flower": {
+   "bedrock": "textures/blocks/chorus_flower",
+   "color": true
+  },
+  "chorus_flower_dead": {
+   "bedrock": "textures/blocks/chorus_flower_dead",
+   "color": true
+  },
+  "chorus_plant": {
+   "bedrock": "textures/blocks/chorus_plant",
+   "color": true
+  },
+  "cinnabar": {
+   "bedrock": "textures/blocks/cinnabar",
+   "color": true
+  },
+  "cinnabar_bricks": {
+   "bedrock": "textures/blocks/cinnabar_bricks",
+   "color": true
+  },
+  "clay": {
+   "bedrock": "textures/blocks/clay",
+   "color": true
+  },
+  "closed_eyeblossom": {
+   "bedrock": "textures/blocks/eyeblossom_dormant",
+   "color": true
+  },
+  "coal_block": {
+   "bedrock": "textures/blocks/coal_block",
+   "color": true
+  },
+  "coal_ore": {
+   "bedrock": "textures/blocks/coal_ore",
+   "color": true
+  },
+  "coarse_dirt": {
+   "bedrock": "textures/blocks/coarse_dirt",
+   "color": true
+  },
+  "cobbled_deepslate": {
+   "bedrock": "textures/blocks/deepslate/cobbled_deepslate",
+   "color": true
+  },
+  "cobblestone": {
+   "bedrock": "textures/blocks/cobblestone",
+   "color": true
+  },
+  "cobweb": {
+   "bedrock": "textures/blocks/web",
+   "color": true
+  },
+  "cocoa_stage0": {
+   "bedrock": "textures/blocks/cocoa_stage_0",
+   "color": true
+  },
+  "cocoa_stage1": {
+   "bedrock": "textures/blocks/cocoa_stage_1",
+   "color": true
+  },
+  "comparator": {
+   "bedrock": "textures/blocks/comparator_off",
+   "color": true
+  },
+  "comparator_on": {
+   "bedrock": "textures/blocks/comparator_on",
+   "color": true
+  },
+  "composter_bottom": {
+   "bedrock": "textures/blocks/composter_bottom",
+   "color": true
+  },
+  "composter_compost": {
+   "bedrock": "textures/blocks/compost",
+   "color": true
+  },
+  "composter_ready": {
+   "bedrock": "textures/blocks/compost_ready",
+   "color": true
+  },
+  "composter_side": {
+   "bedrock": "textures/blocks/composter_side",
+   "color": true
+  },
+  "composter_top": {
+   "bedrock": "textures/blocks/composter_top",
+   "color": true
+  },
+  "copper_bars": {
+   "bedrock": "textures/blocks/copper_bars",
+   "color": true
+  },
+  "copper_block": {
+   "bedrock": "textures/blocks/copper_block",
+   "color": true
+  },
+  "copper_bulb": {
+   "bedrock": "textures/blocks/copper_bulb",
+   "color": true
+  },
+  "copper_bulb_lit": {
+   "bedrock": "textures/blocks/copper_bulb_lit",
+   "color": true
+  },
+  "copper_bulb_lit_powered": {
+   "bedrock": "textures/blocks/copper_bulb_lit_powered",
+   "color": true
+  },
+  "copper_bulb_powered": {
+   "bedrock": "textures/blocks/copper_bulb_powered",
+   "color": true
+  },
+  "copper_door_top": {
+   "bedrock": "textures/blocks/copper_door_top",
+   "color": true
+  },
+  "copper_grate": {
+   "bedrock": "textures/blocks/copper_grate",
+   "color": true
+  },
+  "copper_ore": {
+   "bedrock": "textures/blocks/copper_ore",
+   "color": true
+  },
+  "copper_torch": {
+   "bedrock": "textures/blocks/copper_torch",
+   "color": true
+  },
+  "copper_trapdoor": {
+   "bedrock": "textures/blocks/copper_trapdoor",
+   "color": true
+  },
+  "cornflower": {
+   "bedrock": "textures/blocks/flower_cornflower",
+   "color": true
+  },
+  "cracked_deepslate_bricks": {
+   "bedrock": "textures/blocks/deepslate/cracked_deepslate_bricks",
+   "color": true
+  },
+  "cracked_deepslate_tiles": {
+   "bedrock": "textures/blocks/deepslate/cracked_deepslate_tiles",
+   "color": true
+  },
+  "cracked_nether_bricks": {
+   "bedrock": "textures/blocks/cracked_nether_bricks",
+   "color": true
+  },
+  "cracked_polished_blackstone_bricks": {
+   "bedrock": "textures/blocks/cracked_polished_blackstone_bricks",
+   "color": true
+  },
+  "cracked_stone_bricks": {
+   "bedrock": "textures/blocks/stonebrick_cracked",
+   "color": true
+  },
+  "crafter_bottom": {
+   "bedrock": "textures/blocks/crafter_bottom",
+   "color": true
+  },
+  "crafter_east": {
+   "bedrock": "textures/blocks/crafter_east",
+   "color": true
+  },
+  "crafter_east_crafting": {
+   "bedrock": "textures/blocks/crafter_east_crafting",
+   "color": true
+  },
+  "crafter_east_triggered": {
+   "bedrock": "textures/blocks/crafter_east_triggered",
+   "color": true
+  },
+  "crafter_north": {
+   "bedrock": "textures/blocks/crafter_north",
+   "color": true
+  },
+  "crafter_north_crafting": {
+   "bedrock": "textures/blocks/crafter_north_crafting",
+   "color": true
+  },
+  "crafter_south": {
+   "bedrock": "textures/blocks/crafter_south",
+   "color": true
+  },
+  "crafter_south_triggered": {
+   "bedrock": "textures/blocks/crafter_south_triggered",
+   "color": true
+  },
+  "crafter_top": {
+   "bedrock": "textures/blocks/crafter_top",
+   "color": true
+  },
+  "crafter_top_crafting": {
+   "bedrock": "textures/blocks/crafter_top_crafting",
+   "color": true
+  },
+  "crafter_top_triggered": {
+   "bedrock": "textures/blocks/crafter_top_triggered",
+   "color": true
+  },
+  "crafter_west": {
+   "bedrock": "textures/blocks/crafter_west",
+   "color": true
+  },
+  "crafter_west_crafting": {
+   "bedrock": "textures/blocks/crafter_west_crafting",
+   "color": true
+  },
+  "crafter_west_triggered": {
+   "bedrock": "textures/blocks/crafter_west_triggered",
+   "color": true
+  },
+  "crafting_table_front": {
+   "bedrock": "textures/blocks/crafting_table_front",
+   "color": true
+  },
+  "crafting_table_side": {
+   "bedrock": "textures/blocks/crafting_table_side",
+   "color": true
+  },
+  "crafting_table_top": {
+   "bedrock": "textures/blocks/crafting_table_top",
+   "color": true
+  },
+  "creaking_heart": {
+   "bedrock": "textures/blocks/creaking_heart_side_inactive",
+   "color": true
+  },
+  "creaking_heart_awake": {
+   "bedrock": "textures/blocks/creaking_heart_side_active",
+   "color": true
+  },
+  "creaking_heart_dormant": {
+   "bedrock": "textures/blocks/creaking_heart_side_dormant",
+   "color": true
+  },
+  "creaking_heart_top": {
+   "bedrock": "textures/blocks/creaking_heart_top_inactive",
+   "color": true
+  },
+  "creaking_heart_top_awake": {
+   "bedrock": "textures/blocks/creaking_heart_top_active",
+   "color": true
+  },
+  "creaking_heart_top_dormant": {
+   "bedrock": "textures/blocks/creaking_heart_top_dormant",
+   "color": true
+  },
+  "crimson_fungus": {
+   "bedrock": "textures/blocks/crimson_fungus",
+   "color": true
+  },
+  "crimson_nylium": {
+   "bedrock": "textures/blocks/crimson_nylium_top",
+   "color": true
+  },
+  "crimson_nylium_side": {
+   "bedrock": "textures/blocks/crimson_nylium_side",
+   "color": true
+  },
+  "crimson_planks": {
+   "bedrock": "textures/blocks/huge_fungus/crimson_planks",
+   "color": true
+  },
+  "crimson_roots": {
+   "bedrock": "textures/blocks/crimson_roots",
+   "color": true
+  },
+  "crimson_roots_pot": {
+   "bedrock": "textures/blocks/crimson_roots_pot",
+   "color": true
+  },
+  "crimson_shelf": {
+   "bedrock": "textures/blocks/crimson_shelf",
+   "color": true
+  },
+  "crimson_stem_top": {
+   "bedrock": "textures/blocks/huge_fungus/crimson_log_top",
+   "color": true
+  },
+  "crimson_trapdoor": {
+   "bedrock": "textures/blocks/huge_fungus/crimson_trapdoor",
+   "color": true
+  },
+  "crying_obsidian": {
+   "bedrock": "textures/blocks/crying_obsidian",
+   "color": true
+  },
+  "cut_copper": {
+   "bedrock": "textures/blocks/cut_copper",
+   "color": true
+  },
+  "cut_red_sandstone": {
+   "bedrock": "textures/blocks/red_sandstone_smooth",
+   "color": true
+  },
+  "cut_sandstone": {
+   "bedrock": "textures/blocks/sandstone_smooth",
+   "color": true
+  },
+  "cyan_candle": {
+   "bedrock": "textures/blocks/candles/cyan_candle",
+   "color": true
+  },
+  "cyan_candle_lit": {
+   "bedrock": "textures/blocks/candles/cyan_candle_lit",
+   "color": true
+  },
+  "cyan_concrete": {
+   "bedrock": "textures/blocks/concrete_cyan",
+   "color": true
+  },
+  "cyan_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_cyan",
+   "color": true
+  },
+  "cyan_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_cyan",
+   "color": true
+  },
+  "cyan_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_cyan",
+   "color": true
+  },
+  "cyan_wool": {
+   "bedrock": "textures/blocks/wool_colored_cyan",
+   "color": true
+  },
+  "damaged_anvil_top": {
+   "bedrock": "textures/blocks/anvil_top_damaged_2",
+   "color": true
+  },
+  "dandelion": {
+   "bedrock": "textures/blocks/flower_dandelion",
+   "color": true
+  },
+  "dark_oak_leaves": {
+   "bedrock": "textures/blocks/leaves_big_oak",
+   "color": true
+  },
+  "dark_oak_log": {
+   "bedrock": "textures/blocks/log_big_oak",
+   "color": true
+  },
+  "dark_oak_log_top": {
+   "bedrock": "textures/blocks/log_big_oak_top",
+   "color": true
+  },
+  "dark_oak_planks": {
+   "bedrock": "textures/blocks/planks_big_oak",
+   "color": true
+  },
+  "dark_oak_sapling": {
+   "bedrock": "textures/blocks/sapling_roofed_oak",
+   "color": true
+  },
+  "dark_oak_shelf": {
+   "bedrock": "textures/blocks/dark_oak_shelf",
+   "color": true
+  },
+  "dark_oak_trapdoor": {
+   "bedrock": "textures/blocks/dark_oak_trapdoor",
+   "color": true
+  },
+  "dark_prismarine": {
+   "bedrock": "textures/blocks/prismarine_dark",
+   "color": true
+  },
+  "daylight_detector_inverted_top": {
+   "bedrock": "textures/blocks/daylight_detector_inverted_top",
+   "color": true
+  },
+  "daylight_detector_side": {
+   "bedrock": "textures/blocks/daylight_detector_side",
+   "color": true
+  },
+  "daylight_detector_top": {
+   "bedrock": "textures/blocks/daylight_detector_top",
+   "color": true
+  },
+  "dead_brain_coral": {
+   "bedrock": "textures/blocks/coral_plant_pink_dead",
+   "color": true
+  },
+  "dead_brain_coral_block": {
+   "bedrock": "textures/blocks/coral_pink_dead",
+   "color": true
+  },
+  "dead_brain_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_pink_dead",
+   "color": true
+  },
+  "dead_bubble_coral": {
+   "bedrock": "textures/blocks/coral_plant_purple_dead",
+   "color": true
+  },
+  "dead_bubble_coral_block": {
+   "bedrock": "textures/blocks/coral_purple_dead",
+   "color": true
+  },
+  "dead_bubble_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_purple_dead",
+   "color": true
+  },
+  "dead_bush": {
+   "bedrock": "textures/blocks/deadbush",
+   "color": true
+  },
+  "dead_fire_coral": {
+   "bedrock": "textures/blocks/coral_plant_red_dead",
+   "color": true
+  },
+  "dead_fire_coral_block": {
+   "bedrock": "textures/blocks/coral_red_dead",
+   "color": true
+  },
+  "dead_fire_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_red_dead",
+   "color": true
+  },
+  "dead_horn_coral": {
+   "bedrock": "textures/blocks/coral_plant_yellow_dead",
+   "color": true
+  },
+  "dead_horn_coral_block": {
+   "bedrock": "textures/blocks/coral_yellow_dead",
+   "color": true
+  },
+  "dead_horn_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_yellow_dead",
+   "color": true
+  },
+  "dead_tube_coral": {
+   "bedrock": "textures/blocks/coral_plant_blue_dead",
+   "color": true
+  },
+  "dead_tube_coral_block": {
+   "bedrock": "textures/blocks/coral_blue_dead",
+   "color": true
+  },
+  "dead_tube_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_blue_dead",
+   "color": true
+  },
+  "deepslate": {
+   "bedrock": "textures/blocks/deepslate/deepslate",
+   "color": true
+  },
+  "deepslate_bricks": {
+   "bedrock": "textures/blocks/deepslate/deepslate_bricks",
+   "color": true
+  },
+  "deepslate_coal_ore": {
+   "bedrock": "textures/blocks/deepslate/deepslate_coal_ore",
+   "color": true
+  },
+  "deepslate_copper_ore": {
+   "bedrock": "textures/blocks/deepslate/deepslate_copper_ore",
+   "color": true
+  },
+  "deepslate_diamond_ore": {
+   "bedrock": "textures/blocks/deepslate/deepslate_diamond_ore",
+   "color": true
+  },
+  "deepslate_emerald_ore": {
+   "bedrock": "textures/blocks/deepslate/deepslate_emerald_ore",
+   "color": true
+  },
+  "deepslate_gold_ore": {
+   "bedrock": "textures/blocks/deepslate/deepslate_gold_ore",
+   "color": true
+  },
+  "deepslate_iron_ore": {
+   "bedrock": "textures/blocks/deepslate/deepslate_iron_ore",
+   "color": true
+  },
+  "deepslate_lapis_ore": {
+   "bedrock": "textures/blocks/deepslate/deepslate_lapis_ore",
+   "color": true
+  },
+  "deepslate_redstone_ore": {
+   "bedrock": "textures/blocks/deepslate/deepslate_redstone_ore",
+   "color": true
+  },
+  "deepslate_tiles": {
+   "bedrock": "textures/blocks/deepslate/deepslate_tiles",
+   "color": true
+  },
+  "deepslate_top": {
+   "bedrock": "textures/blocks/deepslate/deepslate_top",
+   "color": true
+  },
+  "detector_rail": {
+   "bedrock": "textures/blocks/rail_detector",
+   "color": true
+  },
+  "detector_rail_on": {
+   "bedrock": "textures/blocks/rail_detector_powered",
+   "color": true
+  },
+  "diamond_block": {
+   "bedrock": "textures/blocks/diamond_block",
+   "color": true
+  },
+  "diamond_ore": {
+   "bedrock": "textures/blocks/diamond_ore",
+   "color": true
+  },
+  "diorite": {
+   "bedrock": "textures/blocks/stone_diorite",
+   "color": true
+  },
+  "dirt": {
+   "bedrock": "textures/blocks/dirt",
+   "color": true
+  },
+  "dirt_path_side": {
+   "bedrock": "textures/blocks/grass_path_side",
+   "color": true
+  },
+  "dirt_path_top": {
+   "bedrock": "textures/blocks/grass_path_top",
+   "color": true
+  },
+  "dispenser_front": {
+   "bedrock": "textures/blocks/dispenser_front_horizontal",
+   "color": true
+  },
+  "dispenser_front_vertical": {
+   "bedrock": "textures/blocks/dispenser_front_vertical",
+   "color": true
+  },
+  "dragon_egg": {
+   "bedrock": "textures/blocks/dragon_egg",
+   "color": true
+  },
+  "dried_ghast_hydration_0_tentacles": {
+   "bedrock": "textures/blocks/dried_ghast_state_1_tentacles",
+   "color": true
+  },
+  "dried_ghast_hydration_1_tentacles": {
+   "bedrock": "textures/blocks/dried_ghast_state_2_tentacles",
+   "color": true
+  },
+  "dried_ghast_hydration_2_tentacles": {
+   "bedrock": "textures/blocks/dried_ghast_state_3_tentacles",
+   "color": true
+  },
+  "dried_ghast_hydration_3_tentacles": {
+   "bedrock": "textures/blocks/dried_ghast_state_4_tentacles",
+   "color": true
+  },
+  "dried_kelp_side": {
+   "bedrock": "textures/blocks/dried_kelp_side_a",
+   "color": true
+  },
+  "dried_kelp_top": {
+   "bedrock": "textures/blocks/dried_kelp_top",
+   "color": true
+  },
+  "dripstone_block": {
+   "bedrock": "textures/blocks/dripstone_block",
+   "color": true
+  },
+  "dropper_front": {
+   "bedrock": "textures/blocks/dropper_front_horizontal",
+   "color": true
+  },
+  "dropper_front_vertical": {
+   "bedrock": "textures/blocks/dropper_front_vertical",
+   "color": true
+  },
+  "emerald_block": {
+   "bedrock": "textures/blocks/emerald_block",
+   "color": true
+  },
+  "emerald_ore": {
+   "bedrock": "textures/blocks/emerald_ore",
+   "color": true
+  },
+  "enchanting_table_bottom": {
+   "bedrock": "textures/blocks/enchanting_table_bottom",
+   "color": true
+  },
+  "enchanting_table_side": {
+   "bedrock": "textures/blocks/enchanting_table_side",
+   "color": true
+  },
+  "enchanting_table_top": {
+   "bedrock": "textures/blocks/enchanting_table_top",
+   "color": true
+  },
+  "end_portal_frame_eye": {
+   "bedrock": "textures/blocks/endframe_eye",
+   "color": true
+  },
+  "end_portal_frame_side": {
+   "bedrock": "textures/blocks/endframe_side",
+   "color": true
+  },
+  "end_portal_frame_top": {
+   "bedrock": "textures/blocks/endframe_top",
+   "color": true
+  },
+  "end_rod": {
+   "bedrock": "textures/blocks/end_rod",
+   "color": true
+  },
+  "end_stone": {
+   "bedrock": "textures/blocks/end_stone",
+   "color": true
+  },
+  "end_stone_bricks": {
+   "bedrock": "textures/blocks/end_bricks",
+   "color": true
+  },
+  "exposed_chiseled_copper": {
+   "bedrock": "textures/blocks/exposed_chiseled_copper",
+   "color": true
+  },
+  "exposed_copper": {
+   "bedrock": "textures/blocks/exposed_copper",
+   "color": true
+  },
+  "exposed_copper_bars": {
+   "bedrock": "textures/blocks/exposed_copper_bars",
+   "color": true
+  },
+  "exposed_copper_bulb": {
+   "bedrock": "textures/blocks/exposed_copper_bulb",
+   "color": true
+  },
+  "exposed_copper_bulb_lit": {
+   "bedrock": "textures/blocks/exposed_copper_bulb_lit",
+   "color": true
+  },
+  "exposed_copper_bulb_lit_powered": {
+   "bedrock": "textures/blocks/exposed_copper_bulb_lit_powered",
+   "color": true
+  },
+  "exposed_copper_bulb_powered": {
+   "bedrock": "textures/blocks/exposed_copper_bulb_powered",
+   "color": true
+  },
+  "exposed_copper_grate": {
+   "bedrock": "textures/blocks/exposed_copper_grate",
+   "color": true
+  },
+  "exposed_copper_trapdoor": {
+   "bedrock": "textures/blocks/exposed_copper_trapdoor",
+   "color": true
+  },
+  "exposed_cut_copper": {
+   "bedrock": "textures/blocks/exposed_cut_copper",
+   "color": true
+  },
+  "exposed_lightning_rod": {
+   "bedrock": "textures/blocks/exposed_lightning_rod",
+   "color": true
+  },
+  "farmland": {
+   "bedrock": "textures/blocks/farmland_dry",
+   "color": true
+  },
+  "farmland_moist": {
+   "bedrock": "textures/blocks/farmland_wet",
+   "color": true
+  },
+  "fern": {
+   "bedrock": "textures/blocks/fern",
+   "color": true
+  },
+  "fire_coral": {
+   "bedrock": "textures/blocks/coral_plant_red",
+   "color": true
+  },
+  "fire_coral_block": {
+   "bedrock": "textures/blocks/coral_red",
+   "color": true
+  },
+  "fire_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_red",
+   "color": true
+  },
+  "firefly_bush": {
+   "bedrock": "textures/blocks/firefly_bush",
+   "color": true
+  },
+  "fletching_table_front": {
+   "bedrock": "textures/blocks/fletcher_table_side2",
+   "color": true
+  },
+  "fletching_table_side": {
+   "bedrock": "textures/blocks/fletcher_table_side1",
+   "color": true
+  },
+  "fletching_table_top": {
+   "bedrock": "textures/blocks/fletcher_table_top",
+   "color": true
+  },
+  "flower_pot": {
+   "bedrock": "textures/blocks/flower_pot",
+   "color": true
+  },
+  "flowering_azalea_leaves": {
+   "bedrock": "textures/blocks/azalea_leaves_flowers",
+   "color": true
+  },
+  "flowering_azalea_side": {
+   "bedrock": "textures/blocks/flowering_azalea_side",
+   "color": true
+  },
+  "flowering_azalea_top": {
+   "bedrock": "textures/blocks/flowering_azalea_top",
+   "color": true
+  },
+  "furnace_front": {
+   "bedrock": "textures/blocks/furnace_front_off",
+   "color": true
+  },
+  "furnace_front_on": {
+   "bedrock": "textures/blocks/furnace_front_on",
+   "color": true
+  },
+  "furnace_side": {
+   "bedrock": "textures/blocks/furnace_side",
+   "color": true
+  },
+  "furnace_top": {
+   "bedrock": "textures/blocks/furnace_top",
+   "color": true
+  },
+  "gilded_blackstone": {
+   "bedrock": "textures/blocks/gilded_blackstone",
+   "color": true
+  },
+  "glass": {
+   "bedrock": "textures/blocks/glass",
+   "color": true
+  },
+  "glow_item_frame": {
+   "bedrock": "textures/blocks/glow_item_frame",
+   "color": true
+  },
+  "glow_lichen": {
+   "bedrock": "textures/blocks/glow_lichen",
+   "color": true
+  },
+  "glowstone": {
+   "bedrock": "textures/blocks/glowstone",
+   "color": true
+  },
+  "gold_block": {
+   "bedrock": "textures/blocks/gold_block",
+   "color": true
+  },
+  "gold_ore": {
+   "bedrock": "textures/blocks/gold_ore",
+   "color": true
+  },
+  "golden_dandelion": {
+   "bedrock": "textures/blocks/golden_dandelion",
+   "color": true
+  },
+  "granite": {
+   "bedrock": "textures/blocks/stone_granite",
+   "color": true
+  },
+  "grass_block_side": {
+   "bedrock": "textures/blocks/grass_side",
+   "color": false
+  },
+  "grass_block_side_overlay": {
+   "bedrock": "textures/blocks/grass_side",
+   "color": true
+  },
+  "grass_block_top": {
+   "bedrock": "textures/blocks/grass_top",
+   "color": true
+  },
+  "gravel": {
+   "bedrock": "textures/blocks/gravel",
+   "color": true
+  },
+  "gray_candle": {
+   "bedrock": "textures/blocks/candles/gray_candle",
+   "color": true
+  },
+  "gray_candle_lit": {
+   "bedrock": "textures/blocks/candles/gray_candle_lit",
+   "color": true
+  },
+  "gray_concrete": {
+   "bedrock": "textures/blocks/concrete_gray",
+   "color": true
+  },
+  "gray_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_gray",
+   "color": true
+  },
+  "gray_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_gray",
+   "color": true
+  },
+  "gray_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_gray",
+   "color": true
+  },
+  "gray_wool": {
+   "bedrock": "textures/blocks/wool_colored_gray",
+   "color": true
+  },
+  "green_candle": {
+   "bedrock": "textures/blocks/candles/green_candle",
+   "color": true
+  },
+  "green_candle_lit": {
+   "bedrock": "textures/blocks/candles/green_candle_lit",
+   "color": true
+  },
+  "green_concrete": {
+   "bedrock": "textures/blocks/concrete_green",
+   "color": true
+  },
+  "green_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_green",
+   "color": true
+  },
+  "green_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_green",
+   "color": true
+  },
+  "green_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_green",
+   "color": true
+  },
+  "green_wool": {
+   "bedrock": "textures/blocks/wool_colored_green",
+   "color": true
+  },
+  "grindstone_pivot": {
+   "bedrock": "textures/blocks/grindstone_pivot",
+   "color": true
+  },
+  "grindstone_round": {
+   "bedrock": "textures/blocks/grindstone_round",
+   "color": true
+  },
+  "grindstone_side": {
+   "bedrock": "textures/blocks/grindstone_side",
+   "color": true
+  },
+  "hanging_roots": {
+   "bedrock": "textures/blocks/hanging_roots",
+   "color": true
+  },
+  "hay_block_side": {
+   "bedrock": "textures/blocks/hay_block_side",
+   "color": true
+  },
+  "hay_block_top": {
+   "bedrock": "textures/blocks/hay_block_top",
+   "color": true
+  },
+  "heavy_core": {
+   "bedrock": "textures/blocks/heavy_core",
+   "color": true
+  },
+  "honeycomb_block": {
+   "bedrock": "textures/blocks/honeycomb",
+   "color": true
+  },
+  "hopper_inside": {
+   "bedrock": "textures/blocks/hopper_inside",
+   "color": true
+  },
+  "hopper_outside": {
+   "bedrock": "textures/blocks/hopper_outside",
+   "color": true
+  },
+  "hopper_top": {
+   "bedrock": "textures/blocks/hopper_top",
+   "color": true
+  },
+  "horn_coral": {
+   "bedrock": "textures/blocks/coral_plant_yellow",
+   "color": true
+  },
+  "horn_coral_block": {
+   "bedrock": "textures/blocks/coral_yellow",
+   "color": true
+  },
+  "horn_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_yellow",
+   "color": true
+  },
+  "iron_bars": {
+   "bedrock": "textures/blocks/iron_bars",
+   "color": true
+  },
+  "iron_block": {
+   "bedrock": "textures/blocks/iron_block",
+   "color": true
+  },
+  "iron_ore": {
+   "bedrock": "textures/blocks/iron_ore",
+   "color": true
+  },
+  "iron_trapdoor": {
+   "bedrock": "textures/blocks/iron_trapdoor",
+   "color": true
+  },
+  "item_frame": {
+   "bedrock": "textures/blocks/itemframe_background",
+   "color": true
+  },
+  "jack_o_lantern": {
+   "bedrock": "textures/blocks/pumpkin_face_on",
+   "color": true
+  },
+  "jigsaw_bottom": {
+   "bedrock": "textures/blocks/jigsaw_back",
+   "color": true
+  },
+  "jigsaw_lock": {
+   "bedrock": "textures/blocks/jigsaw_lock",
+   "color": true
+  },
+  "jigsaw_side": {
+   "bedrock": "textures/blocks/jigsaw_side",
+   "color": true
+  },
+  "jigsaw_top": {
+   "bedrock": "textures/blocks/jigsaw_front",
+   "color": true
+  },
+  "jukebox_side": {
+   "bedrock": "textures/blocks/jukebox_side",
+   "color": true
+  },
+  "jukebox_top": {
+   "bedrock": "textures/blocks/jukebox_top",
+   "color": true
+  },
+  "jungle_leaves": {
+   "bedrock": "textures/blocks/leaves_jungle",
+   "color": true
+  },
+  "jungle_log": {
+   "bedrock": "textures/blocks/log_jungle",
+   "color": true
+  },
+  "jungle_log_top": {
+   "bedrock": "textures/blocks/log_jungle_top",
+   "color": true
+  },
+  "jungle_planks": {
+   "bedrock": "textures/blocks/planks_jungle",
+   "color": true
+  },
+  "jungle_sapling": {
+   "bedrock": "textures/blocks/sapling_jungle",
+   "color": true
+  },
+  "jungle_shelf": {
+   "bedrock": "textures/blocks/jungle_shelf",
+   "color": true
+  },
+  "jungle_trapdoor": {
+   "bedrock": "textures/blocks/jungle_trapdoor",
+   "color": true
+  },
+  "ladder": {
+   "bedrock": "textures/blocks/ladder",
+   "color": true
+  },
+  "lapis_block": {
+   "bedrock": "textures/blocks/lapis_block",
+   "color": true
+  },
+  "lapis_ore": {
+   "bedrock": "textures/blocks/lapis_ore",
+   "color": true
+  },
+  "large_amethyst_bud": {
+   "bedrock": "textures/blocks/large_amethyst_bud",
+   "color": true
+  },
+  "large_fern_bottom": {
+   "bedrock": "textures/blocks/double_plant_fern_bottom",
+   "color": true
+  },
+  "large_fern_top": {
+   "bedrock": "textures/blocks/double_plant_fern_top",
+   "color": true
+  },
+  "leaf_litter": {
+   "bedrock": "textures/blocks/leaf_litter",
+   "color": true
+  },
+  "lectern_base": {
+   "bedrock": "textures/blocks/lectern_base",
+   "color": true
+  },
+  "lectern_front": {
+   "bedrock": "textures/blocks/lectern_front",
+   "color": true
+  },
+  "lectern_sides": {
+   "bedrock": "textures/blocks/lectern_sides",
+   "color": true
+  },
+  "lectern_top": {
+   "bedrock": "textures/blocks/lectern_top",
+   "color": true
+  },
+  "lever": {
+   "bedrock": "textures/blocks/lever",
+   "color": true
+  },
+  "light_blue_candle": {
+   "bedrock": "textures/blocks/candles/light_blue_candle",
+   "color": true
+  },
+  "light_blue_candle_lit": {
+   "bedrock": "textures/blocks/candles/light_blue_candle_lit",
+   "color": true
+  },
+  "light_blue_concrete": {
+   "bedrock": "textures/blocks/concrete_light_blue",
+   "color": true
+  },
+  "light_blue_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_light_blue",
+   "color": true
+  },
+  "light_blue_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_light_blue",
+   "color": true
+  },
+  "light_blue_stained_glass": {
+   "bedrock": "textures/blocks/glass_light_blue",
+   "color": true
+  },
+  "light_blue_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_light_blue",
+   "color": true
+  },
+  "light_blue_wool": {
+   "bedrock": "textures/blocks/wool_colored_light_blue",
+   "color": true
+  },
+  "light_gray_candle": {
+   "bedrock": "textures/blocks/candles/light_gray_candle",
+   "color": true
+  },
+  "light_gray_candle_lit": {
+   "bedrock": "textures/blocks/candles/light_gray_candle_lit",
+   "color": true
+  },
+  "light_gray_concrete": {
+   "bedrock": "textures/blocks/concrete_silver",
+   "color": true
+  },
+  "light_gray_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_silver",
+   "color": true
+  },
+  "light_gray_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_silver",
+   "color": true
+  },
+  "light_gray_stained_glass": {
+   "bedrock": "textures/blocks/glass_silver",
+   "color": true
+  },
+  "light_gray_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_silver",
+   "color": true
+  },
+  "light_gray_wool": {
+   "bedrock": "textures/blocks/wool_colored_silver",
+   "color": true
+  },
+  "lightning_rod": {
+   "bedrock": "textures/blocks/lightning_rod",
+   "color": true
+  },
+  "lilac_bottom": {
+   "bedrock": "textures/blocks/double_plant_syringa_bottom",
+   "color": true
+  },
+  "lilac_top": {
+   "bedrock": "textures/blocks/double_plant_syringa_top",
+   "color": true
+  },
+  "lily_of_the_valley": {
+   "bedrock": "textures/blocks/flower_lily_of_the_valley",
+   "color": true
+  },
+  "lily_pad": {
+   "bedrock": "textures/blocks/waterlily",
+   "color": true
+  },
+  "lime_candle": {
+   "bedrock": "textures/blocks/candles/lime_candle",
+   "color": true
+  },
+  "lime_candle_lit": {
+   "bedrock": "textures/blocks/candles/lime_candle_lit",
+   "color": true
+  },
+  "lime_concrete": {
+   "bedrock": "textures/blocks/concrete_lime",
+   "color": true
+  },
+  "lime_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_lime",
+   "color": true
+  },
+  "lime_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_lime",
+   "color": true
+  },
+  "lime_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_lime",
+   "color": true
+  },
+  "lime_wool": {
+   "bedrock": "textures/blocks/wool_colored_lime",
+   "color": true
+  },
+  "lodestone_side": {
+   "bedrock": "textures/blocks/lodestone_side",
+   "color": true
+  },
+  "lodestone_top": {
+   "bedrock": "textures/blocks/lodestone_top",
+   "color": true
+  },
+  "loom_bottom": {
+   "bedrock": "textures/blocks/loom_bottom",
+   "color": true
+  },
+  "loom_front": {
+   "bedrock": "textures/blocks/loom_front",
+   "color": true
+  },
+  "loom_side": {
+   "bedrock": "textures/blocks/loom_side",
+   "color": true
+  },
+  "magenta_candle": {
+   "bedrock": "textures/blocks/candles/magenta_candle",
+   "color": true
+  },
+  "magenta_candle_lit": {
+   "bedrock": "textures/blocks/candles/magenta_candle_lit",
+   "color": true
+  },
+  "magenta_concrete": {
+   "bedrock": "textures/blocks/concrete_magenta",
+   "color": true
+  },
+  "magenta_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_magenta",
+   "color": true
+  },
+  "magenta_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_magenta",
+   "color": true
+  },
+  "magenta_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_magenta",
+   "color": true
+  },
+  "magenta_wool": {
+   "bedrock": "textures/blocks/wool_colored_magenta",
+   "color": true
+  },
+  "mangrove_leaves": {
+   "bedrock": "textures/blocks/mangrove_leaves",
+   "color": true
+  },
+  "mangrove_log": {
+   "bedrock": "textures/blocks/mangrove_log_side",
+   "color": true
+  },
+  "mangrove_log_top": {
+   "bedrock": "textures/blocks/mangrove_log_top",
+   "color": true
+  },
+  "mangrove_planks": {
+   "bedrock": "textures/blocks/mangrove_planks",
+   "color": true
+  },
+  "mangrove_propagule": {
+   "bedrock": "textures/blocks/mangrove_propagule",
+   "color": true
+  },
+  "mangrove_propagule_hanging": {
+   "bedrock": "textures/blocks/mangrove_propagule_hanging",
+   "color": true
+  },
+  "mangrove_roots_side": {
+   "bedrock": "textures/blocks/mangrove_roots_side",
+   "color": true
+  },
+  "mangrove_roots_top": {
+   "bedrock": "textures/blocks/mangrove_roots_top",
+   "color": true
+  },
+  "mangrove_shelf": {
+   "bedrock": "textures/blocks/mangrove_shelf",
+   "color": true
+  },
+  "mangrove_trapdoor": {
+   "bedrock": "textures/blocks/mangrove_trapdoor",
+   "color": true
+  },
+  "medium_amethyst_bud": {
+   "bedrock": "textures/blocks/medium_amethyst_bud",
+   "color": true
+  },
+  "melon_side": {
+   "bedrock": "textures/blocks/melon_side",
+   "color": true
+  },
+  "melon_stem": {
+   "bedrock": "textures/blocks/melon_stem_disconnected",
+   "color": true
+  },
+  "melon_top": {
+   "bedrock": "textures/blocks/melon_top",
+   "color": true
+  },
+  "moss_block": {
+   "bedrock": "textures/blocks/moss_block",
+   "color": true
+  },
+  "mossy_cobblestone": {
+   "bedrock": "textures/blocks/cobblestone_mossy",
+   "color": true
+  },
+  "mossy_stone_bricks": {
+   "bedrock": "textures/blocks/stonebrick_mossy",
+   "color": true
+  },
+  "mud": {
+   "bedrock": "textures/blocks/mud",
+   "color": true
+  },
+  "mud_bricks": {
+   "bedrock": "textures/blocks/mud_bricks",
+   "color": true
+  },
+  "muddy_mangrove_roots_side": {
+   "bedrock": "textures/blocks/muddy_mangrove_roots_side",
+   "color": true
+  },
+  "muddy_mangrove_roots_top": {
+   "bedrock": "textures/blocks/muddy_mangrove_roots_top",
+   "color": true
+  },
+  "mushroom_block_inside": {
+   "bedrock": "textures/blocks/mushroom_block_inside",
+   "color": true
+  },
+  "mushroom_stem": {
+   "bedrock": "textures/blocks/mushroom_block_skin_stem",
+   "color": true
+  },
+  "mycelium_side": {
+   "bedrock": "textures/blocks/mycelium_side",
+   "color": true
+  },
+  "mycelium_top": {
+   "bedrock": "textures/blocks/mycelium_top",
+   "color": true
+  },
+  "nether_bricks": {
+   "bedrock": "textures/blocks/nether_brick",
+   "color": true
+  },
+  "nether_gold_ore": {
+   "bedrock": "textures/blocks/nether_gold_ore",
+   "color": true
+  },
+  "nether_quartz_ore": {
+   "bedrock": "textures/blocks/quartz_ore",
+   "color": true
+  },
+  "nether_sprouts": {
+   "bedrock": "textures/blocks/nether_sprouts",
+   "color": true
+  },
+  "nether_wart_block": {
+   "bedrock": "textures/blocks/nether_wart_block",
+   "color": true
+  },
+  "nether_wart_stage0": {
+   "bedrock": "textures/blocks/nether_wart_stage_0",
+   "color": true
+  },
+  "nether_wart_stage1": {
+   "bedrock": "textures/blocks/nether_wart_stage_1",
+   "color": true
+  },
+  "nether_wart_stage2": {
+   "bedrock": "textures/blocks/nether_wart_stage_2",
+   "color": true
+  },
+  "netherite_block": {
+   "bedrock": "textures/blocks/netherite_block",
+   "color": true
+  },
+  "netherrack": {
+   "bedrock": "textures/blocks/netherrack",
+   "color": true
+  },
+  "note_block": {
+   "bedrock": "textures/blocks/noteblock",
+   "color": true
+  },
+  "oak_leaves": {
+   "bedrock": "textures/blocks/leaves_oak",
+   "color": true
+  },
+  "oak_log": {
+   "bedrock": "textures/blocks/log_oak",
+   "color": true
+  },
+  "oak_log_top": {
+   "bedrock": "textures/blocks/log_oak_top",
+   "color": true
+  },
+  "oak_planks": {
+   "bedrock": "textures/blocks/planks_oak",
+   "color": true
+  },
+  "oak_sapling": {
+   "bedrock": "textures/blocks/sapling_oak",
+   "color": true
+  },
+  "oak_shelf": {
+   "bedrock": "textures/blocks/oak_shelf",
+   "color": true
+  },
+  "oak_trapdoor": {
+   "bedrock": "textures/blocks/trapdoor",
+   "color": true
+  },
+  "observer_back": {
+   "bedrock": "textures/blocks/observer_back",
+   "color": true
+  },
+  "observer_back_on": {
+   "bedrock": "textures/blocks/observer_back_lit",
+   "color": true
+  },
+  "observer_front": {
+   "bedrock": "textures/blocks/observer_front",
+   "color": true
+  },
+  "observer_side": {
+   "bedrock": "textures/blocks/observer_side",
+   "color": true
+  },
+  "observer_top": {
+   "bedrock": "textures/blocks/observer_top",
+   "color": true
+  },
+  "obsidian": {
+   "bedrock": "textures/blocks/obsidian",
+   "color": true
+  },
+  "ochre_froglight_side": {
+   "bedrock": "textures/blocks/ochre_froglight_side",
+   "color": true
+  },
+  "ochre_froglight_top": {
+   "bedrock": "textures/blocks/ochre_froglight_top",
+   "color": true
+  },
+  "orange_candle": {
+   "bedrock": "textures/blocks/candles/orange_candle",
+   "color": true
+  },
+  "orange_candle_lit": {
+   "bedrock": "textures/blocks/candles/orange_candle_lit",
+   "color": true
+  },
+  "orange_concrete": {
+   "bedrock": "textures/blocks/concrete_orange",
+   "color": true
+  },
+  "orange_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_orange",
+   "color": true
+  },
+  "orange_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_orange",
+   "color": true
+  },
+  "orange_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_orange",
+   "color": true
+  },
+  "orange_tulip": {
+   "bedrock": "textures/blocks/flower_tulip_orange",
+   "color": true
+  },
+  "orange_wool": {
+   "bedrock": "textures/blocks/wool_colored_orange",
+   "color": true
+  },
+  "oxeye_daisy": {
+   "bedrock": "textures/blocks/flower_oxeye_daisy",
+   "color": true
+  },
+  "oxidized_chiseled_copper": {
+   "bedrock": "textures/blocks/oxidized_chiseled_copper",
+   "color": true
+  },
+  "oxidized_copper": {
+   "bedrock": "textures/blocks/oxidized_copper",
+   "color": true
+  },
+  "oxidized_copper_bars": {
+   "bedrock": "textures/blocks/oxidized_copper_bars",
+   "color": true
+  },
+  "oxidized_copper_bulb": {
+   "bedrock": "textures/blocks/oxidized_copper_bulb",
+   "color": true
+  },
+  "oxidized_copper_bulb_lit": {
+   "bedrock": "textures/blocks/oxidized_copper_bulb_lit",
+   "color": true
+  },
+  "oxidized_copper_bulb_lit_powered": {
+   "bedrock": "textures/blocks/oxidized_copper_bulb_lit_powered",
+   "color": true
+  },
+  "oxidized_copper_bulb_powered": {
+   "bedrock": "textures/blocks/oxidized_copper_bulb_powered",
+   "color": true
+  },
+  "oxidized_copper_grate": {
+   "bedrock": "textures/blocks/oxidized_copper_grate",
+   "color": true
+  },
+  "oxidized_copper_trapdoor": {
+   "bedrock": "textures/blocks/oxidized_copper_trapdoor",
+   "color": true
+  },
+  "oxidized_cut_copper": {
+   "bedrock": "textures/blocks/oxidized_cut_copper",
+   "color": true
+  },
+  "oxidized_lightning_rod": {
+   "bedrock": "textures/blocks/oxidized_lightning_rod",
+   "color": true
+  },
+  "packed_ice": {
+   "bedrock": "textures/blocks/ice_packed",
+   "color": true
+  },
+  "packed_mud": {
+   "bedrock": "textures/blocks/packed_mud",
+   "color": true
+  },
+  "pale_hanging_moss": {
+   "bedrock": "textures/blocks/pale_hanging_moss_middle",
+   "color": true
+  },
+  "pale_hanging_moss_tip": {
+   "bedrock": "textures/blocks/pale_hanging_moss_tip",
+   "color": true
+  },
+  "pale_moss_block": {
+   "bedrock": "textures/blocks/pale_moss_block",
+   "color": true
+  },
+  "pale_moss_carpet": {
+   "bedrock": "textures/blocks/pale_moss",
+   "color": true
+  },
+  "pale_moss_carpet_side_small": {
+   "bedrock": "textures/blocks/pale_moss_carpet_side_tip",
+   "color": true
+  },
+  "pale_moss_carpet_side_tall": {
+   "bedrock": "textures/blocks/pale_moss_carpet_side_base",
+   "color": true
+  },
+  "pale_oak_door_bottom": {
+   "bedrock": "textures/blocks/pale_oak_door_bottom",
+   "color": true
+  },
+  "pale_oak_door_top": {
+   "bedrock": "textures/blocks/pale_oak_door_top",
+   "color": true
+  },
+  "pale_oak_leaves": {
+   "bedrock": "textures/blocks/pale_oak_leaves",
+   "color": true
+  },
+  "pale_oak_log": {
+   "bedrock": "textures/blocks/pale_oak_log_side",
+   "color": true
+  },
+  "pale_oak_log_top": {
+   "bedrock": "textures/blocks/pale_oak_log_top",
+   "color": true
+  },
+  "pale_oak_planks": {
+   "bedrock": "textures/blocks/pale_oak_planks",
+   "color": true
+  },
+  "pale_oak_sapling": {
+   "bedrock": "textures/blocks/pale_oak_sapling",
+   "color": true
+  },
+  "pale_oak_shelf": {
+   "bedrock": "textures/blocks/pale_oak_shelf",
+   "color": true
+  },
+  "pale_oak_trapdoor": {
+   "bedrock": "textures/blocks/pale_oak_trapdoor",
+   "color": true
+  },
+  "pearlescent_froglight_side": {
+   "bedrock": "textures/blocks/pearlescent_froglight_side",
+   "color": true
+  },
+  "pearlescent_froglight_top": {
+   "bedrock": "textures/blocks/pearlescent_froglight_top",
+   "color": true
+  },
+  "peony_bottom": {
+   "bedrock": "textures/blocks/double_plant_paeonia_bottom",
+   "color": true
+  },
+  "peony_top": {
+   "bedrock": "textures/blocks/double_plant_paeonia_top",
+   "color": true
+  },
+  "pink_candle": {
+   "bedrock": "textures/blocks/candles/pink_candle",
+   "color": true
+  },
+  "pink_candle_lit": {
+   "bedrock": "textures/blocks/candles/pink_candle_lit",
+   "color": true
+  },
+  "pink_concrete": {
+   "bedrock": "textures/blocks/concrete_pink",
+   "color": true
+  },
+  "pink_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_pink",
+   "color": true
+  },
+  "pink_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_pink",
+   "color": true
+  },
+  "pink_petals": {
+   "bedrock": "textures/blocks/pink_petals",
+   "color": true
+  },
+  "pink_petals_stem": {
+   "bedrock": "textures/blocks/pink_petals_stem",
+   "color": true
+  },
+  "pink_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_pink",
+   "color": true
+  },
+  "pink_tulip": {
+   "bedrock": "textures/blocks/flower_tulip_pink",
+   "color": true
+  },
+  "pink_wool": {
+   "bedrock": "textures/blocks/wool_colored_pink",
+   "color": true
+  },
+  "piston_bottom": {
+   "bedrock": "textures/blocks/piston_bottom",
+   "color": true
+  },
+  "piston_inner": {
+   "bedrock": "textures/blocks/piston_inner",
+   "color": true
+  },
+  "piston_side": {
+   "bedrock": "textures/blocks/piston_side",
+   "color": true
+  },
+  "pitcher_crop_bottom": {
+   "bedrock": "textures/blocks/pitcher_crop_bottom",
+   "color": true
+  },
+  "pitcher_crop_bottom_stage_1": {
+   "bedrock": "textures/blocks/pitcher_crop_bottom_stage_1",
+   "color": true
+  },
+  "pitcher_crop_bottom_stage_2": {
+   "bedrock": "textures/blocks/pitcher_crop_bottom_stage_2",
+   "color": true
+  },
+  "pitcher_crop_bottom_stage_3": {
+   "bedrock": "textures/blocks/pitcher_crop_bottom_stage_3",
+   "color": true
+  },
+  "pitcher_crop_bottom_stage_4": {
+   "bedrock": "textures/blocks/pitcher_crop_bottom_stage_4",
+   "color": true
+  },
+  "pitcher_crop_side": {
+   "bedrock": "textures/blocks/pitcher_crop_side",
+   "color": true
+  },
+  "pitcher_crop_top": {
+   "bedrock": "textures/blocks/pitcher_crop_top",
+   "color": true
+  },
+  "pitcher_crop_top_stage_3": {
+   "bedrock": "textures/blocks/pitcher_crop_top_stage_3",
+   "color": true
+  },
+  "pitcher_crop_top_stage_4": {
+   "bedrock": "textures/blocks/pitcher_crop_top_stage_4",
+   "color": true
+  },
+  "podzol_side": {
+   "bedrock": "textures/blocks/dirt_podzol_side",
+   "color": true
+  },
+  "podzol_top": {
+   "bedrock": "textures/blocks/dirt_podzol_top",
+   "color": true
+  },
+  "pointed_dripstone_down_base": {
+   "bedrock": "textures/blocks/pointed_dripstone_down_base",
+   "color": true
+  },
+  "pointed_dripstone_down_frustum": {
+   "bedrock": "textures/blocks/pointed_dripstone_down_frustum",
+   "color": true
+  },
+  "pointed_dripstone_down_middle": {
+   "bedrock": "textures/blocks/pointed_dripstone_down_middle",
+   "color": true
+  },
+  "pointed_dripstone_down_tip": {
+   "bedrock": "textures/blocks/pointed_dripstone_down_tip",
+   "color": true
+  },
+  "pointed_dripstone_down_tip_merge": {
+   "bedrock": "textures/blocks/pointed_dripstone_down_merge",
+   "color": true
+  },
+  "pointed_dripstone_up_base": {
+   "bedrock": "textures/blocks/pointed_dripstone_up_base",
+   "color": true
+  },
+  "pointed_dripstone_up_frustum": {
+   "bedrock": "textures/blocks/pointed_dripstone_up_frustum",
+   "color": true
+  },
+  "pointed_dripstone_up_middle": {
+   "bedrock": "textures/blocks/pointed_dripstone_up_middle",
+   "color": true
+  },
+  "pointed_dripstone_up_tip": {
+   "bedrock": "textures/blocks/pointed_dripstone_up_tip",
+   "color": true
+  },
+  "pointed_dripstone_up_tip_merge": {
+   "bedrock": "textures/blocks/pointed_dripstone_up_merge",
+   "color": true
+  },
+  "polished_andesite": {
+   "bedrock": "textures/blocks/stone_andesite_smooth",
+   "color": true
+  },
+  "polished_basalt_side": {
+   "bedrock": "textures/blocks/polished_basalt_side",
+   "color": true
+  },
+  "polished_basalt_top": {
+   "bedrock": "textures/blocks/polished_basalt_top",
+   "color": true
+  },
+  "polished_blackstone": {
+   "bedrock": "textures/blocks/polished_blackstone",
+   "color": true
+  },
+  "polished_blackstone_bricks": {
+   "bedrock": "textures/blocks/polished_blackstone_bricks",
+   "color": true
+  },
+  "polished_cinnabar": {
+   "bedrock": "textures/blocks/polished_cinnabar",
+   "color": true
+  },
+  "polished_deepslate": {
+   "bedrock": "textures/blocks/deepslate/polished_deepslate",
+   "color": true
+  },
+  "polished_diorite": {
+   "bedrock": "textures/blocks/stone_diorite_smooth",
+   "color": true
+  },
+  "polished_granite": {
+   "bedrock": "textures/blocks/stone_granite_smooth",
+   "color": true
+  },
+  "polished_sulfur": {
+   "bedrock": "textures/blocks/polished_sulfur",
+   "color": true
+  },
+  "polished_tuff": {
+   "bedrock": "textures/blocks/polished_tuff",
+   "color": true
+  },
+  "poppy": {
+   "bedrock": "textures/blocks/flower_rose",
+   "color": true
+  },
+  "potatoes_stage0": {
+   "bedrock": "textures/blocks/potatoes_stage_0",
+   "color": true
+  },
+  "potatoes_stage1": {
+   "bedrock": "textures/blocks/potatoes_stage_1",
+   "color": true
+  },
+  "potatoes_stage2": {
+   "bedrock": "textures/blocks/potatoes_stage_2",
+   "color": true
+  },
+  "potatoes_stage3": {
+   "bedrock": "textures/blocks/potatoes_stage_3",
+   "color": true
+  },
+  "potent_sulfur": {
+   "bedrock": "textures/blocks/potent_sulfur",
+   "color": true
+  },
+  "potted_azalea_bush_plant": {
+   "bedrock": "textures/blocks/potted_azalea_bush_plant",
+   "color": true
+  },
+  "potted_azalea_bush_side": {
+   "bedrock": "textures/blocks/potted_azalea_bush_side",
+   "color": true
+  },
+  "potted_azalea_bush_top": {
+   "bedrock": "textures/blocks/potted_azalea_bush_top",
+   "color": true
+  },
+  "potted_flowering_azalea_bush_plant": {
+   "bedrock": "textures/blocks/potted_flowering_azalea_bush_plant",
+   "color": true
+  },
+  "potted_flowering_azalea_bush_side": {
+   "bedrock": "textures/blocks/potted_flowering_azalea_bush_side",
+   "color": true
+  },
+  "potted_flowering_azalea_bush_top": {
+   "bedrock": "textures/blocks/potted_flowering_azalea_bush_top",
+   "color": true
+  },
+  "powder_snow": {
+   "bedrock": "textures/blocks/powder_snow",
+   "color": true
+  },
+  "powered_rail": {
+   "bedrock": "textures/blocks/rail_golden",
+   "color": true
+  },
+  "powered_rail_on": {
+   "bedrock": "textures/blocks/rail_golden_powered",
+   "color": true
+  },
+  "prismarine_bricks": {
+   "bedrock": "textures/blocks/prismarine_bricks",
+   "color": true
+  },
+  "pumpkin_side": {
+   "bedrock": "textures/blocks/pumpkin_side",
+   "color": true
+  },
+  "pumpkin_stem": {
+   "bedrock": "textures/blocks/melon_stem_disconnected",
+   "color": true
+  },
+  "pumpkin_top": {
+   "bedrock": "textures/blocks/pumpkin_top",
+   "color": true
+  },
+  "purple_candle": {
+   "bedrock": "textures/blocks/candles/purple_candle",
+   "color": true
+  },
+  "purple_candle_lit": {
+   "bedrock": "textures/blocks/candles/purple_candle_lit",
+   "color": true
+  },
+  "purple_concrete": {
+   "bedrock": "textures/blocks/concrete_purple",
+   "color": true
+  },
+  "purple_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_purple",
+   "color": true
+  },
+  "purple_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_purple",
+   "color": true
+  },
+  "purple_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_purple",
+   "color": true
+  },
+  "purple_wool": {
+   "bedrock": "textures/blocks/wool_colored_purple",
+   "color": true
+  },
+  "purpur_block": {
+   "bedrock": "textures/blocks/purpur_block",
+   "color": true
+  },
+  "purpur_pillar_side": {
+   "bedrock": "textures/blocks/purpur_pillar",
+   "color": true
+  },
+  "purpur_pillar_top": {
+   "bedrock": "textures/blocks/purpur_pillar_top",
+   "color": true
+  },
+  "quartz_block_bottom": {
+   "bedrock": "textures/blocks/quartz_block_bottom",
+   "color": true
+  },
+  "quartz_block_side": {
+   "bedrock": "textures/blocks/quartz_block_side",
+   "color": true
+  },
+  "quartz_block_top": {
+   "bedrock": "textures/blocks/quartz_block_top",
+   "color": true
+  },
+  "quartz_bricks": {
+   "bedrock": "textures/blocks/quartz_bricks",
+   "color": true
+  },
+  "quartz_pillar_side": {
+   "bedrock": "textures/blocks/quartz_block_lines",
+   "color": true
+  },
+  "quartz_pillar_top": {
+   "bedrock": "textures/blocks/quartz_block_lines_top",
+   "color": true
+  },
+  "rail": {
+   "bedrock": "textures/blocks/rail_normal",
+   "color": true
+  },
+  "rail_corner": {
+   "bedrock": "textures/blocks/rail_normal_turned",
+   "color": true
+  },
+  "raw_copper_block": {
+   "bedrock": "textures/blocks/raw_copper_block",
+   "color": true
+  },
+  "raw_gold_block": {
+   "bedrock": "textures/blocks/raw_gold_block",
+   "color": true
+  },
+  "raw_iron_block": {
+   "bedrock": "textures/blocks/raw_iron_block",
+   "color": true
+  },
+  "red_candle": {
+   "bedrock": "textures/blocks/candles/red_candle",
+   "color": true
+  },
+  "red_candle_lit": {
+   "bedrock": "textures/blocks/candles/red_candle_lit",
+   "color": true
+  },
+  "red_concrete": {
+   "bedrock": "textures/blocks/concrete_red",
+   "color": true
+  },
+  "red_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_red",
+   "color": true
+  },
+  "red_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_red",
+   "color": true
+  },
+  "red_mushroom": {
+   "bedrock": "textures/blocks/mushroom_red",
+   "color": true
+  },
+  "red_mushroom_block": {
+   "bedrock": "textures/blocks/mushroom_block_skin_red",
+   "color": true
+  },
+  "red_nether_bricks": {
+   "bedrock": "textures/blocks/red_nether_brick",
+   "color": true
+  },
+  "red_sand": {
+   "bedrock": "textures/blocks/red_sand",
+   "color": true
+  },
+  "red_sandstone": {
+   "bedrock": "textures/blocks/red_sandstone_normal",
+   "color": true
+  },
+  "red_sandstone_bottom": {
+   "bedrock": "textures/blocks/red_sandstone_bottom",
+   "color": true
+  },
+  "red_sandstone_top": {
+   "bedrock": "textures/blocks/red_sandstone_top",
+   "color": true
+  },
+  "red_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_red",
+   "color": true
+  },
+  "red_tulip": {
+   "bedrock": "textures/blocks/flower_tulip_red",
+   "color": true
+  },
+  "red_wool": {
+   "bedrock": "textures/blocks/wool_colored_red",
+   "color": true
+  },
+  "redstone_block": {
+   "bedrock": "textures/blocks/redstone_block",
+   "color": true
+  },
+  "redstone_dust_overlay": {
+   "bedrock": "textures/blocks/grass_side_snowed",
+   "color": true
+  },
+  "redstone_lamp": {
+   "bedrock": "textures/blocks/redstone_lamp_off",
+   "color": true
+  },
+  "redstone_lamp_on": {
+   "bedrock": "textures/blocks/redstone_lamp_on",
+   "color": true
+  },
+  "redstone_ore": {
+   "bedrock": "textures/blocks/redstone_ore",
+   "color": true
+  },
+  "redstone_torch_off": {
+   "bedrock": "textures/blocks/redstone_torch_off",
+   "color": true
+  },
+  "reinforced_deepslate_bottom": {
+   "bedrock": "textures/blocks/reinforced_deepslate_bottom",
+   "color": true
+  },
+  "reinforced_deepslate_side": {
+   "bedrock": "textures/blocks/reinforced_deepslate_side",
+   "color": true
+  },
+  "reinforced_deepslate_top": {
+   "bedrock": "textures/blocks/reinforced_deepslate_top",
+   "color": true
+  },
+  "repeater": {
+   "bedrock": "textures/blocks/repeater_off",
+   "color": true
+  },
+  "repeater_on": {
+   "bedrock": "textures/blocks/repeater_on",
+   "color": true
+  },
+  "resin_block": {
+   "bedrock": "textures/blocks/resin_block",
+   "color": true
+  },
+  "resin_bricks": {
+   "bedrock": "textures/blocks/resin_bricks",
+   "color": true
+  },
+  "resin_clump": {
+   "bedrock": "textures/blocks/resin_clump",
+   "color": true
+  },
+  "respawn_anchor_bottom": {
+   "bedrock": "textures/blocks/respawn_anchor_bottom",
+   "color": true
+  },
+  "respawn_anchor_side0": {
+   "bedrock": "textures/blocks/respawn_anchor_side0",
+   "color": true
+  },
+  "respawn_anchor_side1": {
+   "bedrock": "textures/blocks/respawn_anchor_side1",
+   "color": true
+  },
+  "respawn_anchor_side2": {
+   "bedrock": "textures/blocks/respawn_anchor_side2",
+   "color": true
+  },
+  "respawn_anchor_side3": {
+   "bedrock": "textures/blocks/respawn_anchor_side3",
+   "color": true
+  },
+  "respawn_anchor_side4": {
+   "bedrock": "textures/blocks/respawn_anchor_side4",
+   "color": true
+  },
+  "respawn_anchor_top_off": {
+   "bedrock": "textures/blocks/respawn_anchor_top_off",
+   "color": true
+  },
+  "rooted_dirt": {
+   "bedrock": "textures/blocks/dirt_with_roots",
+   "color": true
+  },
+  "rose_bush_bottom": {
+   "bedrock": "textures/blocks/double_plant_rose_bottom",
+   "color": true
+  },
+  "rose_bush_top": {
+   "bedrock": "textures/blocks/double_plant_rose_top",
+   "color": true
+  },
+  "sand": {
+   "bedrock": "textures/blocks/sand",
+   "color": true
+  },
+  "sandstone": {
+   "bedrock": "textures/blocks/sandstone_normal",
+   "color": true
+  },
+  "sandstone_bottom": {
+   "bedrock": "textures/blocks/sandstone_bottom",
+   "color": true
+  },
+  "sandstone_top": {
+   "bedrock": "textures/blocks/sandstone_top",
+   "color": true
+  },
+  "scaffolding_bottom": {
+   "bedrock": "textures/blocks/scaffolding_bottom",
+   "color": true
+  },
+  "scaffolding_top": {
+   "bedrock": "textures/blocks/scaffolding_top",
+   "color": true
+  },
+  "sculk_catalyst_bottom": {
+   "bedrock": "textures/blocks/sculk_catalyst_bottom",
+   "color": true
+  },
+  "sculk_catalyst_side": {
+   "bedrock": "textures/blocks/sculk_catalyst_side",
+   "color": true
+  },
+  "sculk_catalyst_top": {
+   "bedrock": "textures/blocks/sculk_catalyst_top",
+   "color": true
+  },
+  "sculk_sensor_bottom": {
+   "bedrock": "textures/blocks/sculk_sensor_bottom",
+   "color": true
+  },
+  "sculk_sensor_side": {
+   "bedrock": "textures/blocks/sculk_sensor_side",
+   "color": true
+  },
+  "sculk_sensor_top": {
+   "bedrock": "textures/blocks/sculk_sensor_top",
+   "color": true
+  },
+  "sculk_shrieker_bottom": {
+   "bedrock": "textures/blocks/sculk_shrieker_bottom",
+   "color": true
+  },
+  "sculk_shrieker_side": {
+   "bedrock": "textures/blocks/sculk_shrieker_side",
+   "color": true
+  },
+  "sculk_shrieker_top": {
+   "bedrock": "textures/blocks/sculk_shrieker_top",
+   "color": true
+  },
+  "sea_pickle": {
+   "bedrock": "textures/blocks/sea_pickle",
+   "color": true
+  },
+  "short_dry_grass": {
+   "bedrock": "textures/blocks/short_dry_grass",
+   "color": true
+  },
+  "short_grass": {
+   "bedrock": "textures/blocks/tallgrass",
+   "color": true
+  },
+  "shroomlight": {
+   "bedrock": "textures/blocks/shroomlight",
+   "color": true
+  },
+  "small_amethyst_bud": {
+   "bedrock": "textures/blocks/small_amethyst_bud",
+   "color": true
+  },
+  "small_dripleaf_side": {
+   "bedrock": "textures/blocks/small_dripleaf_side",
+   "color": true
+  },
+  "small_dripleaf_stem_bottom": {
+   "bedrock": "textures/blocks/small_dripleaf_stem_bottom",
+   "color": true
+  },
+  "small_dripleaf_stem_top": {
+   "bedrock": "textures/blocks/small_dripleaf_stem_top",
+   "color": true
+  },
+  "small_dripleaf_top": {
+   "bedrock": "textures/blocks/small_dripleaf_top",
+   "color": true
+  },
+  "smithing_table_bottom": {
+   "bedrock": "textures/blocks/smithing_table_bottom",
+   "color": true
+  },
+  "smithing_table_front": {
+   "bedrock": "textures/blocks/smithing_table_front",
+   "color": true
+  },
+  "smithing_table_side": {
+   "bedrock": "textures/blocks/smithing_table_side",
+   "color": true
+  },
+  "smithing_table_top": {
+   "bedrock": "textures/blocks/smithing_table_top",
+   "color": true
+  },
+  "smoker_bottom": {
+   "bedrock": "textures/blocks/smoker_bottom",
+   "color": true
+  },
+  "smoker_front": {
+   "bedrock": "textures/blocks/smoker_front_off",
+   "color": true
+  },
+  "smoker_side": {
+   "bedrock": "textures/blocks/smoker_side",
+   "color": true
+  },
+  "smoker_top": {
+   "bedrock": "textures/blocks/smoker_top",
+   "color": true
+  },
+  "smooth_basalt": {
+   "bedrock": "textures/blocks/smooth_basalt",
+   "color": true
+  },
+  "smooth_stone": {
+   "bedrock": "textures/blocks/stone_slab_top",
+   "color": true
+  },
+  "smooth_stone_slab_side": {
+   "bedrock": "textures/blocks/stone_slab_side",
+   "color": true
+  },
+  "sniffer_egg_not_cracked_bottom": {
+   "bedrock": "textures/blocks/sniffer_egg_not_cracked_bottom",
+   "color": true
+  },
+  "sniffer_egg_not_cracked_east": {
+   "bedrock": "textures/blocks/sniffer_egg_not_cracked_east",
+   "color": true
+  },
+  "sniffer_egg_not_cracked_north": {
+   "bedrock": "textures/blocks/sniffer_egg_not_cracked_north",
+   "color": true
+  },
+  "sniffer_egg_not_cracked_south": {
+   "bedrock": "textures/blocks/sniffer_egg_not_cracked_south",
+   "color": true
+  },
+  "sniffer_egg_not_cracked_top": {
+   "bedrock": "textures/blocks/sniffer_egg_not_cracked_top",
+   "color": true
+  },
+  "sniffer_egg_not_cracked_west": {
+   "bedrock": "textures/blocks/sniffer_egg_not_cracked_west",
+   "color": true
+  },
+  "sniffer_egg_slightly_cracked_bottom": {
+   "bedrock": "textures/blocks/sniffer_egg_slightly_cracked_bottom",
+   "color": true
+  },
+  "sniffer_egg_slightly_cracked_east": {
+   "bedrock": "textures/blocks/sniffer_egg_slightly_cracked_east",
+   "color": true
+  },
+  "sniffer_egg_slightly_cracked_north": {
+   "bedrock": "textures/blocks/sniffer_egg_slightly_cracked_north",
+   "color": true
+  },
+  "sniffer_egg_slightly_cracked_south": {
+   "bedrock": "textures/blocks/sniffer_egg_slightly_cracked_south",
+   "color": true
+  },
+  "sniffer_egg_slightly_cracked_top": {
+   "bedrock": "textures/blocks/sniffer_egg_slightly_cracked_top",
+   "color": true
+  },
+  "sniffer_egg_slightly_cracked_west": {
+   "bedrock": "textures/blocks/sniffer_egg_slightly_cracked_west",
+   "color": true
+  },
+  "sniffer_egg_very_cracked_bottom": {
+   "bedrock": "textures/blocks/sniffer_egg_very_cracked_bottom",
+   "color": true
+  },
+  "sniffer_egg_very_cracked_east": {
+   "bedrock": "textures/blocks/sniffer_egg_very_cracked_east",
+   "color": true
+  },
+  "sniffer_egg_very_cracked_north": {
+   "bedrock": "textures/blocks/sniffer_egg_very_cracked_north",
+   "color": true
+  },
+  "sniffer_egg_very_cracked_south": {
+   "bedrock": "textures/blocks/sniffer_egg_very_cracked_south",
+   "color": true
+  },
+  "sniffer_egg_very_cracked_top": {
+   "bedrock": "textures/blocks/sniffer_egg_very_cracked_top",
+   "color": true
+  },
+  "sniffer_egg_very_cracked_west": {
+   "bedrock": "textures/blocks/sniffer_egg_very_cracked_west",
+   "color": true
+  },
+  "snow": {
+   "bedrock": "textures/blocks/snow",
+   "color": true
+  },
+  "soul_sand": {
+   "bedrock": "textures/blocks/soul_sand",
+   "color": true
+  },
+  "soul_soil": {
+   "bedrock": "textures/blocks/soul_soil",
+   "color": true
+  },
+  "soul_torch": {
+   "bedrock": "textures/blocks/soul_torch",
+   "color": true
+  },
+  "spawner": {
+   "bedrock": "textures/blocks/mob_spawner",
+   "color": true
+  },
+  "sponge": {
+   "bedrock": "textures/blocks/sponge",
+   "color": true
+  },
+  "spore_blossom": {
+   "bedrock": "textures/blocks/spore_blossom",
+   "color": true
+  },
+  "spore_blossom_base": {
+   "bedrock": "textures/blocks/spore_blossom_base",
+   "color": true
+  },
+  "spruce_leaves": {
+   "bedrock": "textures/blocks/leaves_spruce",
+   "color": true
+  },
+  "spruce_log": {
+   "bedrock": "textures/blocks/log_spruce",
+   "color": true
+  },
+  "spruce_log_top": {
+   "bedrock": "textures/blocks/log_spruce_top",
+   "color": true
+  },
+  "spruce_planks": {
+   "bedrock": "textures/blocks/planks_spruce",
+   "color": true
+  },
+  "spruce_sapling": {
+   "bedrock": "textures/blocks/sapling_spruce",
+   "color": true
+  },
+  "spruce_shelf": {
+   "bedrock": "textures/blocks/spruce_shelf",
+   "color": true
+  },
+  "spruce_trapdoor": {
+   "bedrock": "textures/blocks/spruce_trapdoor",
+   "color": true
+  },
+  "stone": {
+   "bedrock": "textures/blocks/stone",
+   "color": true
+  },
+  "stone_bricks": {
+   "bedrock": "textures/blocks/stonebrick",
+   "color": true
+  },
+  "stonecutter_bottom": {
+   "bedrock": "textures/blocks/stonecutter2_bottom",
+   "color": true
+  },
+  "stonecutter_side": {
+   "bedrock": "textures/blocks/stonecutter2_side",
+   "color": true
+  },
+  "stonecutter_top": {
+   "bedrock": "textures/blocks/stonecutter2_top",
+   "color": true
+  },
+  "stripped_acacia_log": {
+   "bedrock": "textures/blocks/stripped_acacia_log",
+   "color": true
+  },
+  "stripped_acacia_log_top": {
+   "bedrock": "textures/blocks/stripped_acacia_log_top",
+   "color": true
+  },
+  "stripped_bamboo_block": {
+   "bedrock": "textures/blocks/stripped_bamboo_block",
+   "color": true
+  },
+  "stripped_bamboo_block_top": {
+   "bedrock": "textures/blocks/stripped_bamboo_block_top",
+   "color": true
+  },
+  "stripped_birch_log": {
+   "bedrock": "textures/blocks/stripped_birch_log",
+   "color": true
+  },
+  "stripped_birch_log_top": {
+   "bedrock": "textures/blocks/stripped_birch_log_top",
+   "color": true
+  },
+  "stripped_cherry_log": {
+   "bedrock": "textures/blocks/stripped_cherry_log_side",
+   "color": true
+  },
+  "stripped_cherry_log_top": {
+   "bedrock": "textures/blocks/stripped_cherry_log_top",
+   "color": true
+  },
+  "stripped_crimson_stem": {
+   "bedrock": "textures/blocks/huge_fungus/stripped_crimson_stem_side",
+   "color": true
+  },
+  "stripped_crimson_stem_top": {
+   "bedrock": "textures/blocks/huge_fungus/stripped_crimson_stem_top",
+   "color": true
+  },
+  "stripped_dark_oak_log": {
+   "bedrock": "textures/blocks/stripped_dark_oak_log",
+   "color": true
+  },
+  "stripped_dark_oak_log_top": {
+   "bedrock": "textures/blocks/stripped_dark_oak_log_top",
+   "color": true
+  },
+  "stripped_jungle_log": {
+   "bedrock": "textures/blocks/stripped_jungle_log",
+   "color": true
+  },
+  "stripped_jungle_log_top": {
+   "bedrock": "textures/blocks/stripped_jungle_log_top",
+   "color": true
+  },
+  "stripped_mangrove_log": {
+   "bedrock": "textures/blocks/stripped_mangrove_log_side",
+   "color": true
+  },
+  "stripped_mangrove_log_top": {
+   "bedrock": "textures/blocks/stripped_mangrove_log_top",
+   "color": true
+  },
+  "stripped_oak_log": {
+   "bedrock": "textures/blocks/stripped_oak_log",
+   "color": true
+  },
+  "stripped_oak_log_top": {
+   "bedrock": "textures/blocks/stripped_oak_log_top",
+   "color": true
+  },
+  "stripped_pale_oak_log": {
+   "bedrock": "textures/blocks/stripped_pale_oak_log_side",
+   "color": true
+  },
+  "stripped_pale_oak_log_top": {
+   "bedrock": "textures/blocks/stripped_pale_oak_log_top",
+   "color": true
+  },
+  "stripped_spruce_log": {
+   "bedrock": "textures/blocks/stripped_spruce_log",
+   "color": true
+  },
+  "stripped_spruce_log_top": {
+   "bedrock": "textures/blocks/stripped_spruce_log_top",
+   "color": true
+  },
+  "stripped_warped_stem": {
+   "bedrock": "textures/blocks/huge_fungus/stripped_warped_stem_side",
+   "color": true
+  },
+  "stripped_warped_stem_top": {
+   "bedrock": "textures/blocks/huge_fungus/stripped_warped_stem_top",
+   "color": true
+  },
+  "structure_block": {
+   "bedrock": "textures/blocks/structure_block",
+   "color": true
+  },
+  "structure_block_corner": {
+   "bedrock": "textures/blocks/structure_block_corner",
+   "color": true
+  },
+  "structure_block_data": {
+   "bedrock": "textures/blocks/structure_block_data",
+   "color": true
+  },
+  "structure_block_load": {
+   "bedrock": "textures/blocks/structure_block_load",
+   "color": true
+  },
+  "structure_block_save": {
+   "bedrock": "textures/blocks/structure_block_save",
+   "color": true
+  },
+  "sugar_cane": {
+   "bedrock": "textures/blocks/reeds",
+   "color": true
+  },
+  "sulfur": {
+   "bedrock": "textures/blocks/sulfur",
+   "color": true
+  },
+  "sulfur_bricks": {
+   "bedrock": "textures/blocks/sulfur_bricks",
+   "color": true
+  },
+  "sulfur_spike_down_base": {
+   "bedrock": "textures/blocks/sulfur_spike_down_base",
+   "color": true
+  },
+  "sulfur_spike_down_frustum": {
+   "bedrock": "textures/blocks/sulfur_spike_down_frustum",
+   "color": true
+  },
+  "sulfur_spike_down_middle": {
+   "bedrock": "textures/blocks/sulfur_spike_down_middle",
+   "color": true
+  },
+  "sulfur_spike_down_tip": {
+   "bedrock": "textures/blocks/sulfur_spike_down_tip",
+   "color": true
+  },
+  "sulfur_spike_down_tip_merge": {
+   "bedrock": "textures/blocks/sulfur_spike_down_tip_merge",
+   "color": true
+  },
+  "sulfur_spike_up_base": {
+   "bedrock": "textures/blocks/sulfur_spike_up_base",
+   "color": true
+  },
+  "sulfur_spike_up_frustum": {
+   "bedrock": "textures/blocks/sulfur_spike_up_frustum",
+   "color": true
+  },
+  "sulfur_spike_up_middle": {
+   "bedrock": "textures/blocks/sulfur_spike_up_middle",
+   "color": true
+  },
+  "sulfur_spike_up_tip": {
+   "bedrock": "textures/blocks/sulfur_spike_up_tip",
+   "color": true
+  },
+  "sulfur_spike_up_tip_merge": {
+   "bedrock": "textures/blocks/sulfur_spike_up_tip_merge",
+   "color": true
+  },
+  "sunflower_back": {
+   "bedrock": "textures/blocks/double_plant_sunflower_back",
+   "color": true
+  },
+  "sunflower_bottom": {
+   "bedrock": "textures/blocks/double_plant_sunflower_bottom",
+   "color": true
+  },
+  "sunflower_front": {
+   "bedrock": "textures/blocks/double_plant_sunflower_front",
+   "color": true
+  },
+  "sunflower_top": {
+   "bedrock": "textures/blocks/double_plant_sunflower_top",
+   "color": true
+  },
+  "suspicious_gravel_0": {
+   "bedrock": "textures/blocks/suspicious_gravel_0",
+   "color": true
+  },
+  "suspicious_gravel_1": {
+   "bedrock": "textures/blocks/suspicious_gravel_1",
+   "color": true
+  },
+  "suspicious_gravel_2": {
+   "bedrock": "textures/blocks/suspicious_gravel_2",
+   "color": true
+  },
+  "suspicious_gravel_3": {
+   "bedrock": "textures/blocks/suspicious_gravel_3",
+   "color": true
+  },
+  "suspicious_sand_0": {
+   "bedrock": "textures/blocks/suspicious_sand_0",
+   "color": true
+  },
+  "suspicious_sand_1": {
+   "bedrock": "textures/blocks/suspicious_sand_1",
+   "color": true
+  },
+  "suspicious_sand_2": {
+   "bedrock": "textures/blocks/suspicious_sand_2",
+   "color": true
+  },
+  "suspicious_sand_3": {
+   "bedrock": "textures/blocks/suspicious_sand_3",
+   "color": true
+  },
+  "sweet_berry_bush_stage0": {
+   "bedrock": "textures/blocks/sweet_berry_bush_stage0",
+   "color": true
+  },
+  "sweet_berry_bush_stage1": {
+   "bedrock": "textures/blocks/sweet_berry_bush_stage1",
+   "color": true
+  },
+  "sweet_berry_bush_stage2": {
+   "bedrock": "textures/blocks/sweet_berry_bush_stage2",
+   "color": true
+  },
+  "sweet_berry_bush_stage3": {
+   "bedrock": "textures/blocks/sweet_berry_bush_stage3",
+   "color": true
+  },
+  "tall_dry_grass": {
+   "bedrock": "textures/blocks/tall_dry_grass",
+   "color": true
+  },
+  "tall_grass_bottom": {
+   "bedrock": "textures/blocks/double_plant_grass_bottom",
+   "color": true
+  },
+  "tall_grass_top": {
+   "bedrock": "textures/blocks/double_plant_grass_top",
+   "color": true
+  },
+  "target_side": {
+   "bedrock": "textures/blocks/target_side",
+   "color": true
+  },
+  "target_top": {
+   "bedrock": "textures/blocks/target_top",
+   "color": true
+  },
+  "terracotta": {
+   "bedrock": "textures/blocks/hardened_clay",
+   "color": true
+  },
+  "tnt_bottom": {
+   "bedrock": "textures/blocks/tnt_bottom",
+   "color": true
+  },
+  "tnt_side": {
+   "bedrock": "textures/blocks/tnt_side",
+   "color": true
+  },
+  "tnt_top": {
+   "bedrock": "textures/blocks/tnt_top",
+   "color": true
+  },
+  "torch": {
+   "bedrock": "textures/blocks/torch_on",
+   "color": true
+  },
+  "torchflower": {
+   "bedrock": "textures/blocks/torchflower",
+   "color": true
+  },
+  "torchflower_crop_stage0": {
+   "bedrock": "textures/blocks/torchflower_crop_stage_0",
+   "color": true
+  },
+  "torchflower_crop_stage1": {
+   "bedrock": "textures/blocks/torchflower_crop_stage_1",
+   "color": true
+  },
+  "trial_spawner_bottom": {
+   "bedrock": "textures/blocks/trial_spawner_bottom",
+   "color": true
+  },
+  "trial_spawner_side_active": {
+   "bedrock": "textures/blocks/trial_spawner_side_active",
+   "color": true
+  },
+  "trial_spawner_side_active_ominous": {
+   "bedrock": "textures/blocks/trial_spawner_side_active_ominous",
+   "color": true
+  },
+  "trial_spawner_side_inactive": {
+   "bedrock": "textures/blocks/trial_spawner_side_inactive",
+   "color": true
+  },
+  "trial_spawner_side_inactive_ominous": {
+   "bedrock": "textures/blocks/trial_spawner_side_inactive_ominous",
+   "color": true
+  },
+  "trial_spawner_top_active": {
+   "bedrock": "textures/blocks/trial_spawner_top_active",
+   "color": true
+  },
+  "trial_spawner_top_active_ominous": {
+   "bedrock": "textures/blocks/trial_spawner_top_active_ominous",
+   "color": true
+  },
+  "trial_spawner_top_ejecting_reward": {
+   "bedrock": "textures/blocks/trial_spawner_top_ejecting_reward",
+   "color": true
+  },
+  "trial_spawner_top_ejecting_reward_ominous": {
+   "bedrock": "textures/blocks/trial_spawner_top_ejecting_reward_ominous",
+   "color": true
+  },
+  "trial_spawner_top_inactive": {
+   "bedrock": "textures/blocks/trial_spawner_top_inactive",
+   "color": true
+  },
+  "trial_spawner_top_inactive_ominous": {
+   "bedrock": "textures/blocks/trial_spawner_top_inactive_ominous",
+   "color": true
+  },
+  "tripwire_hook": {
+   "bedrock": "textures/blocks/trip_wire_source",
+   "color": true
+  },
+  "tube_coral": {
+   "bedrock": "textures/blocks/coral_plant_blue",
+   "color": true
+  },
+  "tube_coral_block": {
+   "bedrock": "textures/blocks/coral_blue",
+   "color": true
+  },
+  "tube_coral_fan": {
+   "bedrock": "textures/blocks/coral_fan_blue",
+   "color": true
+  },
+  "tuff": {
+   "bedrock": "textures/blocks/tuff",
+   "color": true
+  },
+  "tuff_bricks": {
+   "bedrock": "textures/blocks/tuff_bricks",
+   "color": true
+  },
+  "turtle_egg": {
+   "bedrock": "textures/blocks/turtle_egg_not_cracked",
+   "color": true
+  },
+  "turtle_egg_slightly_cracked": {
+   "bedrock": "textures/blocks/turtle_egg_slightly_cracked",
+   "color": true
+  },
+  "turtle_egg_very_cracked": {
+   "bedrock": "textures/blocks/turtle_egg_very_cracked",
+   "color": true
+  },
+  "twisting_vines": {
+   "bedrock": "textures/blocks/twisting_vines_bottom",
+   "color": true
+  },
+  "twisting_vines_plant": {
+   "bedrock": "textures/blocks/twisting_vines_base",
+   "color": true
+  },
+  "vault_bottom": {
+   "bedrock": "textures/blocks/vault_bottom",
+   "color": true
+  },
+  "vault_bottom_ominous": {
+   "bedrock": "textures/blocks/vault_bottom_ominous",
+   "color": true
+  },
+  "vault_front_ejecting": {
+   "bedrock": "textures/blocks/vault_front_ejecting",
+   "color": true
+  },
+  "vault_front_ejecting_ominous": {
+   "bedrock": "textures/blocks/vault_front_ejecting_ominous",
+   "color": true
+  },
+  "vault_front_off": {
+   "bedrock": "textures/blocks/vault_front_off",
+   "color": true
+  },
+  "vault_front_off_ominous": {
+   "bedrock": "textures/blocks/vault_front_off_ominous",
+   "color": true
+  },
+  "vault_front_on": {
+   "bedrock": "textures/blocks/vault_front_on",
+   "color": true
+  },
+  "vault_front_on_ominous": {
+   "bedrock": "textures/blocks/vault_front_on_ominous",
+   "color": true
+  },
+  "vault_side_off": {
+   "bedrock": "textures/blocks/vault_side_off",
+   "color": true
+  },
+  "vault_side_off_ominous": {
+   "bedrock": "textures/blocks/vault_side_off_ominous",
+   "color": true
+  },
+  "vault_side_on": {
+   "bedrock": "textures/blocks/vault_side_on",
+   "color": true
+  },
+  "vault_side_on_ominous": {
+   "bedrock": "textures/blocks/vault_side_on_ominous",
+   "color": true
+  },
+  "vault_top": {
+   "bedrock": "textures/blocks/vault_top",
+   "color": true
+  },
+  "vault_top_ejecting": {
+   "bedrock": "textures/blocks/vault_top_ejecting",
+   "color": true
+  },
+  "vault_top_ejecting_ominous": {
+   "bedrock": "textures/blocks/vault_top_ejecting_ominous",
+   "color": true
+  },
+  "vault_top_ominous": {
+   "bedrock": "textures/blocks/vault_top_ominous",
+   "color": true
+  },
+  "verdant_froglight_side": {
+   "bedrock": "textures/blocks/verdant_froglight_side",
+   "color": true
+  },
+  "verdant_froglight_top": {
+   "bedrock": "textures/blocks/verdant_froglight_top",
+   "color": true
+  },
+  "vine": {
+   "bedrock": "textures/blocks/vine",
+   "color": true
+  },
+  "warped_fungus": {
+   "bedrock": "textures/blocks/warped_fungus",
+   "color": true
+  },
+  "warped_nylium": {
+   "bedrock": "textures/blocks/warped_nylium_top",
+   "color": true
+  },
+  "warped_nylium_side": {
+   "bedrock": "textures/blocks/warped_nylium_side",
+   "color": true
+  },
+  "warped_planks": {
+   "bedrock": "textures/blocks/huge_fungus/warped_planks",
+   "color": true
+  },
+  "warped_roots": {
+   "bedrock": "textures/blocks/warped_roots",
+   "color": true
+  },
+  "warped_roots_pot": {
+   "bedrock": "textures/blocks/warped_roots_pot",
+   "color": true
+  },
+  "warped_shelf": {
+   "bedrock": "textures/blocks/warped_shelf",
+   "color": true
+  },
+  "warped_stem_top": {
+   "bedrock": "textures/blocks/huge_fungus/warped_stem_top",
+   "color": true
+  },
+  "warped_trapdoor": {
+   "bedrock": "textures/blocks/huge_fungus/warped_trapdoor",
+   "color": true
+  },
+  "warped_wart_block": {
+   "bedrock": "textures/blocks/warped_wart_block",
+   "color": true
+  },
+  "weathered_chiseled_copper": {
+   "bedrock": "textures/blocks/weathered_chiseled_copper",
+   "color": true
+  },
+  "weathered_copper": {
+   "bedrock": "textures/blocks/weathered_copper",
+   "color": true
+  },
+  "weathered_copper_bars": {
+   "bedrock": "textures/blocks/weathered_copper_bars",
+   "color": true
+  },
+  "weathered_copper_bulb": {
+   "bedrock": "textures/blocks/weathered_copper_bulb",
+   "color": true
+  },
+  "weathered_copper_bulb_lit": {
+   "bedrock": "textures/blocks/weathered_copper_bulb_lit",
+   "color": true
+  },
+  "weathered_copper_bulb_lit_powered": {
+   "bedrock": "textures/blocks/weathered_copper_bulb_lit_powered",
+   "color": true
+  },
+  "weathered_copper_bulb_powered": {
+   "bedrock": "textures/blocks/weathered_copper_bulb_powered",
+   "color": true
+  },
+  "weathered_copper_grate": {
+   "bedrock": "textures/blocks/weathered_copper_grate",
+   "color": true
+  },
+  "weathered_copper_trapdoor": {
+   "bedrock": "textures/blocks/weathered_copper_trapdoor",
+   "color": true
+  },
+  "weathered_cut_copper": {
+   "bedrock": "textures/blocks/weathered_cut_copper",
+   "color": true
+  },
+  "weathered_lightning_rod": {
+   "bedrock": "textures/blocks/weathered_lightning_rod",
+   "color": true
+  },
+  "wet_sponge": {
+   "bedrock": "textures/blocks/sponge_wet",
+   "color": true
+  },
+  "wheat_stage0": {
+   "bedrock": "textures/blocks/wheat_stage_0",
+   "color": true
+  },
+  "wheat_stage1": {
+   "bedrock": "textures/blocks/wheat_stage_1",
+   "color": true
+  },
+  "wheat_stage2": {
+   "bedrock": "textures/blocks/wheat_stage_2",
+   "color": true
+  },
+  "wheat_stage3": {
+   "bedrock": "textures/blocks/wheat_stage_3",
+   "color": true
+  },
+  "wheat_stage4": {
+   "bedrock": "textures/blocks/wheat_stage_4",
+   "color": true
+  },
+  "wheat_stage5": {
+   "bedrock": "textures/blocks/wheat_stage_5",
+   "color": true
+  },
+  "wheat_stage6": {
+   "bedrock": "textures/blocks/wheat_stage_6",
+   "color": true
+  },
+  "wheat_stage7": {
+   "bedrock": "textures/blocks/wheat_stage_7",
+   "color": true
+  },
+  "white_candle": {
+   "bedrock": "textures/blocks/candles/white_candle",
+   "color": true
+  },
+  "white_candle_lit": {
+   "bedrock": "textures/blocks/candles/white_candle_lit",
+   "color": true
+  },
+  "white_concrete": {
+   "bedrock": "textures/blocks/concrete_white",
+   "color": true
+  },
+  "white_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_white",
+   "color": true
+  },
+  "white_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_white",
+   "color": true
+  },
+  "white_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_white",
+   "color": true
+  },
+  "white_tulip": {
+   "bedrock": "textures/blocks/flower_tulip_white",
+   "color": true
+  },
+  "white_wool": {
+   "bedrock": "textures/blocks/wool_colored_white",
+   "color": true
+  },
+  "wildflowers": {
+   "bedrock": "textures/blocks/wildflowers",
+   "color": true
+  },
+  "wildflowers_stem": {
+   "bedrock": "textures/blocks/wildflowers_stem",
+   "color": true
+  },
+  "wither_rose": {
+   "bedrock": "textures/blocks/flower_wither_rose",
+   "color": true
+  },
+  "yellow_candle": {
+   "bedrock": "textures/blocks/candles/yellow_candle",
+   "color": true
+  },
+  "yellow_candle_lit": {
+   "bedrock": "textures/blocks/candles/yellow_candle_lit",
+   "color": true
+  },
+  "yellow_concrete": {
+   "bedrock": "textures/blocks/concrete_yellow",
+   "color": true
+  },
+  "yellow_concrete_powder": {
+   "bedrock": "textures/blocks/concrete_powder_yellow",
+   "color": true
+  },
+  "yellow_glazed_terracotta": {
+   "bedrock": "textures/blocks/glazed_terracotta_yellow",
+   "color": true
+  },
+  "yellow_terracotta": {
+   "bedrock": "textures/blocks/hardened_clay_stained_yellow",
+   "color": true
+  },
+  "yellow_wool": {
+   "bedrock": "textures/blocks/wool_colored_yellow",
+   "color": true
+  }
+ }
+}

@@ -241,6 +241,8 @@
   "options.radiante.emission_brightness.tooltip": "Brillo de los bloques que emiten luz (antorchas, lava, piedra luminosa...) y de las luces en la mano.",
   "options.radiante.block_outline": "Contorno del Bloque",
   "options.radiante.block_outline.tooltip": "El contorno alrededor del bloque bajo la mira.",
+  "options.radiante.pixel_lighting": "Iluminación Pixelada",
+  "options.radiante.pixel_lighting.tooltip": "Ajusta la luz y las sombras a la cuadrícula de píxeles de la textura: cada píxel de un bloque se ilumina como una baldosa plana, para un aspecto retro y cuadrado como la iluminación pixelada de BetterRTX. Apagado, la luz cae suave sobre la superficie.",
   "options.radiante.parallax_transparent_edges": "Bordes de Parallax Transparentes",
   "options.radiante.parallax_transparent_edges.tooltip": "Con resource packs que tallan sus texturas (parallax), la parte tallada en los bordes exteriores de un bloque es transparente, como si de verdad estuviera recortada. Apagado, esos bordes muestran el color del borde.",
   "options.radiante.biome_fog_strength": "Intensidad de Neblina de Bioma",

@@ -25,6 +25,9 @@ struct Vertex {
     static constexpr uint32_t useLightBit = 1u << 5u;
     static constexpr uint32_t alphaModeShift = 8u;
     static constexpr uint32_t coordinateShift = 12u;
+    // Above the four bits of the alpha mode, the Java side marks water surfaces.
+    static constexpr uint32_t alphaModeWaterFlag = 0x10u;
+    static constexpr uint32_t waterSurfaceBit = 1u << 17u;
 
     template <typename T>
     static VertexLayoutInfo initVertexLayout(std::vector<VertexAttribute> &attributes);

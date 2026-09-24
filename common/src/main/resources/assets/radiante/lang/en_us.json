@@ -241,6 +241,8 @@
   "options.radiante.emission_brightness.tooltip": "Brightness of blocks that give off light (torches, lava, glowstone...) and of lights held in the hand.",
   "options.radiante.block_outline": "Block Outline",
   "options.radiante.block_outline.tooltip": "The outline around the block under the crosshair.",
+  "options.radiante.pixel_lighting": "Pixelated Lighting",
+  "options.radiante.pixel_lighting.tooltip": "Snaps light and shadows to the texture's pixel grid: every pixel of a block is lit as one flat tile, for a retro, blocky look like pixelated lighting in BetterRTX. Off, light falls smoothly across a surface.",
   "options.radiante.parallax_transparent_edges": "See-through Parallax Edges",
   "options.radiante.parallax_transparent_edges.tooltip": "With resource packs that carve their textures (parallax), the carved part at the outer edges of a block is see-through, as if really cut away. Off, those edges show the border's colour.",
   "options.radiante.biome_fog_strength": "Biome Fog Strength",

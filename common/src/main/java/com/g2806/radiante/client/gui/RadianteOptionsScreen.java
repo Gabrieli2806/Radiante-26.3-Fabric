@@ -285,6 +285,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             OptionInstance.createBoolean("options.radiante.parallax_transparent_edges",
                 tooltip("options.radiante.parallax_transparent_edges"), Options.parallaxTransparentEdges,
                 value -> Options.parallaxTransparentEdges = value));
+        this.list.addSmall(OptionInstance.createBoolean("options.radiante.pixel_lighting",
+            tooltip("options.radiante.pixel_lighting"), Options.pixelLighting, value -> Options.pixelLighting = value),
+            null);
         this.list.addSmall(OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
                 Options.vanillaSunPath, value -> Options.vanillaSunPath = value),

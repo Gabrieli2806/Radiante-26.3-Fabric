@@ -96,6 +96,7 @@ layout(set = 2, binding = 2) uniform SkyUniform {
 
 #include "common/celestial.glsl"
 #include "common/volumetric_cloud.glsl"
+#include "common/water_medium.glsl"
 
 layout(set = 3, binding = 0, rgba16f) uniform image2D outputImage;
 layout(set = 3, binding = 1, rgba8) uniform image2D diffuseAlbedoImage;
@@ -196,6 +197,18 @@ bool finiteVec3(vec3 value) {
 // biome's vanilla fog colour.
 const float BIOME_HAZE_MAX_DISTANCE = 320.0;
 
+// How thick the haze is at a world height: full below biomeFogHeights.x, thinning to nothing at .y. Bedrock RTX fogs
+// settle in the valleys this way; Radiante's own haze puts both heights far above the world.
+float biomeFogHeightProfile(float worldY) {
+    vec2 heights = skyUBO.biomeFogHeights.xy;
+    return clamp((heights.y - worldY) / max(heights.y - heights.x, 1.0), 0.0, 1.0);
+}
+
+// Extinction per channel relative to biomeFog.a: a fog that absorbs more blue than red turns the distance warm.
+vec3 biomeFogChroma() {
+    return max(skyUBO.biomeFogChroma.rgb, vec3(0.0));
+}
+
 bool biomeHazeActive() {
     return skyUBO.biomeFog.a > 0.0 && skyUBO.cameraSubmersionType == 3 && skyUBO.hasBlindnessOrDarkness == 0;
 }
@@ -205,7 +218,8 @@ void biomeHaze(vec3 rayDir, bool hitSky, float hitDistance, out float transmitta
     float skyDistance = overworld ? BIOME_HAZE_MAX_DISTANCE * (1.0 - smoothstep(0.0, 0.45, rayDir.y)) :
                                     BIOME_HAZE_MAX_DISTANCE;
     float hazeDistance = hitSky ? skyDistance : min(hitDistance, BIOME_HAZE_MAX_DISTANCE);
-    transmittance = exp(-skyUBO.biomeFog.a * max(hazeDistance, 0.0));
+    float density = skyUBO.biomeFog.a * biomeFogHeightProfile(float(worldUBO.cameraPos.y));
+    transmittance = exp(-density * max(hazeDistance, 0.0));
 
     vec3 hazeRadiance = skyUBO.biomeFog.rgb;
     if (overworld) {
@@ -357,6 +371,7 @@ void integrateVolumetricFog(vec3 origin,
 
     float biomeDensity = biomeFogDensity();
     vec3 biomeAlbedo = clamp(skyUBO.biomeFog.rgb, vec3(0.0), vec3(1.5));
+    vec3 biomeChroma = biomeFogChroma();
     float biomePhase = mix(INV_4_PI, min(henyeyGreenstein(cosTheta, 0.55), 4.0), 0.6);
     vec3 biomeAmbient = biomeDensity > 0.0 ? biomeFogAmbient(rayDir) : vec3(0.0);
     vec3 farLight = vec3(0.0);
@@ -377,12 +392,14 @@ void integrateVolumetricFog(vec3 origin,
         float scatteringStrength = max(VPT_VOLUMETRIC_LIGHT_SCATTERING_STRENGTH, 0.0);
         vec3 localSigmaS = sigmaS * densityScale * scatteringStrength * shaftDistanceFade;
         vec3 localSigmaT = sigmaT * densityScale * 0.45;
-        float localBiome = t < biomeReach ? biomeDensity : 0.0;
-        localSigmaT += vec3(localBiome);
+        float localBiome =
+            t < biomeReach ? biomeDensity * biomeFogHeightProfile(position.y + float(worldUBO.cameraPos.y)) : 0.0;
+        vec3 localBiomeT = biomeChroma * localBiome;
+        localSigmaT += localBiomeT;
         vec3 segmentTransmittance = exp(-localSigmaT * stepLength);
         vec3 segment = segmentIntegral(localSigmaT, segmentTransmittance, stepLength);
         vec3 inScatter = lightRadiance * localSigmaS;
-        inScatter += (lightRadiance * biomePhase + biomeAmbient) * biomeAlbedo * localBiome;
+        inScatter += (lightRadiance * biomePhase + biomeAmbient) * biomeAlbedo * localBiomeT;
         radiance += transmittance * inScatter * segment;
         transmittance *= segmentTransmittance;
         marchT += stepLength;
@@ -395,7 +412,8 @@ void integrateVolumetricFog(vec3 origin,
     // the march there are no shadow rays, so that stretch is lit by the last light the march saw.
     float tail = biomeReach - marchT;
     if (biomeDensity > 0.0 && tail > 0.0 && max(transmittance.r, max(transmittance.g, transmittance.b)) >= 1e-3) {
-        float tailTransmittance = exp(-biomeDensity * tail);
+        float tailMidY = origin.y + rayDir.y * (marchT + tail * 0.5) + float(worldUBO.cameraPos.y);
+        vec3 tailTransmittance = exp(-biomeChroma * biomeDensity * biomeFogHeightProfile(tailMidY) * tail);
         vec3 tailScatter = (farLight * biomePhase + biomeAmbient) * biomeAlbedo;
         radiance += transmittance * tailScatter * (1.0 - tailTransmittance);
         transmittance *= tailTransmittance;
@@ -668,6 +686,14 @@ bool initTransparent(MainRay rayState,
     branchRay.normal = vec3(0.0);
     raySetLobeType(branchRay, isReflection ? 1u : 2u);
     raySetIgnoreWaterSelf(branchRay, isWaterSurface);
+    // The same rule as a water hit's own bounce (see default.rchit): off the top by direction, through a side by swap.
+    if (isWaterSurface) {
+        if (abs(normal.y) > 0.5) {
+            raySetInWater(branchRay, branchDirection.y < 0.0);
+        } else if (!isReflection) {
+            raySetInWater(branchRay, !rayInWater(rayState));
+        }
+    }
     raySetIndirectVolumetricCloud(
         branchRay, vptShouldCaptureIndirectVolumetricCloud(isReflection ? 1u : 2u, mat.roughness));
     branchRay.directLightRadiance = vec3(0.0);
@@ -1123,7 +1149,24 @@ void main() {
     float transparentFogTransmittance = 1.0;
     vec3 transparentFogAdditive = vec3(0.0);
     if (!raySkipFog(mainRay)) {
-        if (skyUBO.cameraSubmersionType == 1) {
+        if (skyUBO.cameraSubmersionType == 1 && waterMediumActive()) {
+            // A Bedrock pack's water: the camera's stretch of it absorbs and scatters like every other one.
+            if (surfaceDepth == INF_DISTANCE) surfaceDepth = 0;
+            vec3 waterTransmittance;
+            vec3 waterScatter;
+            waterMediumSegment(surfaceDepth, waterTransmittance, waterScatter);
+            float waterComposeTransmittance = clamp(volumetricLightLuminance(waterTransmittance), 0.0, 1.0);
+            if (useTransparentSplit) {
+                transparentReflectionRadiance *= waterTransmittance;
+                transparentRefractionRadiance *= waterTransmittance;
+                transparentFogAdditive = waterScatter;
+                transparentFogTransmittance = waterComposeTransmittance;
+            } else {
+                mainRay.radiance = mainRay.radiance * waterTransmittance + waterScatter;
+                composeFogTransmittance = waterComposeTransmittance;
+                composeFogAdditive = waterScatter;
+            }
+        } else if (skyUBO.cameraSubmersionType == 1) {
             vec3 waterColor = vec3(0.0, 0.48, 0.65);
             vec3 preFogRadiance = mainRay.radiance * waterColor;
 

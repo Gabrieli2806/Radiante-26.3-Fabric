@@ -98,6 +98,8 @@ public class Options {
     public static boolean blockOutline = false;
     /** Carved (parallax) resource pack faces are see-through at the outer edges of their block. */
     public static boolean parallaxTransparentEdges = false;
+    /** Light and shadow snap to the texture's pixels, a retro blocky look. Off: smooth, as vanilla-like. */
+    public static boolean pixelLighting = false;
     /** Brightness of sunlight and the daytime sky, in percent of the shader pack's own. */
     public static int dayBrightness = 25;
     /** Brightness of moonlight and the night sky, in percent of the shader pack's own. */
@@ -174,6 +176,7 @@ public class Options {
             blockOutline = Boolean.parseBoolean(props.getProperty("blockOutline", String.valueOf(blockOutline)));
             parallaxTransparentEdges = Boolean.parseBoolean(
                 props.getProperty("parallaxTransparentEdges", String.valueOf(parallaxTransparentEdges)));
+            pixelLighting = Boolean.parseBoolean(props.getProperty("pixelLighting", String.valueOf(pixelLighting)));
             dayBrightness = Integer.parseInt(props.getProperty("dayBrightness", String.valueOf(dayBrightness)));
             nightBrightness = Integer.parseInt(props.getProperty("nightBrightness", String.valueOf(nightBrightness)));
             emissionBrightness =
@@ -228,6 +231,7 @@ public class Options {
         props.setProperty("heldItemLight", String.valueOf(heldItemLight));
         props.setProperty("blockOutline", String.valueOf(blockOutline));
         props.setProperty("parallaxTransparentEdges", String.valueOf(parallaxTransparentEdges));
+        props.setProperty("pixelLighting", String.valueOf(pixelLighting));
         props.setProperty("dayBrightness", String.valueOf(dayBrightness));
         props.setProperty("nightBrightness", String.valueOf(nightBrightness));
         props.setProperty("emissionBrightness", String.valueOf(emissionBrightness));

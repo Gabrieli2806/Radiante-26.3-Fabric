@@ -378,7 +378,8 @@ public final class ChunkManager {
                 scratch.panelQuads.add(quad);
             }
         };
-        FluidRenderer.Output fluidOutput = layer -> scratch.writer(layer, atlasId).computeQuadNormals(true);
+        FluidRenderer.Output fluidOutput =
+            layer -> scratch.writer(layer, atlasId).water(scratch.fluidIsWater).computeQuadNormals(true);
 
         for (BlockPos pos : BlockPos.betweenClosed(origin, max)) {
             BlockState blockState = region.getBlockState(pos);
@@ -389,8 +390,13 @@ public final class ChunkManager {
 
             FluidState fluidState = blockState.getFluidState();
             if (!fluidState.isEmpty()) {
+                scratch.fluidIsWater = fluidState.is(net.minecraft.tags.FluidTags.WATER);
                 fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
-                scratch.currentWriter().computeQuadNormals(false);
+                // Water with water or solid blocks on every side draws no face, and never asks for a writer: when
+                // that is the first fluid of the section there is none yet, and the whole section failed to build.
+                if (scratch.currentWriter() != null) {
+                    scratch.currentWriter().computeQuadNormals(false).water(false);
+                }
             }
 
             if (blockState.getRenderShape() == RenderShape.MODEL) {
@@ -598,9 +604,11 @@ public final class ChunkManager {
         private final EnumMap<ChunkSectionLayer, PBRVertexWriter> writers = new EnumMap<>(ChunkSectionLayer.class);
         private ModelBlockRenderer blockRenderer;
         private FluidRenderer fluidRenderer;
+        private Object fluidModels;
         private PBRVertexWriter current;
         private boolean dropInwardFaces;
         private boolean collectPanel;
+        private boolean fluidIsWater;
         private final List<BakedQuad> panelQuads = new ArrayList<>();
 
         void reset() {
@@ -617,8 +625,13 @@ public final class ChunkManager {
         }
 
         FluidRenderer fluidRenderer(Minecraft minecraft) {
-            if (this.fluidRenderer == null) {
+            // The fluid models hold their sprites. A resource reload builds a new set on a new atlas, and a renderer
+            // kept from before drew water with the old atlas coordinates - wherever those now fall, usually nowhere
+            // visible, so rebuilt sections lost their water after a pack change.
+            Object models = minecraft.getModelManager().getFluidStateModelSet();
+            if (this.fluidRenderer == null || models != this.fluidModels) {
                 this.fluidRenderer = new FluidRenderer(minecraft.getModelManager().getFluidStateModelSet());
+                this.fluidModels = models;
             }
             return this.fluidRenderer;
         }
@@ -629,7 +642,7 @@ public final class ChunkManager {
                 writer = new PBRVertexWriter(4096);
                 this.writers.put(layer, writer);
             }
-            writer.textureId(atlasId).alphaMode(alphaModeOf(layer)).coordinate(0);
+            writer.textureId(atlasId).alphaMode(alphaModeOf(layer)).coordinate(0).water(false);
             this.current = writer;
             return writer;
         }

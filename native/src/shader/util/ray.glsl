@@ -28,6 +28,9 @@ const uint rayBlockLightSampledBit = 1u << 20u;
 // Set by a surface the primary ray passes through unseen (a see-through parallax edge): the depth the denoisers
 // get must come from what is visible behind it, not from it.
 const uint rayPassThroughBit = 1u << 21u;
+// The ray travels through water: the next surface it reaches is seen through the water in between. Kept across
+// bounces, and switched by the water surface the ray refracts through.
+const uint rayInWaterBit = 1u << 22u;
 
 ivec3 rayMaterialStateCoord(int layer) {
     return ivec3(ivec2(gl_LaunchIDEXT.xy), layer);
@@ -134,6 +137,14 @@ void raySetBlockLightSampled(inout MainRay ray, bool enabled) {
 
 void raySetPassThrough(inout MainRay ray, bool enabled) {
     ray.stateBits = enabled ? (ray.stateBits | rayPassThroughBit) : (ray.stateBits & ~rayPassThroughBit);
+}
+
+void raySetInWater(inout MainRay ray, bool enabled) {
+    ray.stateBits = enabled ? (ray.stateBits | rayInWaterBit) : (ray.stateBits & ~rayInWaterBit);
+}
+
+bool rayInWater(MainRay ray) {
+    return (ray.stateBits & rayInWaterBit) != 0u;
 }
 
 bool rayIsPassThrough(MainRay ray) {

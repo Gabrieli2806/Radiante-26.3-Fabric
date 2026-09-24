@@ -26,6 +26,8 @@ public final class DevAutomation {
     private static int worldTicks = -1;
     private static int next;
     private static boolean active;
+    /** A test world is being opened: its experimental-settings backup prompt is answered here, not by a person. */
+    private static boolean openingTestWorld;
     private static final String TEST_WORLD_PREFIX = "Radiante";
 
     private DevAutomation() {
@@ -66,6 +68,7 @@ public final class DevAutomation {
             RadianteClient.LOGGER.warn("[dev] refusing test world {}: name must start with {}", name, TEST_WORLD_PREFIX);
             return;
         }
+        openingTestWorld = true;
         if (minecraft.getLevelSource().levelExists(name)) {
             minecraft.createWorldOpenFlows().openWorld(name,
                 () -> RadianteClient.LOGGER.info("[dev] opening test world {} failed", name));
@@ -80,6 +83,19 @@ public final class DevAutomation {
             net.minecraft.world.level.levelgen.presets.WorldPresets::createTestWorldDimensions,
             new net.minecraft.client.gui.screens.TitleScreen());
         RadianteClient.LOGGER.info("[dev] create test world {}", name);
+    }
+
+    private static void skipBackup(net.minecraft.client.gui.screens.BackupConfirmScreen screen) {
+        try {
+            java.lang.reflect.Field field =
+                net.minecraft.client.gui.screens.BackupConfirmScreen.class.getDeclaredField("onProceed");
+            field.setAccessible(true);
+            ((net.minecraft.client.gui.screens.BackupConfirmScreen.Listener) field.get(screen)).proceed(false, false);
+            RadianteClient.LOGGER.info("[dev] test world backup prompt skipped");
+        } catch (ReflectiveOperationException e) {
+            RadianteClient.LOGGER.warn("[dev] could not answer the backup prompt", e);
+            openingTestWorld = false;
+        }
     }
 
     private static boolean isTestWorld(Minecraft minecraft) {
@@ -97,9 +113,15 @@ public final class DevAutomation {
             run(minecraft, PRE_STEPS.get(nextPre++).action());
         }
 
+        if (openingTestWorld
+            && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.BackupConfirmScreen backup) {
+            // Test worlds are flat worlds with experimental settings, so opening one asks for a backup first.
+            skipBackup(backup);
+        }
         if (minecraft.player == null || minecraft.level == null) {
             return;
         }
+        openingTestWorld = false;
         if (worldTicks < 0 && !isTestWorld(minecraft)) {
             // Scripts teleport, fill and summon; run in a player's own world they would damage it.
             RadianteClient.LOGGER.warn("[dev] world is not a test world (name must start with {}); script stopped",
@@ -125,6 +147,10 @@ public final class DevAutomation {
             String[] v = action.substring(6).split(",");
             minecraft.level.destroyBlockProgress(-4242, new net.minecraft.core.BlockPos(Integer.parseInt(v[0]),
                 Integer.parseInt(v[1]), Integer.parseInt(v[2])), Integer.parseInt(v[3]));
+        } else if (action.startsWith("pixel=")) {
+            com.g2806.radiante.client.option.Options.pixelLighting = Boolean.parseBoolean(action.substring(6));
+            RadianteClient.LOGGER.info("[dev] pixel lighting {}",
+                com.g2806.radiante.client.option.Options.pixelLighting);
         } else if (action.startsWith("packs=")) {
             String value = action.substring(6);
             // The options list is only read at startup; the repository's selection is what a reload applies.
