@@ -277,6 +277,11 @@ namespace Data {
         // (Camera.calculateHudFov is 70 degrees whatever the setting), so the hand keeps its size while the world
         // opens up or narrows. Primary rays that look for the hand are widened or narrowed by this to match.
         T_FLOAT handFovScale;
+
+        // A light the player is holding (torch, lantern, glowstone...): xyz camera-relative position, w reach in
+        // blocks. The colour's rgb is its radiance; w is non-zero while there is one.
+        T_VEC4 heldLightPos;
+        T_VEC4 heldLightColor;
     };
 
     struct SkyUBO {

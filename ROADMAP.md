@@ -214,15 +214,35 @@ players (ray bounces, denoiser strength, etc).
   285x160). Same render size at Performance runs; Ultra Performance from 720p up
   runs. DLSSModule now drops to Performance below a 240-pixel render height;
   Ultra Performance is back in the menu.
-- Held-item light (a torch in hand doesn't light its surroundings, only itself).
-- Vanilla (non-volumetric) cloud rendering — needs decoding Minecraft's packed
-  cloud face format.
-- Block selection outline and damage flash — not ported yet.
-  (Block breaking cracks are in: blocks and block entities, drawn as a
-  multiplicative decal via `ALPHA_MODE_DECAL` = 10, under the particle mask.) (Weather is in: rain/snow sheets from
-  `WeatherRenderState`, weather mask, new `ALPHA_MODE_STOCHASTIC` = 9.)
 
 ## Completed
+
+### Block outline, held-item light, placed light strength, vanilla clouds — done
+
+- **Block selection outline.** `LevelRenderer.render` submits it and that method is replaced, so it never
+  showed. `EntityManager.collectBlockOutline` turns each edge of the targeted block's outline shape into a thin
+  camera-facing quad, opaque black (the high contrast option's colour, slightly emissive, with that option),
+  about 3 pixels at 720p at any distance (sized from the projection so it does not break into dots at the
+  upscaler's lower render resolution), pushed a hair off the block so its faces cannot hide it, under the
+  particle mask so it casts no shadow.
+- **Damage flash** already worked (the overlay texture reaches the shaders; a hurt mob takes vanilla's 30 % red).
+- **Held-item light.** `HeldLight` turns a lit item in either hand (block items by their block's light level,
+  lava bucket 15) into a point light a little in front of the player, tinted by item (warm torch, cyan soul,
+  red redstone, cool sea lantern/end rod/froglight, orange lava). It reaches the shaders through two new
+  `WorldUBO` vec4s and `sampleHeldLight` in `block_light.glsl`: a 0.1-block sphere, world-mask shadow ray (the
+  player's own model does not block it), smooth fade to its reach. Option "Held Item Light", on by default.
+- **Placed lights as bright as held ones.** A block's light radiance was proportional to the average glow of its
+  texture, so a torch (a few flame texels) lit its room about a hundred times less than a held torch.
+  `EmissionTiles` now divides each sprite's radiance by the share of the sprite that glows, so a block's light
+  depends on its light level, not on how big its glowing part is; `LIGHT_PER_FACE` is tuned so a placed torch
+  matches the held one.
+- **Vanilla clouds.** `CloudGeometry` builds Minecraft's 12x4x12 cells from the cloud renderer's own cells
+  (clouds.png), with vanilla's drift, height, colour and Fast/Fancy, and only rebuilds when the camera enters
+  another cell. Cells are closed boxes (reflections and shadow rays see them from any angle), submitted as
+  `WORLD_CLOUD` geometry in the `clouds` hit group. Styled after Bedrock: translucent (`clouds.rchit` adds the
+  cloud on the face a ray enters by, opacity 0.6, and lets the ray continue) and lit by the whole sky as well as
+  the sun, so they stay white. `VPT_PRIMARY_TRACE_STEP_LIMIT` went from 2 to 4 for the extra pass-through
+  steps. "Vanilla" is now in the cloud menu; it was the pack's default but missing from the list.
 
 ### Graphics API fallback after a failed start — done
 

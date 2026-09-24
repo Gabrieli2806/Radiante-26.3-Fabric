@@ -72,6 +72,13 @@ public final class EntityManager {
      */
     private static final float GIZMO_LINE_WIDTH_SCALE = 0.015f;
     private static final float GIZMO_LINE_MIN_THICKNESS = 0.015f;
+    private static final int OUTLINE_ID = "radiante:block_outline".hashCode();
+    private static final PBRVertexWriter OUTLINE_WRITER = new PBRVertexWriter(256);
+    /**
+     * Outline width as a share of the screen's height. Rays are traced at the upscaler's lower render resolution,
+     * so a line only a couple of output pixels wide falls between rays and breaks up into dots.
+     */
+    private static final double OUTLINE_SCREEN_FRACTION = 3.0 / 720.0;
 
     /** Masks the ray tracing shaders select geometry with. */
     private static final int RAY_TRACING_WORLD = 0b00000001;
@@ -82,6 +89,9 @@ public final class EntityManager {
     private static final int RAY_TRACING_GLOW_OUTLINE = 0b00000100;
     private static final int GLOW_OUTLINE_ID_SALT = 0x676C6F77;
     private static final int RAY_TRACING_PARTICLE = 0b00100000;
+    private static final int RAY_TRACING_CLOUD = 0b01000000;
+    private static final int CLOUD_ID = "radiante:clouds".hashCode();
+    private static final CloudGeometry CLOUDS = new CloudGeometry();
     private static final int NAME_TAG_ID_SALT = 0x6E616D65;
     private static final int PARTICLES_ID = "radiante:particles".hashCode();
     private static final PBRVertexWriter PARTICLE_WRITER = new PBRVertexWriter(4096);
@@ -144,6 +154,8 @@ public final class EntityManager {
         collectParticles(levelRenderState, cameraState);
         collectWeather(levelRenderState, cameraState);
         collectDebugGizmos(minecraft, cameraState);
+        collectBlockOutline(levelRenderState, cameraState);
+        collectClouds(minecraft, levelRenderState, cameraState);
         collectHands(minecraft, levelRenderState, cameraState);
 
         upload(NativeGeometry.COORDINATE_WORLD);
@@ -543,10 +555,98 @@ public final class EntityManager {
         }
     }
 
+    /**
+     * The outline around the block under the crosshair. Minecraft submits it from inside {@code LevelRenderer.render},
+     * which the ray tracer replaces, so it never appeared. Each edge of the block's outline shape becomes a thin
+     * camera-facing quad of constant on-screen width, pushed a hair off the block so the faces it borders cannot
+     * hide it, and traced under the particle mask so it casts no shadow.
+     */
+    private static void collectBlockOutline(LevelRenderState levelRenderState, CameraRenderState cameraState) {
+        net.minecraft.client.renderer.state.level.BlockOutlineRenderState state =
+            levelRenderState.blockOutlineRenderState;
+        if (state == null || state.shape().isEmpty()) {
+            return;
+        }
+
+        Vec3 camera = cameraState.pos;
+        BlockPos pos = state.pos();
+        // Vanilla: translucent black, or the high contrast option's colour.
+        int color = state.highContrast() ? 0xFF5FFFE1 : 0xFF000000;
+        // Blocks per block of distance for the screen fraction above; m11 is 1 / tan(half the vertical fov).
+        double widthPerDistance = 2.0 / cameraState.projectionMatrix.m11() * OUTLINE_SCREEN_FRACTION;
+        net.minecraft.world.phys.AABB bounds = state.shape().bounds();
+        double centerX = pos.getX() + (bounds.minX + bounds.maxX) * 0.5;
+        double centerY = pos.getY() + (bounds.minY + bounds.maxY) * 0.5;
+        double centerZ = pos.getZ() + (bounds.minZ + bounds.maxZ) * 0.5;
+
+        PBRVertexWriter writer = OUTLINE_WRITER.textureId(0)
+            .glintTextureId(0)
+            .glintEnabled(false)
+            .alphaMode(PBRVertexWriter.ALPHA_MODE_OPAQUE)
+            .coordinate(NativeGeometry.COORDINATE_WORLD)
+            .albedoEmission(state.highContrast() ? GIZMO_EMISSION : 0.0f)
+            .overlayEnabled(false)
+            .computeQuadNormals(true);
+        writer.reset();
+        state.shape().forAllEdges((x1, y1, z1, x2, y2, z2) -> {
+            Vec3 start = new Vec3(pos.getX() + x1, pos.getY() + y1, pos.getZ() + z1);
+            Vec3 end = new Vec3(pos.getX() + x2, pos.getY() + y2, pos.getZ() + z2);
+            double distance = Math.max(0.05, camera.distanceTo(start.add(end).scale(0.5)));
+            double halfWidth = distance * widthPerDistance * 0.5;
+            start = pushOut(start, centerX, centerY, centerZ, halfWidth);
+            end = pushOut(end, centerX, centerY, centerZ, halfWidth);
+            addLineQuad(writer, start, end, color, halfWidth, camera);
+        });
+        writer.finish();
+        if (writer.vertexCount() == 0 || writer.vertexCount() % 4 != 0) {
+            return;
+        }
+
+        List<PendingLayer> layers = new ArrayList<>();
+        layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_SOLID, 0, writer.vertexCount(),
+            copyVertices(writer), "Entity"));
+        PENDING.add(new PendingEntity(OUTLINE_ID, camera.x(), camera.y(), camera.z(), RAY_TRACING_PARTICLE, layers));
+    }
+
+    /** Vanilla's clouds, when the shader pack's cloud mode asks for them rather than its ray marched ones. */
+    private static void collectClouds(Minecraft minecraft, LevelRenderState levelRenderState,
+        CameraRenderState cameraState) {
+        String mode = com.g2806.radiante.client.pipeline.Pipeline.getCloudMode();
+        if (mode == null || !mode.endsWith(".vanilla") || net.minecraft.util.ARGB.alpha(levelRenderState.cloudColor) == 0) {
+            return;
+        }
+        net.minecraft.client.renderer.CloudRenderer renderer =
+            ((LevelRendererGizmoAccess) minecraft.levelRenderer).radiante$cloudRenderer();
+        PBRVertexWriter writer = CLOUDS.update(
+            ((com.g2806.radiante.mixin.world.CloudRendererAccessor) renderer).radiante$texture(),
+            minecraft.options.getCloudStatus(), levelRenderState.cloudColor, levelRenderState.cloudHeight,
+            minecraft.options.cloudRange().get(), cameraState.pos, levelRenderState.gameTime,
+            levelRenderState.worldPartialTicks);
+        if (writer == null || writer.vertexCount() % 4 != 0) {
+            return;
+        }
+        List<PendingLayer> layers = new ArrayList<>();
+        layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_CLOUD, 0, writer.vertexCount(),
+            copyVertices(writer), "clouds"));
+        PENDING.add(new PendingEntity(CLOUD_ID, CLOUDS.originX, CLOUDS.originY, CLOUDS.originZ, RAY_TRACING_CLOUD,
+            layers));
+    }
+
+    /** Moves an outline corner away from the shape's centre, each axis on its own, so it sits just outside a face. */
+    private static Vec3 pushOut(Vec3 point, double centerX, double centerY, double centerZ, double amount) {
+        return new Vec3(point.x + Math.signum(point.x - centerX) * amount,
+            point.y + Math.signum(point.y - centerY) * amount,
+            point.z + Math.signum(point.z - centerZ) * amount);
+    }
+
     /** One gizmo line as a thin camera-facing quad, the way vanilla's own line rasteriser fakes width too. */
     private static void addGizmoLineQuad(PBRVertexWriter writer, DrawableGizmoPrimitives.Line line, Vec3 camera) {
-        Vec3 start = line.start();
-        Vec3 end = line.end();
+        double halfWidth = Math.max(GIZMO_LINE_MIN_THICKNESS, line.width() * GIZMO_LINE_WIDTH_SCALE) * 0.5;
+        addLineQuad(writer, line.start(), line.end(), line.color(), halfWidth, camera);
+    }
+
+    private static void addLineQuad(PBRVertexWriter writer, Vec3 start, Vec3 end, int color, double halfWidth,
+        Vec3 camera) {
         Vec3 dir = end.subtract(start);
         double length = dir.length();
         if (!(length > 1.0e-5)) {
@@ -566,10 +666,8 @@ public final class EntityManager {
                 sideLength = 1.0;
             }
         }
-        double halfWidth = Math.max(GIZMO_LINE_MIN_THICKNESS, line.width() * GIZMO_LINE_WIDTH_SCALE) * 0.5;
         side = side.scale(halfWidth / sideLength);
 
-        int color = line.color();
         float sx = (float) side.x;
         float sy = (float) side.y;
         float sz = (float) side.z;

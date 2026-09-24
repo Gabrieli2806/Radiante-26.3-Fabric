@@ -92,6 +92,8 @@ public class Options {
      * find it. Much less noise from torches, lava and lamps; needs Block Emission for the list of lights.
      */
     public static boolean blockLightSampling = true;
+    /** A torch, lantern or other light held in either hand lights up the surroundings. */
+    public static boolean heldItemLight = true;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
@@ -158,6 +160,7 @@ public class Options {
             setDebugLogging(Boolean.parseBoolean(props.getProperty("debugLogging",
                     String.valueOf(debugLogging))), false);
             biomeFog = Boolean.parseBoolean(props.getProperty("biomeFog", String.valueOf(biomeFog)));
+            heldItemLight = Boolean.parseBoolean(props.getProperty("heldItemLight", String.valueOf(heldItemLight)));
             firstPersonShadow = Boolean.parseBoolean(
                 props.getProperty("firstPersonShadow", String.valueOf(firstPersonShadow)));
             vanillaSunPath = Boolean.parseBoolean(
@@ -205,6 +208,7 @@ public class Options {
         props.setProperty("debugLogging", String.valueOf(debugLogging));
         props.setProperty("biomeFog", String.valueOf(biomeFog));
         props.setProperty("firstPersonShadow", String.valueOf(firstPersonShadow));
+        props.setProperty("heldItemLight", String.valueOf(heldItemLight));
         props.setProperty("vanillaSunPath", String.valueOf(vanillaSunPath));
         props.setProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation));
         props.setProperty("blockLightSampling", String.valueOf(blockLightSampling));

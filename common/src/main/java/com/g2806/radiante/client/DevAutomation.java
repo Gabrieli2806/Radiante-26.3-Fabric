@@ -26,6 +26,7 @@ public final class DevAutomation {
     private static int worldTicks = -1;
     private static int next;
     private static boolean active;
+    private static final String TEST_WORLD_PREFIX = "Radiante";
 
     private DevAutomation() {
     }
@@ -59,6 +60,33 @@ public final class DevAutomation {
         RadianteClient.LOGGER.info("[dev] script with {} steps", STEPS.size());
     }
 
+    /** Opens a test world, creating it as a flat creative world first if needed; only names with the test prefix. */
+    private static void openOrCreateTestWorld(Minecraft minecraft, String name) {
+        if (!name.startsWith(TEST_WORLD_PREFIX)) {
+            RadianteClient.LOGGER.warn("[dev] refusing test world {}: name must start with {}", name, TEST_WORLD_PREFIX);
+            return;
+        }
+        if (minecraft.getLevelSource().levelExists(name)) {
+            minecraft.createWorldOpenFlows().openWorld(name,
+                () -> RadianteClient.LOGGER.info("[dev] opening test world {} failed", name));
+            RadianteClient.LOGGER.info("[dev] open test world {}", name);
+            return;
+        }
+        net.minecraft.world.level.LevelSettings settings = new net.minecraft.world.level.LevelSettings(name,
+            net.minecraft.world.level.GameType.CREATIVE, net.minecraft.world.level.LevelSettings.DifficultySettings.DEFAULT,
+            true, net.minecraft.world.level.WorldDataConfiguration.DEFAULT);
+        minecraft.createWorldOpenFlows().createFreshLevel(name, settings,
+            new net.minecraft.world.level.levelgen.WorldOptions(name.hashCode(), false, false),
+            net.minecraft.world.level.levelgen.presets.WorldPresets::createTestWorldDimensions,
+            new net.minecraft.client.gui.screens.TitleScreen());
+        RadianteClient.LOGGER.info("[dev] create test world {}", name);
+    }
+
+    private static boolean isTestWorld(Minecraft minecraft) {
+        var server = minecraft.getSingleplayerServer();
+        return server != null && server.getWorldData().getLevelName().startsWith(TEST_WORLD_PREFIX);
+    }
+
     /** Called every client tick by RadianteClient; does nothing unless a script was given. */
     static void tick(Minecraft minecraft) {
         if (!active) {
@@ -70,6 +98,13 @@ public final class DevAutomation {
         }
 
         if (minecraft.player == null || minecraft.level == null) {
+            return;
+        }
+        if (worldTicks < 0 && !isTestWorld(minecraft)) {
+            // Scripts teleport, fill and summon; run in a player's own world they would damage it.
+            RadianteClient.LOGGER.warn("[dev] world is not a test world (name must start with {}); script stopped",
+                TEST_WORLD_PREFIX);
+            active = false;
             return;
         }
         worldTicks++;
@@ -103,6 +138,8 @@ public final class DevAutomation {
         } else if (action.equals("reload")) {
             minecraft.reloadResourcePacks();
             RadianteClient.LOGGER.info("[dev] reload");
+        } else if (action.startsWith("testworld=")) {
+            openOrCreateTestWorld(minecraft, action.substring(10));
         } else if (action.startsWith("join=")) {
             String levelId = action.substring(5);
             minecraft.createWorldOpenFlows().openWorld(levelId, () -> RadianteClient.LOGGER.info("[dev] join failed"));

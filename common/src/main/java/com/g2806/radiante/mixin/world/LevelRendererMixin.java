@@ -45,6 +45,15 @@ public class LevelRendererMixin implements LevelRendererGizmoAccess {
         return this.renderThreadGizmos;
     }
 
+    @Shadow
+    @Final
+    private net.minecraft.client.renderer.CloudRenderer cloudRenderer;
+
+    @Override
+    public net.minecraft.client.renderer.CloudRenderer radiante$cloudRenderer() {
+        return this.cloudRenderer;
+    }
+
     /**
      * Vanilla creates the sky renderer inside its own render pass, which the ray tracer replaces. It is
      * still needed because its extraction fills the sky state the sky shader reads.

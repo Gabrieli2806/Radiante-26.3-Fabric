@@ -28,6 +28,7 @@
     "texture.SpriteContentsMixin",
     "texture.TextureAtlasAccessor",
     "texture.TextureAtlasMixin",
+    "world.CloudRendererAccessor",
     "world.GameRendererMixin",
     "world.LevelExtractorMixin",
     "world.LevelRendererMixin",

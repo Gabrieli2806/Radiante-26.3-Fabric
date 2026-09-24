@@ -49,8 +49,15 @@ public final class EmissionTiles {
     /** Texels at least this saturated count as the coloured, glowing part of a texture. */
     private static final float MIN_GLOW_SATURATION = 0.35f;
     private static final int CELL_BYTES = 8 * Float.BYTES;
-    /** Scales how much light emitters cast on their surroundings. */
-    private static final float LIGHT_STRENGTH = 8.0f;
+    /**
+     * Light a fully lit face of a light level 15 block casts on its surroundings. A block's radiance is divided by
+     * how much of its texture glows, so the light it casts depends on its light level and not on the size of its
+     * glowing part: a torch, whose flame is a few texels, lights a room like a torch held in the hand (HeldLight),
+     * instead of about a hundred times less. Tuned so the torch's four sides and top add up to the held light.
+     */
+    private static final float LIGHT_PER_FACE = 4.8f;
+    /** Floor on the glowing share of a texture, so a sprite with one lit texel does not become a searchlight. */
+    private static final float MIN_GLOW_COVERAGE = 0.01f;
 
     /** Renderer id of the generated LabPBR specular atlas that carries per-texel emission, or -1. */
     private static int specularTextureId = -1;
@@ -212,6 +219,7 @@ public final class EmissionTiles {
         int cellHeight = Math.max(1, height / CELLS_PER_SIDE);
 
         List<float[]> cells = new ArrayList<>();
+        float spriteEmission = 0.0f;
         for (int cellY = 0; cellY < height; cellY += cellHeight) {
             for (int cellX = 0; cellX < width; cellX += cellWidth) {
                 float emission = 0.0f;
@@ -251,12 +259,13 @@ public final class EmissionTiles {
                 if (emission <= 0.0f || texels == 0) {
                     continue;
                 }
+                spriteEmission += emission;
 
                 float u0 = (sprite.getU0() * atlasWidth + cellX) / atlasWidth;
                 float v0 = (sprite.getV0() * atlasHeight + cellY) / atlasHeight;
                 float u1 = (sprite.getU0() * atlasWidth + Math.min(width, cellX + cellWidth)) / atlasWidth;
                 float v1 = (sprite.getV0() * atlasHeight + Math.min(height, cellY + cellHeight)) / atlasHeight;
-                cells.add(new float[] {u0, v0, u1, v1, LIGHT_STRENGTH * strength * emission / texels, red / emission,
+                cells.add(new float[] {u0, v0, u1, v1, LIGHT_PER_FACE * strength * emission / texels, red / emission,
                     green / emission,
                     blue / emission});
             }
@@ -264,6 +273,10 @@ public final class EmissionTiles {
 
         if (cells.isEmpty()) {
             return;
+        }
+        float coverage = Math.max(MIN_GLOW_COVERAGE, spriteEmission / (float) (width * height));
+        for (float[] cell : cells) {
+            cell[4] /= coverage;
         }
 
         long address = MemoryUtil.nmemAllocChecked((long) cells.size() * CELL_BYTES);

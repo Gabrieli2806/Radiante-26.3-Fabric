@@ -67,6 +67,15 @@ layout(location = 0) rayPayloadInEXT MainRay mainRay;
 layout(location = 1) rayPayloadEXT ShadowRay shadowRay;
 hitAttributeEXT vec2 attribs;
 
+// Share of the light behind a cloud it hides. Bedrock's clouds are translucent rather than solid white blocks; a
+// ray entering a cloud takes this much of the cloud's colour and carries on through it with the rest.
+#ifndef VPT_VANILLA_CLOUD_OPACITY
+#    define VPT_VANILLA_CLOUD_OPACITY 0.6
+#endif
+#ifndef VPT_VANILLA_CLOUD_SKY_LIGHT
+#    define VPT_VANILLA_CLOUD_SKY_LIGHT 1.6
+#endif
+
 void main() {
     vec3 viewDir = -mainRay.direction;
 
@@ -153,6 +162,7 @@ void main() {
                 rayOrigin, 0.001, sampledLightDir, 1000, 1);
 
     vec3 lightContribution = shadowRay.radiance;
+    bool leaving = dot(normal, mainRay.direction) > 0.0;
 
     float progress = skyUBO.rainGradient;
     vec3 lightRadiance = lightContribution * mainRay.throughput * lightBRDF;
@@ -160,15 +170,26 @@ void main() {
     
     float dayFactor = smoothstep(-0.3, 0.3, sunDir.y);
     vec3 skyAmbient = texture(skyFull, normalize(viewDir)).rgb;
+    // Light a cloud scatters from the whole sky, not just the sun: what keeps an overcast underside pale grey
+    // rather than dark, and a translucent cloud reading as white against the blue behind it.
+    vec3 skyAbove = texture(skyFull, vec3(0.0, 1.0, 0.0)).rgb;
+    lightRadiance += tint * skyAbove * VPT_VANILLA_CLOUD_SKY_LIGHT * mainRay.throughput;
     vec3 rainyRadiance = mix(skyAmbient * 0.12, vec3(0.08), dayFactor);
     vec3 wetCloudRadiance = lightRadiance * mix(0.2, 0.35, dayFactor) + rainyRadiance;
-    mainRay.radiance += mix(lightRadiance, wetCloudRadiance, progress);
+    // Only the face the ray enters through adds the cloud; the one it leaves through just lets it out again.
+    if (!leaving) {
+        mainRay.radiance += VPT_VANILLA_CLOUD_OPACITY * mix(lightRadiance, wetCloudRadiance, progress);
+        mainRay.throughput *= 1.0 - VPT_VANILLA_CLOUD_OPACITY;
+    }
 
     mainRay.hitT = gl_HitTEXT;
     mainRay.normal = vec3(0.0);
-    rayClearMaterial(mainRay);
+    // Stored as fully transmissive so the bounce loop passes through it as it does through glass.
+    rayStoreMaterial(mainRay, vec4(tint, 1.0 - VPT_VANILLA_CLOUD_OPACITY), vec3(0.04), 1.0, 0.0, 1.0, 1.0, 0.0);
     raySetNoisy(mainRay, false);
-    raySetSkipFog(mainRay, true);
     mainRay.hasPrevScenePos = 0u;
-    raySetStop(mainRay, true);
+    mainRay.origin = worldPos + mainRay.direction * 0.001;
+    mainRay.coneWidth += gl_HitTEXT * mainRay.coneSpread;
+    raySetContinue(mainRay, true);
+    raySetStop(mainRay, false);
 }

@@ -260,8 +260,11 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         OptionInstance<Boolean> debugLogging = OptionInstance.createBoolean("options.radiante.debug_logging",
             this.pendingDebugLogging, value -> this.pendingDebugLogging = value);
         this.list.addSmall(OptionInstance.createBoolean("options.radiante.block_light_sampling",
-            tooltip("options.radiante.block_light_sampling"), Options.blockLightSampling,
-            value -> Options.blockLightSampling = value));
+                tooltip("options.radiante.block_light_sampling"), Options.blockLightSampling,
+                value -> Options.blockLightSampling = value),
+            OptionInstance.createBoolean("options.radiante.held_item_light",
+                tooltip("options.radiante.held_item_light"), Options.heldItemLight,
+                value -> Options.heldItemLight = value));
         this.list.addSmall(OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
                 Options.vanillaSunPath, value -> Options.vanillaSunPath = value),

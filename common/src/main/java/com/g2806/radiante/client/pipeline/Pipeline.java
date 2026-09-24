@@ -286,11 +286,12 @@ public class Pipeline {
 
     public static final String CLOUD_MODE_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.cloud_mode";
     /**
-     * Only the modes the renderer can actually produce. Vanilla clouds are drawn from geometry Minecraft submits,
-     * which is not ported yet, so the choice is between none and the ray marched ones.
+     * The modes the renderer can produce: none, Minecraft's own blocky clouds as traced geometry, or the pack's
+     * ray marched ones.
      */
     public static final List<String> CLOUD_MODES = List.of(
         "render_pipeline.module.ray_tracing.attribute.cloud_mode.off",
+        "render_pipeline.module.ray_tracing.attribute.cloud_mode.vanilla",
         "render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric");
 
     private static final String CLOUD_TEMPORAL_ATTRIBUTE =

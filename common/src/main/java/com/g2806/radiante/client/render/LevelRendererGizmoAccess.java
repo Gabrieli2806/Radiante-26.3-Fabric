@@ -11,4 +11,7 @@ import net.minecraft.gizmos.SimpleGizmoCollector;
 public interface LevelRendererGizmoAccess {
 
     SimpleGizmoCollector radiante$renderThreadGizmos();
+
+    /** The cloud renderer, whose cells (loaded from clouds.png) the ray traced clouds are built from. */
+    net.minecraft.client.renderer.CloudRenderer radiante$cloudRenderer();
 }

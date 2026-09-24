@@ -181,6 +181,7 @@
   "options.radiante.pixelated_lighting": "像素化光照",
   "options.radiante.cloud_mode": "云",
   "render_pipeline.module.ray_tracing.attribute.cloud_mode.off": "关闭",
+  "render_pipeline.module.ray_tracing.attribute.cloud_mode.vanilla": "原版",
   "render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric": "体积云",
   "options.radiante.biome_fog": "生物群系雾",
   "options.radiante.biome_fog.tooltip": "所有维度按生物群系变化的雾气：沙漠温暖多尘，沼泽浓重偏绿，绯红森林泛红，末地呈紫色。在生物群系之间平滑过渡，不会进入主世界洞穴。",
@@ -203,6 +204,8 @@
   "options.radiante.vanilla_celestial_orientation.tooltip": "让太阳和月亮的方块像原版一样与轨迹对齐，而不是在划过天空时旋转。",
   "options.radiante.first_person_shadow": "第一人称阴影",
   "options.radiante.first_person_shadow.tooltip": "第一人称视角下仍然绘制玩家，用于投射阴影和出现在反射中。原版在第一人称下不绘制玩家，因此关闭时你不会有影子，也不会出现在水面或玻璃的反射里。",
+  "options.radiante.held_item_light": "手持物品光照",
+  "options.radiante.held_item_light.tooltip": "任一只手持有火把、灯笼等光源时照亮周围环境。",
   "options.radiante.reflex": "NVIDIA Reflex",
   "options.radiante.reflex.tooltip": "低延迟模式：让每一帧在 GPU 允许的最晚时刻开始，降低输入延迟。仅限 NVIDIA 显卡。",
   "options.radiante.reflex.tooltip_restart": "NVIDIA 显卡的低延迟模式，降低输入延迟。重启游戏后生效。"

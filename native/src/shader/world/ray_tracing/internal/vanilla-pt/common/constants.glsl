@@ -5,7 +5,8 @@
 #    define VPT_INDIRECT_VOLUMETRIC_CLOUD_REFLECTION_MAX_ROUGHNESS 0.12
 #endif
 
-const int VPT_PRIMARY_TRACE_STEP_LIMIT = 2;
+// Surfaces the primary ray passes through (glass layers, translucent clouds: in and out again) each take a step.
+const int VPT_PRIMARY_TRACE_STEP_LIMIT = 4;
 const uint VPT_RAY_FLAGS = gl_RayFlagsNoneEXT;
 const uint VPT_TRANSPARENT_SPLIT_MODE_DETERMINISTIC = 0u;
 const float VPT_FFT_WATER_ORIGIN_BIAS = 0.0006;

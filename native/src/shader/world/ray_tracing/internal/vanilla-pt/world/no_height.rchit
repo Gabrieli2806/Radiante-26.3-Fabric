@@ -963,6 +963,8 @@ void main() {
         vec3 blockLight = sampleBlockLight(currentSurface.worldPos, currentSurface.geometricNormal,
                                            currentSurface.shadingNormal, currentSurface.mat);
         directLight += blockLight;
+        directLight += sampleHeldLight(currentSurface.worldPos, currentSurface.geometricNormal,
+                                       currentSurface.shadingNormal, currentSurface.mat);
         if (localBounce == 0) { mainRay.directLightRadiance = directLight; }
         mainRay.radiance += directLight;
 
