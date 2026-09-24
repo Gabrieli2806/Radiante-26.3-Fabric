@@ -282,6 +282,13 @@ namespace Data {
         // blocks. The colour's rgb is its radiance; w is non-zero while there is one.
         T_VEC4 heldLightPos;
         T_VEC4 heldLightColor;
+
+        // Non-zero: where a carved (parallax) face reaches an outer edge of its block, the carved corner is
+        // see-through. Zero shows the border's colour there.
+        T_UINT parallaxTransparentEdges;
+        T_UINT worldPad0;
+        T_UINT worldPad1;
+        T_UINT worldPad2;
     };
 
     struct SkyUBO {

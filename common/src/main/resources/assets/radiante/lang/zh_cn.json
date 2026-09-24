@@ -206,6 +206,10 @@
   "options.radiante.first_person_shadow.tooltip": "第一人称视角下仍然绘制玩家，用于投射阴影和出现在反射中。原版在第一人称下不绘制玩家，因此关闭时你不会有影子，也不会出现在水面或玻璃的反射里。",
   "options.radiante.held_item_light": "手持物品光照",
   "options.radiante.held_item_light.tooltip": "任一只手持有火把、灯笼等光源时照亮周围环境。",
+  "options.radiante.block_outline": "方块轮廓",
+  "options.radiante.block_outline.tooltip": "准星所指方块周围的轮廓。",
+  "options.radiante.parallax_transparent_edges": "视差边缘透明",
+  "options.radiante.parallax_transparent_edges.tooltip": "使用带视差(雕刻)纹理的资源包时，方块外边缘被雕刻的部分是透明的，就像真的被切掉一样。关闭时这些边缘显示边框的颜色。",
   "options.radiante.reflex": "NVIDIA Reflex",
   "options.radiante.reflex.tooltip": "低延迟模式：让每一帧在 GPU 允许的最晚时刻开始，降低输入延迟。仅限 NVIDIA 显卡。",
   "options.radiante.reflex.tooltip_restart": "NVIDIA 显卡的低延迟模式，降低输入延迟。重启游戏后生效。"

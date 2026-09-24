@@ -127,13 +127,16 @@ public final class DevAutomation {
                 Integer.parseInt(v[1]), Integer.parseInt(v[2])), Integer.parseInt(v[3]));
         } else if (action.startsWith("packs=")) {
             String value = action.substring(6);
-            minecraft.options.resourcePacks.clear();
+            // The options list is only read at startup; the repository's selection is what a reload applies.
+            var repository = minecraft.getResourcePackRepository();
+            List<String> selected = new ArrayList<>();
             if (!value.equals("none")) {
                 for (String pack : value.split(",")) {
-                    minecraft.options.resourcePacks.add(pack);
+                    selected.add(pack);
                 }
             }
-            minecraft.reloadResourcePacks();
+            repository.setSelected(selected);
+            minecraft.options.updateResourcePacks(repository);
             RadianteClient.LOGGER.info("[dev] packs {}", value);
         } else if (action.equals("reload")) {
             minecraft.reloadResourcePacks();

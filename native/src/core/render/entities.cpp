@@ -109,6 +109,44 @@ EntityBuildData::EntityBuildData(int hashCode,
       positionBufferAddresses(),
       materialBufferAddresses() {}
 
+namespace {
+
+uint64_t fnv1a(uint64_t hash, const void *data, size_t size) {
+    const auto *bytes = static_cast<const uint8_t *>(data);
+    for (size_t i = 0; i < size; i++) {
+        hash ^= bytes[i];
+        hash *= 0x100000001b3ull;
+    }
+    return hash;
+}
+
+// Everything that ends up in an entity's acceleration structure or its shading: equal hashes mean the cached
+// build is still exactly what this frame would produce.
+uint64_t hashEntityContent(double x,
+                           double y,
+                           double z,
+                           int rayTracingFlag,
+                           World::Coordinates coordinate,
+                           const std::vector<World::GeometryTypes> &geometryTypes,
+                           const std::vector<std::string> &geometryGroupNames,
+                           const std::vector<std::vector<vk::VertexFormat::PBRVertex>> &vertices,
+                           const std::vector<std::vector<uint32_t>> &indices) {
+    uint64_t hash = 0xcbf29ce484222325ull;
+    double position[3] = {x, y, z};
+    hash = fnv1a(hash, position, sizeof(position));
+    hash = fnv1a(hash, &rayTracingFlag, sizeof(rayTracingFlag));
+    hash = fnv1a(hash, &coordinate, sizeof(coordinate));
+    for (size_t i = 0; i < vertices.size(); i++) {
+        hash = fnv1a(hash, &geometryTypes[i], sizeof(geometryTypes[i]));
+        hash = fnv1a(hash, geometryGroupNames[i].data(), geometryGroupNames[i].size());
+        hash = fnv1a(hash, vertices[i].data(), vertices[i].size() * sizeof(vk::VertexFormat::PBRVertex));
+        hash = fnv1a(hash, indices[i].data(), indices[i].size() * sizeof(uint32_t));
+    }
+    return hash;
+}
+
+}
+
 void EntityBuildDataBatch::addData(std::shared_ptr<EntityBuildData> data) {
     datas.push_back(data);
 }
@@ -324,6 +362,20 @@ void Entities::resetFrame() {
 
     frr.retain(blasBatchBuilder_);
     blasBatchBuilder_ = nullptr;
+
+    frameCounter_++;
+    for (auto &builder : staticBlasBatchBuilders_) { frr.retain(builder); }
+    staticBlasBatchBuilders_.clear();
+    reusedEntities_.clear();
+    newStaticBuilds_.clear();
+    for (auto it = staticCache_.begin(); it != staticCache_.end();) {
+        if (frameCounter_ - it->second.lastSeenFrame > STATIC_CACHE_EVICT_FRAMES) {
+            if (it->second.entity != nullptr) { frr.retain(it->second.entity); }
+            it = staticCache_.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 void Entities::queueBuild(EntitiesBuildTask task) {
@@ -945,6 +997,46 @@ void Entities::queueBuild(EntitiesBuildTask task) {
 
         if (geometryCountWithoutGlint == 0) { continue; }
 
+        if (prebuiltBLAS == CACHEABLE_BLAS && !post) {
+            // Reused while the content is unchanged. Cached only once it has stayed the same for two frames in a
+            // row, so geometry that animates every frame (a waving banner, a chest while it opens) never pays for
+            // a build of its own that would be thrown away the next frame.
+            uint64_t contentHash = hashEntityContent(x, y, z, rayTracingFlag, coordinate, geometryTypes,
+                                                     geometryGroupNames, vertices, indices);
+            auto &entry = staticCache_[hashCode];
+            entry.lastSeenFrame = frameCounter_;
+            if (entry.entity != nullptr && entry.contentHash == contentHash) {
+                reusedEntities_.push_back(entry.entity);
+                continue;
+            }
+            bool stable = entry.seen && entry.contentHash == contentHash;
+            entry.seen = true;
+            entry.contentHash = contentHash;
+            if (entry.entity != nullptr) {
+                framework->frameResourceRetainer().retain(entry.entity);
+                entry.entity = nullptr;
+            }
+            prebuiltBLAS = -1;
+            if (stable) {
+                auto data = EntityBuildData::create(hashCode, x, y, z, rayTracingFlag, postRenderFlag, prebuiltBLAS,
+                                                    coordinate, geometryCountWithoutGlint, std::move(geometryTypes),
+                                                    std::move(geometryGroupNames), std::move(geometryContentNames),
+                                                    std::move(vertices), std::move(indices));
+                auto single = EntityBuildDataBatch::create();
+                single->addData(data);
+                single->build();
+                if (single->indexBuffer != nullptr) {
+                    auto batch = EntityBatch::create(single);
+                    if (!batch->entities.empty()) {
+                        entry.entity = batch->entities.front();
+                        reusedEntities_.push_back(entry.entity);
+                        newStaticBuilds_.push_back(single);
+                    }
+                }
+                continue;
+            }
+        }
+
         std::shared_ptr<EntityBuildData> chunkBuildData =
             EntityBuildData::create(hashCode, x, y, z, rayTracingFlag, postRenderFlag, prebuiltBLAS, coordinate,
                                     geometryCountWithoutGlint,
@@ -982,6 +1074,15 @@ void Entities::build() {
     entityBatch_ = EntityBatch::create(entityBuildDataBatch_);
     entityPostBatch_ = EntityPostBatch::create(entityPostBuildDataBatch_);
 
+    for (auto &single : newStaticBuilds_) {
+        Renderer::instance().buffers()->queueImportantWorldUpload(single->indexBuffer);
+        Renderer::instance().buffers()->queueImportantWorldUpload(single->positionBuffer);
+        Renderer::instance().buffers()->queueImportantWorldUpload(single->materialBuffer);
+        if (single->blasBatchBuilder != nullptr) { staticBlasBatchBuilders_.push_back(single->blasBatchBuilder); }
+    }
+    newStaticBuilds_.clear();
+    for (auto &entity : reusedEntities_) { entityBatch_->entities.push_back(entity); }
+
     for (auto entity : entityPostBatch_->entities) {
         for (int i = 0; i < entity->geometryCount; i++) {
             Renderer::instance().buffers()->queueImportantWorldUpload(entity->vertexBuffers[i],
@@ -996,6 +1097,10 @@ void Entities::close() {
     entityBuildDataBatch_ = nullptr;
     entityPostBuildDataBatch_ = nullptr;
     blasBatchBuilder_ = nullptr;
+    staticCache_.clear();
+    reusedEntities_.clear();
+    newStaticBuilds_.clear();
+    staticBlasBatchBuilders_.clear();
 }
 
 std::shared_ptr<EntityBatch> Entities::entityBatch() {
@@ -1018,4 +1123,8 @@ std::shared_ptr<EntityPostBatch> Entities::entityPostBatch() {
 
 std::shared_ptr<vk::BLASBatchBuilder> Entities::blasBatchBuilder() {
     return blasBatchBuilder_;
+}
+
+std::vector<std::shared_ptr<vk::BLASBatchBuilder>> &Entities::staticBlasBatchBuilders() {
+    return staticBlasBatchBuilders_;
 }

@@ -260,7 +260,8 @@ public final class RadianteRenderer {
             Options.blockLightSampling && Options.collectChunkEmission,
             Options.heldItemLight ? HeldLight.position(minecraft, cameraState.pos,
                 minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false)) : new Vector4f(0.0f),
-            Options.heldItemLight ? HeldLight.color(minecraft) : new Vector4f(0.0f)));
+            Options.heldItemLight ? HeldLight.color(minecraft) : new Vector4f(0.0f),
+            Options.parallaxTransparentEdges));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
         Vector3f skyColor = sky.skyColor == null ? new Vector3f(0.5f, 0.6f, 1.0f) : new Vector3f(sky.skyColor);

@@ -13,7 +13,7 @@ import org.lwjgl.system.MemoryStack;
 /** Uploads the uniform blocks the ray tracing shaders read (see native common/shared.hpp). */
 public class BufferProxy {
 
-    private static final int WORLD_UBO_SIZE = 624;
+    private static final int WORLD_UBO_SIZE = 640;
     private static final int SKY_UBO_SIZE = 144;
     private static final int TEXTURE_MAPPING_ENTRIES = 4096;
 
@@ -41,7 +41,8 @@ public class BufferProxy {
                                boolean glowOutline,
                                boolean blockLightSampling,
                                Vector4fc heldLightPos,
-                               Vector4fc heldLightColor) {
+                               Vector4fc heldLightColor,
+                               boolean parallaxTransparentEdges) {
     }
 
     public static void updateWorldUniform(WorldUniform uniform) {
@@ -112,6 +113,9 @@ public class BufferProxy {
             uniform.heldLightPos().get(offset, bb);
             offset += Float.BYTES * 4;
             uniform.heldLightColor().get(offset, bb);
+            offset += Float.BYTES * 4;
+
+            bb.putInt(offset, uniform.parallaxTransparentEdges() ? 1 : 0);
             updateWorldUniform(addr);
         }
     }

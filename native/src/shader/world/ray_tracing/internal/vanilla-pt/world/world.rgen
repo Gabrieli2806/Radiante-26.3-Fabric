@@ -475,6 +475,7 @@ void initMainRay(vec3 origin, vec3 direction, uint seed, float coneSpread, out M
     raySetInsideBoat(ray, false);
     raySetStop(ray, false);
     raySetContinue(ray, false);
+    raySetPassThrough(ray, false);
     raySetNoisy(ray, false);
     raySetSkipFog(ray, false);
     ray.prevScenePos = vec3(0.0);
@@ -490,6 +491,7 @@ void resetMainRay(inout MainRay ray, int bounce) {
     ray.hitT = 0.0;
     raySetStop(ray, false);
     raySetContinue(ray, false);
+    raySetPassThrough(ray, false);
     raySetNoisy(ray, false);
     raySetSkipFog(ray, false);
     ray.prevScenePos = vec3(0.0);
@@ -594,11 +596,11 @@ void tracePrimary(vec3 eyePos,
         traceRayEXT(topLevelAS, rayFlags, mask, 1, 1, missId, mainRay.origin, 0.0001, mainRay.direction, len, 0);
         rayState = mainRay;
 
-        if (!surfaceDepthSampled) {
-            firstHit.surfaceDepth = rayState.hitT;
+        if (!surfaceDepthSampled && !rayIsPassThrough(rayState)) {
+            firstHit.surfaceDepth = firstHit.tracedDistance + rayState.hitT;
             surfaceDepthSampled = true;
             if (rayState.hitT != INF_DISTANCE) {
-                vec3 hitPos = eyePos + orgDirection * rayState.hitT;
+                vec3 hitPos = eyePos + orgDirection * (firstHit.tracedDistance + rayState.hitT);
                 hitPos -= worldUBO.cameraViewMatInv[3].xyz;
                 firstHit.firstHitLinearDepth = -(mat3(worldUBO.cameraEffectedViewMat) * hitPos).z;
             }

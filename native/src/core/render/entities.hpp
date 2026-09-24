@@ -156,6 +156,15 @@ struct EntityPostBatch : public SharedObject<EntityPostBatch> {
     EntityPostBatch(std::shared_ptr<EntityPostBuildDataBatch> entityPostBuildDataBatch);
 };
 
+// A block entity whose geometry has not changed keeps its own acceleration structure between frames instead of
+// having it rebuilt every frame with everything else.
+struct StaticEntityCacheEntry {
+    uint64_t contentHash = 0;
+    bool seen = false;
+    uint64_t lastSeenFrame = 0;
+    std::shared_ptr<Entity> entity;
+};
+
 class Entities : public SharedObject<Entities> {
     friend World;
 
@@ -169,8 +178,21 @@ class Entities : public SharedObject<Entities> {
     std::shared_ptr<EntityBatch> entityBatch();
     std::shared_ptr<EntityPostBatch> entityPostBatch();
     std::shared_ptr<vk::BLASBatchBuilder> blasBatchBuilder();
+    // Builds for newly cached entities, submitted alongside the frame's batch.
+    std::vector<std::shared_ptr<vk::BLASBatchBuilder>> &staticBlasBatchBuilders();
+
+    // Value the Java side puts in prebuiltBLAS for geometry that may be cached (see EntityManager).
+    static constexpr int CACHEABLE_BLAS = -2;
+    // Frames an entity may go unseen before its cached structure is dropped.
+    static constexpr uint64_t STATIC_CACHE_EVICT_FRAMES = 120;
 
   private:
+    std::unordered_map<int, StaticEntityCacheEntry> staticCache_;
+    std::vector<std::shared_ptr<Entity>> reusedEntities_;
+    std::vector<std::shared_ptr<EntityBuildDataBatch>> newStaticBuilds_;
+    std::vector<std::shared_ptr<vk::BLASBatchBuilder>> staticBlasBatchBuilders_;
+    uint64_t frameCounter_ = 0;
+
     std::shared_ptr<EntityBatch> entityBatch_;
     std::shared_ptr<EntityPostBatch> entityPostBatch_;
     std::shared_ptr<EntityBuildDataBatch> entityBuildDataBatch_;

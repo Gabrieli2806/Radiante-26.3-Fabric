@@ -275,8 +275,11 @@ bool traceNearestHeightMapCapped(sampler2D tex,
     vec2 rateUV = directionToRateUv(worldDir, dPdu, dPdv);
     float depthRate = dot(worldDir, -baseNormal);
 
-    ivec2 atlasTexelMin = clampTexelCoord(ivec2(floor(min(minUV, maxUV) * vec2(size))), size);
-    ivec2 atlasTexelMax = clampTexelCoord(ivec2(ceil(max(minUV, maxUV) * vec2(size)) - vec2(1.0)), size);
+    // A tile's edges fall on whole texels, but atlas coordinates carry float error: ceil() of a max edge that came
+    // out a hair above its texel boundary took in the first texel of the next sprite, whose heights then stood
+    // as a one texel wall - a black line along every block seam, seen only when looking towards that edge.
+    ivec2 atlasTexelMin = clampTexelCoord(ivec2(round(min(minUV, maxUV) * vec2(size))), size);
+    ivec2 atlasTexelMax = clampTexelCoord(ivec2(round(max(minUV, maxUV) * vec2(size))) - ivec2(1), size);
     ivec2 texel = clampTexelCoord(ivec2(floor(uv * vec2(size))), size);
     if (any(lessThan(texel, atlasTexelMin)) || any(greaterThan(texel, atlasTexelMax))) { return false; }
 
@@ -899,11 +902,48 @@ void main() {
     initialHit.geometricNormal = baseGeoNormal;
     if (traceLocalHeight) {
         HeightMapHit tracedInitialHit;
+        gParallaxDetectEdges = worldUBO.parallaxTransparentEdges != 0u;
         if (traceHeightMapCapped(textures[nonuniformEXT(textureMap.normal)], atlasUvMin, atlasUvMax, textureUV, 0.0,
                                  gl_WorldRayDirectionEXT, dPduWorld, dPdvWorld, baseGeoNormal, maxDepthWorld,
                                  VPT_PBR_SAMPLING_MODE, VPT_PARALLAX_PRIMARY_MAX_STEPS, tracedInitialHit)) {
             initialHit = tracedInitialHit;
         }
+        gParallaxDetectEdges = false;
+    }
+    if (initialHit.edgeWall) {
+        // The ray reached the edge of this face below its carved surface. At an outer edge, with air past it, that
+        // corner is carved away too: the ray goes on and shows what is behind. Between two blocks the next face
+        // carries on instead, so there the edge keeps the border's colour. The two are told apart by the block's
+        // own face around the corner: Minecraft only keeps it where nothing covers it.
+        vec3 edgePos = planeHitWorldPos + gl_WorldRayDirectionEXT * initialHit.t;
+        vec3 outward = -initialHit.geometricNormal;
+        shadowRay.radiance = vec3(0.0);
+        shadowRay.throughput = vec3(1.0);
+        shadowRay.insideBoat = 0u;
+        shadowRay.pad0 = BLOCK_LIGHT_QUERY;
+        traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, WORLD_MASK, 0, 0, 0, edgePos - outward * 0.005, 0.0001, outward,
+                    0.02, 1);
+        shadowRay.pad0 = 0u;
+        bool outerEdge = shadowRay.radiance.r < 0.5;
+        if (outerEdge) {
+            mainRay.hitT = gl_HitTEXT + initialHit.t;
+            mainRay.coneWidth += mainRay.hitT * mainRay.coneSpread;
+            // Past the corner face along its normal, not just along the ray: a ray grazing that face would
+            // otherwise start on its inner side and hit it from within.
+            mainRay.origin = edgePos + outward * 0.003 + gl_WorldRayDirectionEXT * 0.001;
+            mainRay.normal = vec3(0.0);
+            mainRay.directLightRadiance = vec3(0.0);
+            mainRay.hasPrevScenePos = 0u;
+            rayStoreMaterial(mainRay, vec4(1.0), vec3(0.04), 1.0, 0.0, 1.0, 1.0, 0.0);
+            raySetNoisy(mainRay, false);
+            raySetContinue(mainRay, true);
+            raySetPassThrough(mainRay, true);
+            raySetStop(mainRay, false);
+            return;
+        }
+        initialHit.sideWall = false;
+        initialHit.edgeWall = false;
+        initialHit.geometricNormal = baseGeoNormal;
     }
 
     vec3 hitWorldPos = planeHitWorldPos + gl_WorldRayDirectionEXT * initialHit.t;

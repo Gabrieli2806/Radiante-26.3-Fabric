@@ -1,6 +1,14 @@
 #ifndef HEIGHT_MAP_GLSL
 #define HEIGHT_MAP_GLSL
 
+#ifndef VPT_PARALLAX_EDGE_WALLS
+#    define VPT_PARALLAX_EDGE_WALLS 0
+#endif
+
+// Set around a primary ray's height map trace so it reports where it leaves the tile below the surface; the hit
+// shader then decides what that edge is. Every other trace (shadows, bounces) just leaves the height map there.
+bool gParallaxDetectEdges = false;
+
 #include "common/shared.hpp"
 #include "sampling_helpers.glsl"
 
@@ -65,6 +73,12 @@ bool isEdge(float edgeDepth,
             vec3 dPdv,
             vec3 baseNormal,
             out vec3 edgeNormal) {
+    edgeNormal = baseNormal;
+    // A wall where the height map meets the edge of its tile, below the surface. It sits right against the
+    // block's own neighbouring face (or the next block), so neither the sun nor any bounce can reach it: it read as
+    // a black band along every block edge seen at a grazing angle, and as a shadow blocker it darkened the strip
+    // beside it too. Off, the trace just leaves the height map there like any other exit.
+    if (VPT_PARALLAX_EDGE_WALLS == 0 && !gParallaxDetectEdges) { return false; }
     float bandDepth = edgeDepthWithBand(edgeBaseDepth, minEdgeDepth);
     if (edgeDepth < -heightMapTraceBias) { return false; }
     if (edgeDepth > bandDepth + heightMapTraceBias) { return false; }
@@ -291,8 +305,11 @@ bool traceNearestHeightMap(sampler2D tex,
     vec2 rateUV = directionToRateUv(worldDir, dPdu, dPdv);
     float depthRate = dot(worldDir, -baseNormal);
 
-    ivec2 atlasTexelMin = clampTexelCoord(ivec2(floor(min(minUV, maxUV) * vec2(size))), size);
-    ivec2 atlasTexelMax = clampTexelCoord(ivec2(ceil(max(minUV, maxUV) * vec2(size)) - vec2(1.0)), size);
+    // A tile's edges fall on whole texels, but atlas coordinates carry float error: ceil() of a max edge that came
+    // out a hair above its texel boundary took in the first texel of the next sprite, whose heights then stood
+    // as a one texel wall - a black line along every block seam, seen only when looking towards that edge.
+    ivec2 atlasTexelMin = clampTexelCoord(ivec2(round(min(minUV, maxUV) * vec2(size))), size);
+    ivec2 atlasTexelMax = clampTexelCoord(ivec2(round(max(minUV, maxUV) * vec2(size))) - ivec2(1), size);
     ivec2 texel = clampTexelCoord(ivec2(floor(uv * vec2(size))), size);
     if (any(lessThan(texel, atlasTexelMin)) || any(greaterThan(texel, atlasTexelMax))) { return false; }
 

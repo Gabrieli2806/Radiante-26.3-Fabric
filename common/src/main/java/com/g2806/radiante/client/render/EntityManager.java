@@ -127,9 +127,22 @@ public final class EntityManager {
     private record PendingLayer(int geometryType, int textureId, int vertexCount, long vertices, String name) {
     }
 
+    /**
+     * {@code cacheable}: geometry that usually stays the same from frame to frame (block entities). The native
+     * side keeps the acceleration structure of such an entity while its content is unchanged instead of
+     * rebuilding it every frame.
+     */
     private record PendingEntity(int id, double x, double y, double z, int rayTracingFlag,
-        List<PendingLayer> layers) {
+        List<PendingLayer> layers, boolean cacheable) {
+
+        PendingEntity(int id, double x, double y, double z, int rayTracingFlag, List<PendingLayer> layers) {
+            this(id, x, y, z, rayTracingFlag, layers, false);
+        }
     }
+
+    /** Tells native an entity may keep its acceleration structure while its geometry is unchanged. */
+    private static final int PREBUILT_BLAS_NONE = -1;
+    private static final int PREBUILT_BLAS_CACHEABLE = -2;
 
     public static void render(Minecraft minecraft, LevelRenderState levelRenderState) {
         if (minecraft.level == null) {
@@ -318,7 +331,7 @@ public final class EntityManager {
 
         BlockPos pos = state.blockPos;
         int before = PENDING.size();
-        addPending(pos.hashCode() ^ 0x5BD1E995, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_WORLD);
+        addPending(pos.hashCode() ^ 0x5BD1E995, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_WORLD, true);
         if (Options.debugLogging && DEBUG_BLOCK_ENTITIES < 20) {
             for (RenderType type : COLLECTOR.layers().keySet()) {
                 RenderTypeInfo info = RenderTypeInfo.of(type);
@@ -564,7 +577,7 @@ public final class EntityManager {
     private static void collectBlockOutline(LevelRenderState levelRenderState, CameraRenderState cameraState) {
         net.minecraft.client.renderer.state.level.BlockOutlineRenderState state =
             levelRenderState.blockOutlineRenderState;
-        if (state == null || state.shape().isEmpty()) {
+        if (!Options.blockOutline || state == null || state.shape().isEmpty()) {
             return;
         }
 
@@ -742,6 +755,10 @@ public final class EntityManager {
     }
 
     private static void addPending(int id, double x, double y, double z, int rayTracingFlag) {
+        addPending(id, x, y, z, rayTracingFlag, false);
+    }
+
+    private static void addPending(int id, double x, double y, double z, int rayTracingFlag, boolean cacheable) {
         // An entity whose origin is not a real point in the world - a block-attached one that lost its support
         // block reports exactly that - would place its whole model outside anything the tracer can build.
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
@@ -775,7 +792,7 @@ public final class EntityManager {
         }
 
         if (!layers.isEmpty()) {
-            PENDING.add(new PendingEntity(id, x, y, z, rayTracingFlag, layers));
+            PENDING.add(new PendingEntity(id, x, y, z, rayTracingFlag, layers, cacheable));
         }
         // Name tags go in as their own instance under the particle mask: seen by camera rays, skipped by shadow
         // rays, so neither the letters nor the plate behind them cast a shadow on the world.
@@ -942,7 +959,8 @@ public final class EntityManager {
                 MemoryUtil.memPutInt(layerCounts + (long) i * Integer.BYTES, entity.layers().size());
                 MemoryUtil.memPutInt(rayTracingFlags + (long) i * Integer.BYTES, entity.rayTracingFlag());
                 // A negative id means the renderer has to build the acceleration structure itself.
-                MemoryUtil.memPutInt(prebuiltBlas + (long) i * Integer.BYTES, -1);
+                MemoryUtil.memPutInt(prebuiltBlas + (long) i * Integer.BYTES,
+                    entity.cacheable() ? PREBUILT_BLAS_CACHEABLE : PREBUILT_BLAS_NONE);
 
                 for (PendingLayer layer : entity.layers()) {
                     MemoryUtil.memPutInt(geometryTypes + (long) layerIndex * Integer.BYTES, layer.geometryType());

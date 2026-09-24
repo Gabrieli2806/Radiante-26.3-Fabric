@@ -178,6 +178,7 @@ void WorldPrepareContext::render() {
     }
 
     if (entities->blasBatchBuilder() != nullptr) { entities->blasBatchBuilder()->submit(worldCommandBuffer); }
+    for (auto &builder : entities->staticBlasBatchBuilders()) { builder->submit(worldCommandBuffer); }
 
     worldCommandBuffer->barriersMemory({vk::CommandBuffer::MemoryBarrier{
         .srcStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,

@@ -25,6 +25,9 @@ const uint rayIndirectVolumetricCloudBit = 1u << 19u;
 // The surface this ray left took its block light by sampling the light list, and the ray left through the diffuse
 // lobe: a light it now hits was already counted there. Kept across bounces (resetMainRay leaves it alone).
 const uint rayBlockLightSampledBit = 1u << 20u;
+// Set by a surface the primary ray passes through unseen (a see-through parallax edge): the depth the denoisers
+// get must come from what is visible behind it, not from it.
+const uint rayPassThroughBit = 1u << 21u;
 
 ivec3 rayMaterialStateCoord(int layer) {
     return ivec3(ivec2(gl_LaunchIDEXT.xy), layer);
@@ -127,6 +130,14 @@ void raySetLobeType(inout MainRay ray, uint lobeType) {
 
 void raySetBlockLightSampled(inout MainRay ray, bool enabled) {
     ray.stateBits = enabled ? (ray.stateBits | rayBlockLightSampledBit) : (ray.stateBits & ~rayBlockLightSampledBit);
+}
+
+void raySetPassThrough(inout MainRay ray, bool enabled) {
+    ray.stateBits = enabled ? (ray.stateBits | rayPassThroughBit) : (ray.stateBits & ~rayPassThroughBit);
+}
+
+bool rayIsPassThrough(MainRay ray) {
+    return (ray.stateBits & rayPassThroughBit) != 0u;
 }
 
 bool rayBlockLightSampled(MainRay ray) {
