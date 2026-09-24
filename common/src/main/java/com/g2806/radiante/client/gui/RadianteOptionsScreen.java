@@ -165,7 +165,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
 
         String current = Pipeline.getDlssMode();
         this.pendingDlssMode = current != null && Pipeline.DLSS_MODES.contains(current) ? current
-            : "render_pipeline.module.dlss.attribute.mode.balanced";
+            : "render_pipeline.module.dlss.attribute.mode.ultra_performance";
 
         return new OptionInstance<>("options.radiante.dlss_mode", tooltip("options.radiante.dlss_mode"),
             (caption, value) -> Component.translatable(value),

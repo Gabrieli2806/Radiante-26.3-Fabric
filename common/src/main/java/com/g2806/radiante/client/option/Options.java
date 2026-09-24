@@ -84,9 +84,9 @@ public class Options {
      * Sun and moon cross the sky exactly as in vanilla, straight overhead from east to west. Off, their path leans
      * ten degrees to the south, so noon shadows are not all straight down.
      */
-    public static boolean vanillaSunPath = false;
+    public static boolean vanillaSunPath = true;
     /** Sun and moon sprites keep vanilla's fixed orientation instead of turning as they cross the sky. */
-    public static boolean vanillaCelestialOrientation = false;
+    public static boolean vanillaCelestialOrientation = true;
     /**
      * Surfaces pick a nearby light block and trace one shadow ray to it, instead of waiting for a random bounce to
      * find it. Much less noise from torches, lava and lamps; needs Block Emission for the list of lights.
@@ -95,15 +95,15 @@ public class Options {
     /** A torch, lantern or other light held in either hand lights up the surroundings. */
     public static boolean heldItemLight = true;
     /** The outline around the block under the crosshair. */
-    public static boolean blockOutline = true;
+    public static boolean blockOutline = false;
     /** Carved (parallax) resource pack faces are see-through at the outer edges of their block. */
-    public static boolean parallaxTransparentEdges = true;
+    public static boolean parallaxTransparentEdges = false;
     /** Brightness of sunlight and the daytime sky, in percent of the shader pack's own. */
-    public static int dayBrightness = 100;
+    public static int dayBrightness = 25;
     /** Brightness of moonlight and the night sky, in percent of the shader pack's own. */
-    public static int nightBrightness = 100;
+    public static int nightBrightness = 25;
     /** Brightness of light emitting blocks and held lights, in percent. */
-    public static int emissionBrightness = 100;
+    public static int emissionBrightness = 5;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */

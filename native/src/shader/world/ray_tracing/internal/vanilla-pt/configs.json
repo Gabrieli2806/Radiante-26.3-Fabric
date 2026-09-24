@@ -176,7 +176,7 @@
         {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode",
             "type": "enum:render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.vanilla-render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.volumetric",
-            "default_value": "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.vanilla",
+            "default_value": "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.volumetric",
             "define": "VPT_VOLUMETRIC_LIGHT_MODE"
         },
         {
