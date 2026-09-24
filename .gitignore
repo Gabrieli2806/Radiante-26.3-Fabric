@@ -12,6 +12,7 @@ out/
 # Everything runClient/runServer produces: worlds, screenshots, logs, crash
 # reports, and the renderer folder it unpacks the native build into.
 run/
+run-*/
 runs/
 
 # --- Native build ---------------------------------------------------------
@@ -62,3 +63,4 @@ desktop.ini
 local.properties
 gradle-app.setting
 *.local
+forge/*.launch
