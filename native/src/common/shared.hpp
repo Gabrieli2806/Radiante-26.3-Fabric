@@ -286,9 +286,11 @@ namespace Data {
         // Non-zero: where a carved (parallax) face reaches an outer edge of its block, the carved corner is
         // see-through. Zero shows the border's colour there.
         T_UINT parallaxTransparentEdges;
-        T_UINT worldPad0;
-        T_UINT worldPad1;
-        T_UINT worldPad2;
+        // Player brightness settings, 1 = the shader pack's own values: sunlight and the daytime sky, moonlight and
+        // the night sky, and the light of emissive blocks (their glow, the light they cast, a held light).
+        T_FLOAT sunBrightness;
+        T_FLOAT moonBrightness;
+        T_FLOAT emissionBrightness;
     };
 
     struct SkyUBO {

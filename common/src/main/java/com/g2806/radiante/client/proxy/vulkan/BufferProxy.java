@@ -42,7 +42,10 @@ public class BufferProxy {
                                boolean blockLightSampling,
                                Vector4fc heldLightPos,
                                Vector4fc heldLightColor,
-                               boolean parallaxTransparentEdges) {
+                               boolean parallaxTransparentEdges,
+                               float sunBrightness,
+                               float moonBrightness,
+                               float emissionBrightness) {
     }
 
     public static void updateWorldUniform(WorldUniform uniform) {
@@ -116,6 +119,12 @@ public class BufferProxy {
             offset += Float.BYTES * 4;
 
             bb.putInt(offset, uniform.parallaxTransparentEdges() ? 1 : 0);
+            offset += Integer.BYTES;
+            bb.putFloat(offset, uniform.sunBrightness());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.moonBrightness());
+            offset += Float.BYTES;
+            bb.putFloat(offset, uniform.emissionBrightness());
             updateWorldUniform(addr);
         }
     }

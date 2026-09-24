@@ -175,7 +175,7 @@ void main() {
             bool hitGround = missIntersectSphere(pPlanet, rayDir, VPT_ATMOSPHERE_RG, tG0, tG1);
             bool blocked = hitGround && (tG1 > 1e-3);
             if (!blocked) {
-                vec3 sunRadiance = sunSample.rgb * VPT_SUN_RADIANCE * transmittance * sunSample.a;
+                vec3 sunRadiance = sunSample.rgb * (VPT_SUN_RADIANCE * worldUBO.sunBrightness) * transmittance * sunSample.a;
                 backgroundRadiance += mix(sunRadiance, vec3(0.0), progress);
             }
         }
@@ -186,7 +186,7 @@ void main() {
             bool hitGround = missIntersectSphere(pPlanet, rayDir, VPT_ATMOSPHERE_RG, tG0, tG1);
             bool blocked = hitGround && (tG1 > 1e-3);
             if (!blocked) {
-                vec3 moonRadiance = moonSample.rgb * VPT_MOON_RADIANCE * max(transmittance, vec3(0.03));
+                vec3 moonRadiance = moonSample.rgb * (VPT_MOON_RADIANCE * worldUBO.moonBrightness) * max(transmittance, vec3(0.03));
                 backgroundRadiance += mix(moonRadiance, vec3(0.0), progress);
             }
         }

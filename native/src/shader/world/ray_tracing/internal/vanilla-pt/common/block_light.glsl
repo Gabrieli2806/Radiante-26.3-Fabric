@@ -169,7 +169,7 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
     vec3 visibility = shadowRay.radiance * shadowRay.throughput;
 
     vec3 estimate = chosenContribution / chosenTarget * (weightSum / float(VPT_BLOCK_LIGHT_CANDIDATES));
-    return VPT_INDIRECT_LIGHT_STRENGTH * estimate * visibility * mainRay.throughput;
+    return VPT_INDIRECT_LIGHT_STRENGTH * worldUBO.emissionBrightness * estimate * visibility * mainRay.throughput;
 }
 
 /**
@@ -211,7 +211,7 @@ vec3 sampleHeldLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, La
     shadowRay.pad0 = 0u;
     vec3 visibility = shadowRay.radiance * shadowRay.throughput;
 
-    return VPT_INDIRECT_LIGHT_STRENGTH * contribution * visibility * mainRay.throughput;
+    return VPT_INDIRECT_LIGHT_STRENGTH * worldUBO.emissionBrightness * contribution * visibility * mainRay.throughput;
 }
 
 #endif

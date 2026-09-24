@@ -12,6 +12,10 @@
 
 layout(set = 0, binding = 0) uniform sampler2D textures[];
 
+layout(set = 2, binding = 0) uniform WorldUniform {
+    WorldUBO worldUBO;
+};
+
 layout(set = 1, binding = 1) readonly buffer BLASOffsets {
     uint offsets[];
 }
@@ -109,7 +113,7 @@ void main() {
     vec3 transmittance = vec3(clamp(albedo.a, 0.0, 1.0));
 
     float factor = rayBounce(mainRay) == 0u ? VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
-    mainRay.radiance += factor * shadedRgb * alpha * pbrEmission * mainRay.throughput;
+    mainRay.radiance += factor * worldUBO.emissionBrightness * shadedRgb * alpha * pbrEmission * mainRay.throughput;
     // Layers that are light themselves rather than lit surfaces carry their emission per vertex: glowing eyes,
     // beacon beams, lightning and the flames on a burning entity are all blended, so this is the only path they
     // ever reach.

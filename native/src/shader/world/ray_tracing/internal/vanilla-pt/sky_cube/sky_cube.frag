@@ -93,7 +93,7 @@ vec3 integrateSingleScattering(vec3 rayOrigin, vec3 rayDir, bool isSun) {
         vec3 lightTransmittance = sampleTransmittance(r, muS);
 
         vec3 scattering = sigmaSR * rayleighPhase + sigmaSM * miePhase;
-        vec3 scatteredSample = viewTransmittance * (lightTransmittance * (scattering * (isSun ? VPT_SUN_RADIANCE : VPT_MOON_RADIANCE))) * dt;
+        vec3 scatteredSample = viewTransmittance * (lightTransmittance * (scattering * (isSun ? (VPT_SUN_RADIANCE * worldUBO.sunBrightness) : (VPT_MOON_RADIANCE * worldUBO.moonBrightness)))) * dt;
 
         scatteredRadiance += scatteredSample;
         viewTransmittance *= exp(-sigmaT * dt);

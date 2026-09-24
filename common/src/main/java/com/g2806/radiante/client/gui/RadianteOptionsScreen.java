@@ -78,13 +78,21 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.minecraft.gui.setScreen(new RadianteOptionsScreen(this));
     }
 
+    /** A 0-400 % slider that applies as it moves; 100 % is the shader pack's own brightness. */
+    private static OptionInstance<Integer> brightnessSlider(String key, int current,
+        java.util.function.Consumer<Integer> onChange) {
+        return new OptionInstance<Integer>(key, RadianteOptionsScreen.<Integer>tooltip(key),
+            (caption, value) -> Component.translatable("options.percent_value", caption, value),
+            new OptionInstance.IntRange(0, 400, false), current, onChange::accept);
+    }
+
     private static <T> OptionInstance.TooltipSupplier<T> tooltip(String key) {
         return OptionInstance.cachedConstantTooltip(Component.translatable(key + ".tooltip"));
     }
 
     private static OptionInstance<Integer> slider(String key, int min, int max, int initial,
         OptionInstance.ValueUpdateListener<Integer> onUpdate) {
-        return new OptionInstance<>(key, tooltip(key),
+        return new OptionInstance<Integer>(key, RadianteOptionsScreen.<Integer>tooltip(key),
             (caption, value) -> Component.translatable("options.generic_value", caption, value),
             new OptionInstance.IntRange(min, max, false), Math.max(min, Math.min(max, initial)), onUpdate);
     }
@@ -265,6 +273,12 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             OptionInstance.createBoolean("options.radiante.held_item_light",
                 tooltip("options.radiante.held_item_light"), Options.heldItemLight,
                 value -> Options.heldItemLight = value));
+        this.list.addSmall(brightnessSlider("options.radiante.day_brightness", Options.dayBrightness,
+                value -> Options.dayBrightness = value),
+            brightnessSlider("options.radiante.night_brightness", Options.nightBrightness,
+                value -> Options.nightBrightness = value));
+        this.list.addSmall(brightnessSlider("options.radiante.emission_brightness", Options.emissionBrightness,
+            value -> Options.emissionBrightness = value));
         this.list.addSmall(OptionInstance.createBoolean("options.radiante.block_outline",
                 tooltip("options.radiante.block_outline"), Options.blockOutline,
                 value -> Options.blockOutline = value),

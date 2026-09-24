@@ -98,6 +98,12 @@ public class Options {
     public static boolean blockOutline = true;
     /** Carved (parallax) resource pack faces are see-through at the outer edges of their block. */
     public static boolean parallaxTransparentEdges = true;
+    /** Brightness of sunlight and the daytime sky, in percent of the shader pack's own. */
+    public static int dayBrightness = 100;
+    /** Brightness of moonlight and the night sky, in percent of the shader pack's own. */
+    public static int nightBrightness = 100;
+    /** Brightness of light emitting blocks and held lights, in percent. */
+    public static int emissionBrightness = 100;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
@@ -168,6 +174,10 @@ public class Options {
             blockOutline = Boolean.parseBoolean(props.getProperty("blockOutline", String.valueOf(blockOutline)));
             parallaxTransparentEdges = Boolean.parseBoolean(
                 props.getProperty("parallaxTransparentEdges", String.valueOf(parallaxTransparentEdges)));
+            dayBrightness = Integer.parseInt(props.getProperty("dayBrightness", String.valueOf(dayBrightness)));
+            nightBrightness = Integer.parseInt(props.getProperty("nightBrightness", String.valueOf(nightBrightness)));
+            emissionBrightness =
+                Integer.parseInt(props.getProperty("emissionBrightness", String.valueOf(emissionBrightness)));
             firstPersonShadow = Boolean.parseBoolean(
                 props.getProperty("firstPersonShadow", String.valueOf(firstPersonShadow)));
             vanillaSunPath = Boolean.parseBoolean(
@@ -218,6 +228,9 @@ public class Options {
         props.setProperty("heldItemLight", String.valueOf(heldItemLight));
         props.setProperty("blockOutline", String.valueOf(blockOutline));
         props.setProperty("parallaxTransparentEdges", String.valueOf(parallaxTransparentEdges));
+        props.setProperty("dayBrightness", String.valueOf(dayBrightness));
+        props.setProperty("nightBrightness", String.valueOf(nightBrightness));
+        props.setProperty("emissionBrightness", String.valueOf(emissionBrightness));
         props.setProperty("vanillaSunPath", String.valueOf(vanillaSunPath));
         props.setProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation));
         props.setProperty("blockLightSampling", String.valueOf(blockLightSampling));

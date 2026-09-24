@@ -254,7 +254,7 @@
         {
             "name": "render_pipeline.module.ray_tracing.attribute.moon_radiance",
             "type": "vec3",
-            "default_value": "0.64,0.8,1.6",
+            "default_value": "0.32,0.4,0.8",
             "define": {
                 "VPT_MOON_RADIANCE": "vec3(X)"
             }

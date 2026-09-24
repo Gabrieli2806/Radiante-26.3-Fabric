@@ -168,7 +168,7 @@ void main() {
     LabPBRMat mat = convertLabPBRMaterial(albedoValue, specularValue, normalValue);
 
     // add glowing radiance
-    mainRay.radiance += 12 * tint * mat.emission * mainRay.throughput;
+    mainRay.radiance += 12 * worldUBO.emissionBrightness * tint * mat.emission * mainRay.throughput;
     mainRay.hitT = gl_HitTEXT;
     mainRay.normal = vec3(0.0);
     rayStoreMaterial(mainRay, albedoValue, mat.f0, mat.roughness, mat.metallic, mat.transmission, mat.ior, mat.emission);

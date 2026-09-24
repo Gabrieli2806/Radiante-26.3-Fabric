@@ -54,9 +54,9 @@ void main() {
 
         vec3 transmittance = sampleTransmittance(r, muSun);
 
-        radiance = VPT_SUN_RADIANCE * transmittance;
+        radiance = (VPT_SUN_RADIANCE * worldUBO.sunBrightness) * transmittance;
     } else {
-        radiance = VPT_MOON_RADIANCE;
+        radiance = (VPT_MOON_RADIANCE * worldUBO.moonBrightness);
     }
 
     float factor = 1.0;

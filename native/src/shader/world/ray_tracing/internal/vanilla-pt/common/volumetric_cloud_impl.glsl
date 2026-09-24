@@ -289,9 +289,9 @@ vec3 volumetricCloudPrimaryLightRadiance() {
     float moonScale = volumetricCloudMoonDirectScale();
     float rainAttenuation = mix(1.0, 0.35, volumetricCloudRainBlend());
     if (sunScale >= moonScale) {
-        return VPT_SUN_RADIANCE * sunScale * rainAttenuation;
+        return (VPT_SUN_RADIANCE * worldUBO.sunBrightness) * sunScale * rainAttenuation;
     }
-    return VPT_MOON_RADIANCE * moonScale * rainAttenuation;
+    return (VPT_MOON_RADIANCE * worldUBO.moonBrightness) * moonScale * rainAttenuation;
 }
 
 float atmosphereDensityExp(float height, float scaleHeight) {

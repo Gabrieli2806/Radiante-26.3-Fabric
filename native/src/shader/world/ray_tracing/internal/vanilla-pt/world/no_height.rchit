@@ -992,7 +992,8 @@ void main() {
             (localBounce == 0 && bounce > 0u && vptBlockLightAlreadyCounted(gl_WorldRayOriginEXT, currentSurface.worldPos)) ?
                 0.0 : 1.0;
         vec3 emissionRadiance =
-            blockEmissionWeight * emissionFactor * currentSurface.tint * currentSurface.mat.emission * mainRay.throughput;
+            blockEmissionWeight * emissionFactor * worldUBO.emissionBrightness * currentSurface.tint *
+            currentSurface.mat.emission * mainRay.throughput;
         emissionRadiance += currentSurface.tint * albedoEmission * mainRay.throughput;
         mainRay.radiance += emissionRadiance;
 

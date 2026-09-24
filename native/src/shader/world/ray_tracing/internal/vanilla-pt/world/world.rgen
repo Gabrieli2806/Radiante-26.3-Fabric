@@ -1040,7 +1040,7 @@ void main() {
         firstHitDirectRadiance = vec3(0.0);
         firstHitIndirectRadiance = vec3(0.0);
         if (isFirstHitNoisy) {
-            firstHitEmission = firstHitMat.albedoValue.rgb * firstHitMat.emission;
+            firstHitEmission = firstHitMat.albedoValue.rgb * firstHitMat.emission * worldUBO.emissionBrightness;
             if (rayLobeType(mainRay) == 0u) {
                 isFirstHitDiffuse = true;
                 firstHitDirectRadiance = mainRay.directLightRadiance;

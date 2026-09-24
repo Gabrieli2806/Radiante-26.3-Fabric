@@ -1,5 +1,6 @@
 package com.g2806.radiante.client.pipeline;
 
+import net.minecraft.client.resources.language.I18n;
 import com.g2806.radiante.client.RadianteClient;
 import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
 import com.g2806.radiante.client.constant.VulkanConstants;
@@ -246,6 +247,43 @@ public class Pipeline {
             "render_pipeline.module.dlss.attribute.mode.balanced",
             "render_pipeline.module.dlss.attribute.mode.quality",
             "render_pipeline.module.dlss.attribute.mode.dlaa");
+
+    private static final String FSR3_QUALITY_ATTRIBUTE = "render_pipeline.module.fsr_upscaler.attribute.quality_mode";
+    private static final String XESS_QUALITY_ATTRIBUTE = "render_pipeline.module.xess_sr.attribute.quality_mode";
+
+    /**
+     * The upscaler of the active pipeline and its quality mode, for the debug screen: "DLSS Balanced + Ray
+     * Reconstruction", "FSR3 Upscaler Quality", or "Native" when nothing upscales.
+     */
+    public static String describeUpscaler() {
+        for (Module module : INSTANCE.modules) {
+            if (module == null) {
+                continue;
+            }
+            String modeAttribute = switch (module.name) {
+                case DLSS_MODULE_NAME -> DLSS_MODE_ATTRIBUTE;
+                case FSR3_MODULE_NAME -> FSR3_QUALITY_ATTRIBUTE;
+                case XESS_MODULE_NAME -> XESS_QUALITY_ATTRIBUTE;
+                default -> null;
+            };
+            if (modeAttribute == null) {
+                continue;
+            }
+            StringBuilder description = new StringBuilder(I18n.get(module.name));
+            AttributeConfig mode = findAttribute(module, modeAttribute);
+            if (mode != null && mode.value != null) {
+                description.append(' ').append(I18n.get(mode.value));
+            }
+            if (Objects.equals(module.name, DLSS_MODULE_NAME)) {
+                AttributeConfig rayReconstruction = findAttribute(module, RAY_RECONSTRUCTION_ATTRIBUTE);
+                if (rayReconstruction != null && Objects.equals(rayReconstruction.value, "render_pipeline.true")) {
+                    description.append(" + ").append(I18n.get(RAY_RECONSTRUCTION_ATTRIBUTE));
+                }
+            }
+            return description.toString();
+        }
+        return "Native";
+    }
 
     /** The DLSS quality mode of the active pipeline, or null when it has no DLSS module. */
     public static String getDlssMode() {
