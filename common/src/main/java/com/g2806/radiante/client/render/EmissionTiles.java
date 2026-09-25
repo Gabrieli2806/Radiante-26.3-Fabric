@@ -64,6 +64,18 @@ public final class EmissionTiles {
     private static int specularWidth;
     private static int specularHeight;
     private static int specularAtlasId = -1;
+    /**
+     * An end portal frame has a light level of 1 in every state, so vanilla would light its frame whether an eye
+     * sits in it or not. Only the eye glows here: its sprite is drawn by the filled frame alone, so the light
+     * comes on when an eye is placed.
+     */
+    private static final Identifier END_PORTAL_EYE = Identifier.withDefaultNamespace("block/end_portal_frame_eye");
+    private static final int END_PORTAL_EYE_EMISSION = 7;
+    private static final Identifier[] END_PORTAL_FRAME_SPRITES = {
+        Identifier.withDefaultNamespace("block/end_portal_frame_top"),
+        Identifier.withDefaultNamespace("block/end_portal_frame_side"),
+    };
+
     private static final Identifier[] LAVA_SPRITES = {
         Identifier.withDefaultNamespace("block/lava_still"),
         Identifier.withDefaultNamespace("block/lava_flow"),
@@ -169,6 +181,17 @@ public final class EmissionTiles {
         }
 
         emitters.keySet().removeAll(sharedWithDarkBlocks);
+
+        for (Identifier id : END_PORTAL_FRAME_SPRITES) {
+            TextureAtlasSprite sprite = atlas.getSprite(id);
+            if (sprite != null) {
+                emitters.remove(sprite);
+            }
+        }
+        TextureAtlasSprite eye = atlas.getSprite(END_PORTAL_EYE);
+        if (eye != null) {
+            emitters.merge(eye, END_PORTAL_EYE_EMISSION, Math::max);
+        }
 
         // Lava is drawn by the fluid renderer and has no block model.
         for (Identifier id : LAVA_SPRITES) {
