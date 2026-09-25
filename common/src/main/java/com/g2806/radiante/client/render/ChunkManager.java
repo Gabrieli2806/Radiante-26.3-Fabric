@@ -44,8 +44,13 @@ import org.lwjgl.system.MemoryUtil;
 public final class ChunkManager {
 
     private static final int VERTEX_FORMAT_PBR = 12;
-    private static final int GEOMETRY_TYPE_WORLD_SOLID = 1;
-    private static final int GEOMETRY_TYPE_WORLD_TRANSPARENT = 2;
+    public static final int GEOMETRY_TYPE_WORLD_SOLID = 1;
+    public static final int GEOMETRY_TYPE_WORLD_TRANSPARENT = 2;
+    /**
+     * Slots past the section grid, lent to far terrain that is not in Minecraft's sections (Distant Horizons LODs,
+     * see compat.distanthorizons). They are traced like any section, but no section coordinate ever maps to one.
+     */
+    public static final int EXTRA_SLOTS = 2048;
     private static final int MAX_REGION_SNAPSHOTS_PER_FRAME = 96;
     /**
      * Rebuilds of nearby sections compiled on the render thread per frame. A falling block landing or a piston
@@ -122,16 +127,106 @@ public final class ChunkManager {
             thread.setPriority(Thread.NORM_PRIORITY - 2);
             return thread;
         });
-        ChunkProxy.init(gridSizeXZ * gridSizeXZ * gridSizeY, gridSizeXZ, gridSizeY, gridSizeXZ, minSection);
+        ChunkProxy.init(gridSizeXZ * gridSizeXZ * gridSizeY + EXTRA_SLOTS, gridSizeXZ, gridSizeY, gridSizeXZ,
+            minSection);
     }
 
     public static synchronized void shutdown() {
         RadianteRenderer.resetLevelFrames();
-        if (executor != null) {
-            executor.shutdownNow();
-            executor = null;
+        // Builder threads upload under the read lock and check the generation first. Bumping it under the write
+        // lock waits out any upload in flight and turns away every later one, so none reaches a renderer that is
+        // being torn down; one did on quitting, and the game died in native code.
+        GRID_LOCK.writeLock().lock();
+        try {
+            generation++;
+            if (executor != null) {
+                executor.shutdownNow();
+                executor = null;
+            }
+        } finally {
+            GRID_LOCK.writeLock().unlock();
         }
         pendingBuilds.set(0);
+    }
+
+    /** Bumped whenever the renderer's slots are replaced; geometry uploaded under an older one is gone. */
+    public static int generation() {
+        return generation;
+    }
+
+    /**
+     * Uploads geometry into one of the {@link #EXTRA_SLOTS}, placed at {@code origin}; vertex positions are relative
+     * to it. Dropped when the slots were replaced since {@code expectedGeneration}. The vertex blocks stay the
+     * caller's to free.
+     */
+    public static void submitExtraGeometry(int expectedGeneration, int extraIndex, BlockPos origin,
+        int[] geometryTypes, String[] names, int atlasId, int[] vertexCounts, long[] vertices) {
+        if (extraIndex < 0 || extraIndex >= EXTRA_SLOTS) {
+            throw new IllegalArgumentException("extra slot " + extraIndex);
+        }
+        GRID_LOCK.readLock().lock();
+        try {
+            if (expectedGeneration == generation && executor != null) {
+                submitGeometry(extraSlotBase() + extraIndex, origin, geometryTypes, names, atlasId, vertexCounts,
+                    vertices, false);
+            }
+        } finally {
+            GRID_LOCK.readLock().unlock();
+        }
+    }
+
+    /** Empties one of the {@link #EXTRA_SLOTS}. */
+    public static void clearExtraSlot(int expectedGeneration, int extraIndex) {
+        GRID_LOCK.readLock().lock();
+        try {
+            if (expectedGeneration == generation && executor != null) {
+                ChunkProxy.invalidateSingle(extraSlotBase() + extraIndex);
+            }
+        } finally {
+            GRID_LOCK.readLock().unlock();
+        }
+    }
+
+    private static int extraSlotBase() {
+        return gridSizeXZ * gridSizeXZ * gridSizeY;
+    }
+
+    /** Hands geometry to the renderer; the vertex blocks stay the caller's to free. */
+    private static void submitGeometry(int slot, BlockPos origin, int[] geometryTypes, String[] names, int atlasId,
+        int[] vertexCounts, long[] vertices, boolean important) {
+        int count = vertices.length;
+        long geometryTypesPtr = MemoryUtil.nmemCalloc(count, Integer.BYTES);
+        long geometryGroupNames = MemoryUtil.nmemCalloc(count, Long.BYTES);
+        long geometryTextures = MemoryUtil.nmemCalloc(count, Integer.BYTES);
+        long vertexFormats = MemoryUtil.nmemCalloc(count, Integer.BYTES);
+        long vertexCountsPtr = MemoryUtil.nmemCalloc(count, Integer.BYTES);
+        long verticesPtr = MemoryUtil.nmemCalloc(count, Long.BYTES);
+        long[] namePtrs = new long[count];
+
+        try {
+            for (int i = 0; i < count; i++) {
+                namePtrs[i] = MemoryUtil.memAddress(MemoryUtil.memUTF8(names[i], true));
+                MemoryUtil.memPutInt(geometryTypesPtr + (long) i * Integer.BYTES, geometryTypes[i]);
+                MemoryUtil.memPutAddress(geometryGroupNames + (long) i * Long.BYTES, namePtrs[i]);
+                MemoryUtil.memPutInt(geometryTextures + (long) i * Integer.BYTES, atlasId);
+                MemoryUtil.memPutInt(vertexFormats + (long) i * Integer.BYTES, VERTEX_FORMAT_PBR);
+                MemoryUtil.memPutInt(vertexCountsPtr + (long) i * Integer.BYTES, vertexCounts[i]);
+                MemoryUtil.memPutAddress(verticesPtr + (long) i * Long.BYTES, vertices[i]);
+            }
+
+            ChunkProxy.rebuild(origin.getX(), origin.getY(), origin.getZ(), slot, count, geometryTypesPtr,
+                geometryGroupNames, geometryTextures, vertexFormats, vertexCountsPtr, verticesPtr, important);
+        } finally {
+            MemoryUtil.nmemFree(geometryTypesPtr);
+            MemoryUtil.nmemFree(geometryGroupNames);
+            MemoryUtil.nmemFree(geometryTextures);
+            MemoryUtil.nmemFree(vertexFormats);
+            MemoryUtil.nmemFree(vertexCountsPtr);
+            MemoryUtil.nmemFree(verticesPtr);
+            for (long name : namePtrs) {
+                MemoryUtil.nmemFree(name);
+            }
+        }
     }
 
     public static void markAllDirty() {
@@ -469,6 +564,18 @@ public final class ChunkManager {
         return isSectionReady(SectionPos.asLong(pos));
     }
 
+    /** Whether the renderer has built any section of this chunk column yet. */
+    public static boolean isColumnBuilt(int chunkX, int chunkZ) {
+        synchronized (compiledSections) {
+            for (int y = minSectionY; y < minSectionY + gridSizeY; y++) {
+                if (compiledSections.contains(SectionPos.asLong(chunkX, y, chunkZ))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     private static boolean isSectionReady(long node) {
         synchronized (compiledSections) {
             return compiledSections.contains(node);
@@ -495,40 +602,8 @@ public final class ChunkManager {
         }
 
         private void applyWith(boolean important) {
-            int count = this.vertices.length;
-            long geometryTypesPtr = MemoryUtil.nmemCalloc(count, Integer.BYTES);
-            long geometryGroupNames = MemoryUtil.nmemCalloc(count, Long.BYTES);
-            long geometryTextures = MemoryUtil.nmemCalloc(count, Integer.BYTES);
-            long vertexFormats = MemoryUtil.nmemCalloc(count, Integer.BYTES);
-            long vertexCountsPtr = MemoryUtil.nmemCalloc(count, Integer.BYTES);
-            long verticesPtr = MemoryUtil.nmemCalloc(count, Long.BYTES);
-            long[] namePtrs = new long[count];
-
-            try {
-                for (int i = 0; i < count; i++) {
-                    namePtrs[i] = MemoryUtil.memAddress(MemoryUtil.memUTF8(this.names[i], true));
-                    MemoryUtil.memPutInt(geometryTypesPtr + (long) i * Integer.BYTES, this.geometryTypes[i]);
-                    MemoryUtil.memPutAddress(geometryGroupNames + (long) i * Long.BYTES, namePtrs[i]);
-                    MemoryUtil.memPutInt(geometryTextures + (long) i * Integer.BYTES, this.atlasId);
-                    MemoryUtil.memPutInt(vertexFormats + (long) i * Integer.BYTES, VERTEX_FORMAT_PBR);
-                    MemoryUtil.memPutInt(vertexCountsPtr + (long) i * Integer.BYTES, this.vertexCounts[i]);
-                    MemoryUtil.memPutAddress(verticesPtr + (long) i * Long.BYTES, this.vertices[i]);
-                }
-
-                ChunkProxy.rebuild(this.origin.getX(), this.origin.getY(), this.origin.getZ(), this.slot, count,
-                    geometryTypesPtr, geometryGroupNames, geometryTextures, vertexFormats, vertexCountsPtr, verticesPtr,
-                    important);
-            } finally {
-                MemoryUtil.nmemFree(geometryTypesPtr);
-                MemoryUtil.nmemFree(geometryGroupNames);
-                MemoryUtil.nmemFree(geometryTextures);
-                MemoryUtil.nmemFree(vertexFormats);
-                MemoryUtil.nmemFree(vertexCountsPtr);
-                MemoryUtil.nmemFree(verticesPtr);
-                for (long name : namePtrs) {
-                    MemoryUtil.nmemFree(name);
-                }
-            }
+            submitGeometry(this.slot, this.origin, this.geometryTypes, this.names, this.atlasId, this.vertexCounts,
+                this.vertices, important);
         }
 
         void free() {

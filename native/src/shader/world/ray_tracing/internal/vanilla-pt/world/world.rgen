@@ -545,11 +545,16 @@ void resetMainRay(inout MainRay ray, int bounce) {
 /** How bright night vision makes a surface, in the renderer's radiance units. */
 #define NIGHT_VISION_AMBIENT 0.8
 
+/** How far primary and first-bounce rays look for the world; further when far terrain is loaded. */
+float worldTraceDistance() {
+    return max(1000.0, worldUBO.traceDistance);
+}
+
 void preparePrimary(int step, int isHand, out float len, out uint mask, out uint missId) {
     if (isHand == 0) {
         missId = step == 0 ? VPT_WORLD_MISS_INDEX : VPT_WORLD_NO_VOLUMETRIC_MISS_INDEX;
         if (step == 0) {
-            len = 1000.0;
+            len = worldTraceDistance();
             if (worldUBO.isFirstPerson > 0) {
                 mask = WORLD_MASK | FISHING_BOBBER_MASK | WEATHER_MASK | PARTICLE_MASK | CLOUD_MASK | BOAT_WATER_MASK;
             } else {
@@ -557,7 +562,7 @@ void preparePrimary(int step, int isHand, out float len, out uint mask, out uint
                        BOAT_WATER_MASK;
             }
         } else if (step <= 1) {
-            len = 1000.0;
+            len = worldTraceDistance();
             mask = WORLD_MASK | PLAYER_MASK | FISHING_BOBBER_MASK | WEATHER_MASK | PARTICLE_MASK | CLOUD_MASK |
                    BOAT_WATER_MASK;
         } else {
@@ -583,7 +588,7 @@ void preparePrimary(int step, int isHand, out float len, out uint mask, out uint
 
 void prepareSecondary(int bounce, int isHand, out float len, out uint mask) {
     if (bounce == 0) {
-        len = 1000.0;
+        len = worldTraceDistance();
         if (worldUBO.isFirstPerson > 0) {
             // The held item has to be reachable by bounced light, otherwise a torch in the hand glows without
             // lighting anything around it in first person, while the same torch lights the scene in third person.
@@ -592,7 +597,7 @@ void prepareSecondary(int bounce, int isHand, out float len, out uint mask) {
             mask = WORLD_MASK | PLAYER_MASK | FISHING_BOBBER_MASK | WEATHER_MASK | PARTICLE_MASK | CLOUD_MASK;
         }
     } else if (bounce <= 1) {
-        len = 1000.0;
+        len = worldTraceDistance();
         if (isHand == 0) {
             mask = WORLD_MASK | PLAYER_MASK | FISHING_BOBBER_MASK | WEATHER_MASK | PARTICLE_MASK | CLOUD_MASK;
         } else {

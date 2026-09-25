@@ -16,6 +16,20 @@ subprojects {
 
 	repositories {
 		mavenCentral()
+		exclusiveContent {
+			forRepository { maven { url 'https://api.modrinth.com/maven' } }
+			filter { includeGroup 'maven.modrinth' }
+		}
+	}
+
+	// Optional mods Radiante integrates with when they are installed. Compile only: nothing of theirs ships, and
+	// the code that touches them is only loaded once they are found at run time.
+	afterEvaluate {
+		dependencies {
+			compileOnly("maven.modrinth:distanthorizons:${rootProject.distant_horizons_version}") {
+				transitive = false
+			}
+		}
 	}
 }
 

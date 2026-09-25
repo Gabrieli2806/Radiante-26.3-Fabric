@@ -20,21 +20,6 @@ public abstract class GameRendererMixin {
     @Shadow
     public abstract net.minecraft.client.renderer.state.GameRenderState gameRenderState();
 
-    @Shadow
-    @org.spongepowered.asm.mixin.Final
-    private com.mojang.blaze3d.resource.CrossFrameResourcePool resourcePool;
-
-    @Shadow
-    @org.spongepowered.asm.mixin.Final
-    private net.minecraft.client.renderer.fog.FogRenderer fogRenderer;
-
-    @Shadow
-    @org.spongepowered.asm.mixin.Final
-    private Minecraft minecraft;
-
-    @Shadow
-    protected abstract boolean shouldRenderBlockOutline();
-
     @WrapOperation(method = "render", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel()V"))
     private void radiante$renderLevel(GameRenderer gameRenderer, Operation<Void> original) {
@@ -43,19 +28,29 @@ public abstract class GameRendererMixin {
             return;
         }
 
-        // Vanilla's level render is called as it would be and stopped at its head (LevelRendererSkipMixin), so
-        // that the per-frame hooks other mods put there still run on every loader.
-        var cameraState = this.gameRenderState().levelRenderState.cameraRenderState;
-        this.fogRenderer.updateBuffer(cameraState.fogData);
+        // Vanilla's level render still runs, so the per-frame hooks other mods put on it (at its start and end,
+        // and at the start of LevelRenderer.render) run on every loader as they would without Radiante. What it
+        // would draw is stopped: the level (LevelRendererSkipMixin) and the hand and screen effects (below), all
+        // of which the tracer draws instead.
         RadianteRenderer.setTracingLevel(true);
         try {
-            this.minecraft.levelRenderer.render(this.resourcePool, this.shouldRenderBlockOutline(), cameraState,
-                this.fogRenderer.getBuffer(net.minecraft.client.renderer.fog.FogRenderer.FogMode.WORLD),
-                cameraState.fogData.color, true, false);
+            original.call(gameRenderer);
         } finally {
             RadianteRenderer.setTracingLevel(false);
         }
         RadianteRenderer.renderLevel(gameRenderer, this.gameRenderState().levelRenderState);
+    }
+
+    @WrapOperation(method = "renderLevel", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/renderer/GameRenderer;render3dHud(Lnet/minecraft/client/renderer/state/level/CameraRenderState;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;Lnet/minecraft/client/renderer/state/OptionsRenderState;Z)V"))
+    private void radiante$skipHudWhenTracing(GameRenderer gameRenderer,
+        net.minecraft.client.renderer.state.level.CameraRenderState cameraState,
+        net.minecraft.client.renderer.state.level.PlayerRenderState playerState,
+        net.minecraft.client.renderer.state.OptionsRenderState optionsState, boolean consistentDepthRequired,
+        Operation<Void> original) {
+        if (!RadianteRenderer.isTracingLevel()) {
+            original.call(gameRenderer, cameraState, playerState, optionsState, consistentDepthRequired);
+        }
     }
 
     /**

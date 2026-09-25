@@ -26,6 +26,10 @@ mismo frame.
   personalizado con mapas PBR (o un `.mcpack` de Bedrock) para aprovechar al máximo estas funciones.
 - Escalado mediante DLSS, FSR 3 y XeSS, más denoising con NRD.
 - Motion blur y profundidad de campo, ambos activables/desactivables.
+- Soporte experimental de [Distant Horizons](https://modrinth.com/mod/distanthorizons): su terreno lejano se
+  traza con path tracing junto con el resto del mundo, con un color por cara de bloque (opcional; sin el mod no
+  cambia nada). Aún en ajuste: puede haber alguna costura o terreno que aparece de golpe, y el costo por frame
+  crece con la distancia de render de DH.
 - Soporte de resource packs `.mcpack` de Bedrock (incluyendo niebla y agua), detectados directamente en la
   lista de packs.
 - Funciona sobre el dispositivo que Minecraft crea: sin segunda instancia de Vulkan, sin swapchain duplicado.

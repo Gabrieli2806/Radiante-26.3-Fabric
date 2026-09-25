@@ -25,6 +25,9 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
 - Upscaling through DLSS, FSR 3 and XeSS, plus NRD denoising.
 - Motion blur and depth of field, both toggleable.
 - Bedrock `.mcpack` resource pack support (including fog and water), detected directly in the pack list.
+- Experimental [Distant Horizons](https://modrinth.com/mod/distanthorizons) support: its far terrain is path
+  traced along with the rest of the world, one colour per block face (optional; nothing changes without it).
+  Still being tuned: expect the odd seam or pop-in, and a frame cost that grows with DH's render distance.
 - Runs on the device Minecraft creates: no second Vulkan instance, no duplicated swapchain.
 
 ## Requirements

@@ -6,6 +6,18 @@ backlog, not a promise.
 
 ## Open work and verification
 
+### Distant Horizons far terrain — implemented, pending in-game tuning
+
+`client/compat/distanthorizons`: DH's sections are read (the only DH-touching class is `DhData`; its public API
+only exposes full-detail columns, so three internal calls reach the coarse sections), meshed into one colour per
+face boxes (`LodMesher`, caves filled, tops merged) and uploaded into `ChunkManager.EXTRA_SLOTS`, so they are
+traced like sections. Sections are chosen as a quadtree around the camera (`LodTerrain`), split only where DH
+has the finer sections complete (a coarse section keeps drawing the quadrants its children do not cover yet),
+leaving out loaded chunks. DH's render-thread task queue is drained each frame, or its loading stalls. Rays and the render distance haze reach out to DH's distance (`WorldUBO.traceDistance`).
+Verified in a fresh Fabric test world. Still to look at: frame cost at DH's default 512 chunk distance on a fully
+generated world, the seam where far terrain meets loaded chunks, textured detail for the nearest sections, and
+NeoForge (same jar, untested).
+
 ### Frame generation and Reflex on Forge / NeoForge — investigate
 
 With Streamline loaded, Forge and NeoForge crash in the native `createDevice`

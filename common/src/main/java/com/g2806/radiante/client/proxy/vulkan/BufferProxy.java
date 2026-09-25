@@ -47,7 +47,8 @@ public class BufferProxy {
                                float moonBrightness,
                                float emissionBrightness,
                                boolean pixelLighting,
-                               float rainFallPerFrame) {
+                               float rainFallPerFrame,
+                               float traceDistance) {
     }
 
     public static void updateWorldUniform(WorldUniform uniform) {
@@ -130,8 +131,8 @@ public class BufferProxy {
             offset += Float.BYTES;
             bb.putInt(offset, uniform.pixelLighting() ? 1 : 0);
             offset += Integer.BYTES;
-            // worldPad0, then the rain fall.
-            offset += Integer.BYTES;
+            bb.putFloat(offset, uniform.traceDistance());
+            offset += Float.BYTES;
             bb.putFloat(offset, uniform.rainFallPerFrame());
             updateWorldUniform(addr);
         }

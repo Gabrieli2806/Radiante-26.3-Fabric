@@ -69,7 +69,10 @@ public final class RadianteRenderer {
 
     private static boolean tracingLevel;
 
-    /** Set while LevelRenderer.render is called only for other mods' hooks at its head; see LevelRendererSkipMixin. */
+    /**
+     * Set while vanilla's level render runs only for other mods' hooks on it; what it would draw is skipped (see
+     * GameRendererMixin and LevelRendererSkipMixin).
+     */
     public static boolean isTracingLevel() {
         return tracingLevel;
     }
@@ -204,6 +207,7 @@ public final class RadianteRenderer {
         if (minecraft.level != null && minecraft.levelExtractor != null) {
             SectionTrackerHolder.update(minecraft, cameraState.pos);
         }
+        com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.update(minecraft, cameraState.pos);
         DevProfiler.mark(2);
 
         keepOcclusionGraphFed(minecraft, levelRenderState);
@@ -261,6 +265,12 @@ public final class RadianteRenderer {
             || cameraState.fogType == FogType.POWDER_SNOW;
         float fogStart = environmental ? fog.environmentalStart : fog.renderDistanceStart;
         float fogEnd = environmental ? fog.environmentalEnd : fog.renderDistanceEnd;
+        // Far terrain from Distant Horizons lies past the render distance; haze meant to end there would hide it.
+        float farReach = com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.reach();
+        if (!environmental && fogEnd > 0.0f && farReach > fogEnd) {
+            fogStart *= farReach / fogEnd;
+            fogEnd = farReach;
+        }
 
         BufferProxy.updateWorldUniform(new BufferProxy.WorldUniform(view, effectedView, projection,
             glintTextureMatrix(minecraft), dayFraction(levelRenderState),
@@ -276,7 +286,7 @@ public final class RadianteRenderer {
             Options.heldItemLight ? HeldLight.color(minecraft) : new Vector4f(0.0f),
             Options.parallaxTransparentEdges, Options.dayBrightness / 100.0f, Options.nightBrightness / 100.0f,
             Options.emissionBrightness / 100.0f, Options.pixelLighting,
-            EntityManager.rainFallPerFrame(levelRenderState)));
+            EntityManager.rainFallPerFrame(levelRenderState), farReach));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
         Vector3f skyColor = sky.skyColor == null ? new Vector3f(0.5f, 0.6f, 1.0f) : new Vector3f(sky.skyColor);
