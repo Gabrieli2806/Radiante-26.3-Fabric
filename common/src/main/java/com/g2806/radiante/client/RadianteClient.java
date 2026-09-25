@@ -89,6 +89,7 @@ public final class RadianteClient {
                 ? "message.radiante.ray_tracing_on" : "message.radiante.ray_tracing_off");
         }
 
+        com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.tick();
         DevAutomation.tick(minecraft);
     }
 

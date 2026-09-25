@@ -115,6 +115,12 @@ public class Options {
     /** NVIDIA Reflex low latency mode. Loads Streamline at startup, so turning it on takes a restart. */
     public static boolean reflex = false;
 
+    /**
+     * The cloud setting Distant Horizons switched off, kept until its override toggle is off again and the setting
+     * is put back; empty when there is nothing to put back. See DistantHorizonsCompat.
+     */
+    public static String cloudsBeforeDistantHorizons = "";
+
     /** Ray tracing can be switched off with a key, which hands the world back to Minecraft's own renderer. */
     public static boolean rayTracingEnabled = true;
     /** Set when the player chooses to run on OpenGL, where this renderer cannot work at all. */
@@ -196,6 +202,7 @@ public class Options {
                 false);
             rayTracingEnabled = Boolean.parseBoolean(props.getProperty("rayTracingEnabled",
                 String.valueOf(rayTracingEnabled)));
+            cloudsBeforeDistantHorizons = props.getProperty("cloudsBeforeDistantHorizons", "");
             useOpenGl = Boolean.parseBoolean(props.getProperty("useOpenGl", String.valueOf(useOpenGl)));
             frameGeneration = Boolean.parseBoolean(props.getProperty("frameGeneration",
                 String.valueOf(frameGeneration)));
@@ -240,6 +247,7 @@ public class Options {
         props.setProperty("blockLightSampling", String.valueOf(blockLightSampling));
         props.setProperty("biomeFogStrength", String.valueOf(biomeFogStrength));
         props.setProperty("rayTracingEnabled", String.valueOf(rayTracingEnabled));
+        props.setProperty("cloudsBeforeDistantHorizons", cloudsBeforeDistantHorizons);
         props.setProperty("useOpenGl", String.valueOf(useOpenGl));
         props.setProperty("frameGeneration", String.valueOf(frameGeneration));
         props.setProperty("generatedFrames", String.valueOf(generatedFrames));

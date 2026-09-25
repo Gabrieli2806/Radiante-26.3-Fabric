@@ -40,11 +40,12 @@ final class LodMesher {
      *               between the two; lowering far terrain, and coarser sections more than finer ones, lets the
      *               nearer drawing win wherever two overlap for a moment - loaded chunks over far terrain that has
      *               not caught up yet, fine sections over the coarse one they are replacing.
-     * @param hidden per column ({@code x * width + z}), whether it is left out because the world's own chunk is
-     *               loaded there; null when none is
+     * @param hidden      per column ({@code x * width + z}), whether it is left out because the world's own chunk
+     *                    or a finer section draws it there; null when none is
+     * @param waterHidden per column, whether only its water is left out; see LodTerrain.chunkColumns
      */
     static void mesh(LodSection section, BlockLooks looks, int minY, float sink, int worldX, int worldZ,
-        boolean @Nullable [] hidden,
+        boolean @Nullable [] hidden, boolean @Nullable [] waterHidden,
         PBRVertexWriter solid, PBRVertexWriter water) {
         int width = section.width();
         int cw = section.columnBlocks();
@@ -82,6 +83,9 @@ final class LodMesher {
                         continue;
                     }
                     boolean isWater = kind == BlockLooks.KIND_WATER;
+                    if (isWater && waterHidden != null && waterHidden[index]) {
+                        continue;
+                    }
                     int bottom = runs[at];
                     int top = runs[at + 1];
                     int light = packLight(runs[at + 3]);

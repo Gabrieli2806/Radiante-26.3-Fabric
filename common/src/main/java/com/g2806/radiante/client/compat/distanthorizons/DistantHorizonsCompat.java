@@ -1,6 +1,8 @@
 package com.g2806.radiante.client.compat.distanthorizons;
 
 import com.g2806.radiante.client.render.RadianteRenderer;
+import com.g2806.radiante.client.option.Options;
+import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 
@@ -24,6 +26,49 @@ public final class DistantHorizonsCompat {
     private DistantHorizonsCompat() {
     }
 
+    /**
+     * Distant Horizons is about to switch vanilla's clouds off (its "override vanilla graphics settings" toggle).
+     * The player's setting is kept, to be put back once the toggle is off; see {@link #tick}.
+     */
+    public static void onCloudsDisabled() {
+        CloudStatus current = Minecraft.getInstance().options.cloudStatus().get();
+        if (current != CloudStatus.OFF) {
+            Options.cloudsBeforeDistantHorizons = current.name();
+            Options.overwriteConfig();
+        }
+    }
+
+    /**
+     * Once per client tick. The clouds follow the settings: Distant Horizons turns them off while its override
+     * toggle is on, and here they come back as the player had them once that toggle is switched off. Choosing a
+     * cloud setting by hand meanwhile drops the note, since the player has decided.
+     */
+    public static void tick() {
+        if (!INSTALLED || failed || Options.cloudsBeforeDistantHorizons.isEmpty()) {
+            return;
+        }
+        try {
+            if (!DhData.isConfigLoaded()) {
+                return;
+            }
+            Minecraft minecraft = Minecraft.getInstance();
+            CloudStatus current = minecraft.options.cloudStatus().get();
+            if (current != CloudStatus.OFF) {
+                Options.cloudsBeforeDistantHorizons = "";
+                Options.overwriteConfig();
+            } else if (!DhData.overridesVanillaSettings()) {
+                minecraft.options.cloudStatus().set(CloudStatus.valueOf(Options.cloudsBeforeDistantHorizons));
+                minecraft.options.save();
+                Options.cloudsBeforeDistantHorizons = "";
+                Options.overwriteConfig();
+            }
+        } catch (LinkageError | IllegalArgumentException e) {
+            Options.cloudsBeforeDistantHorizons = "";
+        } catch (RuntimeException e) {
+            disable(e);
+        }
+    }
+
     /** Once per traced frame, on the render thread. */
     public static void update(Minecraft minecraft, Vec3 camera) {
         if (!INSTALLED || failed) {
@@ -34,6 +79,26 @@ public final class DistantHorizonsCompat {
                 terrain = new LodTerrain();
             }
             terrain.update(minecraft, camera);
+        } catch (LinkageError | RuntimeException e) {
+            disable(e);
+        }
+    }
+
+    /**
+     * Before the renderer and the device go away. Distant Horizons releases its GPU buffers through work it queues
+     * for the render thread, which it only runs while drawing; left queued, the buffers outlived the device on
+     * quitting and the game died in native code. The builders are stopped too, so none reaches a closed renderer.
+     */
+    public static void shutdown() {
+        if (!INSTALLED || failed) {
+            return;
+        }
+        try {
+            if (terrain != null) {
+                terrain.close();
+                terrain = null;
+            }
+            DhData.runRenderThreadTasks();
         } catch (LinkageError | RuntimeException e) {
             disable(e);
         }

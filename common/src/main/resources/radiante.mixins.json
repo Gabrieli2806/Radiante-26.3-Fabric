@@ -4,6 +4,7 @@
   "package": "com.g2806.radiante.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "compat.DistantHorizonsCloudsMixin",
     "backend.FailedStartFallbackMixin",
     "backend.PreferredGraphicsApiMixin",
     "backend.TextureTrackingMixins$DeviceMixin",

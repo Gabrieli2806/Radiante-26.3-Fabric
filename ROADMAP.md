@@ -14,7 +14,11 @@ face boxes (`LodMesher`, caves filled, tops merged) and uploaded into `ChunkMana
 traced like sections. Sections are chosen as a quadtree around the camera (`LodTerrain`), split only where DH
 has the finer sections complete (a coarse section keeps drawing the quadrants its children do not cover yet),
 leaving out loaded chunks. DH's render-thread task queue is drained each frame, or its loading stalls. Rays and the render distance haze reach out to DH's distance (`WorldUBO.traceDistance`).
-Verified in a fresh Fabric test world. Still to look at: frame cost at DH's default 512 chunk distance on a fully
+Verified in a fresh test world on Fabric and NeoForge: day, sunset, night, rain, clouds, underwater, from 70 to
+4000 blocks up, toggling ray tracing in a running world, leaving and rejoining, teleporting 4000 blocks.
+Known, not ours: quitting the game straight from a world while DH is still generating hangs on DH's world
+generation threads (non-daemon, waiting on chunks of a server that has stopped) until Minecraft's shutdown
+watchdog ends the process; it happens with ray tracing off too. Leaving the world first avoids it. Still to look at: frame cost at DH's default 512 chunk distance on a fully
 generated world, the seam where far terrain meets loaded chunks, textured detail for the nearest sections, and
 NeoForge (same jar, untested).
 

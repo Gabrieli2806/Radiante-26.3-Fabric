@@ -164,6 +164,7 @@ public final class RadianteRenderer {
     public static void close() {
         if (active) {
             active = false;
+            com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.shutdown();
             ChunkManager.shutdown();
             RendererProxy.close();
         }

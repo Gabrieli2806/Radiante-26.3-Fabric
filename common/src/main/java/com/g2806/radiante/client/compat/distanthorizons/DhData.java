@@ -5,6 +5,7 @@ import com.seibel.distanthorizons.api.interfaces.block.IDhApiBlockStateWrapper;
 import com.seibel.distanthorizons.api.interfaces.world.IDhApiLevelWrapper;
 import com.seibel.distanthorizons.api.objects.data.DhApiTerrainDataPoint;
 import com.seibel.distanthorizons.core.api.internal.SharedApi;
+import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.file.fullDatafile.V2.FullDataSourceProviderV2;
 import com.seibel.distanthorizons.core.level.IDhLevel;
@@ -58,6 +59,15 @@ final class DhData {
      */
     static void runRenderThreadTasks() {
         RenderThreadTaskHandler.INSTANCE.runRenderThreadTasks();
+    }
+
+    static boolean isConfigLoaded() {
+        return DhApi.Delayed.configs != null;
+    }
+
+    /** Whether Distant Horizons' "override vanilla graphics settings" toggle is on. */
+    static boolean overridesVanillaSettings() {
+        return Config.Client.Advanced.Graphics.overrideVanillaGraphicsSettings.get();
     }
 
     /** How far Distant Horizons draws, in blocks. */
@@ -180,7 +190,7 @@ final class DhData {
                     IDhApiBlockStateWrapper wrapper = point.blockStateWrapper;
                     int state = wrapper == null || wrapper.isAir()
                         || !(wrapper.getWrappedMcObject() instanceof BlockState blockState)
-                        ? AIR : Block.BLOCK_STATE_REGISTRY.getId(blockState);
+                        || isHollow(blockState) ? AIR : Block.BLOCK_STATE_REGISTRY.getId(blockState);
                     int at = count * LodSection.RUN_INTS;
                     // Heights come relative to the bottom of the level.
                     column[at] = point.bottomYBlockPos + minY;
@@ -252,6 +262,16 @@ final class DhData {
             kept++;
         }
         return Arrays.copyOf(out, kept * LodSection.RUN_INTS);
+    }
+
+    /**
+     * Blocks with nothing solid to them - vines, grass, flowers - that far terrain leaves out anyway. They count as
+     * air, so caves hung with cave vines are filled like any other instead of each keeping its walls.
+     */
+    private static boolean isHollow(BlockState state) {
+        return state.getFluidState().isEmpty() && !state.is(net.minecraft.tags.BlockTags.SNOW)
+            && state.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE,
+                net.minecraft.core.BlockPos.ZERO).isEmpty();
     }
 
     /** Orders the runs from the highest down; Distant Horizons does not promise an order. */

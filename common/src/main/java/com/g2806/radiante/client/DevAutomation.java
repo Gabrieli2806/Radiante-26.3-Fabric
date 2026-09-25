@@ -160,6 +160,27 @@ public final class DevAutomation {
             RadianteClient.LOGGER.info("[dev] fps {} {}", action.substring(4), minecraft.getFps());
         } else if (action.startsWith("rainmv=")) {
             com.g2806.radiante.client.render.EntityManager.rainMotion = Boolean.parseBoolean(action.substring(7));
+        } else if (action.startsWith("rt=")) {
+            // As the toggle key does it (RadianteClient), without touching the saved options.
+            com.g2806.radiante.client.option.Options.rayTracingEnabled = Boolean.parseBoolean(action.substring(3));
+            minecraft.levelExtractor.allChanged();
+            RadianteClient.LOGGER.info("[dev] ray tracing {}",
+                com.g2806.radiante.client.option.Options.rayTracingEnabled);
+        } else if (action.startsWith("opt=")) {
+            // opt=field=value: any Radiante option, for comparing looks in one run. Not saved.
+            String[] parts = action.substring(4).split("=", 2);
+            try {
+                java.lang.reflect.Field field =
+                    com.g2806.radiante.client.option.Options.class.getField(parts[0]);
+                Class<?> type = field.getType();
+                Object value = type == boolean.class ? Boolean.parseBoolean(parts[1])
+                    : type == int.class ? Integer.parseInt(parts[1])
+                    : type == float.class ? Float.parseFloat(parts[1]) : parts[1];
+                field.set(null, value);
+                RadianteClient.LOGGER.info("[dev] option {} = {}", parts[0], value);
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                RadianteClient.LOGGER.warn("[dev] option {} not set", action, e);
+            }
         } else if (action.startsWith("pixel=")) {
             com.g2806.radiante.client.option.Options.pixelLighting = Boolean.parseBoolean(action.substring(6));
             RadianteClient.LOGGER.info("[dev] pixel lighting {}",
@@ -180,6 +201,11 @@ public final class DevAutomation {
         } else if (action.equals("reload")) {
             minecraft.reloadResourcePacks();
             RadianteClient.LOGGER.info("[dev] reload");
+        } else if (action.startsWith("rejoin=")) {
+            // Leave to the title screen and open the test world again; world ticks pause meanwhile.
+            minecraft.disconnectFromWorld(net.minecraft.client.multiplayer.ClientLevel.DEFAULT_QUIT_MESSAGE);
+            RadianteClient.LOGGER.info("[dev] left the world");
+            openOrCreateTestWorld(minecraft, action.substring(7));
         } else if (action.startsWith("testworld=")) {
             openOrCreateTestWorld(minecraft, action.substring(10));
         } else if (action.startsWith("join=")) {
