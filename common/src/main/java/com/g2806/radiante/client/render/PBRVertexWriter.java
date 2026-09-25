@@ -69,6 +69,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private boolean overlayEnabled;
     private boolean glintEnabled;
     private int colorOverride;
+    private int colorTint = 0xFFFFFF;
     private float uOffset;
     private float vOffset;
 
@@ -101,6 +102,12 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     /** An opaque RGB every vertex takes in place of the colour it is given, keeping its alpha; 0 turns it off. */
     public PBRVertexWriter colorOverride(int colorOverride) {
         this.colorOverride = colorOverride;
+        return this;
+    }
+
+    /** An RGB every vertex colour is multiplied by; 0xFFFFFF leaves it alone. Emission follows it. */
+    public PBRVertexWriter colorTint(int colorTint) {
+        this.colorTint = colorTint;
         return this;
     }
 
@@ -292,6 +299,11 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
             r = this.colorOverride >> 16 & 0xFF;
             g = this.colorOverride >> 8 & 0xFF;
             b = this.colorOverride & 0xFF;
+        }
+        if (this.colorTint != 0xFFFFFF) {
+            r = r * (this.colorTint >> 16 & 0xFF) / 255;
+            g = g * (this.colorTint >> 8 & 0xFF) / 255;
+            b = b * (this.colorTint & 0xFF) / 255;
         }
         MemoryUtil.memPutInt(this.current + OFF_USE_COLOR, 1);
         MemoryUtil.memPutFloat(this.current + OFF_COLOR, r / 255.0f);

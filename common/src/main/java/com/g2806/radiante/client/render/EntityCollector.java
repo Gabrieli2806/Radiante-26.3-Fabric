@@ -71,6 +71,7 @@ public class EntityCollector implements SubmitNodeCollector {
     /** Extra glow the current entity gives off whatever layer it is drawn with, such as a glow item frame. */
     private float entityEmission;
     private int colorOverride;
+    private int colorTint = 0xFFFFFF;
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
     /** Debug gizmo groups (F3+B hitboxes, F3+G chunk borders, ...) since the last drain; see drainGizmoGroups. */
     private final List<DrawableGizmoPrimitives.Group> gizmoGroups = new ArrayList<>();
@@ -89,6 +90,12 @@ public class EntityCollector implements SubmitNodeCollector {
         this.used = 0;
         this.entityEmission = 0.0f;
         this.colorOverride = 0;
+        this.colorTint = 0xFFFFFF;
+    }
+
+    /** Multiplies the colour of everything collected from here on, and so the light it gives off. */
+    public void colorTint(int colorTint) {
+        this.colorTint = colorTint;
     }
 
     /** Paints everything collected from here on in one colour; the glowing effect's outline copy uses it. */
@@ -144,6 +151,7 @@ public class EntityCollector implements SubmitNodeCollector {
             .overlayEnabled(info.useOverlay())
             .computeQuadNormals(info.needsComputedNormals())
             .colorOverride(this.colorOverride)
+            .colorTint(this.colorTint)
             .uvOffset(info.uOffset(), info.vOffset());
         this.writers.put(renderType, writer);
         return writer;

@@ -48,6 +48,7 @@ public final class EntityManager {
     private static final float GLOW_FRAME_EMISSION = 1.5f;
     /** An end crystal burns from inside; vanilla draws it at full brightness whatever the light around it. */
     private static final float END_CRYSTAL_EMISSION = 3.0f;
+    private static final int END_CRYSTAL_TINT = 0xD9A6FF;
     /**
      * How brightly an entity that lights itself glows at full strength. Vanilla says "this mob is lit" by handing
      * the renderer a block light of its own instead of the one at its position - a glow squid at 15, a blaze, a
@@ -211,6 +212,9 @@ public final class EntityManager {
             // An end crystal is a light source in its own right, and its texture is what gives it its colour, so
             // the glow is kept modest: multiplied by a bright texture, a large value burns the whole thing white.
             emission = END_CRYSTAL_EMISSION;
+            // Emission is the texture colour times a scalar, which burns toward white; a soft purple tint keeps
+            // the light it casts violet, like the End.
+            COLLECTOR.colorTint(END_CRYSTAL_TINT);
         }
         emission = Math.max(emission, selfLitEmission(minecraft, state));
         if (emission > 0.0f) {

@@ -1086,8 +1086,14 @@ void main() {
                 if (mainRay.hasPrevScenePos > 0u) {
                     vec2 realMotion =
                         computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(mainRay.prevScenePos, 1.0));
-                    // More than a pixel of difference: the hand moved relative to the camera this frame.
-                    if (any(greaterThan(abs(realMotion - motionVec), vec2(1.0)))) {
+                    // The hand moved relative to the camera this frame (swing, two-handed map tilting with the
+                    // pitch): follow its real motion so the upscaler reprojects it instead of smearing. Dropping
+                    // the history here left the hand noisy; only a jump no reprojection explains resets it.
+                    vec2 delta = abs(realMotion - motionVec);
+                    if (any(greaterThan(delta, vec2(0.5)))) {
+                        motionVec = realMotion;
+                    }
+                    if (any(greaterThan(delta, vec2(gl_LaunchSizeEXT.xy) * 0.1))) {
                         motionVec = vec2(gl_LaunchSizeEXT.xy) * 4.0;
                     }
                 }
