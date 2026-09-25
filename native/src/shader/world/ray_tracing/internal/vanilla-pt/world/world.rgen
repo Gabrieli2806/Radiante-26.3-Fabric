@@ -1067,11 +1067,33 @@ void main() {
         {
             vec3 originRelativeToPrevCam = origin + orgDirection * selectedFirstHit.tracedDistance + cameraDelta;
             if (mainRay.hasPrevScenePos > 0u) { originRelativeToPrevCam = mainRay.prevScenePos; }
-            vec2 motionVec = computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(originRelativeToPrevCam, 1.0));
-            // The held item and arm are fixed to the camera, so they sit on the same pixel frame to frame. Motion
-            // from their world position would send the denoiser's history looking for them where the world was,
-            // and they smear into ghosts whenever the camera turns.
-            if (isHand == 1) { motionVec = vec2(0.0); }
+            // The held item and arm are fixed to the camera, not the world: they turn and move with it. Their world
+            // position would send the upscaler's history looking for them where the world was, and they smeared
+            // into ghosts whenever the camera turned. They are not fixed to the screen either, though: view bobbing
+            // sways the view while they stay put, so a map in hand drifts across the screen with every step, and a
+            // zero motion vector tore it apart while walking. Where the hand sat last frame is the same point in the
+            // camera's own (unbobbed) frame; last frame's bobbed projection then says where that was on screen.
+            // The held item also moves by itself: a map held in both hands rises and sinks as the view tilts, and
+            // arms swing. Last frame's vertices of the hand are not a reliable guide to that (their buffers are
+            // rebuilt every frame), so when the hand has moved against the camera its history is dropped instead:
+            // a motion vector pointing off screen tells the upscaler this is new content, which is sharp at once
+            // rather than a blend of where the map was over the last frames.
+            vec2 motionVec;
+            if (isHand == 1) {
+                vec3 handInView = mat3(worldUBO.cameraViewMat) * (origin + orgDirection * selectedFirstHit.tracedDistance);
+                vec3 fixedInCamera = transpose(mat3(lastWorldUBO.cameraViewMat)) * handInView;
+                motionVec = computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(fixedInCamera, 1.0));
+                if (mainRay.hasPrevScenePos > 0u) {
+                    vec2 realMotion =
+                        computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(mainRay.prevScenePos, 1.0));
+                    // More than a pixel of difference: the hand moved relative to the camera this frame.
+                    if (any(greaterThan(abs(realMotion - motionVec), vec2(1.0)))) {
+                        motionVec = vec2(gl_LaunchSizeEXT.xy) * 4.0;
+                    }
+                }
+            } else {
+                motionVec = computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(originRelativeToPrevCam, 1.0));
+            }
             imageStore(motionVectorImage, pixel, vec4(motionVec, 0.0, 0.0));
         }
 
