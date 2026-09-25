@@ -59,6 +59,18 @@ public final class BiomeAmbiance {
         float albedoB) {
     }
 
+    /**
+     * Radiante's own overworld haze settles like Bedrock RTX's default fog: full up to a little above sea level and
+     * gone by the height of the mountain tops, so valleys and plains are hazy and the view from a peak is clear.
+     */
+    private static final float OVERWORLD_FULL_BELOW = 72.0f;
+    private static final float OVERWORLD_ZERO_AT = 256.0f;
+
+    private static Haze overworld(float r, float g, float b, float density) {
+        return new Haze(r, g, b, density, 1.0f, 1.0f, 1.0f, OVERWORLD_FULL_BELOW, OVERWORLD_ZERO_AT,
+            1.0f + RAIN_THICKENING);
+    }
+
     /** Far above any world: haze that never thins out with height. */
     private static final float NO_THINNING = 100_000.0f;
     /** Rain thickens the haze by up to this factor. */
@@ -66,25 +78,25 @@ public final class BiomeAmbiance {
     /** Written into converted Bedrock packs; the topmost pack that has one decides the fog. */
     private static final Identifier PACK_FOG = Identifier.fromNamespaceAndPath("radiante", "bedrock_fog.json");
 
-    private static final Haze DEFAULT = new Haze(0.92f, 0.96f, 1.00f, 0.0030f);
-    private static final Haze CLEAR = new Haze(0.92f, 0.96f, 1.02f, 0.0018f);
+    private static final Haze DEFAULT = overworld(0.92f, 0.96f, 1.00f, 0.0030f);
+    private static final Haze CLEAR = overworld(0.92f, 0.96f, 1.02f, 0.0018f);
     private static final Haze NONE = new Haze(1.0f, 1.0f, 1.0f, 0.0f);
-    private static final Haze DESERT = new Haze(1.00f, 0.78f, 0.52f, 0.0120f);
-    private static final Haze BADLANDS = new Haze(1.00f, 0.66f, 0.44f, 0.0110f);
-    private static final Haze SAVANNA = new Haze(1.00f, 0.86f, 0.62f, 0.0080f);
-    private static final Haze SWAMP = new Haze(0.66f, 0.80f, 0.52f, 0.0260f);
-    private static final Haze MANGROVE = new Haze(0.68f, 0.84f, 0.58f, 0.0280f);
-    private static final Haze JUNGLE = new Haze(0.78f, 1.00f, 0.78f, 0.0150f);
-    private static final Haze SPARSE_JUNGLE = new Haze(0.84f, 1.00f, 0.84f, 0.0100f);
-    private static final Haze DARK_FOREST = new Haze(0.76f, 0.84f, 0.76f, 0.0170f);
-    private static final Haze PALE_GARDEN = new Haze(0.90f, 0.90f, 0.90f, 0.0300f);
-    private static final Haze SNOWY = new Haze(0.84f, 0.92f, 1.08f, 0.0090f);
-    private static final Haze TAIGA = new Haze(0.84f, 0.92f, 0.96f, 0.0070f);
-    private static final Haze CHERRY = new Haze(1.00f, 0.84f, 0.92f, 0.0070f);
-    private static final Haze MUSHROOM = new Haze(0.90f, 0.78f, 1.00f, 0.0100f);
-    private static final Haze OCEAN = new Haze(0.80f, 0.92f, 1.08f, 0.0050f);
-    private static final Haze WARM_OCEAN = new Haze(0.78f, 0.96f, 1.02f, 0.0050f);
-    private static final Haze RIVER = new Haze(0.90f, 0.95f, 1.00f, 0.0040f);
+    private static final Haze DESERT = overworld(1.00f, 0.78f, 0.52f, 0.0120f);
+    private static final Haze BADLANDS = overworld(1.00f, 0.66f, 0.44f, 0.0110f);
+    private static final Haze SAVANNA = overworld(1.00f, 0.86f, 0.62f, 0.0080f);
+    private static final Haze SWAMP = overworld(0.66f, 0.80f, 0.52f, 0.0260f);
+    private static final Haze MANGROVE = overworld(0.68f, 0.84f, 0.58f, 0.0280f);
+    private static final Haze JUNGLE = overworld(0.78f, 1.00f, 0.78f, 0.0150f);
+    private static final Haze SPARSE_JUNGLE = overworld(0.84f, 1.00f, 0.84f, 0.0100f);
+    private static final Haze DARK_FOREST = overworld(0.76f, 0.84f, 0.76f, 0.0170f);
+    private static final Haze PALE_GARDEN = overworld(0.90f, 0.90f, 0.90f, 0.0300f);
+    private static final Haze SNOWY = overworld(0.84f, 0.92f, 1.08f, 0.0090f);
+    private static final Haze TAIGA = overworld(0.84f, 0.92f, 0.96f, 0.0070f);
+    private static final Haze CHERRY = overworld(1.00f, 0.84f, 0.92f, 0.0070f);
+    private static final Haze MUSHROOM = overworld(0.90f, 0.78f, 1.00f, 0.0100f);
+    private static final Haze OCEAN = overworld(0.80f, 0.92f, 1.08f, 0.0050f);
+    private static final Haze WARM_OCEAN = overworld(0.78f, 0.96f, 1.02f, 0.0050f);
+    private static final Haze RIVER = overworld(0.90f, 0.95f, 1.00f, 0.0040f);
 
     // Nether and End: rgb multiplies the biome's vanilla fog colour, which already carries each biome's hue (red in
     // the crimson forest, teal in the warped forest, and so on) and is what the haze is drawn in.

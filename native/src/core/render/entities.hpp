@@ -180,9 +180,15 @@ class Entities : public SharedObject<Entities> {
     std::shared_ptr<vk::BLASBatchBuilder> blasBatchBuilder();
     // Builds for newly cached entities, submitted alongside the frame's batch.
     std::vector<std::shared_ptr<vk::BLASBatchBuilder>> &staticBlasBatchBuilders();
+    // Called once the static builders are recorded into a frame; until then they are kept.
+    void staticBuildersSubmitted();
 
     // Value the Java side puts in prebuiltBLAS for geometry that may be cached (see EntityManager).
     static constexpr int CACHEABLE_BLAS = -2;
+    // Like CACHEABLE_BLAS, but the Java side names the content (in the geometry content names) and moves it by
+    // position alone: a match reuses the structure without reading the vertices at all, and only moves the instance.
+    // For large meshes that drift but rarely change shape - the vanilla clouds.
+    static constexpr int KEYED_BLAS = -3;
     // Frames an entity may go unseen before its cached structure is dropped.
     static constexpr uint64_t STATIC_CACHE_EVICT_FRAMES = 120;
 

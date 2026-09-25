@@ -124,7 +124,17 @@ public final class EntityManager {
     private EntityManager() {
     }
 
-    private record PendingLayer(int geometryType, int textureId, int vertexCount, long vertices, String name) {
+    /**
+     * {@code vertices} is an offset into the frame arena, unless {@code directAddress} is set: then the vertices
+     * are read from there as they are (a mesh kept between frames, like the clouds). {@code contentName} names the
+     * content for keyed caching, or is null.
+     */
+    private record PendingLayer(int geometryType, int textureId, int vertexCount, long vertices, String name,
+        long directAddress, String contentName) {
+
+        PendingLayer(int geometryType, int textureId, int vertexCount, long vertices, String name) {
+            this(geometryType, textureId, vertexCount, vertices, name, 0L, null);
+        }
     }
 
     /**
@@ -133,16 +143,23 @@ public final class EntityManager {
      * rebuilding it every frame.
      */
     private record PendingEntity(int id, double x, double y, double z, int rayTracingFlag,
-        List<PendingLayer> layers, boolean cacheable) {
+        List<PendingLayer> layers, int prebuiltBlas) {
 
         PendingEntity(int id, double x, double y, double z, int rayTracingFlag, List<PendingLayer> layers) {
-            this(id, x, y, z, rayTracingFlag, layers, false);
+            this(id, x, y, z, rayTracingFlag, layers, PREBUILT_BLAS_NONE);
+        }
+
+        PendingEntity(int id, double x, double y, double z, int rayTracingFlag, List<PendingLayer> layers,
+            boolean cacheable) {
+            this(id, x, y, z, rayTracingFlag, layers, cacheable ? PREBUILT_BLAS_CACHEABLE : PREBUILT_BLAS_NONE);
         }
     }
 
     /** Tells native an entity may keep its acceleration structure while its geometry is unchanged. */
     private static final int PREBUILT_BLAS_NONE = -1;
     private static final int PREBUILT_BLAS_CACHEABLE = -2;
+    /** Cached by the content name the layers carry, and moved by position alone; see Entities::KEYED_BLAS. */
+    private static final int PREBUILT_BLAS_KEYED = -3;
 
     public static void render(Minecraft minecraft, LevelRenderState levelRenderState) {
         if (minecraft.level == null) {
@@ -638,11 +655,14 @@ public final class EntityManager {
         if (writer == null || writer.vertexCount() % 4 != 0) {
             return;
         }
+        // The mesh only changes when the camera crosses into another cloud cell; in between it just drifts. So its
+        // acceleration structure is kept and only moved, and its vertices are handed over from the mesh itself
+        // rather than copied: rebuilding it every frame cost more than everything else on the render thread.
         List<PendingLayer> layers = new ArrayList<>();
-        layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_CLOUD, 0, writer.vertexCount(),
-            copyVertices(writer), "clouds"));
+        layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_CLOUD, 0, writer.vertexCount(), 0L, "clouds",
+            writer.address(), "clouds#" + CLOUDS.version()));
         PENDING.add(new PendingEntity(CLOUD_ID, CLOUDS.originX, CLOUDS.originY, CLOUDS.originZ, RAY_TRACING_CLOUD,
-            layers));
+            layers, PREBUILT_BLAS_KEYED));
     }
 
     /** Moves an outline corner away from the shape's centre, each axis on its own, so it sits just outside a face. */
@@ -864,6 +884,21 @@ public final class EntityManager {
 
     private static final Map<String, Long> GROUP_NAMES = new java.util.HashMap<>();
 
+    /** One native copy of the latest content name; the clouds' name changes with every rebuild of their mesh. */
+    private static String contentName;
+    private static java.nio.ByteBuffer contentNameBuffer;
+
+    private static long contentNameAddress(String name) {
+        if (!name.equals(contentName)) {
+            if (contentNameBuffer != null) {
+                MemoryUtil.memFree(contentNameBuffer);
+            }
+            contentNameBuffer = MemoryUtil.memUTF8(name, true);
+            contentName = name;
+        }
+        return MemoryUtil.memAddress(contentNameBuffer);
+    }
+
     /**
      * The fixed set of native arrays the upload hands over. Each slot keeps its buffer between frames and only
      * ever grows, so a frame costs no allocation at all once the world has settled.
@@ -959,14 +994,14 @@ public final class EntityManager {
                 MemoryUtil.memPutInt(layerCounts + (long) i * Integer.BYTES, entity.layers().size());
                 MemoryUtil.memPutInt(rayTracingFlags + (long) i * Integer.BYTES, entity.rayTracingFlag());
                 // A negative id means the renderer has to build the acceleration structure itself.
-                MemoryUtil.memPutInt(prebuiltBlas + (long) i * Integer.BYTES,
-                    entity.cacheable() ? PREBUILT_BLAS_CACHEABLE : PREBUILT_BLAS_NONE);
+                MemoryUtil.memPutInt(prebuiltBlas + (long) i * Integer.BYTES, entity.prebuiltBlas());
 
                 for (PendingLayer layer : entity.layers()) {
                     MemoryUtil.memPutInt(geometryTypes + (long) layerIndex * Integer.BYTES, layer.geometryType());
                     MemoryUtil.memPutAddress(geometryGroupNames + (long) layerIndex * Long.BYTES,
                         groupNameAddress(layer.name()));
-                    MemoryUtil.memPutAddress(geometryContentNames + (long) layerIndex * Long.BYTES, 0L);
+                    MemoryUtil.memPutAddress(geometryContentNames + (long) layerIndex * Long.BYTES,
+                        layer.contentName() == null ? 0L : contentNameAddress(layer.contentName()));
                     MemoryUtil.memPutInt(geometryTextures + (long) layerIndex * Integer.BYTES, layer.textureId());
                     MemoryUtil.memPutInt(vertexFormats + (long) layerIndex * Integer.BYTES,
                         NativeGeometry.VERTEX_FORMAT_PBR);
@@ -974,7 +1009,7 @@ public final class EntityManager {
                         NativeGeometry.DRAW_MODE_QUADS);
                     MemoryUtil.memPutInt(vertexCounts + (long) layerIndex * Integer.BYTES, layer.vertexCount());
                     MemoryUtil.memPutAddress(vertices + (long) layerIndex * Long.BYTES,
-                        ARENA.addressOf(layer.vertices()));
+                        layer.directAddress() != 0L ? layer.directAddress() : ARENA.addressOf(layer.vertices()));
                     layerIndex++;
                 }
             }

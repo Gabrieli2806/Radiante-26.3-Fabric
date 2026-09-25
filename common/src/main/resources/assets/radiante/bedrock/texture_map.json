@@ -321,6 +321,10 @@
    "bedrock": "textures/blocks/blast_furnace_front_off",
    "color": true
   },
+  "blast_furnace_front_on": {
+   "bedrock": "textures/blocks/blast_furnace_front_on",
+   "color": false
+  },
   "blast_furnace_side": {
    "bedrock": "textures/blocks/blast_furnace_side",
    "color": true
@@ -501,9 +505,17 @@
    "bedrock": "textures/blocks/calibrated_sculk_sensor_top",
    "color": true
   },
+  "campfire_fire": {
+   "bedrock": "textures/blocks/campfire",
+   "color": false
+  },
   "campfire_log": {
    "bedrock": "textures/blocks/campfire_log",
    "color": true
+  },
+  "campfire_log_lit": {
+   "bedrock": "textures/blocks/campfire_log_lit",
+   "color": false
   },
   "candle": {
    "bedrock": "textures/blocks/candles/candle",
@@ -580,6 +592,22 @@
   "cave_vines_plant_lit": {
    "bedrock": "textures/blocks/cave_vines_body_berries",
    "color": true
+  },
+  "chain_command_block_back": {
+   "bedrock": "textures/blocks/chain_command_block_back",
+   "color": false
+  },
+  "chain_command_block_conditional": {
+   "bedrock": "textures/blocks/chain_command_block_conditional",
+   "color": false
+  },
+  "chain_command_block_front": {
+   "bedrock": "textures/blocks/chain_command_block_front",
+   "color": false
+  },
+  "chain_command_block_side": {
+   "bedrock": "textures/blocks/chain_command_block_side",
+   "color": false
   },
   "cherry_leaves": {
    "bedrock": "textures/blocks/cherry_leaves",
@@ -753,6 +781,22 @@
    "bedrock": "textures/blocks/cocoa_stage_1",
    "color": true
   },
+  "command_block_back": {
+   "bedrock": "textures/blocks/command_block_back",
+   "color": false
+  },
+  "command_block_conditional": {
+   "bedrock": "textures/blocks/command_block_conditional",
+   "color": false
+  },
+  "command_block_front": {
+   "bedrock": "textures/blocks/command_block_front",
+   "color": false
+  },
+  "command_block_side": {
+   "bedrock": "textures/blocks/command_block_side",
+   "color": false
+  },
   "comparator": {
    "bedrock": "textures/blocks/comparator_off",
    "color": true
@@ -812,6 +856,10 @@
   "copper_grate": {
    "bedrock": "textures/blocks/copper_grate",
    "color": true
+  },
+  "copper_lantern": {
+   "bedrock": "textures/blocks/copper_lantern",
+   "color": false
   },
   "copper_ore": {
    "bedrock": "textures/blocks/copper_ore",
@@ -968,6 +1016,10 @@
   "crimson_shelf": {
    "bedrock": "textures/blocks/crimson_shelf",
    "color": true
+  },
+  "crimson_stem": {
+   "bedrock": "textures/blocks/huge_fungus/crimson_log_side",
+   "color": false
   },
   "crimson_stem_top": {
    "bedrock": "textures/blocks/huge_fungus/crimson_log_top",
@@ -1341,6 +1393,10 @@
    "bedrock": "textures/blocks/exposed_copper_grate",
    "color": true
   },
+  "exposed_copper_lantern": {
+   "bedrock": "textures/blocks/exposed_copper_lantern",
+   "color": false
+  },
   "exposed_copper_trapdoor": {
    "bedrock": "textures/blocks/exposed_copper_trapdoor",
    "color": true
@@ -1364,6 +1420,14 @@
   "fern": {
    "bedrock": "textures/blocks/fern",
    "color": true
+  },
+  "fire_0": {
+   "bedrock": "textures/blocks/fire_0",
+   "color": false
+  },
+  "fire_1": {
+   "bedrock": "textures/blocks/fire_1",
+   "color": false
   },
   "fire_coral": {
    "bedrock": "textures/blocks/coral_plant_red",
@@ -1665,9 +1729,21 @@
    "bedrock": "textures/blocks/jungle_trapdoor",
    "color": true
   },
+  "kelp": {
+   "bedrock": "textures/blocks/kelp_top",
+   "color": false
+  },
+  "kelp_plant": {
+   "bedrock": "textures/blocks/kelp_a",
+   "color": false
+  },
   "ladder": {
    "bedrock": "textures/blocks/ladder",
    "color": true
+  },
+  "lantern": {
+   "bedrock": "textures/blocks/lantern",
+   "color": false
   },
   "lapis_block": {
    "bedrock": "textures/blocks/lapis_block",
@@ -1688,6 +1764,14 @@
   "large_fern_top": {
    "bedrock": "textures/blocks/double_plant_fern_top",
    "color": true
+  },
+  "lava_flow": {
+   "bedrock": "textures/blocks/lava_flow",
+   "color": false
+  },
+  "lava_still": {
+   "bedrock": "textures/blocks/lava_still",
+   "color": false
   },
   "leaf_litter": {
    "bedrock": "textures/blocks/leaf_litter",
@@ -1873,6 +1957,10 @@
    "bedrock": "textures/blocks/wool_colored_magenta",
    "color": true
   },
+  "magma": {
+   "bedrock": "textures/blocks/magma",
+   "color": false
+  },
   "mangrove_leaves": {
    "bedrock": "textures/blocks/mangrove_leaves",
    "color": true
@@ -1980,6 +2068,10 @@
   "nether_gold_ore": {
    "bedrock": "textures/blocks/nether_gold_ore",
    "color": true
+  },
+  "nether_portal": {
+   "bedrock": "textures/blocks/portal",
+   "color": false
   },
   "nether_quartz_ore": {
    "bedrock": "textures/blocks/quartz_ore",
@@ -2144,6 +2236,10 @@
   "oxidized_copper_grate": {
    "bedrock": "textures/blocks/oxidized_copper_grate",
    "color": true
+  },
+  "oxidized_copper_lantern": {
+   "bedrock": "textures/blocks/oxidized_copper_lantern",
+   "color": false
   },
   "oxidized_copper_trapdoor": {
    "bedrock": "textures/blocks/oxidized_copper_trapdoor",
@@ -2481,6 +2577,10 @@
    "bedrock": "textures/blocks/rail_golden_powered",
    "color": true
   },
+  "prismarine": {
+   "bedrock": "textures/blocks/prismarine_rough",
+   "color": false
+  },
   "prismarine_bricks": {
    "bedrock": "textures/blocks/prismarine_bricks",
    "color": true
@@ -2685,6 +2785,22 @@
    "bedrock": "textures/blocks/repeater_on",
    "color": true
   },
+  "repeating_command_block_back": {
+   "bedrock": "textures/blocks/repeating_command_block_back",
+   "color": false
+  },
+  "repeating_command_block_conditional": {
+   "bedrock": "textures/blocks/repeating_command_block_conditional",
+   "color": false
+  },
+  "repeating_command_block_front": {
+   "bedrock": "textures/blocks/repeating_command_block_front",
+   "color": false
+  },
+  "repeating_command_block_side": {
+   "bedrock": "textures/blocks/repeating_command_block_side",
+   "color": false
+  },
   "resin_block": {
    "bedrock": "textures/blocks/resin_block",
    "color": true
@@ -2761,6 +2877,10 @@
    "bedrock": "textures/blocks/scaffolding_top",
    "color": true
   },
+  "sculk": {
+   "bedrock": "textures/blocks/sculk",
+   "color": false
+  },
   "sculk_catalyst_bottom": {
    "bedrock": "textures/blocks/sculk_catalyst_bottom",
    "color": true
@@ -2769,9 +2889,17 @@
    "bedrock": "textures/blocks/sculk_catalyst_side",
    "color": true
   },
+  "sculk_catalyst_side_bloom": {
+   "bedrock": "textures/blocks/sculk_catalyst_side_bloom",
+   "color": false
+  },
   "sculk_catalyst_top": {
    "bedrock": "textures/blocks/sculk_catalyst_top",
    "color": true
+  },
+  "sculk_catalyst_top_bloom": {
+   "bedrock": "textures/blocks/sculk_catalyst_top_bloom",
+   "color": false
   },
   "sculk_sensor_bottom": {
    "bedrock": "textures/blocks/sculk_sensor_bottom",
@@ -2781,6 +2909,14 @@
    "bedrock": "textures/blocks/sculk_sensor_side",
    "color": true
   },
+  "sculk_sensor_tendril_active": {
+   "bedrock": "textures/blocks/sculk_sensor_tendril_active",
+   "color": false
+  },
+  "sculk_sensor_tendril_inactive": {
+   "bedrock": "textures/blocks/sculk_sensor_tendril_inactive",
+   "color": false
+  },
   "sculk_sensor_top": {
    "bedrock": "textures/blocks/sculk_sensor_top",
    "color": true
@@ -2788,6 +2924,14 @@
   "sculk_shrieker_bottom": {
    "bedrock": "textures/blocks/sculk_shrieker_bottom",
    "color": true
+  },
+  "sculk_shrieker_can_summon_inner_top": {
+   "bedrock": "textures/blocks/sculk_shrieker_can_summon_inner_top",
+   "color": false
+  },
+  "sculk_shrieker_inner_top": {
+   "bedrock": "textures/blocks/sculk_shrieker_inner_top",
+   "color": false
   },
   "sculk_shrieker_side": {
    "bedrock": "textures/blocks/sculk_shrieker_side",
@@ -2797,9 +2941,21 @@
    "bedrock": "textures/blocks/sculk_shrieker_top",
    "color": true
   },
+  "sculk_vein": {
+   "bedrock": "textures/blocks/sculk_vein",
+   "color": false
+  },
+  "sea_lantern": {
+   "bedrock": "textures/blocks/sea_lantern",
+   "color": false
+  },
   "sea_pickle": {
    "bedrock": "textures/blocks/sea_pickle",
    "color": true
+  },
+  "seagrass": {
+   "bedrock": "textures/blocks/seagrass",
+   "color": false
   },
   "short_dry_grass": {
    "bedrock": "textures/blocks/short_dry_grass",
@@ -2856,6 +3012,10 @@
   "smoker_front": {
    "bedrock": "textures/blocks/smoker_front_off",
    "color": true
+  },
+  "smoker_front_on": {
+   "bedrock": "textures/blocks/smoker_front_on",
+   "color": false
   },
   "smoker_side": {
    "bedrock": "textures/blocks/smoker_side",
@@ -2953,6 +3113,26 @@
    "bedrock": "textures/blocks/snow",
    "color": true
   },
+  "soul_campfire_fire": {
+   "bedrock": "textures/blocks/soul_campfire",
+   "color": false
+  },
+  "soul_campfire_log_lit": {
+   "bedrock": "textures/blocks/soul_campfire_log_lit",
+   "color": false
+  },
+  "soul_fire_0": {
+   "bedrock": "textures/blocks/soul_fire_0",
+   "color": false
+  },
+  "soul_fire_1": {
+   "bedrock": "textures/blocks/soul_fire_1",
+   "color": false
+  },
+  "soul_lantern": {
+   "bedrock": "textures/blocks/soul_lantern",
+   "color": false
+  },
   "soul_sand": {
    "bedrock": "textures/blocks/soul_sand",
    "color": true
@@ -3020,6 +3200,10 @@
   "stonecutter_bottom": {
    "bedrock": "textures/blocks/stonecutter2_bottom",
    "color": true
+  },
+  "stonecutter_saw": {
+   "bedrock": "textures/blocks/stonecutter2_saw",
+   "color": false
   },
   "stonecutter_side": {
    "bedrock": "textures/blocks/stonecutter2_side",
@@ -3273,6 +3457,14 @@
    "bedrock": "textures/blocks/double_plant_grass_top",
    "color": true
   },
+  "tall_seagrass_bottom": {
+   "bedrock": "textures/blocks/seagrass_doubletall_bottom_a",
+   "color": false
+  },
+  "tall_seagrass_top": {
+   "bedrock": "textures/blocks/seagrass_doubletall_top_a",
+   "color": false
+  },
   "target_side": {
    "bedrock": "textures/blocks/target_side",
    "color": true
@@ -3505,6 +3697,10 @@
    "bedrock": "textures/blocks/warped_shelf",
    "color": true
   },
+  "warped_stem": {
+   "bedrock": "textures/blocks/huge_fungus/warped_stem_side",
+   "color": false
+  },
   "warped_stem_top": {
    "bedrock": "textures/blocks/huge_fungus/warped_stem_top",
    "color": true
@@ -3548,6 +3744,10 @@
   "weathered_copper_grate": {
    "bedrock": "textures/blocks/weathered_copper_grate",
    "color": true
+  },
+  "weathered_copper_lantern": {
+   "bedrock": "textures/blocks/weathered_copper_lantern",
+   "color": false
   },
   "weathered_copper_trapdoor": {
    "bedrock": "textures/blocks/weathered_copper_trapdoor",

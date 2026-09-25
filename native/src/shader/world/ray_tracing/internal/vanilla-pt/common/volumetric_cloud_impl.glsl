@@ -971,7 +971,9 @@ VolumetricCloudResult applyVolumetricCloudBudgeted(
             if (ms == 0) { transmittance *= stepTransmittance; }
         }
 
-        if (transmittance <= 1e-3) {
+        // Past 1 % of the background showing through, what lies behind cannot be told apart any more; marching on
+        // only costs light rays through the thickest part of the cloud.
+        if (transmittance <= 0.01) {
             transmittance = 0.0;
             break;
         }

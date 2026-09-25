@@ -38,7 +38,7 @@ public final class BedrockPackConverter {
     /** Under Radiante's folder in the game directory: the converted packs, one zip per .mcpack. */
     private static final String CACHE_FOLDER = "bedrock_packs";
     /** Stored as the zip comment; a pack converted by another version of the converter is converted again. */
-    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 5";
+    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 6";
     /** Resource pack format of Minecraft 26.3. */
     private static final int PACK_FORMAT = 97;
     /** Slope of normals built from a height map: height units per texel. */

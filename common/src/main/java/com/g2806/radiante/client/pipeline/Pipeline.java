@@ -418,6 +418,35 @@ public class Pipeline {
         return findAttribute(getRayTracingModule(), PIXELATED_LIGHTING_ATTRIBUTE) != null;
     }
 
+    public static final String MOTION_BLUR_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.post_enable_motion_blur";
+    public static final String DEPTH_OF_FIELD_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.post_enable_dof";
+
+    /**
+     * Switches one of the shader pack's on/off attributes, such as motion blur or depth of field. They are compiled
+     * into the pack, so returns true when the pipeline needs rebuilding.
+     */
+    public static boolean setShaderPackToggle(String attributeName, boolean enabled) {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), attributeName);
+        String value = enabled ? "render_pipeline.true" : "render_pipeline.false";
+        if (attribute == null || Objects.equals(attribute.value, value)) {
+            return false;
+        }
+        attribute.value = value;
+        return true;
+    }
+
+    public static boolean isShaderPackToggleOn(String attributeName) {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), attributeName);
+        return attribute != null && Objects.equals(attribute.value, "render_pipeline.true");
+    }
+
+    /** False when the active shader pack does not offer the attribute at all. */
+    public static boolean supportsShaderPackToggle(String attributeName) {
+        return findAttribute(getRayTracingModule(), attributeName) != null;
+    }
+
     private static AttributeConfig findAttribute(Module module, String name) {
         if (module == null || module.attributeConfigs == null) {
             return null;

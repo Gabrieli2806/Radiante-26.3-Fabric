@@ -163,7 +163,7 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
     shadowRay.pad0 = BLOCK_LIGHT_QUERY;
     vec3 origin = worldPos + geometricNormal * 0.0002;
     // Stops just short of the light, so the light's own block does not shadow it.
-    traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, WORLD_MASK | PLAYER_MASK, 0, 0, 0, origin, 0.0001, chosenDir,
+    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS, WORLD_MASK | PLAYER_MASK, 0, 0, 0, origin, 0.0001, chosenDir,
                 max(chosenDistance - 0.02, 0.0002), 1);
     shadowRay.pad0 = 0u;
     vec3 visibility = shadowRay.radiance * shadowRay.throughput;
@@ -206,7 +206,7 @@ vec3 sampleHeldLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, La
     shadowRay.insideBoat = rayInsideBoat(mainRay) ? 1u : 0u;
     shadowRay.pad0 = BLOCK_LIGHT_QUERY;
     vec3 origin = worldPos + geometricNormal * 0.0002;
-    traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, WORLD_MASK, 0, 0, 0, origin, 0.0001, dir,
+    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS, WORLD_MASK, 0, 0, 0, origin, 0.0001, dir,
                 max(lightDistance - 0.02, 0.0002), 1);
     shadowRay.pad0 = 0u;
     vec3 visibility = shadowRay.radiance * shadowRay.throughput;

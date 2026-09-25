@@ -133,7 +133,12 @@ vec4 evalMoonBillboard(vec3 rayDir) {
     vec2 a = abs(q);
     if (a.x > tanHalf || a.y > tanHalf) return vec4(0.0);
     vec2 uv = q / tanHalf * 0.5 + 0.5;
-    return sampleSpriteLod0(textures[nonuniformEXT(skyUBO.moonTextureID)], uv, skyUBO.moonUvRect);
+    vec4 moon = sampleSpriteLod0(textures[nonuniformEXT(skyUBO.moonTextureID)], uv, skyUBO.moonUvRect);
+    // As with the sun: the moon texture is a small disc inside a faint square glow, and scaled up to moonlight that
+    // glow drew a bright square frame around the moon. The sky model draws its halo; only the disc is kept, and it
+    // is lifted so its craters read against the night sky instead of washing out.
+    if (max(moon.r, max(moon.g, moon.b)) < 0.25) return vec4(0.0);
+    return moon;
 }
 
 void main() {

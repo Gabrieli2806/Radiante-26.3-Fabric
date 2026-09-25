@@ -26,11 +26,12 @@ vec2 clampUv(vec2 uv, vec2 texelSize) {
 float sampleConservativeDepth(vec2 uv, vec2 texelSize) {
     uv = clampUv(uv, texelSize);
 
-    float depthValue = texture(postFirstHitDepth, uv).r;
-    depthValue = min(depthValue, texture(postFirstHitDepth, clampUv(uv + vec2(texelSize.x, 0.0), texelSize)).r);
-    depthValue = min(depthValue, texture(postFirstHitDepth, clampUv(uv - vec2(texelSize.x, 0.0), texelSize)).r);
-    depthValue = min(depthValue, texture(postFirstHitDepth, clampUv(uv + vec2(0.0, texelSize.y), texelSize)).r);
-    depthValue = min(depthValue, texture(postFirstHitDepth, clampUv(uv - vec2(0.0, texelSize.y), texelSize)).r);
+    // The first hit depth arrives as view-space z, negative in front of the camera; the distance is its size.
+    float depthValue = abs(texture(postFirstHitDepth, uv).r);
+    depthValue = min(depthValue, abs(texture(postFirstHitDepth, clampUv(uv + vec2(texelSize.x, 0.0), texelSize)).r));
+    depthValue = min(depthValue, abs(texture(postFirstHitDepth, clampUv(uv - vec2(texelSize.x, 0.0), texelSize)).r));
+    depthValue = min(depthValue, abs(texture(postFirstHitDepth, clampUv(uv + vec2(0.0, texelSize.y), texelSize)).r));
+    depthValue = min(depthValue, abs(texture(postFirstHitDepth, clampUv(uv - vec2(0.0, texelSize.y), texelSize)).r));
     return depthValue;
 }
 

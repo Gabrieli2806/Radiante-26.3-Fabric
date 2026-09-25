@@ -9,6 +9,9 @@ layout(set = 5, binding = VPT_MATERIAL_STATE_BINDING, rgba16f) uniform image2DAr
 layout(set = 5, binding = 7, rgba16f) uniform image2DArray rayMaterialStateImage;
 #endif
 
+// Shadow rays: the first blocker ends the ray, and the shadow hit group has no closest-hit work to do.
+#define VPT_SHADOW_RAY_FLAGS (gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT)
+
 const uint rayBounceMask = 0xFFu;
 const uint rayInsideBoatBit = 1u << 8u;
 const uint rayStopBit = 1u << 9u;

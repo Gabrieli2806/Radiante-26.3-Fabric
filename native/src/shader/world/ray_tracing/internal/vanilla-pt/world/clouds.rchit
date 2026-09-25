@@ -120,7 +120,11 @@ void main() {
 
     vec3 albedo = albedoSample.rgb;
     float alpha = albedoSample.a;
-    vec3 tint = albedo * colorLayer;
+    // Vanilla darkens the cloud colour itself at dusk and at night, to stand in for the light it cannot compute.
+    // Here the light does that, so only the colour's hue is kept: darkened twice, clouds turned into black
+    // silhouettes against the afterglow.
+    float colorPeak = max(colorLayer.r, max(colorLayer.g, colorLayer.b));
+    vec3 tint = albedo * (colorPeak > 1e-3 ? colorLayer / colorPeak : vec3(1.0));
 
     LabPBRMat mat;
     mat.albedo = tint;
@@ -154,7 +158,7 @@ void main() {
     shadowRay.throughput = vec3(1.0);
     shadowRay.insideBoat = 0u;
     shadowRay.pad0 = 0u;
-    traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT,
+    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS,
                 WORLD_MASK, // masks
                 0,          // sbtRecordOffset
                 0,          // sbtRecordStride
@@ -172,8 +176,19 @@ void main() {
     vec3 skyAmbient = texture(skyFull, normalize(viewDir)).rgb;
     // Light a cloud scatters from the whole sky, not just the sun: what keeps an overcast underside pale grey
     // rather than dark, and a translucent cloud reading as white against the blue behind it.
+    // The sky above, and the horizon on the sun's side: at sunset and in the blue hour the zenith is already
+    // dark while the horizon still glows, and that glow is what lights the underside of clouds orange and pink.
     vec3 skyAbove = texture(skyFull, vec3(0.0, 1.0, 0.0)).rgb;
-    lightRadiance += tint * skyAbove * VPT_VANILLA_CLOUD_SKY_LIGHT * mainRay.throughput;
+    vec3 lightHorizon = texture(skyFull, normalize(vec3(sunDir.x, 0.08, sunDir.z))).rgb;
+    // Only clouds on the sun's side of the sky catch that glow, and the more so the closer they are to it.
+    vec2 cloudSide = normalize(mainRay.direction.xz + vec2(1e-5));
+    vec2 sunSide = normalize(sunDir.xz + vec2(1e-5));
+    float glowSide = max(dot(cloudSide, sunSide), 0.0);
+    // Around sunrise and sunset only: at noon the zenith already lights them, and deep in the night there is no glow.
+    float glowTime = smoothstep(-0.35, -0.05, sunDir.y) * (1.0 - smoothstep(0.2, 0.45, sunDir.y));
+    float horizonWeight = 0.3 * glowSide * glowSide * glowTime;
+    vec3 skyLight = skyAbove * (1.0 - horizonWeight) + lightHorizon * horizonWeight;
+    lightRadiance += tint * skyLight * VPT_VANILLA_CLOUD_SKY_LIGHT * mainRay.throughput;
     vec3 rainyRadiance = mix(skyAmbient * 0.12, vec3(0.08), dayFactor);
     vec3 wetCloudRadiance = lightRadiance * mix(0.2, 0.35, dayFactor) + rainyRadiance;
     // Only the face the ray enters through adds the cloud; the one it leaves through just lets it out again.

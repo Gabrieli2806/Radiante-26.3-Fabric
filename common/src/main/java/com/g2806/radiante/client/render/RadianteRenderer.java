@@ -186,6 +186,7 @@ public final class RadianteRenderer {
 
         updateUniforms(minecraft, gameRenderer, levelRenderState);
         DevProfiler.mark(0);
+        EntityPbr.update(minecraft);
         BufferProxy.updateMapping();
         DevProfiler.mark(1);
 

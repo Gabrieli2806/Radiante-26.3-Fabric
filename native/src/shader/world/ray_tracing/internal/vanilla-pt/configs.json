@@ -198,18 +198,6 @@
             "define": "VPT_VOLUMETRIC_LIGHT_MAX_DISTANCE"
         },
         {
-            "name": "render_pipeline.module.ray_tracing.attribute.volumetric_light_near_step_size",
-            "type": "float_range:0.5-8.0",
-            "default_value": "1.75",
-            "define": "VPT_VOLUMETRIC_LIGHT_NEAR_STEP_SIZE"
-        },
-        {
-            "name": "render_pipeline.module.ray_tracing.attribute.volumetric_light_far_step_size",
-            "type": "float_range:1.0-16.0",
-            "default_value": "5.0",
-            "define": "VPT_VOLUMETRIC_LIGHT_FAR_STEP_SIZE"
-        },
-        {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_light_luminance_limit",
             "type": "float_range:0.25-16.0",
             "default_value": "4.0",
@@ -336,6 +324,36 @@
             "type": "int_range:4-16",
             "default_value": "10",
             "define": "VPT_POST_MOTION_BLUR_SAMPLE_COUNT"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.post_enable_dof",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_POST_ENABLE_DOF"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.post_dof_auto_focus",
+            "type": "bool",
+            "default_value": "render_pipeline.true",
+            "define": "VPT_POST_DOF_AUTO_FOCUS"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.post_dof_focus_distance",
+            "type": "float_range:1.0-256.0",
+            "default_value": "12.0",
+            "define": "VPT_POST_DOF_FOCUS_DISTANCE"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.post_dof_focus_range",
+            "type": "float_range:0.5-64.0",
+            "default_value": "10.0",
+            "define": "VPT_POST_DOF_FOCUS_RANGE"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.post_dof_max_radius",
+            "type": "float_range:1.0-16.0",
+            "default_value": "4.0",
+            "define": "VPT_POST_DOF_MAX_RADIUS"
         }
     ],
     "textures": [
@@ -609,6 +627,67 @@
                     "then": [
                         {
                             "pass": "post_copy_post_motion_to_ldr"
+                        }
+                    ]
+                }
+            },
+            {
+                "if_else": {
+                    "condition": "VPT_POST_ENABLE_DOF != 0",
+                    "then": [
+                        {
+                            "if_else": {
+                                "condition": "VPT_POST_ENABLE_MOTION_BLUR == 0",
+                                "then": [
+                                    {
+                                        "pass": "post_copy_ldr_to_post_motion"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "if_else": {
+                                "condition": "VPT_POST_DOF_FOCUS_PING_INPUT",
+                                "then": [
+                                    {
+                                        "pass": "post_dof_focus_to_pong"
+                                    },
+                                    {
+                                        "pass": "post_dof_blur_h_from_pong"
+                                    },
+                                    {
+                                        "pass": "post_dof_blur_v_from_pong"
+                                    }
+                                ],
+                                "else": [
+                                    {
+                                        "pass": "post_dof_focus_to_ping"
+                                    },
+                                    {
+                                        "pass": "post_dof_blur_h_from_ping"
+                                    },
+                                    {
+                                        "pass": "post_dof_blur_v_from_ping"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "assign": {
+                                "VPT_POST_DOF_FOCUS_PING_INPUT": "!VPT_POST_DOF_FOCUS_PING_INPUT"
+                            }
+                        },
+                        {
+                            "assign": {
+                                "VPT_POST_DOF_FOCUS_HISTORY_READY": true
+                            }
+                        }
+                    ],
+                    "else": [
+                        {
+                            "assign": {
+                                "VPT_POST_DOF_FOCUS_HISTORY_READY": false
+                            }
                         }
                     ]
                 }

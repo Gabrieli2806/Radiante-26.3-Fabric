@@ -28,6 +28,7 @@ public final class DevAutomation {
     private static boolean active;
     /** A test world is being opened: its experimental-settings backup prompt is answered here, not by a person. */
     private static boolean openingTestWorld;
+    private static net.minecraft.client.gui.screens.Screen answeredBackup;
     private static final String TEST_WORLD_PREFIX = "Radiante";
 
     private DevAutomation() {
@@ -80,7 +81,9 @@ public final class DevAutomation {
             true, net.minecraft.world.level.WorldDataConfiguration.DEFAULT);
         minecraft.createWorldOpenFlows().createFreshLevel(name, settings,
             new net.minecraft.world.level.levelgen.WorldOptions(name.hashCode(), false, false),
-            net.minecraft.world.level.levelgen.presets.WorldPresets::createTestWorldDimensions,
+            // "Terrain" in the name asks for real terrain (hills, trees, water) instead of a flat test world.
+            name.contains("Terrain") ? net.minecraft.world.level.levelgen.presets.WorldPresets::createNormalWorldDimensions
+                : net.minecraft.world.level.levelgen.presets.WorldPresets::createTestWorldDimensions,
             new net.minecraft.client.gui.screens.TitleScreen());
         RadianteClient.LOGGER.info("[dev] create test world {}", name);
     }
@@ -115,8 +118,13 @@ public final class DevAutomation {
 
         if (openingTestWorld
             && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.BackupConfirmScreen backup) {
-            // Test worlds are flat worlds with experimental settings, so opening one asks for a backup first.
-            skipBackup(backup);
+            // Test worlds are flat worlds with experimental settings, so opening one asks for a backup first. The
+            // answer is carried out a few ticks later and the prompt stays up meanwhile; answering it twice opened the
+            // world twice, and the second server found the world's lock already taken.
+            if (backup != answeredBackup) {
+                answeredBackup = backup;
+                skipBackup(backup);
+            }
         }
         if (minecraft.player == null || minecraft.level == null) {
             return;
@@ -147,6 +155,9 @@ public final class DevAutomation {
             String[] v = action.substring(6).split(",");
             minecraft.level.destroyBlockProgress(-4242, new net.minecraft.core.BlockPos(Integer.parseInt(v[0]),
                 Integer.parseInt(v[1]), Integer.parseInt(v[2])), Integer.parseInt(v[3]));
+        } else if (action.startsWith("fps=")) {
+            // Frames drawn in the last second, for comparing settings from a fixed camera.
+            RadianteClient.LOGGER.info("[dev] fps {} {}", action.substring(4), minecraft.getFps());
         } else if (action.startsWith("pixel=")) {
             com.g2806.radiante.client.option.Options.pixelLighting = Boolean.parseBoolean(action.substring(6));
             RadianteClient.LOGGER.info("[dev] pixel lighting {}",

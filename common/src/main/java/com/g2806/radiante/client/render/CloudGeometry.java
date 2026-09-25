@@ -23,6 +23,7 @@ final class CloudGeometry {
     private int prevColor;
     private int prevRadius = -1;
     private CloudRenderer.TextureData prevTexture;
+    private int version;
 
     /** World position the current mesh is relative to, valid after {@link #update}. */
     double originX;
@@ -62,12 +63,18 @@ final class CloudGeometry {
             this.prevColor = color;
             this.prevRadius = radiusCells;
             this.build(texture, cellX, cellZ, status == CloudStatus.FANCY, radiusCells, color);
+            this.version++;
         }
 
         this.originX = camera.x - xInCell;
         this.originY = bottomY;
         this.originZ = camera.z - zInCell;
         return this.writer.vertexCount() > 0 ? this.writer : null;
+    }
+
+    /** Changes whenever the mesh is rebuilt, so the renderer knows when its cached copy is stale. */
+    int version() {
+        return this.version;
     }
 
     private void build(CloudRenderer.TextureData texture, int centerX, int centerZ, boolean fancy,

@@ -27,7 +27,7 @@ import org.lwjgl.system.MemoryUtil;
 public final class PbrAtlases {
 
     /** A normal map of all zeroes reads as "no map"; the alpha keeps the height at its neutral value. */
-    private static final int NORMAL_DEFAULT = 0xFF000000;
+    static final int NORMAL_DEFAULT = 0xFF000000;
     private static final int SPECULAR_DEFAULT = 0x00000000;
 
     private static int specularTextureId = -1;
@@ -122,7 +122,7 @@ public final class PbrAtlases {
      * earlier version rejected any map that was also a sprite, and with a directory source that is every map a
      * pack ships, so no PBR pack worked at all. Vanilla has no texture named after another with these suffixes.
      */
-    private static boolean isPackMap(Map<Identifier, TextureAtlasSprite> sprites, Identifier spriteId) {
+    static boolean isPackMap(Map<Identifier, TextureAtlasSprite> sprites, Identifier spriteId) {
         String path = spriteId.getPath();
         if (!path.endsWith("_s") && !path.endsWith("_n")) {
             return false;
@@ -132,7 +132,7 @@ public final class PbrAtlases {
         return sprites.containsKey(base);
     }
 
-    private static ByteBuffer fill(int width, int height, int value) {
+    static ByteBuffer fill(int width, int height, int value) {
         ByteBuffer buffer = MemoryUtil.memAlloc(width * height * 4);
         for (int i = 0; i < width * height; i++) {
             buffer.putInt(i * 4, value);
@@ -145,7 +145,7 @@ public final class PbrAtlases {
      * base texture, and animated textures stack their frames, so only the first frame is read and it is point
      * sampled to the size the sprite occupies.
      */
-    private static boolean stitch(ResourceManager resources, Identifier spriteId, TextureAtlasSprite sprite,
+    static boolean stitch(ResourceManager resources, Identifier spriteId, TextureAtlasSprite sprite,
         String suffix, ByteBuffer target, int width, int height) {
         Identifier mapId = Identifier.fromNamespaceAndPath(spriteId.getNamespace(),
             "textures/" + spriteId.getPath() + suffix + ".png");
@@ -182,7 +182,7 @@ public final class PbrAtlases {
     }
 
     /** NativeImage hands out ARGB, the atlas stores RGBA in memory order. */
-    private static int toRgba(int argb) {
+    static int toRgba(int argb) {
         int alpha = (argb >>> 24) & 0xFF;
         int red = (argb >>> 16) & 0xFF;
         int green = (argb >>> 8) & 0xFF;
@@ -190,7 +190,7 @@ public final class PbrAtlases {
         return (alpha << 24) | (blue << 16) | (green << 8) | red;
     }
 
-    private static int upload(int textureId, ByteBuffer level0, int width, int height, int mipLevels) {
+    static int upload(int textureId, ByteBuffer level0, int width, int height, int mipLevels) {
         if (textureId < 0) {
             textureId = TextureProxy.generateTextureId();
         }

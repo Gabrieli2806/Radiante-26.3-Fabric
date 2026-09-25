@@ -47,7 +47,8 @@ vec2 clampUv(vec2 uv, vec2 texelSize) {
 }
 
 float sampleRawDepth(vec2 uv) {
-    return texture(postFirstHitDepth, uv).r;
+    // The first hit depth arrives as view-space z, negative in front of the camera; the distance is its size.
+    return abs(texture(postFirstHitDepth, uv).r);
 }
 
 void sortDepths(inout float depths[9], int count) {

@@ -364,8 +364,10 @@ void Entities::resetFrame() {
     blasBatchBuilder_ = nullptr;
 
     frameCounter_++;
-    for (auto &builder : staticBlasBatchBuilders_) { frr.retain(builder); }
-    staticBlasBatchBuilders_.clear();
+    // Builds of newly cached entities stay queued until a frame actually submits them (see
+    // staticBuildersSubmitted). Frames that are prepared but never rendered - while a world loads, say - used to
+    // drop them here, and the cached entity then stayed without an acceleration structure: invisible until its
+    // content changed.
     reusedEntities_.clear();
     newStaticBuilds_.clear();
     for (auto it = staticCache_.begin(); it != staticCache_.end();) {
@@ -408,6 +410,29 @@ void Entities::queueBuild(EntitiesBuildTask task) {
         int prebuiltBLAS = task.entityPrebuiltBLASs[e];
         World::Coordinates coordinate = task.coordinate;
         bool post = task.entityPosts[e];
+
+        // Keyed content: when the cache already holds this exact content, only its position changes.
+        uint64_t keyedHash = 0;
+        if (prebuiltBLAS == KEYED_BLAS && !post) {
+            keyedHash = 0xcbf29ce484222325ull;
+            keyedHash = fnv1a(keyedHash, &rayTracingFlag, sizeof(rayTracingFlag));
+            keyedHash = fnv1a(keyedHash, &coordinate, sizeof(coordinate));
+            for (int i = 0; i < task.entityGeometryCounts[e]; i++) {
+                const char *name =
+                    task.geometryContentNames != nullptr ? task.geometryContentNames[geometryIndex + i] : nullptr;
+                if (name != nullptr) { keyedHash = fnv1a(keyedHash, name, std::strlen(name)); }
+                keyedHash = fnv1a(keyedHash, &task.vertexCounts[geometryIndex + i], sizeof(int));
+            }
+            auto &entry = staticCache_[hashCode];
+            entry.lastSeenFrame = frameCounter_;
+            if (entry.entity != nullptr && entry.contentHash == keyedHash) {
+                entry.entity->x = x;
+                entry.entity->y = y;
+                entry.entity->z = z;
+                reusedEntities_.push_back(entry.entity);
+                continue;
+            }
+        }
 
         uint32_t geometryCountWithoutGlint = 0;
         for (int i = 0; i < task.entityGeometryCounts[e]; i++) {
@@ -997,19 +1022,22 @@ void Entities::queueBuild(EntitiesBuildTask task) {
 
         if (geometryCountWithoutGlint == 0) { continue; }
 
-        if (prebuiltBLAS == CACHEABLE_BLAS && !post) {
+        if ((prebuiltBLAS == CACHEABLE_BLAS || prebuiltBLAS == KEYED_BLAS) && !post) {
             // Reused while the content is unchanged. Cached only once it has stayed the same for two frames in a
             // row, so geometry that animates every frame (a waving banner, a chest while it opens) never pays for
-            // a build of its own that would be thrown away the next frame.
-            uint64_t contentHash = hashEntityContent(x, y, z, rayTracingFlag, coordinate, geometryTypes,
-                                                     geometryGroupNames, vertices, indices);
+            // a build of its own that would be thrown away the next frame. Keyed content is cached at once: its
+            // name only changes when its shape does.
+            bool keyed = prebuiltBLAS == KEYED_BLAS;
+            uint64_t contentHash = keyed ? keyedHash :
+                                           hashEntityContent(x, y, z, rayTracingFlag, coordinate, geometryTypes,
+                                                             geometryGroupNames, vertices, indices);
             auto &entry = staticCache_[hashCode];
             entry.lastSeenFrame = frameCounter_;
             if (entry.entity != nullptr && entry.contentHash == contentHash) {
                 reusedEntities_.push_back(entry.entity);
                 continue;
             }
-            bool stable = entry.seen && entry.contentHash == contentHash;
+            bool stable = keyed || (entry.seen && entry.contentHash == contentHash);
             entry.seen = true;
             entry.contentHash = contentHash;
             if (entry.entity != nullptr) {
@@ -1123,6 +1151,12 @@ std::shared_ptr<EntityPostBatch> Entities::entityPostBatch() {
 
 std::shared_ptr<vk::BLASBatchBuilder> Entities::blasBatchBuilder() {
     return blasBatchBuilder_;
+}
+
+void Entities::staticBuildersSubmitted() {
+    auto &frr = Renderer::instance().framework()->frameResourceRetainer();
+    for (auto &builder : staticBlasBatchBuilders_) { frr.retain(builder); }
+    staticBlasBatchBuilders_.clear();
 }
 
 std::vector<std::shared_ptr<vk::BLASBatchBuilder>> &Entities::staticBlasBatchBuilders() {

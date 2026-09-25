@@ -91,6 +91,23 @@ struct SampledSurface {
     LabPBRMat mat;
 };
 
+// Moves a point on a block face to the centre of the sixteenth-of-a-block cell it lies in, along the face only.
+// Faces that are not lined up with the block grid (mobs, rotated models) are left where they are.
+bool pixelGridAligned(vec3 normal) {
+    vec3 n = abs(normal);
+    return max(n.x, max(n.y, n.z)) >= 0.98;
+}
+
+vec3 pixelGridOffset(vec3 pos, vec3 normal) {
+    vec3 n = abs(normal);
+    if (!pixelGridAligned(normal)) { return vec3(0.0); }
+    // The camera's position inside its own cell, in double precision: positions here are camera relative, and far
+    // from the origin a float would no longer resolve a sixteenth of a block.
+    vec3 cameraCell = vec3(mod(worldUBO.cameraPos.xyz, dvec3(1.0 / 16.0)));
+    vec3 snapped = (floor((pos + cameraCell) * 16.0) + 0.5) / 16.0 - cameraCell;
+    return (snapped - pos) * vec3(lessThan(n, vec3(0.5)));
+}
+
 vec3 applyNormalMapToBasis(vec3 matNormal,
                            vec3 tangent,
                            vec3 bitangent,
@@ -767,7 +784,7 @@ vec3 sampleSurfaceDirectLight(SampledSurface surface,
     }
     uint shadowMask = WORLD_MASK | PLAYER_MASK;
     if (VPT_CLOUD_MODE != 2u) { shadowMask |= CLOUD_MASK; }
-    traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, shadowMask, 0, 0, 0,
+    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS, shadowMask, 0, 0, 0,
                 shadowOrigin, 0.0001, sampledLightDir, 1000.0, 1);
 
     float progress = skyUBO.rainGradient;
@@ -1015,15 +1032,14 @@ void main() {
         emissionRadiance += currentSurface.tint * albedoEmission * mainRay.throughput;
         mainRay.radiance += emissionRadiance;
 
-        // Pixelated lighting: the light is gathered at the centre of the texel that was hit, so each texel of the
-        // texture is lit, and shadowed, as one flat tile.
+        // Pixelated lighting, as BetterRTX does it: light is gathered at the centre of the sixteenth-of-a-block
+        // cell that was hit, so every vanilla-sized pixel of a block face is lit, shadowed and bounced from as one
+        // flat tile - whatever the resolution of the pack's textures.
+        vec3 pixelOffset = vec3(0.0);
+        bool pixelTile = worldUBO.pixelLighting != 0u && !isWaterMaterial && pixelGridAligned(baseGeoNormal);
+        if (pixelTile) { pixelOffset = pixelGridOffset(currentSurface.worldPos, baseGeoNormal); }
         SampledSurface litSurface = currentSurface;
-        if (worldUBO.pixelLighting != 0u && useTexture && !isWaterMaterial) {
-            vec2 texelCount = vec2(textureSize(textures[nonuniformEXT(textureID)], 0));
-            vec2 texelCentre = (floor(currentSurface.uv * texelCount) + 0.5) / texelCount;
-            vec2 toCentre = texelCentre - currentSurface.uv;
-            litSurface.worldPos += dPduWorld * toCentre.x + dPdvWorld * toCentre.y;
-        }
+        litSurface.worldPos += pixelOffset;
         vec3 directLight =
             sampleSurfaceDirectLight(litSurface, currentViewDir, textureUV, planeHitWorldPos, atlasUvMin, atlasUvMax,
                                      dPduWorld, dPdvWorld, baseGeoNormal, traceLocalHeight,
@@ -1114,7 +1130,10 @@ void main() {
             } else {
                 vec3 exitNormal = dot(sampleDir, currentSurface.geometricNormal) >= 0.0 ? currentSurface.geometricNormal :
                                                                                            -currentSurface.geometricNormal;
-                mainRay.origin = currentSurface.worldPos + exitNormal * 0.0002;
+                // Diffuse bounces leave from the same tile the direct light was gathered at, so indirect light and
+                // ambient occlusion come out blocky too; reflections keep the exact point.
+                mainRay.origin = currentSurface.worldPos + (lobeType == 0u ? pixelOffset : vec3(0.0)) +
+                                 exitNormal * 0.0002;
             }
             mainRay.direction = sampleDir;
             raySetStop(mainRay, false);

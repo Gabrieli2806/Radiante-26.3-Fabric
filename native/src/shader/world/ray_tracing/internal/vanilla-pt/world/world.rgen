@@ -41,12 +41,6 @@
 #ifndef VPT_VOLUMETRIC_LIGHT_MAX_DISTANCE
 #    define VPT_VOLUMETRIC_LIGHT_MAX_DISTANCE 128.0
 #endif
-#ifndef VPT_VOLUMETRIC_LIGHT_NEAR_STEP_SIZE
-#    define VPT_VOLUMETRIC_LIGHT_NEAR_STEP_SIZE 1.75
-#endif
-#ifndef VPT_VOLUMETRIC_LIGHT_FAR_STEP_SIZE
-#    define VPT_VOLUMETRIC_LIGHT_FAR_STEP_SIZE 5.0
-#endif
 #ifndef VPT_VOLUMETRIC_LIGHT_LUMINANCE_LIMIT
 #    define VPT_VOLUMETRIC_LIGHT_LUMINANCE_LIMIT 4.0
 #endif
@@ -245,13 +239,12 @@ float volumetricMediumMaxDistance() {
     return clamp(VPT_VOLUMETRIC_LIGHT_MAX_DISTANCE, 32.0, 320.0);
 }
 
-float volumetricAirDensityFade(float t) {
-    float fogStart = max(worldUBO.fogStart, 0.0);
-    float fogRange = max(worldUBO.fogEnd - worldUBO.fogStart, 1.0);
-    float rampLength = clamp(fogRange * 0.08, 4.0, 24.0);
+// How thick the air is: a little hazier with the sun low, as in the morning and evening, and the same at every
+// distance. It used to thin out near the camera and thicken past the vanilla fog start, and the step between the two
+// read as a wall of fog at a fixed distance.
+float volumetricAirDensity() {
     float sunHeight = abs(celestialSunDirection().y);
-    float baseDensity = mix(0.80, 0.50, smoothstep(0.05, 0.35, sunHeight));
-    return mix(baseDensity, 1.0, smoothstep(fogStart, fogStart + rampLength, t));
+    return mix(1.0, 0.7, smoothstep(0.05, 0.35, sunHeight));
 }
 
 vec3 applySampledLightChroma(vec3 lightRadiance, vec3 lightDir) {
@@ -272,20 +265,19 @@ vec3 sampleVolumetricDirectionalLight(vec3 position, vec3 lightDir, bool insideB
     shadowRay.insideBoat = insideBoat ? 1u : 0u;
     shadowRay.pad0 = 0u;
 
+    // Vanilla clouds are left out: their mesh only covers the few chunks around the camera, and the shadow it cast
+    // into the fog ended in a straight line across the sky where the mesh did.
     uint shadowMask = WORLD_MASK | PLAYER_MASK;
-    if (VPT_CLOUD_MODE == 1u) { shadowMask |= CLOUD_MASK; }
     vec3 origin = position + lightDir * 0.02;
-    traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, shadowMask, 0, 0, 0, origin, 0.001, lightDir, 1000.0, 1);
-    vec3 radiance = applySampledLightChroma(shadowRay.radiance, lightDir) * (1.0 - skyUBO.rainGradient);
-    vec3 absolutePosition = position + vec3(worldUBO.cameraPos.xyz);
-    float cloudVisibility =
-        volumetricCloudLightVisibility(absolutePosition, lightDir, max(VPT_VOLUMETRIC_CLOUD_LIGHT_STEPS, 1), 0.175);
-    return radiance * cloudVisibility;
+    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS, shadowMask, 0, 0, 0, origin, 0.001, lightDir, 1000.0, 1);
+    return applySampledLightChroma(shadowRay.radiance, lightDir) * (1.0 - skyUBO.rainGradient);
 }
 
 void volumetricAirMedium(float cosTheta, out vec3 sigmaS, out vec3 sigmaT) {
-    float mieG = clamp(VPT_ATMOSPHERE_MIE_G, -0.2, 0.85);
-    float miePhase = min(henyeyGreenstein(cosTheta, mieG), 4.0);
+    // A soft forward lobe, as in the sky (sky_cube.frag): a sharp one lit the fog in front of the sun into a white
+    // halo around it.
+    float mieG = clamp(min(VPT_ATMOSPHERE_MIE_G, 0.45), -0.2, 0.85);
+    float miePhase = min(henyeyGreenstein(cosTheta, mieG), 1.2);
     float rPhase = 3.0 * INV_4_PI * 0.25 * (1.0 + cosTheta * cosTheta);
     float fogPhase = mix(INV_4_PI, miePhase, 0.75);
     float fogRange = max(worldUBO.fogEnd - worldUBO.fogStart, 1.0);
@@ -318,13 +310,13 @@ vec3 softClampVolumetricLight(vec3 value) {
     return value * (compressedLum / lum);
 }
 
-float volumetricStepLength(float t, float endDistance) {
-    float nearStep = max(VPT_VOLUMETRIC_LIGHT_NEAR_STEP_SIZE, 0.25);
-    float farStep = max(VPT_VOLUMETRIC_LIGHT_FAR_STEP_SIZE, nearStep);
-    float growStart = min(24.0, endDistance * 0.30);
-    float growEnd = max(growStart + 8.0, endDistance * 0.75);
-    float growth = smoothstep(growStart, growEnd, t);
-    return mix(nearStep, farStep, growth);
+// Where the i-th of n steps starts, as a share of the marched distance: the steps are packed near the camera, where
+// shafts are sharp and close, and spread out further away, and always reach the end of the march however long it
+// is. A fixed step size used to run out of steps a few dozen blocks out, and past that point the air stopped
+// scattering light at all, which showed as a cut across the terrain.
+float volumetricStepFraction(float i, float n) {
+    float x = clamp(i / max(n, 1.0), 0.0, 1.0);
+    return x * x;
 }
 
 // Per-biome fog as a participating medium, the way Bedrock RTX does it: the biome's density both absorbs and
@@ -356,10 +348,11 @@ void integrateVolumetricFog(vec3 origin,
                             out vec3 radiance) {
     transmittance = vec3(1.0);
     radiance = vec3(0.0);
-
-    float maxDistance = volumetricMediumMaxDistance();
-    endDistance = min(endDistance, maxDistance);
     if (!finiteFloat(endDistance) || endDistance <= 0.05) { return; }
+
+    // Shadow rays are traced out to the volumetric distance; beyond it the medium carries on unshadowed to whatever
+    // the ray hits, so far terrain gets the same haze as near terrain instead of a hard edge where the march ends.
+    float marchEnd = min(endDistance, volumetricMediumMaxDistance());
 
     vec3 lightDir = celestialSunDirection();
     if (lightDir.y < 0.0) { lightDir = -lightDir; }
@@ -368,54 +361,83 @@ void integrateVolumetricFog(vec3 origin,
     vec3 sigmaS;
     vec3 sigmaT;
     volumetricAirMedium(cosTheta, sigmaS, sigmaT);
+    float airDensity = volumetricAirDensity();
+    float scatteringStrength = max(VPT_VOLUMETRIC_LIGHT_SCATTERING_STRENGTH, 0.0);
+    vec3 airSigmaS = sigmaS * airDensity * scatteringStrength;
+    vec3 airSigmaT = sigmaT * airDensity * 0.45;
 
     float biomeDensity = biomeFogDensity();
     vec3 biomeAlbedo = clamp(skyUBO.biomeFog.rgb, vec3(0.0), vec3(1.5));
     vec3 biomeChroma = biomeFogChroma();
-    float biomePhase = mix(INV_4_PI, min(henyeyGreenstein(cosTheta, 0.55), 4.0), 0.6);
-    vec3 biomeAmbient = biomeDensity > 0.0 ? biomeFogAmbient(rayDir) : vec3(0.0);
-    vec3 farLight = vec3(0.0);
+    float biomePhase = mix(INV_4_PI, min(henyeyGreenstein(cosTheta, 0.35), 1.2), 0.6);
+    // The sky lights the fog from every side, which is what keeps it from going black in the shade the way a fog
+    // lit by the sun alone does; Bedrock RTX's fog keeps the sky's colour in shadow for the same reason.
+    vec3 skyAmbient = biomeFogAmbient(rayDir);
+    vec3 airAmbient = skyAmbient * airSigmaT * 0.35;
 
-    float marchT = 0.0;
+    // One cloud shadow for the whole ray, taken halfway along the march.
+    vec3 midPoint = origin + rayDir * (marchEnd * 0.5) + vec3(worldUBO.cameraPos.xyz);
+    float cloudVisibility =
+        volumetricCloudLightVisibility(midPoint, lightDir, max(VPT_VOLUMETRIC_CLOUD_LIGHT_STEPS, 1), 0.175);
+
+    // A short stretch of air (a wall a few blocks away) needs far fewer steps than the full distance; the count
+    // follows the square root of the length, as the steps themselves are packed near the camera.
+    int maxSteps = max(VPT_VOLUMETRIC_LIGHT_MAX_STEPS, 1);
+    int stepCount =
+        clamp(int(ceil(float(maxSteps) * sqrt(marchEnd / volumetricMediumMaxDistance()))), min(4, maxSteps), maxSteps);
+    // In full rain the sun and moon are gone, and a shadow ray per step would only find that out.
+    bool directLight = skyUBO.rainGradient < 0.98;
     uint seed = xxhash32(uvec3(uint(gl_LaunchIDEXT.x), uint(gl_LaunchIDEXT.y), worldUBO.seed ^ 0xBB67AE85u));
-    for (int i = 0; i < VPT_VOLUMETRIC_LIGHT_MAX_STEPS && marchT < endDistance; ++i) {
-        float remainingDistance = endDistance - marchT;
-        float baseStepLength = volumetricStepLength(marchT, endDistance);
-        float stepLength = min(baseStepLength, remainingDistance);
-        float jitter = clamp(0.5 + (rand(seed) - 0.5) * 0.70, 0.15, 0.85);
+    float jitter = rand(seed);
+    vec3 litSum = vec3(0.0);
+    float litWeight = 0.0;
+    float marchT = 0.0;
+    for (int i = 0; i < stepCount; ++i) {
+        float nextT = marchEnd * volumetricStepFraction(float(i + 1), float(stepCount));
+        float stepLength = nextT - marchT;
+        if (stepLength <= 1e-4) { continue; }
         float t = marchT + stepLength * jitter;
         vec3 position = origin + rayDir * t;
-        vec3 lightRadiance = sampleVolumetricDirectionalLight(position, lightDir, insideBoat);
+        vec3 lightRadiance = directLight ?
+                                 sampleVolumetricDirectionalLight(position, lightDir, insideBoat) * cloudVisibility :
+                                 vec3(0.0);
 
-        float densityScale = volumetricAirDensityFade(t);
-        float shaftDistanceFade = 1.0 - smoothstep(maxDistance * 0.45, maxDistance, t);
-        float scatteringStrength = max(VPT_VOLUMETRIC_LIGHT_SCATTERING_STRENGTH, 0.0);
-        vec3 localSigmaS = sigmaS * densityScale * scatteringStrength * shaftDistanceFade;
-        vec3 localSigmaT = sigmaT * densityScale * 0.45;
         float localBiome =
             t < biomeReach ? biomeDensity * biomeFogHeightProfile(position.y + float(worldUBO.cameraPos.y)) : 0.0;
         vec3 localBiomeT = biomeChroma * localBiome;
-        localSigmaT += localBiomeT;
+        vec3 localSigmaT = airSigmaT + localBiomeT;
         vec3 segmentTransmittance = exp(-localSigmaT * stepLength);
         vec3 segment = segmentIntegral(localSigmaT, segmentTransmittance, stepLength);
-        vec3 inScatter = lightRadiance * localSigmaS;
-        inScatter += (lightRadiance * biomePhase + biomeAmbient) * biomeAlbedo * localBiomeT;
+        vec3 inScatter = lightRadiance * airSigmaS + airAmbient;
+        inScatter += (lightRadiance * biomePhase + skyAmbient) * biomeAlbedo * localBiomeT;
         radiance += transmittance * inScatter * segment;
         transmittance *= segmentTransmittance;
-        marchT += stepLength;
-        farLight = lightRadiance;
+        marchT = nextT;
+        // The light the far medium is lit by: the average the march saw, weighted to its far half so a shadow
+        // right in front of the camera does not darken the whole distance.
+        float weight = float(i + 1);
+        litSum += lightRadiance * weight;
+        litWeight += weight;
 
         if (max(transmittance.r, max(transmittance.g, transmittance.b)) < 1e-3) { break; }
     }
+    vec3 farLight = litWeight > 0.0 ? litSum / litWeight : vec3(0.0);
 
-    // The march stops at the volumetric distance; the biome fog carries on to the far terrain and the horizon. Past
-    // the march there are no shadow rays, so that stretch is lit by the last light the march saw.
-    float tail = biomeReach - marchT;
-    if (biomeDensity > 0.0 && tail > 0.0 && max(transmittance.r, max(transmittance.g, transmittance.b)) >= 1e-3) {
-        float tailMidY = origin.y + rayDir.y * (marchT + tail * 0.5) + float(worldUBO.cameraPos.y);
-        vec3 tailTransmittance = exp(-biomeChroma * biomeDensity * biomeFogHeightProfile(tailMidY) * tail);
-        vec3 tailScatter = (farLight * biomePhase + biomeAmbient) * biomeAlbedo;
-        radiance += transmittance * tailScatter * (1.0 - tailTransmittance);
+    // Past the march: the air to the hit (not to the sky, whose own atmosphere already carries it), and the biome fog
+    // out to its reach, lit by that average light.
+    if (max(transmittance.r, max(transmittance.g, transmittance.b)) >= 1e-3) {
+        float airTail = max(endDistance - marchEnd, 0.0);
+        float biomeTail = max(biomeReach - marchT, 0.0);
+        float tailMidY = origin.y + rayDir.y * (marchT + biomeTail * 0.5) + float(worldUBO.cameraPos.y);
+        vec3 biomeTailT = biomeChroma * biomeDensity * biomeFogHeightProfile(tailMidY);
+        vec3 tailOpticalDepth = airSigmaT * airTail + biomeTailT * biomeTail;
+        vec3 tailTransmittance = exp(-tailOpticalDepth);
+        vec3 tailScatterDepth = (farLight * airSigmaS + airAmbient) * airTail +
+                                (farLight * biomePhase + skyAmbient) * biomeAlbedo * biomeTailT * biomeTail;
+        vec3 tailFraction = vec3(tailOpticalDepth.r > 1e-6 ? (1.0 - tailTransmittance.r) / tailOpticalDepth.r : 1.0,
+                                 tailOpticalDepth.g > 1e-6 ? (1.0 - tailTransmittance.g) / tailOpticalDepth.g : 1.0,
+                                 tailOpticalDepth.b > 1e-6 ? (1.0 - tailTransmittance.b) / tailOpticalDepth.b : 1.0);
+        radiance += transmittance * tailScatterDepth * tailFraction;
         transmittance *= tailTransmittance;
     }
 

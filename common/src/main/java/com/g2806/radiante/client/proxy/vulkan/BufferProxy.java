@@ -281,6 +281,7 @@ public class BufferProxy {
                     bb.putInt(entry + Integer.BYTES, normal);
                 }
             }
+            com.g2806.radiante.client.render.EntityPbr.writeMapping(bb, TEXTURE_MAPPING_ENTRIES);
             updateMapping(addr);
         }
     }

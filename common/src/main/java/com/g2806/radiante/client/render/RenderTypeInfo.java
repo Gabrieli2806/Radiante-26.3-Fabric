@@ -174,7 +174,12 @@ public final class RenderTypeInfo {
 
     /** The renderer id of the texture this render type samples, or 0 when it has none. */
     public int textureId() {
-        return this.texture == null ? 0 : TextureTracker.idOf(this.texture);
+        if (this.texture == null) {
+            return 0;
+        }
+        int id = TextureTracker.idOf(this.texture);
+        EntityPbr.note(this.texture, id);
+        return id;
     }
 
     /**

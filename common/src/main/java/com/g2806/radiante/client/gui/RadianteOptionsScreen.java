@@ -37,6 +37,8 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private boolean pendingFirstPersonShadow = Options.firstPersonShadow;
     private int pendingBiomeFogStrength = Options.biomeFogStrength;
     private Boolean pendingVolumetricFog;
+    private Boolean pendingMotionBlur;
+    private Boolean pendingDepthOfField;
     private boolean pendingReflex = Options.reflex;
     private boolean applied;
 
@@ -60,6 +62,8 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingFirstPersonShadow = previous.pendingFirstPersonShadow;
         this.pendingBiomeFogStrength = previous.pendingBiomeFogStrength;
         this.pendingVolumetricFog = previous.pendingVolumetricFog;
+        this.pendingMotionBlur = previous.pendingMotionBlur;
+        this.pendingDepthOfField = previous.pendingDepthOfField;
         this.pendingReflex = previous.pendingReflex;
     }
 
@@ -309,6 +313,21 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         } else {
             this.list.addSmall(firstPersonShadow, debugLogging);
         }
+        if (Pipeline.supportsShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE)
+            && Pipeline.supportsShaderPackToggle(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE)) {
+            if (this.pendingMotionBlur == null) {
+                this.pendingMotionBlur = Pipeline.isShaderPackToggleOn(Pipeline.MOTION_BLUR_ATTRIBUTE);
+            }
+            if (this.pendingDepthOfField == null) {
+                this.pendingDepthOfField = Pipeline.isShaderPackToggleOn(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE);
+            }
+            this.list.addSmall(
+                OptionInstance.createBoolean("options.radiante.motion_blur", tooltip("options.radiante.motion_blur"),
+                    this.pendingMotionBlur, value -> this.pendingMotionBlur = value),
+                OptionInstance.createBoolean("options.radiante.depth_of_field",
+                    tooltip("options.radiante.depth_of_field"), this.pendingDepthOfField,
+                    value -> this.pendingDepthOfField = value));
+        }
     }
 
     @Override
@@ -364,6 +383,12 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingVolumetricFog != null) {
             rebuild |= Pipeline.setVolumetricFog(this.pendingVolumetricFog);
+        }
+        if (this.pendingMotionBlur != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE, this.pendingMotionBlur);
+        }
+        if (this.pendingDepthOfField != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE, this.pendingDepthOfField);
         }
         if (this.pendingCloudMode != null && !Objects.equals(this.pendingCloudMode, Pipeline.getCloudMode())) {
             rebuild |= Pipeline.setCloudMode(this.pendingCloudMode);
