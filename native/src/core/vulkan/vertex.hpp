@@ -28,6 +28,9 @@ struct Vertex {
     // Above the four bits of the alpha mode, the Java side marks water surfaces.
     static constexpr uint32_t alphaModeWaterFlag = 0x10u;
     static constexpr uint32_t waterSurfaceBit = 1u << 17u;
+    // Likewise for rain sheets, whose texture falls while the sheets stand still.
+    static constexpr uint32_t alphaModeRainFlag = 0x20u;
+    static constexpr uint32_t rainSurfaceBit = 1u << 18u;
 
     template <typename T>
     static VertexLayoutInfo initVertexLayout(std::vector<VertexAttribute> &attributes);

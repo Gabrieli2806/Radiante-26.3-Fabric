@@ -12,6 +12,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     public static final int STRIDE = 128;
     /** Set in the alpha mode word for water surfaces; see {@link #water}. */
     private static final int WATER_FLAG = 0x10;
+    /** Set in the alpha mode word for rain sheets; see {@link #rain}. */
+    private static final int RAIN_FLAG = 0x20;
 
     public static final int ALPHA_MODE_OPAQUE = 0;
     public static final int ALPHA_MODE_CUTOUT = 1;
@@ -61,6 +63,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private int alphaMode;
     private int coordinate;
     private boolean water;
+    private boolean rain;
     private float albedoEmission;
     private boolean computeQuadNormals;
     private boolean overlayEnabled;
@@ -118,6 +121,12 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
      * mode, which only uses the low four, so they can treat it as water: refraction, waves, caustics and the pack's
      * water medium.
      */
+    /** Whether the vertices from here on are rain sheets, whose texture falls: their motion vectors follow it. */
+    public PBRVertexWriter rain(boolean rain) {
+        this.rain = rain;
+        return this;
+    }
+
     public PBRVertexWriter water(boolean water) {
         this.water = water;
         return this;
@@ -269,7 +278,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         MemoryUtil.memPutInt(v + OFF_GLINT_TEXTURE, this.glintTextureId);
         MemoryUtil.memPutInt(v + OFF_COORDINATE, this.coordinate);
         MemoryUtil.memPutFloat(v + OFF_ALBEDO_EMISSION, this.albedoEmission);
-        MemoryUtil.memPutInt(v + OFF_ALPHA_MODE, this.alphaMode | (this.water ? WATER_FLAG : 0));
+        MemoryUtil.memPutInt(v + OFF_ALPHA_MODE,
+            this.alphaMode | (this.water ? WATER_FLAG : 0) | (this.rain ? RAIN_FLAG : 0));
         if (this.colorOverride != 0) {
             setColor(255, 255, 255, 255);
         }

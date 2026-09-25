@@ -450,6 +450,26 @@ public final class EntityManager {
      * under the weather mask, which camera rays see and shadow rays skip, and use the stochastic alpha mode so a
      * streak is a faint visible surface rather than clear glass.
      */
+    /**
+     * Blocks vanilla rain falls per tick: its texture scrolls (3 to 4) / 32 of a texture height per tick, and a
+     * texture height covers four blocks. Each column picks its own speed in that range; the middle one is used.
+     */
+    private static final float RAIN_FALL_PER_TICK = 4.0f * 3.5f / 32.0f;
+    private static double lastRainTime = Double.NaN;
+    private static float rainFallPerFrame;
+    /** Dev switch for comparing with and without rain motion vectors. */
+    public static boolean rainMotion = true;
+
+    /** How far rain fell since the previous frame, for its motion vectors; see WorldUBO.rainFallPerFrame. */
+    public static float rainFallPerFrame(LevelRenderState levelRenderState) {
+        double now = levelRenderState.gameTime + levelRenderState.worldPartialTicks;
+        double ticks = Double.isNaN(lastRainTime) ? 0.0 : now - lastRainTime;
+        lastRainTime = now;
+        // A pause or a jump in time is not rain falling.
+        rainFallPerFrame = rainMotion && ticks > 0.0 && ticks < 2.0 ? (float) ticks * RAIN_FALL_PER_TICK : 0.0f;
+        return rainFallPerFrame;
+    }
+
     private static void collectWeather(LevelRenderState levelRenderState, CameraRenderState cameraState) {
         net.minecraft.client.renderer.state.level.WeatherRenderState weather = levelRenderState.weatherRenderState;
         if (weather.intensity <= 0.0f || (weather.rainColumns.isEmpty() && weather.snowColumns.isEmpty())) {
@@ -458,8 +478,10 @@ public final class EntityManager {
 
         Vec3 camera = cameraState.pos;
         List<PendingLayer> layers = new ArrayList<>();
-        addWeatherLayer(layers, weather.rainColumns, RAIN_TEXTURE, camera, 1.0f, weather.radius, weather.intensity);
-        addWeatherLayer(layers, weather.snowColumns, SNOW_TEXTURE, camera, 0.8f, weather.radius, weather.intensity);
+        addWeatherLayer(layers, weather.rainColumns, RAIN_TEXTURE, camera, 1.0f, weather.radius, weather.intensity,
+            true);
+        addWeatherLayer(layers, weather.snowColumns, SNOW_TEXTURE, camera, 0.8f, weather.radius, weather.intensity,
+            false);
         if (!layers.isEmpty()) {
             PENDING.add(new PendingEntity(WEATHER_ID, camera.x(), camera.y(), camera.z(), RAY_TRACING_WEATHER,
                 layers));
@@ -468,7 +490,8 @@ public final class EntityManager {
 
     private static void addWeatherLayer(List<PendingLayer> layers,
         List<net.minecraft.client.renderer.WeatherEffectRenderer.ColumnInstance> columns,
-        net.minecraft.resources.Identifier texture, Vec3 camera, float maxAlpha, int radius, float intensity) {
+        net.minecraft.resources.Identifier texture, Vec3 camera, float maxAlpha, int radius, float intensity,
+        boolean rain) {
         if (columns.isEmpty()) {
             return;
         }
@@ -483,7 +506,8 @@ public final class EntityManager {
             .coordinate(NativeGeometry.COORDINATE_WORLD)
             .albedoEmission(0.0f)
             .overlayEnabled(false)
-            .computeQuadNormals(true);
+            .computeQuadNormals(true)
+            .rain(rain);
         writer.reset();
 
         float radiusSq = Math.max(radius * radius, 1);

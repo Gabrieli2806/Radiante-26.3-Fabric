@@ -295,7 +295,10 @@ namespace Data {
         // retro, blocky look of pixelated lighting). Zero lights them smoothly.
         T_UINT pixelLighting;
         T_UINT worldPad0;
-        T_UINT worldPad1;
+        // How far rain has fallen since the previous frame, in blocks. The drops are a texture scrolling down static
+        // sheets, so the geometry never moves; the motion vectors of rain take this instead, or the upscalers
+        // accumulate the drops over several frames into long streaks.
+        T_FLOAT rainFallPerFrame;
         T_UINT worldPad2;
     };
 

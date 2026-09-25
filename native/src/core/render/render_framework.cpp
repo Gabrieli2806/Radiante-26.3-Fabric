@@ -250,6 +250,11 @@ std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t wid
         g_devProfile.upload += devMs(devT1, devT2);
         g_devProfile.world += devMs(devT2, devT3);
         g_devProfile.fuse += devMs(devT3, devT4);
+        if (devMs(devT0, devT4) > 25.0) {
+            std::cout << "[native profile] spike acquire(wait)=" << devMs(devT0, devT1) << "ms upload="
+                      << devMs(devT1, devT2) << "ms world=" << devMs(devT2, devT3) << "ms fuse=" << devMs(devT3, devT4)
+                      << "ms" << std::endl;
+        }
         if (++g_devProfile.frames == 300) {
             std::cout << "[native profile] acquire(wait)=" << g_devProfile.acquire / 300
                       << "ms upload=" << g_devProfile.upload / 300 << "ms world=" << g_devProfile.world / 300

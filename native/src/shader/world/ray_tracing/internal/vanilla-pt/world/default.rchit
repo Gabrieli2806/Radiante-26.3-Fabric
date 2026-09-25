@@ -991,6 +991,8 @@ void main() {
     if (bounce == 0u) {
         vec3 prevScenePos;
         if (loadPreviousScenePos(geometryBufferIndex, gl_PrimitiveID, baryCoords, prevScenePos)) {
+            // A raindrop seen here was higher up the sheet last frame.
+            if (isRainSurface(packedData)) { prevScenePos.y += worldUBO.rainFallPerFrame; }
             mainRay.prevScenePos = prevScenePos;
             mainRay.hasPrevScenePos = 1u;
         }

@@ -166,7 +166,11 @@ void WorldPrepareContext::render() {
     }
 
     std::unique_lock<std::recursive_mutex> lock(chunks->mutex());
-    if (g_prep.enabled) g_prep.schedule += prepMs(prepT);
+    if (g_prep.enabled) {
+        double stepMs = prepMs(prepT);
+        g_prep.schedule += stepMs;
+        if (stepMs > 8.0) std::cout << "[native profile] spike prepare schedule=" << stepMs << "ms" << std::endl;
+    }
 
     // Freshly built chunks trade their acceleration structures for compacted copies, typically half the size.
     // At far render distances these structures are gigabytes; left uncompacted they pushed the renderer past the
@@ -287,7 +291,11 @@ void WorldPrepareContext::render() {
         blasGroupAccu = cache.groupAccu;
         worldPrepare1->chunkNameCount_ = cache.hitGroupNames.size();
     }
-    if (g_prep.enabled) g_prep.chunks += prepMs(prepT);
+    if (g_prep.enabled) {
+        double stepMs = prepMs(prepT);
+        g_prep.chunks += stepMs;
+        if (stepMs > 8.0) std::cout << "[native profile] spike prepare chunks=" << stepMs << "ms" << std::endl;
+    }
 
     // Entity
     {
@@ -442,7 +450,11 @@ void WorldPrepareContext::render() {
         .dstAccessMask = VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR,
     }});
 
-    if (g_prep.enabled) g_prep.tlas += prepMs(prepT);
+    if (g_prep.enabled) {
+        double stepMs = prepMs(prepT);
+        g_prep.tlas += stepMs;
+        if (stepMs > 8.0) std::cout << "[native profile] spike prepare tlas=" << stepMs << "ms" << std::endl;
+    }
     uploadBuffer(blasOffset, indexBufferAddrs, positionBufferAddrs, materialBufferAddrs, lastIndexBufferAddrs,
                  lastPositionBufferAddrs, lastObjToWorldMats);
     if (g_prep.enabled) {

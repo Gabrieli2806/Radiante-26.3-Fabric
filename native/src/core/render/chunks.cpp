@@ -8,6 +8,7 @@
 #include "core/vulkan/vertex.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -900,7 +901,19 @@ void ChunkBuildScheduler::waitAllBatchesFinish() {
 
 void ChunkBuildScheduler::tryScheduleBatches(uint32_t maxBatchSize) {
     if (!Renderer::instance().framework()->isRunning()) return;
+    // Building a batch (packing its geometry, sizing and recording its acceleration structures) happens right here
+    // on the render thread, and its builds then run on the GPU alongside the frame. Scheduling every batch there was
+    // room for at once stalled a single frame for tens of milliseconds - and the GPU for hundreds - whenever a burst
+    // of chunks arrived, walking into a dense city or teleporting. A small time budget per frame spreads them out.
+    constexpr double kScheduleBudgetMs = 3.0;
+    auto budgetStart = std::chrono::steady_clock::now();
+    bool scheduledOne = false;
     while (true) {
+        if (scheduledOne &&
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - budgetStart).count() >
+                kScheduleBudgetMs) {
+            return;
+        }
         std::shared_ptr<vk::Fence> fence;
         std::shared_ptr<vk::CommandBuffer> commandBuffer;
         std::shared_ptr<ChunkBuildDataBatch> chunkBuildDataBatch;
@@ -939,6 +952,7 @@ void ChunkBuildScheduler::tryScheduleBatches(uint32_t maxBatchSize) {
         }
 
         chunkBuildDataBatch->build();
+        scheduledOne = true;
 
         bool hasLightUploads = false;
         for (const auto &chunkBuildData : chunkBuildDataBatch->batchData) {

@@ -158,6 +158,8 @@ public final class DevAutomation {
         } else if (action.startsWith("fps=")) {
             // Frames drawn in the last second, for comparing settings from a fixed camera.
             RadianteClient.LOGGER.info("[dev] fps {} {}", action.substring(4), minecraft.getFps());
+        } else if (action.startsWith("rainmv=")) {
+            com.g2806.radiante.client.render.EntityManager.rainMotion = Boolean.parseBoolean(action.substring(7));
         } else if (action.startsWith("pixel=")) {
             com.g2806.radiante.client.option.Options.pixelLighting = Boolean.parseBoolean(action.substring(6));
             RadianteClient.LOGGER.info("[dev] pixel lighting {}",

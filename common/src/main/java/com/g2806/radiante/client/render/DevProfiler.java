@@ -13,6 +13,10 @@ final class DevProfiler {
     private static long last;
     private static long windowStart;
     private static int frames;
+    /** This frame's steps, and when the previous frame ended: a frame far slower than the rest is logged whole. */
+    private static final long[] FRAME = new long[NAMES.length];
+    private static long lastFrameEnd;
+    private static final long SPIKE_NANOS = 30_000_000L;
 
     private DevProfiler() {
     }
@@ -32,6 +36,7 @@ final class DevProfiler {
         }
         long now = System.nanoTime();
         TOTALS[step] += now - last;
+        FRAME[step] = now - last;
         last = now;
     }
 
@@ -41,6 +46,16 @@ final class DevProfiler {
         }
         frames++;
         long now = System.nanoTime();
+        if (lastFrameEnd != 0 && now - lastFrameEnd > SPIKE_NANOS) {
+            StringBuilder spike = new StringBuilder("[profile] spike ")
+                .append(String.format("%.1f", (now - lastFrameEnd) / 1.0e6)).append("ms:");
+            for (int i = 0; i < NAMES.length; i++) {
+                spike.append(' ').append(NAMES[i]).append('=').append(String.format("%.2f", FRAME[i] / 1.0e6));
+            }
+            RadianteRenderer.LOGGER.info(spike.toString());
+        }
+        lastFrameEnd = now;
+        java.util.Arrays.fill(FRAME, 0L);
         if (now - windowStart < 5_000_000_000L) {
             return;
         }
