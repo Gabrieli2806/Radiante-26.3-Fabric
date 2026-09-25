@@ -113,6 +113,11 @@ Reportes de errores, ajustes de shaders y pull requests son bienvenidos.
   `native/src/core/` y `native/src/common/`. Iguala la densidad de comentarios y el estilo de nombres del
   código alrededor — los comentarios aquí explican *por qué* existe un valor o una comprobación, no qué hace
   la línea.
+- Los arreglos de compatibilidad con mods deben ser generales, no atados a un solo mod. Si el mod X falla
+  porque Radiante omite o reemplaza algo que vanilla hace (p. ej. `LevelRenderer.render`, cuyos hooks al
+  inicio siguen ejecutándose gracias a `LevelRendererSkipMixin`), restaura ese comportamiento vanilla para que
+  cualquier mod que dependa de él se beneficie, en vez de tratar a X por nombre. Solo recurre a un parche
+  específico cuando no exista una solución general, y mantenlo opcional (reflexión, sin dependencia dura).
 - Prueba en un mundo con prefijo `Radiante*` dentro de `run/saves/` (un superflat nuevo suele bastar) — nunca
   apuntes una ejecución de prueba/desarrollo a un mundo que realmente juegas. `-PquickPlay="<mundo>"` entra
   directo a uno.

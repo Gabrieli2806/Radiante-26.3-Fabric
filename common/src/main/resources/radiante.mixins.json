@@ -34,6 +34,7 @@
     "world.GameRendererMixin",
     "world.LevelExtractorMixin",
     "world.LevelRendererMixin",
+    "world.LevelRendererSkipMixin",
     "world.SectionDirtyStateMixin",
     "world.SectionUpdateTrackerMixin"
   ],

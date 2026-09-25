@@ -67,6 +67,17 @@ public final class RadianteRenderer {
         return active;
     }
 
+    private static boolean tracingLevel;
+
+    /** Set while LevelRenderer.render is called only for other mods' hooks at its head; see LevelRendererSkipMixin. */
+    public static boolean isTracingLevel() {
+        return tracingLevel;
+    }
+
+    public static void setTracingLevel(boolean tracing) {
+        tracingLevel = tracing;
+    }
+
     /** True when the ray tracer both works here and the player has it switched on. */
     public static boolean isRayTracingEnabled() {
         return active && Options.rayTracingEnabled;

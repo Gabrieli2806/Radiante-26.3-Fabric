@@ -107,6 +107,11 @@ Bug reports, shader tweaks and pull requests are welcome.
 - Shader changes live under `native/src/shader/`; native renderer/C++ changes under `native/src/core/` and
   `native/src/common/`. Match the surrounding code's comment density and naming — comments here explain *why*
   a value or check exists, not what the line does.
+- Mod compatibility fixes should be general, not tied to one mod. If mod X breaks because Radiante skips or
+  replaces something vanilla does (e.g. `LevelRenderer.render`, whose head hooks still run through
+  `LevelRendererSkipMixin`), restore that vanilla behaviour so every mod relying on it benefits, instead of
+  special-casing X by name. Only fall back to a mod-specific patch when no general fix exists, and keep it
+  optional (reflection, no hard dependency).
 - Test in a `Radiante*`-prefixed world under `run/saves/` (a fresh superflat is usually enough) — never point
   a dev/test run at a world you actually play in. `-PquickPlay="<world>"` boots straight into one.
 - Before opening a PR: rebuild natives (`cmake --build ... --target INSTALL`), run `./gradlew.bat build` for
