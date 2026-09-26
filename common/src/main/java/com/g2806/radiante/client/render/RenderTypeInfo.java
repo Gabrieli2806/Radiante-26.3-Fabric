@@ -24,25 +24,6 @@ public final class RenderTypeInfo {
      */
     private static final Map<RenderType, RenderTypeInfo> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
-    /** A lightning bolt is the brightest thing in the world while it lasts. */
-    private static final float LIGHTNING_EMISSION = 20.0f;
-    /** A beacon beam is a solid column of light. */
-    private static final float BEACON_BEAM_EMISSION = 10.0f;
-    /**
-     * Glowing eyes and the other emissive entity overlays. Kept low on purpose: the emission is multiplied by the
-     * texture colour, so a high value pushes every channel past white and an enderman ends up with white eyes
-     * instead of purple ones.
-     */
-    private static final float ENTITY_EMISSION = 0.5f;
-    /**
-     * The swirling shell of a charged creeper and a wither below half health. Vanilla adds it on top of the mob,
-     * so it is light, not a lit surface.
-     */
-    private static final float ENERGY_SWIRL_EMISSION = 1.2f;
-    /** The wither's shield texture is far darker than the creeper's, so it needs more to read as the same glow. */
-    private static final float WITHER_ARMOR_EMISSION = 4.0f;
-    /** Flames wrapped around a burning entity. */
-    public static final float FLAME_EMISSION = 6.0f;
 
     private final Identifier texture;
     private final Identifier glintTexture;
@@ -188,18 +169,18 @@ public final class RenderTypeInfo {
      */
     public float emission() {
         if (this.name.contains("lightning")) {
-            return LIGHTNING_EMISSION;
+            return Glow.LIGHTNING;
         }
         if (this.name.contains("beacon_beam")) {
-            return BEACON_BEAM_EMISSION;
+            return Glow.BEACON_BEAM;
         }
         if (this.name.equals("energy_swirl")) {
-            return this.texture != null && this.texture.getPath().contains("wither_armor") ? WITHER_ARMOR_EMISSION
-                : ENERGY_SWIRL_EMISSION;
+            return this.texture != null && this.texture.getPath().contains("wither_armor") ? Glow.WITHER_ARMOR
+                : Glow.ENERGY_SWIRL;
         }
         // "eyes" covers endermen, spiders and blazes; the emissive variant covers the overlays other mobs add.
         if (this.name.equals("eyes") || this.name.contains("emissive")) {
-            return ENTITY_EMISSION;
+            return Glow.MOB_EYES;
         }
         return 0.0f;
     }

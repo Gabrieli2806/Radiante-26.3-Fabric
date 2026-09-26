@@ -46,15 +46,6 @@ public class Module {
         }
         return copy;
     }
-
-    public Component translateText(String key) {
-        if (key == null || key.isEmpty()) {
-            return Component.empty();
-        }
-        String translated = dynamicTranslations.get(key);
-        return translated != null ? Component.literal(translated) : Component.translatable(key);
-    }
-
     public ImageConfig getInputImageConfig(String name) {
         for (ImageConfig imageConfig : inputImageConfigs) {
             if (imageConfig.name.equals(name)) {

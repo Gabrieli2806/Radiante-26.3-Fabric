@@ -39,14 +39,6 @@ JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_pipeline_Pipeline_isNa
 JNIEXPORT jstring JNICALL Java_com_g2806_radiante_client_pipeline_Pipeline_getAttributes
   (JNIEnv *, jclass, jstring, jobjectArray, jstring);
 
-/*
- * Class:     com_g2806_radiante_client_pipeline_Pipeline
- * Method:    isNativeRebuildActive
- * Signature: ()Z
- */
-JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_pipeline_Pipeline_isNativeRebuildActive
-  (JNIEnv *, jclass);
-
 #ifdef __cplusplus
 }
 #endif

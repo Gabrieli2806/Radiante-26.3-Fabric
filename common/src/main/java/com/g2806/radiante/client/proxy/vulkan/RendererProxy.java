@@ -15,7 +15,6 @@ public class RendererProxy {
     public static native boolean initRenderer(long instance, long physicalDevice, long device, long mainQueue,
         int mainQueueFamily, long secondaryQueue, int secondaryQueueFamily, int width, int height);
 
-    public static native int maxSupportedTextureSize();
 
     /**
      * Records this frame's world rendering into {@code targetImage} and writes the resulting command buffer
@@ -63,5 +62,4 @@ public class RendererProxy {
     /** NVIDIA Reflex low latency; only has an effect where Streamline is loaded and the GPU supports it. */
     public static native void setReflexEnabled(boolean enabled);
 
-    public static native boolean isReflexSupported();
 }

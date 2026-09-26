@@ -10,17 +10,14 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
-import net.minecraft.client.renderer.gizmos.DrawableGizmoPrimitives;
 import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gizmos.SimpleGizmoCollector;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.state.level.PlayerRenderState;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -33,53 +30,21 @@ import org.lwjgl.system.MemoryUtil;
  */
 public final class EntityManager {
 
-    private static final EntityCollector COLLECTOR =
+    static final EntityCollector COLLECTOR =
         com.g2806.radiante.platform.RadiantePlatform.INSTANCE.createEntityCollector();
     private static final PoseStack POSE_STACK = new PoseStack();
-    private static final List<PendingEntity> PENDING = new ArrayList<>();
+    static final List<PendingEntity> PENDING = new ArrayList<>();
     private static boolean queued;
     private static int DEBUG_BLOCK_ENTITIES;
-    private static final java.util.Set<String> DEBUG_BLOCK_ENTITY_KINDS = new java.util.HashSet<>();
     private static final java.util.Set<String> DEBUG_FAILED_BLOCK_ENTITIES = new java.util.HashSet<>();
     /** How far out block entities are gathered, in chunks and in blocks; beyond this they are too small to matter. */
     private static final int BLOCK_ENTITY_CHUNK_RADIUS = 6;
     private static final double BLOCK_ENTITY_RANGE = 80.0;
-    /** How brightly a glow item frame lights itself. */
-    private static final float GLOW_FRAME_EMISSION = 1.5f;
-    /** An end crystal burns from inside; vanilla draws it at full brightness whatever the light around it. */
-    private static final float END_CRYSTAL_EMISSION = 3.0f;
     private static final int END_CRYSTAL_TINT = 0xD9A6FF;
-    /**
-     * How brightly an entity that lights itself glows at full strength. Vanilla says "this mob is lit" by handing
-     * the renderer a block light of its own instead of the one at its position - a glow squid at 15, a blaze, a
-     * magma cube - and the path tracer has no lightmap to read that from, so it becomes emission scaled by how far
-     * the entity's own light exceeds the light actually around it.
-     */
-    private static final float SELF_LIT_EMISSION = 2.5f;
     /** Below this the difference is the lightmap disagreeing with the block below the entity, not a glow. */
     private static final int SELF_LIT_MIN_EXCESS = 5;
     private static final double[] SELF_LIT_SAMPLE_HEIGHTS = {0.0, 0.5, 1.0};
     private static int DEBUG_TEXT_LAYERS;
-    private static final int GIZMO_ID = "radiante:gizmo".hashCode();
-    private static final PBRVertexWriter GIZMO_WRITER = new PBRVertexWriter(2048);
-    /**
-     * How bright a debug gizmo line reads no matter the light actually there - it has to stand out in the dark,
-     * in direct sun and inside solid blocks alike, the way vanilla's own unlit line rendering does.
-     */
-    private static final float GIZMO_EMISSION = 2.0f;
-    /**
-     * A gizmo line's width is a vanilla screen pixel count (1 for most, 4 for chunk grid lines); reprojecting
-     * that every frame is not worth it for a debug overlay, so it becomes a small, fixed world thickness instead.
-     */
-    private static final float GIZMO_LINE_WIDTH_SCALE = 0.015f;
-    private static final float GIZMO_LINE_MIN_THICKNESS = 0.015f;
-    private static final int OUTLINE_ID = "radiante:block_outline".hashCode();
-    private static final PBRVertexWriter OUTLINE_WRITER = new PBRVertexWriter(256);
-    /**
-     * Outline width as a share of the screen's height. Rays are traced at the upscaler's lower render resolution,
-     * so a line only a couple of output pixels wide falls between rays and breaks up into dots.
-     */
-    private static final double OUTLINE_SCREEN_FRACTION = 3.0 / 720.0;
 
     /** Masks the ray tracing shaders select geometry with. */
     private static final int RAY_TRACING_WORLD = 0b00000001;
@@ -89,7 +54,7 @@ public final class EntityManager {
     /** Seen only by the glowing effect's outline rays (GLOW_OUTLINE_MASK in the shaders). */
     private static final int RAY_TRACING_GLOW_OUTLINE = 0b00000100;
     private static final int GLOW_OUTLINE_ID_SALT = 0x676C6F77;
-    private static final int RAY_TRACING_PARTICLE = 0b00100000;
+    static final int RAY_TRACING_PARTICLE = 0b00100000;
     private static final int RAY_TRACING_CLOUD = 0b01000000;
     private static final int CLOUD_ID = "radiante:clouds".hashCode();
     private static final CloudGeometry CLOUDS = new CloudGeometry();
@@ -130,7 +95,7 @@ public final class EntityManager {
      * are read from there as they are (a mesh kept between frames, like the clouds). {@code contentName} names the
      * content for keyed caching, or is null.
      */
-    private record PendingLayer(int geometryType, int textureId, int vertexCount, long vertices, String name,
+    record PendingLayer(int geometryType, int textureId, int vertexCount, long vertices, String name,
         long directAddress, String contentName) {
 
         PendingLayer(int geometryType, int textureId, int vertexCount, long vertices, String name) {
@@ -143,7 +108,7 @@ public final class EntityManager {
      * side keeps the acceleration structure of such an entity while its content is unchanged instead of
      * rebuilding it every frame.
      */
-    private record PendingEntity(int id, double x, double y, double z, int rayTracingFlag,
+    record PendingEntity(int id, double x, double y, double z, int rayTracingFlag,
         List<PendingLayer> layers, int prebuiltBlas) {
 
         PendingEntity(int id, double x, double y, double z, int rayTracingFlag, List<PendingLayer> layers) {
@@ -184,8 +149,8 @@ public final class EntityManager {
         collectBlockBreaking(minecraft, levelRenderState);
         collectParticles(levelRenderState, cameraState);
         collectWeather(levelRenderState, cameraState);
-        collectDebugGizmos(minecraft, cameraState);
-        collectBlockOutline(levelRenderState, cameraState);
+        OverlayLines.collectDebugGizmos(minecraft, cameraState);
+        OverlayLines.collectBlockOutline(levelRenderState, cameraState);
         collectClouds(minecraft, levelRenderState, cameraState);
         collectHands(minecraft, levelRenderState, cameraState);
 
@@ -207,11 +172,11 @@ public final class EntityManager {
         float emission = 0.0f;
         if (state instanceof net.minecraft.client.renderer.entity.state.ItemFrameRenderState frame
             && frame.isGlowFrame) {
-            emission = GLOW_FRAME_EMISSION;
+            emission = Glow.GLOW_ITEM_FRAME;
         } else if (state instanceof net.minecraft.client.renderer.entity.state.EndCrystalRenderState) {
             // An end crystal is a light source in its own right, and its texture is what gives it its colour, so
             // the glow is kept modest: multiplied by a bright texture, a large value burns the whole thing white.
-            emission = END_CRYSTAL_EMISSION;
+            emission = Glow.END_CRYSTAL;
             // Emission is the texture colour times a scalar, which burns toward white; a soft purple tint keeps
             // the light it casts violet, like the End.
             COLLECTOR.colorTint(END_CRYSTAL_TINT);
@@ -327,7 +292,7 @@ public final class EntityManager {
         }
 
         int excess = ownBlockLight - worldBlockLight;
-        return excess < SELF_LIT_MIN_EXCESS ? 0.0f : SELF_LIT_EMISSION * excess / 15.0f;
+        return excess < SELF_LIT_MIN_EXCESS ? 0.0f : Glow.ofLevel(excess);
     }
 
     private static void collectBlockEntity(Minecraft minecraft, CameraRenderState cameraState,
@@ -366,14 +331,6 @@ public final class EntityManager {
         }
     }
 
-    /** One line per kind of block entity the renderer receives, so a missing one can be told from a broken one. */
-    private static void debugBlockEntityKind(BlockEntityRenderState state) {
-        if (!Options.debugLogging || !DEBUG_BLOCK_ENTITY_KINDS.add(state.getClass().getSimpleName())) {
-            return;
-        }
-        RadianteRenderer.LOGGER.info("block entity kind reaching the renderer: {} at {}",
-            state.getClass().getSimpleName(), state.blockPos);
-    }
 
     /**
      * The cracks on a block being mined. Minecraft extracts one state per block in progress; each is drawn the way
@@ -554,117 +511,7 @@ public final class EntityManager {
             copyVertices(writer), "Entity"));
     }
 
-    /**
-     * F3+B entity hitboxes, F3+G chunk borders, and anything else that calls {@code Gizmos.line}/{@code .cuboid}/
-     * etc. Vanilla only drains the collector these land in from inside {@code LevelRenderer.render}, which the
-     * ray tracer replaces entirely, so nothing ever emptied it and the overlays those shortcuts are meant to
-     * toggle never appeared. Drained here instead and turned into thin, camera-facing, unlit quads under the
-     * particle mask, so they show up without casting a shadow or feeding indirect light back into the scene.
-     * Quads, triangle fans and text gizmos (used by other, rarer debug views) are not handled yet - only lines,
-     * which is everything both F3+B and F3+G actually draw.
-     */
-    private static void collectDebugGizmos(Minecraft minecraft, CameraRenderState cameraState) {
-        SimpleGizmoCollector collector =
-            ((LevelRendererGizmoAccess) minecraft.levelRenderer).radiante$renderThreadGizmos();
-        List<SimpleGizmoCollector.GizmoInstance> instances = collector.drainGizmos();
-        if (instances.isEmpty()) {
-            return;
-        }
 
-        DrawableGizmoPrimitives primitives = new DrawableGizmoPrimitives();
-        long currentMillis = net.minecraft.util.Util.getMillis();
-        for (SimpleGizmoCollector.GizmoInstance instance : instances) {
-            instance.gizmo().emit(primitives, instance.getAlphaMultiplier(currentMillis));
-        }
-        if (primitives.isEmpty()) {
-            return;
-        }
-
-        COLLECTOR.reset();
-        // onTop is vanilla's "ignore depth, always show through walls"; nothing here does that yet, both groups
-        // are traced as ordinary depth-correct geometry.
-        primitives.submit(COLLECTOR, cameraState, false);
-
-        Vec3 camera = cameraState.pos;
-        List<PendingLayer> layers = new ArrayList<>();
-        PBRVertexWriter writer = GIZMO_WRITER.textureId(0)
-            .glintTextureId(0)
-            .glintEnabled(false)
-            .alphaMode(PBRVertexWriter.ALPHA_MODE_TRANSPARENT)
-            .coordinate(NativeGeometry.COORDINATE_WORLD)
-            .albedoEmission(GIZMO_EMISSION)
-            .overlayEnabled(false)
-            .computeQuadNormals(true);
-        writer.reset();
-        for (DrawableGizmoPrimitives.Group group : COLLECTOR.drainGizmoGroups()) {
-            for (DrawableGizmoPrimitives.Line line : group.lines()) {
-                addGizmoLineQuad(writer, line, camera);
-            }
-        }
-        writer.finish();
-        if (writer.vertexCount() > 0 && writer.vertexCount() % 4 == 0) {
-            layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT, 0, writer.vertexCount(),
-                copyVertices(writer), "Entity"));
-        }
-
-        if (!layers.isEmpty()) {
-            PENDING.add(new PendingEntity(GIZMO_ID, camera.x(), camera.y(), camera.z(), RAY_TRACING_PARTICLE,
-                layers));
-        }
-    }
-
-    /**
-     * The outline around the block under the crosshair. Minecraft submits it from inside {@code LevelRenderer.render},
-     * which the ray tracer replaces, so it never appeared. Each edge of the block's outline shape becomes a thin
-     * camera-facing quad of constant on-screen width, pushed a hair off the block so the faces it borders cannot
-     * hide it, and traced under the particle mask so it casts no shadow.
-     */
-    private static void collectBlockOutline(LevelRenderState levelRenderState, CameraRenderState cameraState) {
-        net.minecraft.client.renderer.state.level.BlockOutlineRenderState state =
-            levelRenderState.blockOutlineRenderState;
-        if (!Options.blockOutline || state == null || state.shape().isEmpty()) {
-            return;
-        }
-
-        Vec3 camera = cameraState.pos;
-        BlockPos pos = state.pos();
-        // Vanilla: translucent black, or the high contrast option's colour.
-        int color = state.highContrast() ? 0xFF5FFFE1 : 0xFF000000;
-        // Blocks per block of distance for the screen fraction above; m11 is 1 / tan(half the vertical fov).
-        double widthPerDistance = 2.0 / cameraState.projectionMatrix.m11() * OUTLINE_SCREEN_FRACTION;
-        net.minecraft.world.phys.AABB bounds = state.shape().bounds();
-        double centerX = pos.getX() + (bounds.minX + bounds.maxX) * 0.5;
-        double centerY = pos.getY() + (bounds.minY + bounds.maxY) * 0.5;
-        double centerZ = pos.getZ() + (bounds.minZ + bounds.maxZ) * 0.5;
-
-        PBRVertexWriter writer = OUTLINE_WRITER.textureId(0)
-            .glintTextureId(0)
-            .glintEnabled(false)
-            .alphaMode(PBRVertexWriter.ALPHA_MODE_OPAQUE)
-            .coordinate(NativeGeometry.COORDINATE_WORLD)
-            .albedoEmission(state.highContrast() ? GIZMO_EMISSION : 0.0f)
-            .overlayEnabled(false)
-            .computeQuadNormals(true);
-        writer.reset();
-        state.shape().forAllEdges((x1, y1, z1, x2, y2, z2) -> {
-            Vec3 start = new Vec3(pos.getX() + x1, pos.getY() + y1, pos.getZ() + z1);
-            Vec3 end = new Vec3(pos.getX() + x2, pos.getY() + y2, pos.getZ() + z2);
-            double distance = Math.max(0.05, camera.distanceTo(start.add(end).scale(0.5)));
-            double halfWidth = distance * widthPerDistance * 0.5;
-            start = pushOut(start, centerX, centerY, centerZ, halfWidth);
-            end = pushOut(end, centerX, centerY, centerZ, halfWidth);
-            addLineQuad(writer, start, end, color, halfWidth, camera);
-        });
-        writer.finish();
-        if (writer.vertexCount() == 0 || writer.vertexCount() % 4 != 0) {
-            return;
-        }
-
-        List<PendingLayer> layers = new ArrayList<>();
-        layers.add(new PendingLayer(NativeGeometry.GEOMETRY_TYPE_WORLD_SOLID, 0, writer.vertexCount(),
-            copyVertices(writer), "Entity"));
-        PENDING.add(new PendingEntity(OUTLINE_ID, camera.x(), camera.y(), camera.z(), RAY_TRACING_PARTICLE, layers));
-    }
 
     private static boolean cloudsShownLastFrame;
     private static int cloudPauseFrames;
@@ -717,56 +564,8 @@ public final class EntityManager {
             layers, PREBUILT_BLAS_KEYED));
     }
 
-    /** Moves an outline corner away from the shape's centre, each axis on its own, so it sits just outside a face. */
-    private static Vec3 pushOut(Vec3 point, double centerX, double centerY, double centerZ, double amount) {
-        return new Vec3(point.x + Math.signum(point.x - centerX) * amount,
-            point.y + Math.signum(point.y - centerY) * amount,
-            point.z + Math.signum(point.z - centerZ) * amount);
-    }
 
-    /** One gizmo line as a thin camera-facing quad, the way vanilla's own line rasteriser fakes width too. */
-    private static void addGizmoLineQuad(PBRVertexWriter writer, DrawableGizmoPrimitives.Line line, Vec3 camera) {
-        double halfWidth = Math.max(GIZMO_LINE_MIN_THICKNESS, line.width() * GIZMO_LINE_WIDTH_SCALE) * 0.5;
-        addLineQuad(writer, line.start(), line.end(), line.color(), halfWidth, camera);
-    }
 
-    private static void addLineQuad(PBRVertexWriter writer, Vec3 start, Vec3 end, int color, double halfWidth,
-        Vec3 camera) {
-        Vec3 dir = end.subtract(start);
-        double length = dir.length();
-        if (!(length > 1.0e-5)) {
-            return;
-        }
-        dir = dir.scale(1.0 / length);
-
-        Vec3 mid = start.add(end).scale(0.5);
-        Vec3 side = dir.cross(camera.subtract(mid));
-        double sideLength = side.length();
-        if (!(sideLength > 1.0e-5)) {
-            // The line points straight at the camera; any perpendicular keeps it visible instead of vanishing.
-            side = dir.cross(new Vec3(0.0, 1.0, 0.0));
-            sideLength = side.length();
-            if (!(sideLength > 1.0e-5)) {
-                side = new Vec3(1.0, 0.0, 0.0);
-                sideLength = 1.0;
-            }
-        }
-        side = side.scale(halfWidth / sideLength);
-
-        float sx = (float) side.x;
-        float sy = (float) side.y;
-        float sz = (float) side.z;
-        float ax = (float) (start.x - camera.x());
-        float ay = (float) (start.y - camera.y());
-        float az = (float) (start.z - camera.z());
-        float bx = (float) (end.x - camera.x());
-        float by = (float) (end.y - camera.y());
-        float bz = (float) (end.z - camera.z());
-        writer.addVertex(ax - sx, ay - sy, az - sz).setColor(color);
-        writer.addVertex(ax + sx, ay + sy, az + sz).setColor(color);
-        writer.addVertex(bx + sx, by + sy, bz + sz).setColor(color);
-        writer.addVertex(bx - sx, by - sy, bz - sz).setColor(color);
-    }
 
     /** The held items and arms are submitted separately from the world and follow the camera. */
     /**
@@ -891,7 +690,7 @@ public final class EntityManager {
      * malloc and free calls every frame; they all live for exactly one frame, so one arena serves them all.
      * An offset is returned rather than an address because growing the arena moves it.
      */
-    private static long copyVertices(PBRVertexWriter writer) {
+    static long copyVertices(PBRVertexWriter writer) {
         long size = (long) writer.vertexCount() * PBRVertexWriter.STRIDE;
         return ARENA.append(writer.address(), size);
     }

@@ -9,61 +9,21 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 public class Options {
 
     public static final String OPTION_PROPERTIES = "options.properties";
 
-    public static final String CATEGORY_GAMEPLAY = "options.video.category.gameplay";
-    public static final String CATEGORY_WINDOW = "options.video.category.window";
-    public static final String CATEGORY_DLSS = "options.video.category.dlss";
-    public static final String CATEGORY_RAY_TRACING = "options.video.category.ray_tracing";
-    public static final String CATEGORY_UPSCALER = "options.video.category.upscaler";
-    public static final String CATEGORY_TERRAIN = "options.video.category.terrain";
-    public static final String CATEGORY_PIPELINE = "options.video.category.pipeline";
-
-    public static final String DLSS_MODE_PERFORMANCE_TOOLTIP = "options.video.dlss_mode.performance.tooltip";
-    public static final String DLSS_MODE_BALANCED_TOOLTIP = "options.video.dlss_mode.balanced.tooltip";
-    public static final String DLSS_MODE_QUALITY_TOOLTIP = "options.video.dlss_mode.quality.tooltip";
-    public static final String DLSS_MODE_DLAA_TOOLTIP = "options.video.dlss_mode.dlaa.tooltip";
-
-    public static final String DLSS_MODE_PERFORMANCE = "options.video.dlss_mode.performance";
-    public static final String DLSS_MODE_BALANCED = "options.video.dlss_mode.balanced";
-    public static final String DLSS_MODE_QUALITY = "options.video.dlss_mode.quality";
-    public static final String DLSS_MODE_DLAA = "options.video.dlss_mode.dlaa";
-
-    public static final String DLSS_MODE_KEY = "options.video.dlss_mode";
-    public static final String UPSCALER_TYPE_KEY = "options.video.upscaler_type";
-    public static final String UPSCALER_QUALITY_KEY = "options.video.upscaler_quality";
-    public static final String DENOISER_MODE_KEY = "options.video.denoiser_mode";
-    public static final String RAY_BOUNCES_KEY = "options.video.ray_bounces";
-    public static final String CHUNK_BUILDING_BATCH_SIZE_KEY = "options.video.chunk_building_batch_size";
-    public static final String CHUNK_BUILDING_TOTAL_BATCHES_KEY = "options.video.chunk_building_total_batches";
-    public static final String CHUNK_BUILDING_THREADS_KEY = "options.video.chunk_building_threads";
-    public static final String COLLECT_CHUNK_EMISSION_KEY = "options.video.collect_chunk_emission";
-    public static final String SHADER_PACK_SETUP_KEY = "options.video.shader_pack_setup";
-    public static final String PIPELINE_SETUP_KEY = "options.video.pipeline_setup";
-
-    public static final String UPSCALER_TYPE_NATIVE = "options.video.upscaler_type.native";
-    public static final String UPSCALER_TYPE_FSR3 = "options.video.upscaler_type.fsr3";
-
-    public static final String UPSCALER_QUALITY_NATIVEAA = "options.video.upscaler_quality.nativeaa";
-    public static final String UPSCALER_QUALITY_QUALITY = "options.video.upscaler_quality.quality";
-    public static final String UPSCALER_QUALITY_BALANCED = "options.video.upscaler_quality.balanced";
-    public static final String UPSCALER_QUALITY_PERFORMANCE = "options.video.upscaler_quality.performance";
-    public static final String DENOISER_MODE_DLSS = "options.video.denoiser_mode.dlss";
-    public static final String DENOISER_MODE_SVGF = "options.video.denoiser_mode.svgf";
-    public static final String DENOISER_MODE_NRD = "options.video.denoiser_mode.nrd";
-    public static final String DENOISER_MODE_TEMPORAL = "options.video.denoiser_mode.temporal";
     public static int maxFps = 260;
     public static int inactivityFpsLimit = 260;
     public static boolean vsync = true;
-    public static int dlssMode = 1;
-    public static int upscalerType = 1;
-    public static int upscalerQuality = 1;
-    public static int denoiserMode = 1;
-    public static int rayBounces = 4;
     public static int chunkBuildingBatchSize = 12;
     public static int chunkBuildingTotalBatches = 12;
     public static int chunkBuildingThreads = getDefaultChunkBuildingThreads();
@@ -165,10 +125,58 @@ public class Options {
         return clampChunkBuildingThreads(Math.max(2, Math.min(6, Runtime.getRuntime().availableProcessors() / 4)));
     }
 
+    /** One saved setting: its key in options.properties, how to write it out and how to take it back. */
+    private record Entry(String key, Supplier<String> value, Consumer<String> load) {
+    }
+
+    private static Entry bool(String key, BooleanSupplier value, Consumer<Boolean> load) {
+        return new Entry(key, () -> String.valueOf(value.getAsBoolean()), text -> load.accept(Boolean.parseBoolean(text)));
+    }
+
+    private static Entry number(String key, IntSupplier value, IntConsumer load) {
+        return new Entry(key, () -> String.valueOf(value.getAsInt()), text -> load.accept(Integer.parseInt(text.trim())));
+    }
+
+    /**
+     * Every saved setting, in file order. Reading and writing both go through this list, so a setting is either
+     * in it - and round-trips - or not saved at all; nothing can be written and never read back again.
+     */
+    private static final List<Entry> ENTRIES = List.of(
+        number("maxFps", () -> maxFps, v -> setMaxFps(v, false)),
+        number("inactivityFpsLimit", () -> inactivityFpsLimit, v -> setInactivityFpsLimit(v, false)),
+        bool("vsync", () -> vsync, v -> setVsync(v, false)),
+        number("chunkBuildingBatchSize", () -> chunkBuildingBatchSize, v -> setChunkBuildingBatchSize(v, false)),
+        number("chunkBuildingTotalBatches", () -> chunkBuildingTotalBatches,
+            v -> setChunkBuildingTotalBatches(v, false)),
+        number("chunkBuildingThreads", () -> chunkBuildingThreads, v -> setChunkBuildingThreads(v, false)),
+        bool("collectChunkEmission", () -> collectChunkEmission, v -> setCollectChunkEmission(v, false)),
+        bool("debugLogging", () -> debugLogging, v -> setDebugLogging(v, false)),
+        bool("biomeFog", () -> biomeFog, v -> biomeFog = v),
+        number("biomeFogStrength", () -> biomeFogStrength, v -> biomeFogStrength = Math.max(0, Math.min(400, v))),
+        bool("firstPersonShadow", () -> firstPersonShadow, v -> firstPersonShadow = v),
+        bool("heldItemLight", () -> heldItemLight, v -> heldItemLight = v),
+        bool("blockOutline", () -> blockOutline, v -> blockOutline = v),
+        bool("parallaxTransparentEdges", () -> parallaxTransparentEdges, v -> parallaxTransparentEdges = v),
+        bool("pixelLighting", () -> pixelLighting, v -> pixelLighting = v),
+        number("dayBrightness", () -> dayBrightness, v -> dayBrightness = v),
+        number("nightBrightness", () -> nightBrightness, v -> nightBrightness = v),
+        number("emissionBrightness", () -> emissionBrightness, v -> emissionBrightness = v),
+        number("heldLightBrightness", () -> heldLightBrightness, v -> heldLightBrightness = v),
+        bool("vanillaSunPath", () -> vanillaSunPath, v -> vanillaSunPath = v),
+        bool("vanillaCelestialOrientation", () -> vanillaCelestialOrientation,
+            v -> vanillaCelestialOrientation = v),
+        bool("blockLightSampling", () -> blockLightSampling, v -> blockLightSampling = v),
+        bool("rayTracingEnabled", () -> rayTracingEnabled, v -> rayTracingEnabled = v),
+        new Entry("cloudsBeforeDistantHorizons", () -> cloudsBeforeDistantHorizons,
+            v -> cloudsBeforeDistantHorizons = v),
+        bool("useOpenGl", () -> useOpenGl, v -> useOpenGl = v),
+        bool("frameGeneration", () -> frameGeneration, v -> frameGeneration = v),
+        number("generatedFrames", () -> generatedFrames, v -> generatedFrames = v),
+        bool("reflex", () -> reflex, v -> reflex = v));
+
     public static void readOptions() {
         Path path = RadianteClient.radianceDir.resolve(OPTION_PROPERTIES);
         if (!Files.exists(path)) {
-//            System.out.println("Generating default options...");
             overwriteConfig();
             return;
         }
@@ -176,103 +184,34 @@ public class Options {
         Properties props = new Properties();
         try (InputStream in = Files.newInputStream(path)) {
             props.load(in);
-
-            setMaxFps(Integer.parseInt(props.getProperty("maxFps", String.valueOf(maxFps))), false);
-            setInactivityFpsLimit(Integer.parseInt(
-                    props.getProperty("inactivityFpsLimit", String.valueOf(inactivityFpsLimit))),
-                false);
-            setVsync(Boolean.parseBoolean(props.getProperty("vsync", String.valueOf(vsync))),
-                false);
-            setChunkBuildingBatchSize(Integer.parseInt(props.getProperty("chunkBuildingBatchSize",
-                    String.valueOf(chunkBuildingBatchSize))),
-                false);
-            setChunkBuildingTotalBatches(
-                Integer.parseInt(props.getProperty("chunkBuildingTotalBatches",
-                    String.valueOf(chunkBuildingTotalBatches))), false);
-            setChunkBuildingThreads(
-                Integer.parseInt(props.getProperty("chunkBuildingThreads",
-                    String.valueOf(chunkBuildingThreads))), false);
-            setDebugLogging(Boolean.parseBoolean(props.getProperty("debugLogging",
-                    String.valueOf(debugLogging))), false);
-            biomeFog = Boolean.parseBoolean(props.getProperty("biomeFog", String.valueOf(biomeFog)));
-            heldItemLight = Boolean.parseBoolean(props.getProperty("heldItemLight", String.valueOf(heldItemLight)));
-            blockOutline = Boolean.parseBoolean(props.getProperty("blockOutline", String.valueOf(blockOutline)));
-            parallaxTransparentEdges = Boolean.parseBoolean(
-                props.getProperty("parallaxTransparentEdges", String.valueOf(parallaxTransparentEdges)));
-            pixelLighting = Boolean.parseBoolean(props.getProperty("pixelLighting", String.valueOf(pixelLighting)));
-            dayBrightness = Integer.parseInt(props.getProperty("dayBrightness", String.valueOf(dayBrightness)));
-            nightBrightness = Integer.parseInt(props.getProperty("nightBrightness", String.valueOf(nightBrightness)));
-            emissionBrightness =
-                Integer.parseInt(props.getProperty("emissionBrightness", String.valueOf(emissionBrightness)));
-            // Held lights used to follow the block setting; a config from before keeps them where they were.
-            heldLightBrightness = Integer.parseInt(props.getProperty("heldLightBrightness",
-                String.valueOf(emissionBrightness)));
-            firstPersonShadow = Boolean.parseBoolean(
-                props.getProperty("firstPersonShadow", String.valueOf(firstPersonShadow)));
-            vanillaSunPath = Boolean.parseBoolean(
-                props.getProperty("vanillaSunPath", String.valueOf(vanillaSunPath)));
-            blockLightSampling = Boolean.parseBoolean(
-                props.getProperty("blockLightSampling", String.valueOf(blockLightSampling)));
-            vanillaCelestialOrientation = Boolean.parseBoolean(
-                props.getProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation)));
-            biomeFogStrength = Math.max(0, Math.min(400, Integer.parseInt(
-                props.getProperty("biomeFogStrength", String.valueOf(biomeFogStrength)))));
-            setCollectChunkEmission(Boolean.parseBoolean(props.getProperty("collectChunkEmission",
-                    String.valueOf(collectChunkEmission))),
-                false);
-            rayTracingEnabled = Boolean.parseBoolean(props.getProperty("rayTracingEnabled",
-                String.valueOf(rayTracingEnabled)));
-            cloudsBeforeDistantHorizons = props.getProperty("cloudsBeforeDistantHorizons", "");
-            useOpenGl = Boolean.parseBoolean(props.getProperty("useOpenGl", String.valueOf(useOpenGl)));
-            frameGeneration = Boolean.parseBoolean(props.getProperty("frameGeneration",
-                String.valueOf(frameGeneration)));
-            generatedFrames = Integer.parseInt(props.getProperty("generatedFrames",
-                String.valueOf(generatedFrames)));
-            reflex = Boolean.parseBoolean(props.getProperty("reflex", String.valueOf(reflex)));
-
-            overwriteConfig();
-//            System.out.println("Successfully read options: " + path);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        for (Entry entry : ENTRIES) {
+            String text = props.getProperty(entry.key());
+            if (text == null) {
+                continue;
+            }
+            try {
+                entry.load().accept(text);
+            } catch (NumberFormatException badValue) {
+                // A hand-edited or damaged value keeps its default rather than stopping the game from starting.
+                RadianteClient.LOGGER.warn("Ignoring option {}={}", entry.key(), text);
+            }
+        }
+        // Held lights used to follow the block setting; a config from before keeps them where they were.
+        if (!props.containsKey("heldLightBrightness")) {
+            heldLightBrightness = emissionBrightness;
+        }
+        overwriteConfig();
     }
 
     public static void overwriteConfig() {
         Path path = RadianteClient.radianceDir.resolve(OPTION_PROPERTIES);
         Properties props = new Properties();
-        props.setProperty("maxFps", String.valueOf(maxFps));
-        props.setProperty("inactivityFpsLimit", String.valueOf(inactivityFpsLimit));
-        props.setProperty("vsync", String.valueOf(vsync));
-        props.setProperty("dlssMode", String.valueOf(dlssMode));
-        props.setProperty("upscalerType", String.valueOf(upscalerType));
-        props.setProperty("upscalerQuality", String.valueOf(upscalerQuality));
-        props.setProperty("denoiserMode", String.valueOf(denoiserMode));
-        props.setProperty("rayBounces", String.valueOf(rayBounces));
-        props.setProperty("chunkBuildingBatchSize", String.valueOf(chunkBuildingBatchSize));
-        props.setProperty("chunkBuildingTotalBatches", String.valueOf(chunkBuildingTotalBatches));
-        props.setProperty("chunkBuildingThreads", String.valueOf(chunkBuildingThreads));
-        props.setProperty("collectChunkEmission", String.valueOf(collectChunkEmission));
-        props.setProperty("debugLogging", String.valueOf(debugLogging));
-        props.setProperty("biomeFog", String.valueOf(biomeFog));
-        props.setProperty("firstPersonShadow", String.valueOf(firstPersonShadow));
-        props.setProperty("heldItemLight", String.valueOf(heldItemLight));
-        props.setProperty("blockOutline", String.valueOf(blockOutline));
-        props.setProperty("parallaxTransparentEdges", String.valueOf(parallaxTransparentEdges));
-        props.setProperty("pixelLighting", String.valueOf(pixelLighting));
-        props.setProperty("dayBrightness", String.valueOf(dayBrightness));
-        props.setProperty("nightBrightness", String.valueOf(nightBrightness));
-        props.setProperty("emissionBrightness", String.valueOf(emissionBrightness));
-        props.setProperty("heldLightBrightness", String.valueOf(heldLightBrightness));
-        props.setProperty("vanillaSunPath", String.valueOf(vanillaSunPath));
-        props.setProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation));
-        props.setProperty("blockLightSampling", String.valueOf(blockLightSampling));
-        props.setProperty("biomeFogStrength", String.valueOf(biomeFogStrength));
-        props.setProperty("rayTracingEnabled", String.valueOf(rayTracingEnabled));
-        props.setProperty("cloudsBeforeDistantHorizons", cloudsBeforeDistantHorizons);
-        props.setProperty("useOpenGl", String.valueOf(useOpenGl));
-        props.setProperty("frameGeneration", String.valueOf(frameGeneration));
-        props.setProperty("generatedFrames", String.valueOf(generatedFrames));
-        props.setProperty("reflex", String.valueOf(reflex));
+        for (Entry entry : ENTRIES) {
+            props.setProperty(entry.key(), entry.value().get());
+        }
 
         try {
             Files.createDirectories(path.getParent());
@@ -282,7 +221,6 @@ public class Options {
 
         try (OutputStream out = Files.newOutputStream(path)) {
             props.store(out, "Options");
-//            System.out.println("Options written to: " + path);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

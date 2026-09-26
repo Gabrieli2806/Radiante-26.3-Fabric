@@ -58,14 +58,6 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_reb
     });
 }
 
-JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_isChunkReady(JNIEnv *, jclass, jlong id) {
-    auto world = Renderer::instance().world();
-    if (world == nullptr)
-        return false;
-    else
-        return world->chunks()->isChunkReady(id);
-}
-
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_relocateSingle(JNIEnv *,
                                                                                       jclass,
                                                                                       jlong index,

@@ -19,10 +19,6 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_pipeline_Pipeline_collectN
     Pipeline::collectWorldModules();
 }
 
-JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_pipeline_Pipeline_isNativeRebuildActive(JNIEnv *, jclass) {
-    return Pipeline::nativeRebuildActive() ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_pipeline_Pipeline_isNativeModuleAvailable(JNIEnv *env,
                                                                                               jclass,
                                                                                               jstring name) {

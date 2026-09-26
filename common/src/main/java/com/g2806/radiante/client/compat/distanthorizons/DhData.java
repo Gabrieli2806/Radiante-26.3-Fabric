@@ -36,8 +36,6 @@ final class DhData {
 
     /** Detail level of a section whose columns are single blocks; each level up doubles the column width. */
     static final int BLOCK_SECTION_DETAIL = DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL;
-    /** Coarsest section level Distant Horizons stores. */
-    static final int ROOT_SECTION_DETAIL = FullDataSourceProviderV2.ROOT_SECTION_DETAIL_LEVEL;
 
 
     private DhData() {

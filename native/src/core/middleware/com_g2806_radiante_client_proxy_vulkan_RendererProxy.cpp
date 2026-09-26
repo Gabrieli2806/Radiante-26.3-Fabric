@@ -110,11 +110,6 @@ JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererP
         static_cast<jboolean>(JNI_FALSE));
 }
 
-JNIEXPORT jint JNICALL
-Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_maxSupportedTextureSize(JNIEnv *, jclass) {
-    return Renderer::instance().framework()->physicalDevice()->properties().limits.maxImageDimension2D;
-}
-
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_renderFrame(
     JNIEnv *env, jclass, jlong target, jint width, jint height, jint format, jlongArray outCommandBuffers) {
     if (!Renderer::is_initialized()) return 0;
@@ -211,11 +206,6 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
                                                                                                  jclass,
                                                                                                  jboolean enabled) {
     framegen::Streamline::setReflexEnabled(enabled == JNI_TRUE);
-}
-
-JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_isReflexSupported(JNIEnv *,
-                                                                                                      jclass) {
-    return framegen::Streamline::isReflexSupported() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_presentedFrameRate(JNIEnv *, jclass) {

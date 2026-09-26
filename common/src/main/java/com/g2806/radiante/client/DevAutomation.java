@@ -172,6 +172,22 @@ public final class DevAutomation {
             };
             mapping.setDown(down);
             RadianteClient.LOGGER.info("[dev] {} {}", down ? "hold" : "release", key);
+        } else if (action.startsWith("press=")) {
+            // Presses the first button on the open screen whose label contains the text.
+            if (minecraft.gui.screen() != null) {
+                pressButton(minecraft.gui.screen(), action.substring(6));
+            }
+        } else if (action.startsWith("click=")) {
+            // A left click on the open screen at GUI coordinates, pressed and released.
+            String[] xy = action.substring(6).split(",");
+            if (minecraft.gui.screen() != null) {
+                var event = new net.minecraft.client.input.MouseButtonEvent(Double.parseDouble(xy[0]),
+                    Double.parseDouble(xy[1]), new net.minecraft.client.input.MouseButtonInfo(0, 0));
+                minecraft.gui.screen().mouseClicked(event, false);
+                minecraft.gui.screen().mouseReleased(event);
+                RadianteClient.LOGGER.info("[dev] click {} on {}", action.substring(6),
+                    minecraft.gui.screen().getClass().getSimpleName());
+            }
         } else if (action.startsWith("rd=")) {
             minecraft.options.renderDistance().set(Integer.parseInt(action.substring(3)));
             RadianteClient.LOGGER.info("[dev] render distance {}", action.substring(3));
@@ -275,5 +291,22 @@ public final class DevAutomation {
         } else if (action.equals("quit")) {
             minecraft.stop();
         }
+    }
+
+    private static boolean pressButton(net.minecraft.client.gui.components.events.ContainerEventHandler parent,
+        String text) {
+        for (net.minecraft.client.gui.components.events.GuiEventListener child : parent.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractButton button
+                && button.getMessage().getString().contains(text)) {
+                button.onPress(new net.minecraft.client.input.MouseButtonInfo(0, 0));
+                RadianteClient.LOGGER.info("[dev] pressed {}", button.getMessage().getString());
+                return true;
+            }
+            if (child instanceof net.minecraft.client.gui.components.events.ContainerEventHandler container
+                && pressButton(container, text)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

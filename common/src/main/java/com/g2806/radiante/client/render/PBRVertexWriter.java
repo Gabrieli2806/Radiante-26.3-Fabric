@@ -44,7 +44,6 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private static final int OFF_LIGHT_UV = 96;
     private static final int OFF_COORDINATE = 104;
     private static final int OFF_ALBEDO_EMISSION = 108;
-    private static final int OFF_POST_BASE = 112;
     private static final int OFF_ALPHA_MODE = 124;
 
     /**
@@ -192,29 +191,6 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
 
     public long address() {
         return this.address;
-    }
-
-    /** Reads back a written vertex texture coordinate. */
-    public String debugUvOf(int vertexIndex) {
-        long v = this.address + (long) vertexIndex * STRIDE;
-        return String.format("uv=%.4f,%.4f useTex=%d texId=%d", MemoryUtil.memGetFloat(v + OFF_TEXTURE_UV),
-            MemoryUtil.memGetFloat(v + OFF_TEXTURE_UV + 4), MemoryUtil.memGetInt(v + OFF_USE_TEXTURE),
-            MemoryUtil.memGetInt(v + OFF_TEXTURE_ID));
-    }
-
-    /** Reads back a written vertex position, used to tell a misplaced glyph from a missing one. */
-    public String debugPositionOf(int vertexIndex) {
-        long v = this.address + (long) vertexIndex * STRIDE;
-        return String.format("%.3f,%.3f,%.3f", MemoryUtil.memGetFloat(v + OFF_POS),
-            MemoryUtil.memGetFloat(v + OFF_POS + 4), MemoryUtil.memGetFloat(v + OFF_POS + 8));
-    }
-
-    /** Reads back a written vertex colour, used to tell a black glyph from a missing one. */
-    public String debugColorOf(int vertexIndex) {
-        long v = this.address + (long) vertexIndex * STRIDE;
-        return String.format("use=%d rgba=%.2f,%.2f,%.2f,%.2f", MemoryUtil.memGetInt(v + OFF_USE_COLOR),
-            MemoryUtil.memGetFloat(v + OFF_COLOR), MemoryUtil.memGetFloat(v + OFF_COLOR + 4),
-            MemoryUtil.memGetFloat(v + OFF_COLOR + 8), MemoryUtil.memGetFloat(v + OFF_COLOR + 12));
     }
 
     /** Quads dropped since the last reset because a corner could not be placed. */
@@ -405,13 +381,6 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     public VertexConsumer setLineWidth(float width) {
         return this;
     }
-
-    public void setPostBase(float x, float y, float z) {
-        MemoryUtil.memPutFloat(this.current + OFF_POST_BASE, x);
-        MemoryUtil.memPutFloat(this.current + OFF_POST_BASE + 4, y);
-        MemoryUtil.memPutFloat(this.current + OFF_POST_BASE + 8, z);
-    }
-
     /** Call once all vertices are written so a trailing quad gets its computed normal. */
     /** A coordinate the acceleration structure can hold: finite, and inside the world the renderer traces. */
     private static boolean placeable(float value) {

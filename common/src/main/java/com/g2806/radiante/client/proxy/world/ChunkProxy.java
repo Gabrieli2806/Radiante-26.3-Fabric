@@ -19,7 +19,6 @@ public class ChunkProxy {
         long vertices,
         boolean important);
 
-    public static native boolean isChunkReady(long index);
 
     public static native void relocateSingle(long index, int originX, int originY, int originZ);
 

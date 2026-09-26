@@ -515,11 +515,6 @@ public final class RadianteRenderer {
             }
         }
     }
-
-    public static int blocksAtlasId() {
-        return TextureTracker.idOf(TextureAtlas.LOCATION_BLOCKS);
-    }
-
     static {
         // Keep a reference so the constant folding of VK12 does not drop the LWJGL class from the module graph.
         assert VK12.VK_SUCCESS == 0;

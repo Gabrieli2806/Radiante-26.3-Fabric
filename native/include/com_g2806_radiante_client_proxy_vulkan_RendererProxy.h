@@ -49,14 +49,6 @@ JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererP
 
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
- * Method:    maxSupportedTextureSize
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_maxSupportedTextureSize
-  (JNIEnv *, jclass);
-
-/*
- * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
  * Method:    renderFrame
  * Signature: (JIII[J)I
  */
@@ -182,14 +174,6 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
  */
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setReflexEnabled
   (JNIEnv *, jclass, jboolean);
-
-/*
- * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
- * Method:    isReflexSupported
- * Signature: ()Z
- */
-JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_isReflexSupported
-  (JNIEnv *, jclass);
 
 #ifdef __cplusplus
 }

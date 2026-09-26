@@ -42,38 +42,6 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private boolean pendingReflex = Options.reflex;
     private boolean applied;
 
-    /**
-     * Quick quality levels for the settings measured to cost frame time (one scene, same chunks, DLSS Ultra
-     * Performance as the baseline at about 150 fps): the DLSS mode (Performance -45 %, Quality -65 %), block light
-     * sampling (-20 %), volumetric fog (-10 %), render distance (24 chunks -30 % against 16) and clouds (a few
-     * percent). The held light, the first person shadow and the bounce count changed nothing measurable and are
-     * left out. Any of these changed by hand afterwards shows as Custom.
-     */
-    private enum Quality {
-        LOW("options.radiante.quality.low", 0, false, 0, true, 8),
-        MEDIUM("options.radiante.quality.medium", 1, false, 1, true, 12),
-        HIGH("options.radiante.quality.high", 2, true, 1, true, 16),
-        ULTRA("options.radiante.quality.ultra", 3, true, 2, true, 24),
-        CUSTOM("options.radiante.quality.custom", -1, false, 0, false, 0);
-
-        final String key;
-        final int dlssMode;
-        final boolean volumetricFog;
-        final int cloudMode;
-        final boolean blockLights;
-        final int renderDistance;
-
-        Quality(String key, int dlssMode, boolean volumetricFog, int cloudMode, boolean blockLights,
-            int renderDistance) {
-            this.key = key;
-            this.dlssMode = dlssMode;
-            this.volumetricFog = volumetricFog;
-            this.cloudMode = cloudMode;
-            this.blockLights = blockLights;
-            this.renderDistance = renderDistance;
-        }
-    }
-
     public RadianteOptionsScreen(Screen lastScreen, net.minecraft.client.Options options) {
         super(lastScreen, options, TITLE);
     }
@@ -176,9 +144,13 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             return null;
         }
 
-        String current = Pipeline.getCloudMode();
-        this.pendingCloudMode = current != null && Pipeline.CLOUD_MODES.contains(current) ? current
-            : Pipeline.CLOUD_MODES.get(0);
+        // A choice carried over from the previous screen (a quality level, say) is kept; only a fresh screen reads
+        // the pipeline. Reading it every time undid the quality level's clouds, so it always came back as Custom.
+        if (this.pendingCloudMode == null) {
+            String current = Pipeline.getCloudMode();
+            this.pendingCloudMode = current != null && Pipeline.CLOUD_MODES.contains(current) ? current
+                : Pipeline.CLOUD_MODES.get(0);
+        }
 
         return new OptionInstance<>("options.radiante.cloud_mode", tooltip("options.radiante.cloud_mode"),
             (caption, value) -> Component.translatable(value),
@@ -202,9 +174,11 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             return null;
         }
 
-        String current = Pipeline.getDlssMode();
-        this.pendingDlssMode = current != null && Pipeline.DLSS_MODES.contains(current) ? current
-            : "render_pipeline.module.dlss.attribute.mode.ultra_performance";
+        if (this.pendingDlssMode == null) {
+            String current = Pipeline.getDlssMode();
+            this.pendingDlssMode = current != null && Pipeline.DLSS_MODES.contains(current) ? current
+                : "render_pipeline.module.dlss.attribute.mode.ultra_performance";
+        }
 
         return new OptionInstance<>("options.radiante.dlss_mode", tooltip("options.radiante.dlss_mode"),
             (caption, value) -> Component.translatable(value),
@@ -246,9 +220,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     }
 
     /** The quality level the current choices match, or Custom. */
-    private Quality currentQuality() {
-        for (Quality quality : Quality.values()) {
-            if (quality == Quality.CUSTOM) {
+    private QualityPreset currentQuality() {
+        for (QualityPreset quality : QualityPreset.values()) {
+            if (quality == QualityPreset.CUSTOM) {
                 continue;
             }
             boolean dlssMatches = !usingDlss() || Objects.equals(this.pendingDlssMode,
@@ -261,11 +235,11 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 return quality;
             }
         }
-        return Quality.CUSTOM;
+        return QualityPreset.CUSTOM;
     }
 
-    private void applyQuality(Quality quality) {
-        if (quality == Quality.CUSTOM) {
+    private void applyQuality(QualityPreset quality) {
+        if (quality == QualityPreset.CUSTOM) {
             return;
         }
         if (usingDlss()) {
@@ -317,12 +291,12 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             this.pendingVolumetricFog = Pipeline.isVolumetricFog();
         }
 
-        List<Quality> levels = List.of(Quality.values());
-        OptionInstance<Quality> quality = new OptionInstance<>("options.radiante.quality",
+        List<QualityPreset> levels = List.of(QualityPreset.values());
+        OptionInstance<QualityPreset> quality = new OptionInstance<>("options.radiante.quality",
             tooltip("options.radiante.quality"), (caption, value) -> Component.translatable(value.key),
-            new OptionInstance.Enum<>(levels, Codec.STRING.xmap(Quality::valueOf, Quality::name)), currentQuality(),
+            new OptionInstance.Enum<>(levels, Codec.STRING.xmap(QualityPreset::valueOf, QualityPreset::name)), currentQuality(),
             value -> {
-                if (value == Quality.CUSTOM || value == currentQuality()) {
+                if (value == QualityPreset.CUSTOM || value == currentQuality()) {
                     return;
                 }
                 applyQuality(value);

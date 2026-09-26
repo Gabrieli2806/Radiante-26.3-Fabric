@@ -64,7 +64,6 @@ public class EntityCollector implements SubmitNodeCollector {
 
     /** How far world text is lifted off the surface it is written on, in blocks. */
     private static final float TEXT_SURFACE_OFFSET = 0.02f;
-    private static final float NAME_TAG_EMISSION = 1.0f;
 
     private final Map<RenderType, PBRVertexWriter> writers = new LinkedHashMap<>();
 
@@ -444,7 +443,7 @@ public class EntityCollector implements SubmitNodeCollector {
             .getBackgroundOpacity(0.25f);
         int backgroundColor = ARGB.color(backgroundAlpha, 0xFF000000);
         float previousEmission = this.entityEmission;
-        this.entityEmission = NAME_TAG_EMISSION;
+        this.entityEmission = Glow.NAME_TAG;
         this.collectingNameTag = true;
         try {
             this.submitText(poseStack, x, offset, name.getVisualOrderText(), false, Font.DisplayMode.POLYGON_OFFSET,
@@ -544,7 +543,7 @@ public class EntityCollector implements SubmitNodeCollector {
         int slice = 0;
         int lightCoords = LightCoordsUtil.withBlock(renderState.lightCoords, 15);
 
-        writer.albedoEmission(RenderTypeInfo.FLAME_EMISSION);
+        writer.albedoEmission(Glow.ENTITY_FLAME);
         try {
             while (remaining > 0.0f) {
                 TextureAtlasSprite sprite = slice % 2 == 0 ? first : second;

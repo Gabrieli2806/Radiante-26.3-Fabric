@@ -53,11 +53,6 @@ public final class PbrAtlases {
         return albedoTextureId == atlasId && spriteCount > 0 ? normalTextureId : -1;
     }
 
-    /** True once a pack's maps are in use, which is what makes the generated emission unnecessary. */
-    public static boolean hasMapsFor(int albedoTextureId) {
-        return albedoTextureId == atlasId && spriteCount > 0;
-    }
-
     /**
      * Builds both maps for an atlas. Returns the number of sprites a map was found for, zero when the pack ships
      * none, in which case nothing is uploaded and the renderer keeps its own generated emission.

@@ -42,11 +42,6 @@ import org.lwjgl.system.MemoryUtil;
  * rotating section grid so the shaders can look a chunk up from a section coordinate.
  */
 public final class ChunkManager {
-    /**
-     * Lava's glow on top of its emission map, as molten rock does in Bedrock RTX. The map alone, capped at full
-     * strength, left lava a dull brown next to sunlit stone. Distant Horizons' far lava uses the same amount.
-     */
-    private static final float LAVA_GLOW = 2.0f;
 
 
     private static final int VERTEX_FORMAT_PBR = 12;
@@ -481,7 +476,7 @@ public final class ChunkManager {
         };
         FluidRenderer.Output fluidOutput =
             layer -> scratch.writer(layer, atlasId).water(scratch.fluidIsWater).computeQuadNormals(true)
-                .albedoEmission(scratch.fluidIsLava ? LAVA_GLOW : 0.0f);
+                .albedoEmission(scratch.fluidIsLava ? Glow.LAVA : 0.0f);
 
         for (BlockPos pos : BlockPos.betweenClosed(origin, max)) {
             BlockState blockState = region.getBlockState(pos);

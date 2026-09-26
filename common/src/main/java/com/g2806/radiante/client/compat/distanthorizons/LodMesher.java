@@ -1,5 +1,6 @@
 package com.g2806.radiante.client.compat.distanthorizons;
 
+import com.g2806.radiante.client.render.Glow;
 import com.g2806.radiante.client.render.PBRVertexWriter;
 import java.util.Arrays;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -21,8 +22,6 @@ final class LodMesher {
     private static final int DEFAULT_GRASS = 0x91BD59;
     private static final int DEFAULT_FOLIAGE = 0x77AB2F;
     private static final int DEFAULT_WATER = 0x3F76E4;
-    /** Emission of a far block with light level 15; near terrain gets its glow from the emission maps instead. */
-    private static final float FULL_EMISSION = 2.0f;
 
     /** Least depth of the skirt along a section's edge; see mesh. */
     private static final int MIN_SKIRT = 16;
@@ -86,7 +85,7 @@ final class LodMesher {
                     int top = runs[at + 1];
                     int light = packLight(runs[at + 3]);
                     PBRVertexWriter writer = isWater ? water : solid;
-                    float emission = looks.lightEmission(state) / 15.0f * FULL_EMISSION;
+                    float emission = Glow.ofLevel(looks.lightEmission(state));
                     writer.albedoEmission(emission);
 
                     // Top: unless something rests on it. Water over the sea floor leaves the floor's top in place.
@@ -232,7 +231,7 @@ final class LodMesher {
             int emissionLevel = (int) (key >>> EMISSION_SHIFT & 0xF);
             int light = (int) (key >>> LIGHT_SHIFT & 0xFFFFFFFFL);
             PBRVertexWriter writer = isWater ? water : solid;
-            writer.albedoEmission(emissionLevel / 15.0f * FULL_EMISSION);
+            writer.albedoEmission(Glow.ofLevel(emissionLevel));
             float z0 = zStart * cw;
             float z1 = (zEnd + 1) * cw;
             float x1 = x0 + cw;

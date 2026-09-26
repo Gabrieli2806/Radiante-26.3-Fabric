@@ -15,7 +15,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -41,14 +40,8 @@ public class Pipeline {
     private static final String RAY_TRACING_MODULE_NAME = "render_pipeline.module.ray_tracing.name";
     private static final String RAY_TRACING_SHADER_PACK_PATH_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.shader_pack_path";
     private static final String VANILLA_RAY_TRACING_SHADER_PACK_PATH = "shaders/world/ray_tracing/vanilla-pt.zip";
-    private static final String RESTIR_RAY_TRACING_SHADER_PACK_PATH = "shaders/world/ray_tracing/restir-di.zip";
     private static final String INTERNAL_RAY_TRACING_SHADER_PACK_PATH = VANILLA_RAY_TRACING_SHADER_PACK_PATH;
-    private static final String INTERNAL_SHADER_PACK_DIRECTORY = "shaders/world/ray_tracing";
-    private static final String MINECRAFT_SHADER_PACK_DIRECTORY = "shaderpacks";
     private static final String SHADER_PACK_CONFIG_FILE = "configs.json";
-    private static final String SHADER_PACK_MANIFEST_KEY = "radiance";
-    private static final String SHADER_PACK_MANIFEST_TYPE_KEY = "shader_pack";
-    private static final String SHADER_PACK_MANIFEST_DISPLAY_NAME_KEY = "display_name";
     private static final String DLSS_MODULE_NAME = "render_pipeline.module.dlss.name";
     private static final String NRD_MODULE_NAME = "render_pipeline.module.nrd.name";
     private static final String TEMPORAL_ACCUMULATION_MODULE_NAME = "render_pipeline.module.temporal_accumulation.name";
@@ -224,21 +217,6 @@ public class Pipeline {
         }
         src.finalOutput = true;
     }
-
-    public static List<ShaderPackChoice> getAvailableShaderPacks() {
-        Map<String, ShaderPackChoice> discovered = new HashMap<>();
-        scanShaderPackDirectory(discovered, getInternalShaderPackDirectory(), false);
-        scanShaderPackDirectory(discovered, getMinecraftShaderPackDirectory(), true);
-
-        List<ShaderPackChoice> shaderPacks = new ArrayList<>(discovered.values());
-        shaderPacks.sort(Comparator
-                .<ShaderPackChoice, Boolean>comparing(choice -> !isInternalShaderPackChoice(choice))
-                .thenComparingInt(Pipeline::builtInShaderPackRank)
-                .thenComparing(choice -> choice.displayName().toLowerCase(Locale.ROOT))
-                .thenComparing(ShaderPackChoice::id));
-        return Collections.unmodifiableList(shaderPacks);
-    }
-
     public static final String DLSS_MODE_ATTRIBUTE = "render_pipeline.module.dlss.attribute.mode";
     // Ultra Performance runs as Performance on small windows; see DLSSModule for the render size floor.
     public static final List<String> DLSS_MODES = List.of(
@@ -389,35 +367,6 @@ public class Pipeline {
         return findAttribute(getRayTracingModule(), VOLUMETRIC_LIGHT_ATTRIBUTE) != null;
     }
 
-    public static final String PIXELATED_LIGHTING_ATTRIBUTE =
-        "render_pipeline.module.ray_tracing.attribute.pixelated_lighting";
-
-    /**
-     * Turns the blocky, per texel lighting on or off. It lives in the shader pack rather than in the renderer, so
-     * the pipeline has to be rebuilt for the change to take effect; returns true when that is needed.
-     */
-    public static boolean setPixelatedLighting(boolean enabled) {
-        String value = enabled ? "render_pipeline.true" : "render_pipeline.false";
-        Module module = getRayTracingModule();
-        AttributeConfig attribute = findAttribute(module, PIXELATED_LIGHTING_ATTRIBUTE);
-        if (attribute == null || Objects.equals(attribute.value, value)) {
-            return false;
-        }
-        attribute.value = value;
-        return true;
-    }
-
-    /** True when the active shader pack has pixelated lighting switched on. */
-    public static boolean isPixelatedLighting() {
-        AttributeConfig attribute = findAttribute(getRayTracingModule(), PIXELATED_LIGHTING_ATTRIBUTE);
-        return attribute != null && Objects.equals(attribute.value, "render_pipeline.true");
-    }
-
-    /** False when the active shader pack does not offer the option at all. */
-    public static boolean supportsPixelatedLighting() {
-        return findAttribute(getRayTracingModule(), PIXELATED_LIGHTING_ATTRIBUTE) != null;
-    }
-
     public static final String MOTION_BLUR_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.post_enable_motion_blur";
     public static final String DEPTH_OF_FIELD_ATTRIBUTE =
@@ -468,49 +417,6 @@ public class Pipeline {
         return null;
     }
 
-    public static boolean isRayTracingShaderPackPathAttribute(Module module, AttributeConfig attributeConfig) {
-        return module != null
-                && attributeConfig != null
-                && Objects.equals(module.name, RAY_TRACING_MODULE_NAME)
-                && Objects.equals(attributeConfig.name, RAY_TRACING_SHADER_PACK_PATH_ATTRIBUTE);
-    }
-
-    public static boolean isRayTracingShaderPackAttribute(Module module, AttributeConfig attributeConfig) {
-        if (isRayTracingShaderPackPathAttribute(module, attributeConfig)) {
-            return true;
-        }
-        return isRayTracingShaderPackDynamicAttribute(module, attributeConfig);
-    }
-
-    public static boolean isRayTracingShaderPackDynamicAttribute(Module module, AttributeConfig attributeConfig) {
-        if (module == null
-                || attributeConfig == null
-                || attributeConfig.name == null
-                || !Objects.equals(module.name, RAY_TRACING_MODULE_NAME)) {
-            return false;
-        }
-        return !collectStaticAttributeNames(module).contains(attributeConfig.name);
-    }
-
-    public static List<AttributeConfig> getRayTracingShaderPackAttributes() {
-        Module module = getRayTracingModule();
-        if (module == null) {
-            return List.of();
-        }
-
-        getModuleAttributes(module);
-        List<AttributeConfig> attributes = new ArrayList<>();
-        if (module.attributeConfigs == null) {
-            return attributes;
-        }
-        for (AttributeConfig attributeConfig : module.attributeConfigs) {
-            if (isRayTracingShaderPackDynamicAttribute(module, attributeConfig)) {
-                attributes.add(attributeConfig);
-            }
-        }
-        return attributes;
-    }
-
     private static Path resolveShaderPackPath(String configuredPath) {
         String value = configuredPath == null ? "" : configuredPath.trim();
         Path shaderPackPath = value.isEmpty()
@@ -520,132 +426,6 @@ public class Pipeline {
             shaderPackPath = RadianteClient.radianceDir.resolve(shaderPackPath);
         }
         return shaderPackPath.toAbsolutePath().normalize();
-    }
-
-    private static Path getInternalShaderPackDirectory() {
-        if (RadianteClient.radianceDir == null) {
-            return null;
-        }
-        return RadianteClient.radianceDir.resolve(INTERNAL_SHADER_PACK_DIRECTORY).toAbsolutePath().normalize();
-    }
-
-    private static Path getMinecraftShaderPackDirectory() {
-        Minecraft client = Minecraft.getInstance();
-        if (client == null || client.gameDirectory == null) {
-            return null;
-        }
-
-        Path shaderPackDirectory = client.gameDirectory.toPath().resolve(MINECRAFT_SHADER_PACK_DIRECTORY);
-        try {
-            Files.createDirectories(shaderPackDirectory);
-        } catch (IOException e) {
-            RadianteClient.LOGGER.warn("Failed to create shader pack directory: {}", shaderPackDirectory, e);
-            return null;
-        }
-        return shaderPackDirectory.toAbsolutePath().normalize();
-    }
-
-    private static void scanShaderPackDirectory(Map<String, ShaderPackChoice> discovered,
-                                                Path directory,
-                                                boolean skipInternalPacks) {
-        if (discovered == null || directory == null || !Files.isDirectory(directory)) {
-            return;
-        }
-
-        try (var stream = Files.list(directory)) {
-            stream.filter(Pipeline::isShaderPackCandidate)
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)))
-                    .forEach(path -> {
-                        if (skipInternalPacks && isUnderInternalShaderPackDirectory(path)) {
-                            return;
-                        }
-                        ShaderPackChoice choice = readShaderPackChoice(path);
-                        if (choice != null) {
-                            discovered.putIfAbsent(choice.id(), choice);
-                        }
-                    });
-        } catch (IOException e) {
-            RadianteClient.LOGGER.warn("Failed to scan shader pack directory: {}", directory, e);
-        }
-    }
-
-    private static boolean isShaderPackCandidate(Path path) {
-        if (path == null) {
-            return false;
-        }
-        if (Files.isDirectory(path)) {
-            return true;
-        }
-        String fileName = path.getFileName() == null ? "" : path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return fileName.endsWith(".zip");
-    }
-
-    private static boolean isUnderInternalShaderPackDirectory(Path path) {
-        Path internalDirectory = getInternalShaderPackDirectory();
-        if (internalDirectory == null || path == null) {
-            return false;
-        }
-        try {
-            return path.toAbsolutePath().normalize().startsWith(internalDirectory);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private static boolean isInternalShaderPackChoice(ShaderPackChoice choice) {
-        if (choice == null || choice.relativePath() == null || choice.relativePath().isBlank()) {
-            return false;
-        }
-        try {
-            if (Path.of(choice.relativePath()).isAbsolute()) {
-                return false;
-            }
-        } catch (Exception e) {
-            return false;
-        }
-        String relativePath = choice.relativePath().replace('\\', '/');
-        return relativePath.startsWith(INTERNAL_SHADER_PACK_DIRECTORY + "/");
-    }
-
-    private static int builtInShaderPackRank(ShaderPackChoice choice) {
-        if (choice == null || choice.relativePath() == null) {
-            return Integer.MAX_VALUE;
-        }
-        String relativePath = choice.relativePath().replace('\\', '/');
-        if (Objects.equals(relativePath, VANILLA_RAY_TRACING_SHADER_PACK_PATH)) {
-            return 0;
-        }
-        if (Objects.equals(relativePath, RESTIR_RAY_TRACING_SHADER_PACK_PATH)) {
-            return 1;
-        }
-        return Integer.MAX_VALUE;
-    }
-
-    private static ShaderPackChoice readShaderPackChoice(Path shaderPackPath) {
-        Path normalizedPath = shaderPackPath.toAbsolutePath().normalize();
-        Object config = loadShaderPackDocument(normalizedPath, SHADER_PACK_CONFIG_FILE);
-        if (!(config instanceof Map<?, ?>) || !isRadianceShaderPackManifest(config)) {
-            return null;
-        }
-
-        String configuredPath = toConfiguredShaderPackPath(normalizedPath);
-        String displayName = readShaderPackDisplayName(normalizedPath, config);
-        return new ShaderPackChoice(normalizedPath.toString(), displayName, configuredPath);
-    }
-
-    private static String toConfiguredShaderPackPath(Path shaderPackPath) {
-        if (shaderPackPath == null) {
-            return "";
-        }
-
-        Path normalizedPath = shaderPackPath.toAbsolutePath().normalize();
-        if (RadianteClient.radianceDir != null) {
-            Path radianceRoot = RadianteClient.radianceDir.toAbsolutePath().normalize();
-            if (normalizedPath.startsWith(radianceRoot)) {
-                return radianceRoot.relativize(normalizedPath).toString().replace('\\', '/');
-            }
-        }
-        return normalizedPath.toString();
     }
 
     private static Object loadShaderPackDocument(Path shaderPackPath, String fileName) {
@@ -681,74 +461,6 @@ public class Pipeline {
         }
     }
 
-    private static boolean isRadianceShaderPackManifest(Object manifest) {
-        if (!(manifest instanceof Map<?, ?> root)) {
-            return false;
-        }
-
-        Object radiance = root.get(SHADER_PACK_MANIFEST_KEY);
-        if (radiance instanceof Boolean bool) {
-            return bool;
-        }
-        if (!(radiance instanceof Map<?, ?> radianceConfig)) {
-            return false;
-        }
-
-        Object shaderPack = radianceConfig.get(SHADER_PACK_MANIFEST_TYPE_KEY);
-        if (shaderPack == null) {
-            shaderPack = radianceConfig.get("shaderPack");
-        }
-        if (shaderPack == null) {
-            return true;
-        }
-        if (shaderPack instanceof Boolean bool) {
-            return bool;
-        }
-        if (shaderPack instanceof String string) {
-            return Boolean.parseBoolean(string);
-        }
-        return false;
-    }
-
-    private static String readShaderPackDisplayName(Path shaderPackPath, Object manifest) {
-        String fallback = shaderPackPath.getFileName() == null
-                ? "Shader Pack"
-                : stripShaderPackExtension(shaderPackPath.getFileName().toString());
-
-        if (!(manifest instanceof Map<?, ?> root)) {
-            return fallback;
-        }
-
-        Object radiance = root.get(SHADER_PACK_MANIFEST_KEY);
-        if (!(radiance instanceof Map<?, ?> radianceConfig)) {
-            return fallback;
-        }
-
-        Object displayName = radianceConfig.get(SHADER_PACK_MANIFEST_DISPLAY_NAME_KEY);
-        if (displayName == null) {
-            displayName = radianceConfig.get("displayName");
-        }
-        if (displayName == null) {
-            displayName = radianceConfig.get("name");
-        }
-        if (displayName instanceof String string && !string.isBlank()) {
-            return string;
-        }
-
-        return fallback;
-    }
-
-    private static String stripShaderPackExtension(String fileName) {
-        if (fileName == null || fileName.isBlank()) {
-            return "Shader Pack";
-        }
-        String lower = fileName.toLowerCase(Locale.ROOT);
-        if (lower.endsWith(".zip")) {
-            return fileName.substring(0, fileName.length() - 4);
-        }
-        return fileName;
-    }
-
     private static boolean readRequiresEmissionFromConfig(Path shaderPackPath) {
         try {
             Object loaded = loadShaderPackDocument(shaderPackPath, SHADER_PACK_CONFIG_FILE);
@@ -779,17 +491,6 @@ public class Pipeline {
     public static boolean isShaderPackSelectable(ShaderPackChoice choice) {
         return choice != null && (!shaderPackRequiresEmission(choice.relativePath()) || Options.collectChunkEmission);
     }
-
-    public static String getShaderPackUnavailabilityReasonTranslationKey(ShaderPackChoice choice) {
-        if (choice == null) {
-            return null;
-        }
-        if (shaderPackRequiresEmission(choice.relativePath()) && !Options.collectChunkEmission) {
-            return "shader_pack_screen.unavailable_emission";
-        }
-        return null;
-    }
-
     private static boolean isShaderPackValueSelectable(String configuredPath) {
         return !shaderPackRequiresEmission(configuredPath) || Options.collectChunkEmission;
     }
@@ -848,27 +549,6 @@ public class Pipeline {
         }
         return changed;
     }
-
-    public static boolean isShaderPackActive(ShaderPackChoice choice) {
-        if (choice == null) {
-            return false;
-        }
-        for (Module module : INSTANCE.modules) {
-            if (module == null || !Objects.equals(module.name, RAY_TRACING_MODULE_NAME)) {
-                continue;
-            }
-            AttributeConfig shaderPackPath = findAttribute(module, RAY_TRACING_SHADER_PACK_PATH_ATTRIBUTE);
-            String value = shaderPackPath == null || shaderPackPath.value == null ? "" : shaderPackPath.value.trim();
-            if (value.isEmpty() && Objects.equals(choice.relativePath(), VANILLA_RAY_TRACING_SHADER_PACK_PATH)) {
-                return true;
-            }
-            Path current = resolveShaderPackPath(value);
-            Path candidate = resolveShaderPackPath(choice.relativePath());
-            return Objects.equals(current, candidate);
-        }
-        return false;
-    }
-
     public static void build() {
         com.g2806.radiante.client.render.EntityManager.onPipelineRebuilt();
         boolean built = false;
@@ -1209,15 +889,6 @@ public class Pipeline {
         }
         assemblePresetByKeyInternal(defaultPresetName);
     }
-
-    public static void assembleDLSSRR() {
-        if (!isPresetAvailable(Presets.RT_DLSSRR.key)) {
-            assembleBestAvailablePreset("DLSS preset is unavailable.");
-            return;
-        }
-        assembleDLSSRRInternal();
-    }
-
     private static void assembleDLSSRRInternal() {
         clear();
 
@@ -1292,15 +963,6 @@ public class Pipeline {
         }
         assembleNRDFSRInternal();
     }
-
-    public static void assembleNRDXESS() {
-        if (!isPresetAvailable(Presets.RT_NRD_XESS.key)) {
-            assembleBestAvailablePreset("NRD+XeSS preset is unavailable.");
-            return;
-        }
-        assembleNRDXESSInternal();
-    }
-
     private static void assembleNRDFSRInternal() {
         clear();
 
@@ -1498,15 +1160,6 @@ public class Pipeline {
 
         connectOutput(postRenderModule.getOutputImageConfig("post_rendered"));
     }
-
-    public static void assembleNRD() {
-        if (!isPresetAvailable(Presets.RT_NRD.key)) {
-            assembleBestAvailablePreset("NRD preset is unavailable.");
-            return;
-        }
-        assembleNRDInternal();
-    }
-
     private static void assembleNRDInternal() {
         clear();
 
@@ -1634,7 +1287,6 @@ public class Pipeline {
 
     public static native String getAttributes(String name, String[] attributes, String language);
 
-    public static native boolean isNativeRebuildActive();
 
     private static String getCurrentLanguageCode() {
         Minecraft client = Minecraft.getInstance();
@@ -1866,24 +1518,9 @@ public class Pipeline {
         }
         return names;
     }
-
-
-    public PipelineMode getMode() {
-        return mode;
-    }
-
     public String getActivePresetName() {
         return activePresetName;
     }
-
-    public static PipelineMode getPipelineMode() {
-        return INSTANCE.mode;
-    }
-
-    public static String getActivePreset() {
-        return INSTANCE.activePresetName;
-    }
-
     public static void switchToPipelineMode() {
         switchToPipelineMode(true);
     }
@@ -2452,19 +2089,6 @@ public class Pipeline {
         assembleDefault();
         build();
     }
-
-    public Map<String, ModuleEntry> getModuleEntries() {
-        return moduleEntries;
-    }
-
-    public List<Module> getModules() {
-        return modules;
-    }
-
-    public Map<ImageConfig, List<ImageConfig>> getModuleConnections() {
-        return moduleConnections;
-    }
-
     public enum PipelineMode {
         PIPELINE,
         PRESET;

@@ -33,14 +33,6 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_reb
 
 /*
  * Class:     com_g2806_radiante_client_proxy_world_ChunkProxy
- * Method:    isChunkReady
- * Signature: (J)Z
- */
-JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_isChunkReady
-  (JNIEnv *, jclass, jlong);
-
-/*
- * Class:     com_g2806_radiante_client_proxy_world_ChunkProxy
  * Method:    relocateSingle
  * Signature: (JIII)V
  */

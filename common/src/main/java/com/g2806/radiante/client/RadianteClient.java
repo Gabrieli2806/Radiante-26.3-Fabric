@@ -114,6 +114,7 @@ public final class RadianteClient {
             throw new RuntimeException(e);
         }
 
+        removeStaleNatives();
         copyOptionalFile("libxess.dll");
         copyFile("core.dll");
         copyFolder("shaders", radianceDir.resolve("shaders"));
@@ -138,6 +139,32 @@ public final class RadianteClient {
         if (minecraft.gui != null) {
             minecraft.gui.hud.setOverlayMessage(net.minecraft.network.chat.Component.translatable(translationKey),
                 false);
+        }
+    }
+
+    /** Libraries older builds shipped and this one no longer does. */
+    private static final String[] RETIRED_NATIVES = {"libxess_fg.dll", "libxess_dx11.dll"};
+
+    /**
+     * DLLs a running client held locked were moved aside as *.old (see copyOptionalFile), and nothing ever took them
+     * away again; they piled up by the dozen. Whatever is no longer locked goes now, with the retired libraries.
+     */
+    private static void removeStaleNatives() {
+        try (var files = Files.list(radianceDir)) {
+            files.filter(file -> file.getFileName().toString().endsWith(".old")).forEach(RadianteClient::tryDelete);
+        } catch (IOException ignored) {
+            // Nothing to tidy, or the folder is not readable; the copies below report real problems.
+        }
+        for (String name : RETIRED_NATIVES) {
+            tryDelete(radianceDir.resolve(name));
+        }
+    }
+
+    private static void tryDelete(Path file) {
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException stillLocked) {
+            // A client still running from it; the next start takes it.
         }
     }
 
