@@ -57,7 +57,9 @@ if(MCVR_ENABLE_XESS)
         target_compile_definitions(core PUBLIC MCVR_ENABLE_XESS)
 
         if(WIN32)
-            file(GLOB XESS_RUNTIME_DLLS "${PROJECT_SOURCE_DIR}/extern/xess/bin/libxess*.dll")
+            # Only the upscaler. The SDK also ships libxess_fg.dll (frame generation) and libxess_dx11.dll, both for
+            # DirectX; neither is used here, and together they added some 30 MB to every jar.
+            file(GLOB XESS_RUNTIME_DLLS "${PROJECT_SOURCE_DIR}/extern/xess/bin/libxess.dll")
             if(XESS_RUNTIME_DLLS)
                 install(FILES ${XESS_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_LIB_DIR})
                 install(FILES ${XESS_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_BIN_DIR})

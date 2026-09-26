@@ -4,6 +4,38 @@ Post-0.1.0 backlog. Open work and items awaiting in-game verification come first
 completed work is collected at the bottom. Nothing here is scheduled; it's a
 backlog, not a promise.
 
+## Path out of alpha
+
+What 0.2.0 still lacks before calling it beta, and then 1.0. Each item links to its own section below when it
+has one.
+
+**Beta** (feature complete, stable enough for everyday worlds):
+
+- Visual smoke test suite running before every release, so regressions are caught by a run instead of by players.
+- No known crashes: the intermittent native crash on exit (`core.dll` static destructors, 0xC0000005 while
+  the process unloads) found and fixed.
+- Frame generation and Reflex on NeoForge and Forge, or the options removed there for good.
+- Distant Horizons: no large LOD blinking; memory and frame cost measured at DH's default 512 chunks.
+- Every vanilla feature traced or deliberately replaced: check the list under "Other open work" and the
+  ones marked "pending in-game check" (name tags, biome fog, texture uploads).
+- Settings that do nothing under ray tracing identified; only switched off if it measurably helps.
+- Performance baseline on a mid-range card (e.g. RTX 3060 / RX 6700): a documented preset that holds 60 fps at
+  12 chunks with DLSS/FSR.
+- Crash and error reports useful by default: renderer failures logged with GPU, driver and settings.
+
+**1.0** (release):
+
+- AMD and Intel GPUs tested, not only NVIDIA; FSR/XeSS noise brought close to DLSS.
+- Tested against the most used mods (Distant Horizons, Not Enough Animations, EMI/JEI, Xaero's maps,
+  Create-style block entities), results listed on the mod page.
+- Settings screen reviewed: presets, tooltips, translations complete.
+- Upgrade path: configs from older versions migrate without the player redoing their settings.
+- Stable name (the "Radiante" working title settled).
+
+**Jar size.** 0.2.0 dropped the unused XeSS frame generation and DX11 DLLs (about 30 MB). What is left is
+mostly `libxess.dll` (~60 MB compressed of ~77 MB). Making XeSS optional like DLSS (downloaded or dropped in
+by the player, or fetched on first use when chosen) would bring the jar near 15 MB.
+
 ## Open work and verification
 
 ### Distant Horizons far terrain — keep improving compatibility

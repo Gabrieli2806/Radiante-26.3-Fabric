@@ -42,6 +42,12 @@ import org.lwjgl.system.MemoryUtil;
  * rotating section grid so the shaders can look a chunk up from a section coordinate.
  */
 public final class ChunkManager {
+    /**
+     * Lava's glow on top of its emission map, as molten rock does in Bedrock RTX. The map alone, capped at full
+     * strength, left lava a dull brown next to sunlit stone. Distant Horizons' far lava uses the same amount.
+     */
+    private static final float LAVA_GLOW = 2.0f;
+
 
     private static final int VERTEX_FORMAT_PBR = 12;
     public static final int GEOMETRY_TYPE_WORLD_SOLID = 1;
@@ -474,7 +480,8 @@ public final class ChunkManager {
             }
         };
         FluidRenderer.Output fluidOutput =
-            layer -> scratch.writer(layer, atlasId).water(scratch.fluidIsWater).computeQuadNormals(true);
+            layer -> scratch.writer(layer, atlasId).water(scratch.fluidIsWater).computeQuadNormals(true)
+                .albedoEmission(scratch.fluidIsLava ? LAVA_GLOW : 0.0f);
 
         for (BlockPos pos : BlockPos.betweenClosed(origin, max)) {
             BlockState blockState = region.getBlockState(pos);
@@ -486,11 +493,12 @@ public final class ChunkManager {
             FluidState fluidState = blockState.getFluidState();
             if (!fluidState.isEmpty()) {
                 scratch.fluidIsWater = fluidState.is(net.minecraft.tags.FluidTags.WATER);
+                scratch.fluidIsLava = fluidState.is(net.minecraft.tags.FluidTags.LAVA);
                 fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
                 // Water with water or solid blocks on every side draws no face, and never asks for a writer: when
                 // that is the first fluid of the section there is none yet, and the whole section failed to build.
                 if (scratch.currentWriter() != null) {
-                    scratch.currentWriter().computeQuadNormals(false).water(false);
+                    scratch.currentWriter().computeQuadNormals(false).water(false).albedoEmission(0.0f);
                 }
             }
 
@@ -684,6 +692,7 @@ public final class ChunkManager {
         private boolean dropInwardFaces;
         private boolean collectPanel;
         private boolean fluidIsWater;
+        private boolean fluidIsLava;
         private final List<BakedQuad> panelQuads = new ArrayList<>();
 
         void reset() {

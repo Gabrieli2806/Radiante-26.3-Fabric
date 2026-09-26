@@ -870,6 +870,7 @@ public class Pipeline {
     }
 
     public static void build() {
+        com.g2806.radiante.client.render.EntityManager.onPipelineRebuilt();
         boolean built = false;
         try {
             buildInternal();

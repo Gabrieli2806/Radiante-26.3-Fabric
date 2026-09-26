@@ -17,7 +17,7 @@ const uint NO_HEIGHT_SURFACE_BIT = 1u << 16u;
 const uint WATER_SURFACE_BIT = 1u << 17u;
 // Rain sheets, marked by the weather collector: their texture falls while the sheet stands still.
 const uint RAIN_SURFACE_BIT = 1u << 18u;
-// What the player holds in first person; its glow follows worldUBO.heldLightBrightness.
+// What the player holds in first person.
 const uint HELD_SURFACE_BIT = 1u << 19u;
 
 #ifndef CONST_ONLY

@@ -24,12 +24,26 @@ public abstract class PackDetectorMixin {
     @Inject(method = "detectPackResources", at = @At("HEAD"), cancellable = true)
     private void radiante$detectBedrockPack(Path content, List<ForbiddenSymlinkInfo> issues,
         CallbackInfoReturnable<Object> cir) {
-        if (!BedrockPackConverter.isBedrockPack(content) || !Files.isRegularFile(content)
-            || !isResourcePackFolder(content.getParent())) {
+        if (!BedrockPackConverter.isBedrockPack(content) || !Files.isRegularFile(content)) {
+            return;
+        }
+        if (isDropCheck()) {
+            // A .mcpack dropped on the pack screen is only checked here before being copied into the folder, where
+            // it gets converted like any other; without this Minecraft turned it away as "not a valid pack".
+            cir.setReturnValue(new FilePackResources.FileResourcesSupplier(content));
+            return;
+        }
+        if (!isResourcePackFolder(content.getParent())) {
             return;
         }
         Path converted = BedrockPackConverter.converted(content);
         cir.setReturnValue(converted == null ? null : new FilePackResources.FileResourcesSupplier(converted));
+    }
+
+    /** The pack screen's own detector, which only vets dropped files before they are copied. */
+    private boolean isDropCheck() {
+        return ((Object) this).getClass().getName().startsWith(
+            net.minecraft.client.gui.screens.packs.PackSelectionScreen.class.getName() + "$");
     }
 
     /** Only the client's resource packs: a world's data pack folder has no use for textures. */

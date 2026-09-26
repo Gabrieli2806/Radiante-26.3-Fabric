@@ -73,6 +73,11 @@ final class CloudGeometry {
     }
 
     /** Changes whenever the mesh is rebuilt, so the renderer knows when its cached copy is stale. */
+    /** Builds the mesh again, under a new version, on the next update. */
+    void invalidate() {
+        this.prevStatus = null;
+    }
+
     int version() {
         return this.version;
     }

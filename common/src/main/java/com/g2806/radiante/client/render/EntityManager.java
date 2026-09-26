@@ -666,13 +666,37 @@ public final class EntityManager {
         PENDING.add(new PendingEntity(OUTLINE_ID, camera.x(), camera.y(), camera.z(), RAY_TRACING_PARTICLE, layers));
     }
 
+    private static boolean cloudsShownLastFrame;
+    private static int cloudPauseFrames;
+
+    /** The render pipeline was just rebuilt; see collectClouds. */
+    public static void onPipelineRebuilt() {
+        cloudPauseFrames = 3;
+        cloudsShownLastFrame = false;
+    }
+
     /** Vanilla's clouds, when the shader pack's cloud mode asks for them rather than its ray marched ones. */
     private static void collectClouds(Minecraft minecraft, LevelRenderState levelRenderState,
         CameraRenderState cameraState) {
         String mode = com.g2806.radiante.client.pipeline.Pipeline.getCloudMode();
         if (mode == null || !mode.endsWith(".vanilla") || net.minecraft.util.ARGB.alpha(levelRenderState.cloudColor) == 0) {
+            cloudsShownLastFrame = false;
             return;
         }
+        // Clouds that were off for a while come back under a new key: the renderer let go of the old acceleration
+        // structure once nothing used it, and handing it the old key again (clouds off, then back to vanilla) made
+        // it trace a structure that no longer existed - the device was lost.
+        // Nor right after the pipeline was rebuilt: a structure first built in those frames was traced before its
+        // vertices had reached the GPU. A few frames without clouds are not noticed.
+        if (cloudPauseFrames > 0) {
+            cloudPauseFrames--;
+            cloudsShownLastFrame = false;
+            return;
+        }
+        if (!cloudsShownLastFrame) {
+            CLOUDS.invalidate();
+        }
+        cloudsShownLastFrame = true;
         net.minecraft.client.renderer.CloudRenderer renderer =
             ((LevelRendererGizmoAccess) minecraft.levelRenderer).radiante$cloudRenderer();
         PBRVertexWriter writer = CLOUDS.update(

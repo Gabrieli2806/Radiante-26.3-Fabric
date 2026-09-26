@@ -172,6 +172,24 @@ public final class DevAutomation {
             };
             mapping.setDown(down);
             RadianteClient.LOGGER.info("[dev] {} {}", down ? "hold" : "release", key);
+        } else if (action.startsWith("rd=")) {
+            minecraft.options.renderDistance().set(Integer.parseInt(action.substring(3)));
+            RadianteClient.LOGGER.info("[dev] render distance {}", action.substring(3));
+        } else if (action.startsWith("pipe=")) {
+            // pipe=dlss:<index> | fog:<bool> | clouds:<index> - shader pack settings, rebuilt at once, for benchmarks.
+            String[] parts = action.substring(5).split(":", 2);
+            boolean rebuild = switch (parts[0]) {
+                case "dlss" -> com.g2806.radiante.client.pipeline.Pipeline.setDlssMode(
+                    com.g2806.radiante.client.pipeline.Pipeline.DLSS_MODES.get(Integer.parseInt(parts[1])));
+                case "fog" -> com.g2806.radiante.client.pipeline.Pipeline.setVolumetricFog(Boolean.parseBoolean(parts[1]));
+                case "clouds" -> com.g2806.radiante.client.pipeline.Pipeline.setCloudMode(
+                    com.g2806.radiante.client.pipeline.Pipeline.CLOUD_MODES.get(Integer.parseInt(parts[1])));
+                default -> false;
+            };
+            if (rebuild) {
+                com.g2806.radiante.client.pipeline.Pipeline.build();
+            }
+            RadianteClient.LOGGER.info("[dev] pipeline {} rebuilt {}", action.substring(5), rebuild);
         } else if (action.startsWith("rt=")) {
             // As the toggle key does it (RadianteClient), without touching the saved options.
             com.g2806.radiante.client.option.Options.rayTracingEnabled = Boolean.parseBoolean(action.substring(3));

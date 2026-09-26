@@ -115,8 +115,6 @@ public final class RadianteClient {
         }
 
         copyOptionalFile("libxess.dll");
-        copyOptionalFile("libxess_dx11.dll");
-        copyOptionalFile("libxess_fg.dll");
         copyFile("core.dll");
         copyFolder("shaders", radianceDir.resolve("shaders"));
         copyFolder(null, radianceDir.resolve("modules"), "/modules");

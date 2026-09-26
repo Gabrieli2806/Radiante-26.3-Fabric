@@ -258,12 +258,14 @@ public final class RadianteRenderer {
         Matrix4f effectedView =
             toRendererView(cameraShake(minecraft, cameraState).mul(cameraState.viewRotationMatrix));
         Matrix4f projection = new Matrix4f(cameraState.projectionMatrix);
+        applyScreenWarp(minecraft, levelRenderState, projection);
 
         int skyType = skyTypeOf(levelRenderState.skyRenderState.skybox);
         // Environmental fog only applies inside water, lava or powder snow; elsewhere it is the
         // render distance haze that matters.
+        // Blindness and Darkness close in through the same fog, pulsing with the effect.
         boolean environmental = cameraState.fogType == FogType.WATER || cameraState.fogType == FogType.LAVA
-            || cameraState.fogType == FogType.POWDER_SNOW;
+            || cameraState.fogType == FogType.POWDER_SNOW || cameraState.entityRenderState.doesMobEffectBlockSky;
         float fogStart = environmental ? fog.environmentalStart : fog.renderDistanceStart;
         float fogEnd = environmental ? fog.environmentalEnd : fog.renderDistanceEnd;
         // Far terrain from Distant Horizons lies past the render distance; haze meant to end there would hide it.
@@ -290,6 +292,8 @@ public final class RadianteRenderer {
             EntityManager.rainFallPerFrame(levelRenderState), farReach, Options.heldLightBrightness / 100.0f));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
+        Vector4f mobEffect = mobEffectFog(minecraft,
+            gameRenderer.gameRenderState().lightmapRenderState.darknessEffectScale);
         Vector3f skyColor = sky.skyColor == null ? new Vector3f(0.5f, 0.6f, 1.0f) : new Vector3f(sky.skyColor);
         Vector4f horizonColor = sky.sunriseAndSunsetColor == null
             ? new Vector4f(0.0f)
@@ -306,7 +310,7 @@ public final class RadianteRenderer {
 
         BufferProxy.updateSkyUniform(new BufferProxy.SkyUniform(skyColor, horizonColor, sunDirection, skyType,
             Mth.sin(sky.sunAngle) >= 0.0f && horizonColor.w() > 0.0f, sky.shouldRenderDarkDisc,
-            cameraState.entityRenderState.doesMobEffectBlockSky, submersionTypeOf(cameraState.fogType),
+            mobEffect.x() > 0.0f, submersionTypeOf(cameraState.fogType),
             sky.moonPhase.ordinal(), 1.0f - sky.rainBrightness, celestialsId, celestialsId,
             spriteRect(celestials, SUN_SPRITE),
             spriteRect(celestials, moonSprite(sky.moonPhase)),
@@ -314,7 +318,29 @@ public final class RadianteRenderer {
             gameRenderer.gameRenderState().lightmapRenderState.nightVisionEffectIntensity,
             new Vector4f(celestialAxis, Options.vanillaCelestialOrientation ? 1.0f : 0.0f),
             BiomeAmbiance.chroma(), BiomeAmbiance.heights(), BiomeAmbiance.waterExtinction(),
-            BiomeAmbiance.waterAlbedo()));
+            BiomeAmbiance.waterAlbedo(), mobEffect));
+    }
+
+    /**
+     * Blindness and Darkness the way vanilla fades them (BlindnessFogEnvironment, DarknessFogEnvironment): Darkness
+     * by its blend factor, which eases in and out; Blindness over its last second. x is the stronger of the two,
+     * y Darkness's lightmap pulse, which peaks at 0.45 in vanilla and is scaled here to 0 to 1.
+     */
+    private static Vector4f mobEffectFog(Minecraft minecraft, float darknessEffectScale) {
+        net.minecraft.client.player.LocalPlayer player = minecraft.player;
+        if (player == null) {
+            return new Vector4f(0.0f);
+        }
+        float darkness = player.getEffectBlendFactor(net.minecraft.world.effect.MobEffects.DARKNESS,
+            minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false));
+        float blindness = 0.0f;
+        net.minecraft.world.effect.MobEffectInstance blind =
+            player.getEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
+        if (blind != null) {
+            blindness = blind.isInfiniteDuration() ? 1.0f : Math.min(1.0f, blind.getDuration() / 20.0f);
+        }
+        return new Vector4f(Math.max(darkness, blindness), Mth.clamp(darknessEffectScale / 0.45f, 0.0f, 1.0f),
+            0.0f, 0.0f);
     }
 
     /** How far the custom sun path leans south of vanilla's overhead arc. */
@@ -365,6 +391,27 @@ public final class RadianteRenderer {
      * multiplies this onto the camera transform; folding it into the projection instead skews the frustum and the
      * shake comes out far stronger than it should.
      */
+    /**
+     * Nausea and the nether portal's wobble, as GameRenderer bends the level projection for them: a squash along
+     * a diagonal axis that turns with spinningEffectAngle. The camera state holds the projection from before it.
+     */
+    private static void applyScreenWarp(Minecraft minecraft, LevelRenderState levelRenderState, Matrix4f projection) {
+        var player = levelRenderState.playerRenderState;
+        if (player == null) {
+            return;
+        }
+        float scale = minecraft.gameRenderer.gameRenderState().optionsRenderState.screenEffectScale;
+        float intensity = Math.max(player.portalEffectIntensity, player.nauseaEffectIntensity) * scale * scale;
+        if (intensity <= 0.0f) {
+            return;
+        }
+        float squash = 5.0f / (intensity * intensity + 5.0f) - intensity * 0.04f;
+        squash *= squash;
+        Vector3f axis = new Vector3f(0.0f, Mth.SQRT_OF_TWO / 2.0f, Mth.SQRT_OF_TWO / 2.0f);
+        float angle = player.spinningEffectAngle * Mth.DEG_TO_RAD;
+        projection.rotate(angle, axis).scale(1.0f / squash, 1.0f, 1.0f).rotate(-angle, axis);
+    }
+
     private static Matrix4f cameraShake(Minecraft minecraft, CameraRenderState cameraState) {
         CameraEntityRenderState entity = cameraState.entityRenderState;
         OptionsRenderState options = minecraft.gameRenderer.gameRenderState().optionsRenderState;

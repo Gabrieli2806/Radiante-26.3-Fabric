@@ -238,6 +238,13 @@ public final class EmissionTiles {
             ? Math.max(MIN_BRIGHTNESS, brightest * BRIGHT_EMITTER_RELATIVE)
             : Math.max(DARK_EMITTER_MIN_BRIGHTNESS, brightest * RELATIVE_BRIGHTNESS);
         boolean coloured = hasSaturatedTexels(pixels, width, height, rowPixels, threshold);
+        // Lava glows all over at full strength, dark crust included; cutting it to its brightest texels, or
+        // weighting texels by brightness, left it a dull grey-brown instead of the molten orange it should be.
+        boolean lava = isLava(sprite);
+        if (lava) {
+            threshold = 0.0f;
+            coloured = false;
+        }
         int cellWidth = Math.max(1, width / CELLS_PER_SIDE);
         int cellHeight = Math.max(1, height / CELLS_PER_SIDE);
 
@@ -270,7 +277,7 @@ public final class EmissionTiles {
                         if (specular != null) {
                             writeSpecularEmission(specular, atlasWidth, atlasHeight,
                                 Math.round(sprite.getU0() * atlasWidth) + x,
-                                Math.round(sprite.getV0() * atlasHeight) + y, strength * brightness);
+                                Math.round(sprite.getV0() * atlasHeight) + y, lava ? strength : strength * brightness);
                         }
                         emission += weight;
                         red += r * weight;
@@ -315,6 +322,16 @@ public final class EmissionTiles {
         } finally {
             MemoryUtil.nmemFree(address);
         }
+    }
+
+    private static boolean isLava(TextureAtlasSprite sprite) {
+        Identifier name = sprite.contents().name();
+        for (Identifier id : LAVA_SPRITES) {
+            if (id.equals(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static float maxBrightness(ByteBuffer pixels, int width, int height, int rowPixels) {

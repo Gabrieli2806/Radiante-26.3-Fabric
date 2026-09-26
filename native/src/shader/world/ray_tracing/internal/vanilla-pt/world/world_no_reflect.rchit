@@ -168,7 +168,7 @@ void main() {
     LabPBRMat mat = convertLabPBRMaterial(albedoValue, specularValue, normalValue);
 
     // add glowing radiance
-    float brightness = isHeldSurface(m0.packedData) ? worldUBO.heldLightBrightness : worldUBO.emissionBrightness;
+    float brightness = worldUBO.emissionBrightness;
     mainRay.radiance += 12 * brightness * tint * mat.emission * mainRay.throughput;
     mainRay.hitT = gl_HitTEXT;
     mainRay.normal = vec3(0.0);

@@ -144,7 +144,7 @@ vec4 evalMoonBillboard(vec3 rayDir) {
 void main() {
     mainRay.directLightRadiance.x = 1.0;
 
-    if (skyUBO.cameraSubmersionType == 0 || skyUBO.cameraSubmersionType == 2 || skyUBO.hasBlindnessOrDarkness > 0) {
+    if (skyUBO.cameraSubmersionType == 0 || skyUBO.cameraSubmersionType == 2 || skyUBO.mobEffectFog.x >= 0.999) {
         raySetStop(mainRay, true);
         mainRay.hitT = INF_DISTANCE;
         return;

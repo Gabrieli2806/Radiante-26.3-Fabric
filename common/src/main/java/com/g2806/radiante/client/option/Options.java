@@ -103,11 +103,11 @@ public class Options {
     /** Brightness of sunlight and the daytime sky, in percent of the shader pack's own. */
     public static int dayBrightness = 25;
     /** Brightness of moonlight and the night sky, in percent of the shader pack's own. */
-    public static int nightBrightness = 25;
+    public static int nightBrightness = 35;
     /** Brightness of light emitting blocks and held lights, in percent. */
-    public static int emissionBrightness = 5;
+    public static int emissionBrightness = 12;
     /** Brightness of what the player holds - its glow and the light it casts - in percent. */
-    public static int heldLightBrightness = 5;
+    public static int heldLightBrightness = 8;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
@@ -122,6 +122,21 @@ public class Options {
      * is put back; empty when there is nothing to put back. See DistantHorizonsCompat.
      */
     public static String cloudsBeforeDistantHorizons = "";
+
+    /** The look and lighting settings back to a fresh install's; pipeline and restart-bound ones are the screen's. */
+    public static void resetVisualDefaults() {
+        blockLightSampling = true;
+        heldItemLight = true;
+        blockOutline = false;
+        parallaxTransparentEdges = false;
+        pixelLighting = false;
+        dayBrightness = 25;
+        nightBrightness = 35;
+        emissionBrightness = 12;
+        heldLightBrightness = 8;
+        vanillaSunPath = true;
+        vanillaCelestialOrientation = true;
+    }
 
     /** Ray tracing can be switched off with a key, which hands the world back to Minecraft's own renderer. */
     public static boolean rayTracingEnabled = true;
@@ -146,7 +161,7 @@ public class Options {
         return Math.max(1, Math.min(chunkBuildingThreads, getMaxChunkBuildingThreads()));
     }
 
-    private static int getDefaultChunkBuildingThreads() {
+    public static int getDefaultChunkBuildingThreads() {
         return clampChunkBuildingThreads(Math.max(2, Math.min(6, Runtime.getRuntime().availableProcessors() / 4)));
     }
 

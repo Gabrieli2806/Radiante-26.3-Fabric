@@ -14,7 +14,7 @@ import org.lwjgl.system.MemoryStack;
 public class BufferProxy {
 
     private static final int WORLD_UBO_SIZE = 656;
-    private static final int SKY_UBO_SIZE = 208;
+    private static final int SKY_UBO_SIZE = 224;
     private static final int TEXTURE_MAPPING_ENTRIES = 4096;
 
     private static native void updateWorldUniform(long ptr);
@@ -161,7 +161,8 @@ public class BufferProxy {
                              Vector4fc biomeFogChroma,
                              Vector4fc biomeFogHeights,
                              Vector4fc waterExtinction,
-                             Vector4fc waterAlbedo) {
+                             Vector4fc waterAlbedo,
+                             Vector4fc mobEffectFog) {
     }
 
     public static void updateSkyUniform(SkyUniform uniform) {
@@ -253,7 +254,8 @@ public class BufferProxy {
             offset = putVec4(bb, offset, uniform.biomeFogChroma());
             offset = putVec4(bb, offset, uniform.biomeFogHeights());
             offset = putVec4(bb, offset, uniform.waterExtinction());
-            putVec4(bb, offset, uniform.waterAlbedo());
+            offset = putVec4(bb, offset, uniform.waterAlbedo());
+            putVec4(bb, offset, uniform.mobEffectFog());
 
             updateSkyUniform(addr);
         }

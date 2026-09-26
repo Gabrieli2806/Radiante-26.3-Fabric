@@ -42,6 +42,38 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private boolean pendingReflex = Options.reflex;
     private boolean applied;
 
+    /**
+     * Quick quality levels for the settings measured to cost frame time (one scene, same chunks, DLSS Ultra
+     * Performance as the baseline at about 150 fps): the DLSS mode (Performance -45 %, Quality -65 %), block light
+     * sampling (-20 %), volumetric fog (-10 %), render distance (24 chunks -30 % against 16) and clouds (a few
+     * percent). The held light, the first person shadow and the bounce count changed nothing measurable and are
+     * left out. Any of these changed by hand afterwards shows as Custom.
+     */
+    private enum Quality {
+        LOW("options.radiante.quality.low", 0, false, 0, false, 8),
+        MEDIUM("options.radiante.quality.medium", 1, false, 1, true, 12),
+        HIGH("options.radiante.quality.high", 2, true, 1, true, 16),
+        ULTRA("options.radiante.quality.ultra", 3, true, 2, true, 24),
+        CUSTOM("options.radiante.quality.custom", -1, false, 0, false, 0);
+
+        final String key;
+        final int dlssMode;
+        final boolean volumetricFog;
+        final int cloudMode;
+        final boolean blockLights;
+        final int renderDistance;
+
+        Quality(String key, int dlssMode, boolean volumetricFog, int cloudMode, boolean blockLights,
+            int renderDistance) {
+            this.key = key;
+            this.dlssMode = dlssMode;
+            this.volumetricFog = volumetricFog;
+            this.cloudMode = cloudMode;
+            this.blockLights = blockLights;
+            this.renderDistance = renderDistance;
+        }
+    }
+
     public RadianteOptionsScreen(Screen lastScreen, net.minecraft.client.Options options) {
         super(lastScreen, options, TITLE);
     }
@@ -151,7 +183,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         return new OptionInstance<>("options.radiante.cloud_mode", tooltip("options.radiante.cloud_mode"),
             (caption, value) -> Component.translatable(value),
             new OptionInstance.Enum<>(Pipeline.CLOUD_MODES, Codec.STRING), this.pendingCloudMode,
-            value -> this.pendingCloudMode = value);
+            value -> {
+                this.pendingCloudMode = value;
+                refreshQualityLater();
+            });
     }
 
     /**
@@ -174,7 +209,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         return new OptionInstance<>("options.radiante.dlss_mode", tooltip("options.radiante.dlss_mode"),
             (caption, value) -> Component.translatable(value),
             new OptionInstance.Enum<>(Pipeline.DLSS_MODES, Codec.STRING), this.pendingDlssMode,
-            value -> this.pendingDlssMode = value);
+            value -> {
+                this.pendingDlssMode = value;
+                refreshQualityLater();
+            });
     }
 
     /**
@@ -207,19 +245,105 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             Math.min(this.pendingGeneratedFrames, max), value -> this.pendingGeneratedFrames = value);
     }
 
+    /** The quality level the current choices match, or Custom. */
+    private Quality currentQuality() {
+        for (Quality quality : Quality.values()) {
+            if (quality == Quality.CUSTOM) {
+                continue;
+            }
+            boolean dlssMatches = !usingDlss() || Objects.equals(this.pendingDlssMode,
+                Pipeline.DLSS_MODES.get(quality.dlssMode));
+            boolean fogMatches = this.pendingVolumetricFog == null || this.pendingVolumetricFog == quality.volumetricFog;
+            boolean cloudsMatch = this.pendingCloudMode == null
+                || Objects.equals(this.pendingCloudMode, Pipeline.CLOUD_MODES.get(quality.cloudMode));
+            if (dlssMatches && fogMatches && cloudsMatch && Options.blockLightSampling == quality.blockLights
+                && this.options.renderDistance().get() == quality.renderDistance) {
+                return quality;
+            }
+        }
+        return Quality.CUSTOM;
+    }
+
+    private void applyQuality(Quality quality) {
+        if (quality == Quality.CUSTOM) {
+            return;
+        }
+        if (usingDlss()) {
+            this.pendingDlssMode = Pipeline.DLSS_MODES.get(quality.dlssMode);
+        }
+        if (Pipeline.supportsVolumetricFog()) {
+            this.pendingVolumetricFog = quality.volumetricFog;
+        }
+        if (Pipeline.supportsClouds()) {
+            this.pendingCloudMode = Pipeline.CLOUD_MODES.get(quality.cloudMode);
+        }
+        Options.blockLightSampling = quality.blockLights;
+        this.options.renderDistance().set(quality.renderDistance);
+    }
+
+    /** Every setting on this screen back to how a fresh install has it. */
+    private void resetToDefaults() {
+        Options.resetVisualDefaults();
+        this.pendingPreset = Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key) ? Presets.RT_DLSSRR : null;
+        this.pendingDlssMode = "render_pipeline.module.dlss.attribute.mode.ultra_performance";
+        this.pendingGeneratedFrames = 0;
+        this.pendingCloudMode = Pipeline.supportsClouds() ? Pipeline.CLOUD_MODES.get(1) : null;
+        this.pendingChunkThreads = Options.getDefaultChunkBuildingThreads();
+        this.pendingChunkBatchSize = 12;
+        this.pendingChunkTotalBatches = 12;
+        this.pendingCollectEmission = true;
+        this.pendingDebugLogging = false;
+        this.pendingBiomeFog = true;
+        this.pendingFirstPersonShadow = true;
+        this.pendingBiomeFogStrength = 100;
+        this.pendingVolumetricFog = Pipeline.supportsVolumetricFog() ? Boolean.TRUE : null;
+        this.pendingMotionBlur = Boolean.FALSE;
+        this.pendingDepthOfField = Boolean.FALSE;
+        this.pendingReflex = false;
+    }
+
     @Override
     protected void addOptions() {
         if (this.list == null) {
             return;
         }
 
+        // Filled in first so the quality level below can tell which one the current settings match.
         OptionInstance<Presets> preset = presetOption();
+        OptionInstance<String> dlssMode = dlssModeOption();
+        OptionInstance<Integer> frameGeneration = frameGenerationOption();
+        OptionInstance<String> clouds = cloudModeOption();
+        if (Pipeline.supportsVolumetricFog() && this.pendingVolumetricFog == null) {
+            this.pendingVolumetricFog = Pipeline.isVolumetricFog();
+        }
+
+        List<Quality> levels = List.of(Quality.values());
+        OptionInstance<Quality> quality = new OptionInstance<>("options.radiante.quality",
+            tooltip("options.radiante.quality"), (caption, value) -> Component.translatable(value.key),
+            new OptionInstance.Enum<>(levels, Codec.STRING.xmap(Quality::valueOf, Quality::name)), currentQuality(),
+            value -> {
+                if (value == Quality.CUSTOM || value == currentQuality()) {
+                    return;
+                }
+                applyQuality(value);
+                if (this.minecraft != null) {
+                    this.minecraft.execute(this::reopenWithSameChoices);
+                }
+            });
+        net.minecraft.client.gui.components.Button reset = net.minecraft.client.gui.components.Button.builder(
+                Component.translatable("options.radiante.reset_defaults"), button -> {
+                    resetToDefaults();
+                    reopenWithSameChoices();
+                })
+            .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("options.radiante.reset_defaults.tooltip")))
+            .build();
+        this.list.addSmall(quality.createButton(this.options), reset);
+
         if (preset != null) {
             this.list.addSmall(preset);
         }
 
-        OptionInstance<String> dlssMode = dlssModeOption();
-        OptionInstance<Integer> frameGeneration = frameGenerationOption();
         if (dlssMode != null && frameGeneration != null) {
             this.list.addSmall(dlssMode, frameGeneration);
         } else if (dlssMode != null) {
@@ -238,7 +362,6 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 this.pendingReflex, value -> this.pendingReflex = value));
         }
 
-        OptionInstance<String> clouds = cloudModeOption();
         if (clouds != null) {
             this.list.addSmall(clouds);
         }
@@ -273,7 +396,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             this.pendingDebugLogging, value -> this.pendingDebugLogging = value);
         this.list.addSmall(OptionInstance.createBoolean("options.radiante.block_light_sampling",
                 tooltip("options.radiante.block_light_sampling"), Options.blockLightSampling,
-                value -> Options.blockLightSampling = value),
+                value -> {
+                    Options.blockLightSampling = value;
+                    refreshQualityLater();
+                }),
             OptionInstance.createBoolean("options.radiante.held_item_light",
                 tooltip("options.radiante.held_item_light"), Options.heldItemLight,
                 value -> Options.heldItemLight = value));
@@ -302,14 +428,14 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                     Component.translatable("options.radiante.vanilla_celestial_orientation.tooltip")),
                 Options.vanillaCelestialOrientation, value -> Options.vanillaCelestialOrientation = value));
         if (Pipeline.supportsVolumetricFog()) {
-            if (this.pendingVolumetricFog == null) {
-                this.pendingVolumetricFog = Pipeline.isVolumetricFog();
-            }
             this.list.addSmall(
                 OptionInstance.createBoolean("options.radiante.volumetric_fog",
                     OptionInstance.cachedConstantTooltip(
                         Component.translatable("options.radiante.volumetric_fog.tooltip")),
-                    this.pendingVolumetricFog, value -> this.pendingVolumetricFog = value),
+                    this.pendingVolumetricFog, value -> {
+                        this.pendingVolumetricFog = value;
+                        refreshQualityLater();
+                    }),
                 firstPersonShadow);
             this.list.addSmall(debugLogging);
         } else {
@@ -329,6 +455,13 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 OptionInstance.createBoolean("options.radiante.depth_of_field",
                     tooltip("options.radiante.depth_of_field"), this.pendingDepthOfField,
                     value -> this.pendingDepthOfField = value));
+        }
+    }
+
+    /** A setting the quality level covers was changed by hand: the level shown above it has to follow. */
+    private void refreshQualityLater() {
+        if (this.minecraft != null) {
+            this.minecraft.execute(this::reopenWithSameChoices);
         }
     }
 

@@ -354,6 +354,11 @@ namespace Data {
         // of it that scatters.
         T_VEC4 waterExtinction;
         T_VEC4 waterAlbedo;
+
+        // Blindness and Darkness, as vanilla fades them. x: how far the effect has closed in, 0 to 1 (it fades in
+        // and, at the end, pulls back out rather than vanishing). y: Darkness's pulse, 0 to 1, which vanilla
+        // subtracts from the lightmap to make the world blink dark.
+        T_VEC4 mobEffectFog;
     };
 
     struct TextureMapEntry {

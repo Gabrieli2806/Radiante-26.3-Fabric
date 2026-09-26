@@ -1030,7 +1030,7 @@ void main() {
                 0.0 : 1.0;
         vec3 emissionRadiance =
             blockEmissionWeight * emissionFactor *
-            (isHeldSurface(packedData) ? worldUBO.heldLightBrightness : worldUBO.emissionBrightness) *
+            worldUBO.emissionBrightness *
             currentSurface.tint *
             currentSurface.mat.emission * mainRay.throughput;
         emissionRadiance += currentSurface.tint * albedoEmission * mainRay.throughput;

@@ -1181,7 +1181,7 @@ void main() {
         firstHitIndirectRadiance = vec3(0.0);
         if (isFirstHitNoisy) {
             firstHitEmission = firstHitMat.albedoValue.rgb * firstHitMat.emission *
-                               (isHand == 1 ? worldUBO.heldLightBrightness : worldUBO.emissionBrightness);
+                               worldUBO.emissionBrightness;
             if (rayLobeType(mainRay) == 0u) {
                 isFirstHitDiffuse = true;
                 firstHitDirectRadiance = mainRay.directLightRadiance;
@@ -1263,7 +1263,35 @@ void main() {
     bool useVolumetricFog = VPT_VOLUMETRIC_LIGHT_MODE == VPT_VOLUMETRIC_LIGHT_MODE_VOLUMETRIC;
     float transparentFogTransmittance = 1.0;
     vec3 transparentFogAdditive = vec3(0.0);
-    if (!raySkipFog(mainRay)) {
+    if (skyUBO.hasBlindnessOrDarkness > 0) {
+        // Blindness and Darkness: vanilla's fog closes in to a few blocks (fogStart/fogEnd follow the effect's
+        // pulse) and everything past it goes black. Applied even where fog is otherwise skipped.
+        // Linear from fogStart to fogEnd as vanilla's fog is; the sky (and, while the effect is still strong, all of
+        // it) goes black with the effect's strength, so it fades back in as the fog pulls away instead of popping.
+        float strength = skyUBO.mobEffectFog.x;
+        // Darkness's pulse also pulls the fog in: at each beat the wall closes to about half its distance and
+        // then eases back out, so the dark visibly breathes toward the player.
+        float pulseReach = 1.0 - 0.5 * skyUBO.mobEffectFog.y;
+        float effectFogStart = worldUBO.fogStart * pulseReach;
+        float effectFogEnd = worldUBO.fogEnd * pulseReach;
+        float fogAmount = surfaceDepth == INF_DISTANCE ?
+            1.0 : clamp((surfaceDepth - effectFogStart) / max(effectFogEnd - effectFogStart, 0.01), 0.0, 1.0);
+        float transmittance = 1.0 - fogAmount * smoothstep(0.0, 0.3, strength);
+        // Darkness's pulse: vanilla takes it off the lightmap, so everything lit dims at once and the world blinks.
+        transmittance *= 1.0 - 0.95 * skyUBO.mobEffectFog.y;
+        // Black, not the fog colour: that one is still lifted by the sky and came out grey.
+        vec3 additive = vec3(0.0);
+        if (useTransparentSplit) {
+            transparentReflectionRadiance *= transmittance;
+            transparentRefractionRadiance *= transmittance;
+            transparentFogAdditive = additive;
+            transparentFogTransmittance = transmittance;
+        } else {
+            mainRay.radiance = mainRay.radiance * transmittance + additive;
+            composeFogTransmittance = transmittance;
+            composeFogAdditive = additive;
+        }
+    } else if (!raySkipFog(mainRay)) {
         if (skyUBO.cameraSubmersionType == 1 && waterMediumActive()) {
             // A Bedrock pack's water: the camera's stretch of it absorbs and scatters like every other one.
             if (surfaceDepth == INF_DISTANCE) surfaceDepth = 0;
@@ -1346,7 +1374,8 @@ void main() {
     }
 
     // With volumetric fog on, the overworld's biome fog is part of that march instead (see integrateVolumetricFog).
-    if (!raySkipFog(mainRay) && biomeHazeActive() && !(useVolumetricFog && worldUBO.skyType == 1)) {
+    if (!raySkipFog(mainRay) && skyUBO.hasBlindnessOrDarkness == 0 && biomeHazeActive()
+        && !(useVolumetricFog && worldUBO.skyType == 1)) {
         float hazeTransmittance;
         vec3 hazeAdditive;
         biomeHaze(orgDirection, psrHitSky, psrHitSky ? 0.0 : length(psrHitPosition - eyePos), hazeTransmittance,
@@ -1421,9 +1450,14 @@ void main() {
                              firstHitMat.albedoValue.a;
     }
     firstHitEmission += nightVisionAmbient;
+    if (skyUBO.hasBlindnessOrDarkness > 0 && composeFogTransmittance >= 0.0) {
+        // The emission channel skips the fog above; without this, glowing blocks shone through the dark.
+        firstHitEmission *= composeFogTransmittance;
+    }
     imageStore(firstHitBaseEmissionImage, ivec2(pixel), vec4(firstHitEmission, 1.0));
     bool applyVolumetricCompose =
-        useVolumetricFog && !raySkipFog(mainRay) && skyUBO.cameraSubmersionType != 1 && worldUBO.skyType == 1;
+        useVolumetricFog && !raySkipFog(mainRay) && skyUBO.cameraSubmersionType != 1 && worldUBO.skyType == 1 &&
+        skyUBO.hasBlindnessOrDarkness == 0;
     if (applyVolumetricCompose) {
         float volumetricDistance = psrHitSky ? volumetricMediumMaxDistance() : length(psrHitPosition - eyePos);
         vec3 volumetricTransmittance;
