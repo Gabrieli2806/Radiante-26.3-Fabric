@@ -207,6 +207,11 @@ public final class RenderTypeInfo {
         return this.name.equals("end_portal");
     }
 
+    /** The patch over a boat's inside that keeps water out of it ("water_mask", or its order-independent twin). */
+    private boolean isWaterMask() {
+        return this.name.endsWith("water_mask");
+    }
+
     private boolean isEndGateway() {
         return this.name.equals("end_gateway");
     }
@@ -224,6 +229,9 @@ public final class RenderTypeInfo {
         // any-hit shader is the only thing that cuts a glyph out of the cell it is drawn in.
         if (isEndPortal() || isEndGateway() || TEXT_HIT_GROUPS.contains(this.name)) {
             return this.name;
+        }
+        if (isWaterMask()) {
+            return "water_mask";
         }
         return "Entity";
     }
@@ -256,6 +264,13 @@ public final class RenderTypeInfo {
         }
         if (isEndGateway()) {
             return NativeGeometry.GEOMETRY_TYPE_END_GATEWAY;
+        }
+        // The patch over a boat's inside that keeps water out of it. Vanilla draws it into depth only; traced as
+        // an ordinary surface it was a black sheet, which showed through boats with see-through bottoms
+        // (glass-bottom boat packs). As its own geometry type a ray passing it is marked as inside the boat, and
+        // the water below is skipped, as the shaders already expect (world/water_mask.rchit).
+        if (isWaterMask()) {
+            return NativeGeometry.GEOMETRY_TYPE_BOAT_WATER_MASK;
         }
         // A glyph cell is mostly empty, and only the text any-hit shader knows which texels are the letter. Solid
         // geometry is built with the Vulkan opaque flag, which tells the driver it may skip any-hit entirely - so

@@ -209,6 +209,8 @@
   "options.radiante.hdr_paper_white": "Blanco de Papel HDR",
   "options.radiante.hdr_paper_white.tooltip": "Qué tan brillantes se ven los menús, el texto y las superficies normales del mundo, en nits. Súbelo en una habitación iluminada, bájalo en una oscura.",
   "options.radiante.nits_value": "%s: %s nits",
+  "options.radiante.hdr_debug_view": "Vista de Depuración HDR",
+  "options.radiante.hdr_debug_view.tooltip": "Tiñe de azul todo lo que se muestra en SDR (menús, texto). Lo que conserva su color normal es el mundo en HDR.",
   "options.radiante.biome_fog_strength": "Intensidad de Neblina de Bioma",
   "options.radiante.motion_blur": "Desenfoque de Movimiento",
   "options.radiante.motion_blur.tooltip": "Difumina lo que se mueve en pantalla a lo largo de su movimiento, como una cámara. Cambiarlo recompila los shaders.",

@@ -26,8 +26,9 @@ public final class RadianteDebugEntries {
     public static final Identifier UPSCALER = Identifier.fromNamespaceAndPath("radiante", "upscaler");
     public static final Identifier REFLEX = Identifier.fromNamespaceAndPath("radiante", "reflex");
     public static final Identifier FRAME_GENERATION = Identifier.fromNamespaceAndPath("radiante", "frame_generation");
+    public static final Identifier HDR = Identifier.fromNamespaceAndPath("radiante", "hdr");
     /** Shown in the overlay until the player hides them. */
-    public static final List<Identifier> ALL = List.of(UPSCALER, REFLEX, FRAME_GENERATION);
+    public static final List<Identifier> ALL = List.of(UPSCALER, REFLEX, FRAME_GENERATION, HDR);
 
     private RadianteDebugEntries() {
     }
@@ -51,6 +52,18 @@ public final class RadianteDebugEntries {
                     reflex = RadianteClient.streamlineLoaded() ? "On" : "On (restart to apply)";
                 }
                 displayer.addLine("NVIDIA Reflex: " + reflex);
+            }
+        });
+        DebugScreenEntriesInvoker.radiante$register(HDR, new Entry() {
+            @Override
+            void lines(DebugScreenDisplayer displayer) {
+                if (!Options.hdrOutput) {
+                    return;
+                }
+                displayer.addLine(com.g2806.radiante.client.hdr.HdrDisplay.isActive()
+                    ? String.format(Locale.ROOT, "HDR: on (scRGB), peak %d nits, paper white %d nits%s",
+                        Options.hdrPeakNits, Options.hdrPaperWhiteNits, Options.hdrDebugView ? ", debug view" : "")
+                    : "HDR: not running (restart, and check HDR is on in Windows)");
             }
         });
         DebugScreenEntriesInvoker.radiante$register(FRAME_GENERATION, new Entry() {

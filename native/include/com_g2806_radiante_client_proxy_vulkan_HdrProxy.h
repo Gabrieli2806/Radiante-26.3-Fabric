@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_HdrProxy
  * Method:    compose
- * Signature: (JJIIIIJIIFF)Z
+ * Signature: (JJIIIIJIIFFZZ)Z
  */
 JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_HdrProxy_compose
-  (JNIEnv *, jclass, jlong, jlong, jint, jint, jint, jint, jlong, jint, jint, jfloat, jfloat);
+  (JNIEnv *, jclass, jlong, jlong, jint, jint, jint, jint, jlong, jint, jint, jfloat, jfloat, jboolean, jboolean);
 
 #ifdef __cplusplus
 }

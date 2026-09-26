@@ -18,14 +18,16 @@ JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_HdrProxy_
                                                                                          jint swapchainWidth,
                                                                                          jint swapchainHeight,
                                                                                          jfloat paperWhiteNits,
-                                                                                         jfloat peakNits) {
+                                                                                         jfloat peakNits,
+                                                                                         jboolean flipY,
+                                                                                         jboolean debugView) {
     try {
         return HdrOutput::instance().compose(
                    reinterpret_cast<VkCommandBuffer>(commandBuffer), reinterpret_cast<VkImage>(minecraftImage),
                    static_cast<VkImageLayout>(minecraftLayout), static_cast<VkFormat>(minecraftFormat),
                    static_cast<uint32_t>(width), static_cast<uint32_t>(height),
                    reinterpret_cast<VkImage>(swapchainImage), static_cast<uint32_t>(swapchainWidth),
-                   static_cast<uint32_t>(swapchainHeight), paperWhiteNits, peakNits) ?
+                   static_cast<uint32_t>(swapchainHeight), paperWhiteNits, peakNits, flipY == JNI_TRUE, debugView == JNI_TRUE) ?
                    JNI_TRUE :
                    JNI_FALSE;
     } catch (const std::exception &e) {

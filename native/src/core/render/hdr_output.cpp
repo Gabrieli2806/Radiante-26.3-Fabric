@@ -23,7 +23,7 @@ struct HdrComposePushConstant {
     float manualExposure;
     int autoExposure;
     int worldValid;
-    int padding;
+    int debugView;
 };
 
 constexpr uint32_t VIEW_RETIRE_FRAMES = 8;
@@ -214,7 +214,9 @@ bool HdrOutput::compose(VkCommandBuffer cmd,
                         uint32_t swapchainWidth,
                         uint32_t swapchainHeight,
                         float paperWhiteNits,
-                        float peakNits) {
+                        float peakNits,
+                        bool flipY,
+                        bool debugView) {
     if (cmd == VK_NULL_HANDLE || width == 0 || height == 0) return false;
     if (!ensureResources(width, height)) return false;
 
@@ -277,6 +279,7 @@ bool HdrOutput::compose(VkCommandBuffer cmd,
     pc.manualExposure = world_.manualExposure;
     pc.autoExposure = world_.autoExposure ? 1 : 0;
     pc.worldValid = worldValid ? 1 : 0;
+    pc.debugView = debugView ? 1 : 0;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_->vkPipeline());
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, table->vkPipelineLayout(), 0,
@@ -301,6 +304,7 @@ bool HdrOutput::compose(VkCommandBuffer cmd,
                           static_cast<int>(std::min(height, swapchainHeight)), 1};
     blit.srcOffsets[1].x = blit.dstOffsets[1].x;
     blit.srcOffsets[1].y = blit.dstOffsets[1].y;
+    if (flipY) std::swap(blit.srcOffsets[0].y, blit.srcOffsets[1].y);
     vkCmdBlitImage(cmd, composedImage_->vkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImage,
                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
     composedImage_->imageLayout() = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;

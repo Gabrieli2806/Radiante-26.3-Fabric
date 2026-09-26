@@ -139,6 +139,8 @@
   "options.radiante.hdr_paper_white": "HDR 纸白亮度",
   "options.radiante.hdr_paper_white.tooltip": "菜单、文字和世界中普通表面的亮度（尼特）。明亮房间调高，昏暗房间调低。",
   "options.radiante.nits_value": "%s：%s 尼特",
+  "options.radiante.hdr_debug_view": "HDR 调试视图",
+  "options.radiante.hdr_debug_view.tooltip": "将以 SDR 显示的内容（菜单、文字）染成蓝色。保持原色的部分即为 HDR 显示的世界。",
   "options.radiante.biome_fog_strength": "生物群系雾强度",
   "options.radiante.volumetric_fog": "体积雾",
   "options.radiante.volumetric_fog.tooltip": "像基岩版 RTX 一样对空气进行光线步进：阳光和月光在生物群系雾中散射，树木和地形会投下光束。比普通雾气明显更耗 GPU。",

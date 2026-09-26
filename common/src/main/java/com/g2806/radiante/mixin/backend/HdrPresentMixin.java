@@ -61,9 +61,12 @@ public abstract class HdrPresentMixin {
         if (HdrDisplay.isActive() && view != null && view.texture() instanceof VulkanGpuTexture texture) {
             int width = view.getWidth(0);
             int height = view.getHeight(0);
+            // Follow Minecraft's blit in everything but the conversion: it flips the image vertically.
+            boolean flipY = regions.srcOffsets(0).y() > regions.srcOffsets(1).y()
+                != regions.dstOffsets(0).y() > regions.dstOffsets(1).y();
             if (HdrProxy.compose(commandBuffer.address(), srcImage, srcLayout,
                 VulkanConst.toVk(texture.getFormat()), width, height, dstImage, this.swapchainWidth,
-                this.swapchainHeight, Options.hdrPaperWhiteNits, Options.hdrPeakNits)) {
+                this.swapchainHeight, Options.hdrPaperWhiteNits, Options.hdrPeakNits, flipY, Options.hdrDebugView)) {
                 return;
             }
         }

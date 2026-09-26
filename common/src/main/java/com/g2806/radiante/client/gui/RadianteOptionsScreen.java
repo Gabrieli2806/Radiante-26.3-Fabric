@@ -457,7 +457,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.list.addSmall(toggle, nitsSlider("options.radiante.hdr_peak", 400, 4000, Options.hdrPeakNits,
             value -> Options.hdrPeakNits = value));
         this.list.addSmall(nitsSlider("options.radiante.hdr_paper_white", 80, 400, Options.hdrPaperWhiteNits,
-            value -> Options.hdrPaperWhiteNits = value), null);
+            value -> Options.hdrPaperWhiteNits = value), OptionInstance.createBoolean("options.radiante.hdr_debug_view",
+                tooltip("options.radiante.hdr_debug_view"), Options.hdrDebugView,
+                value -> Options.hdrDebugView = value));
     }
 
     private static OptionInstance<Integer> nitsSlider(String key, int min, int max, int current,

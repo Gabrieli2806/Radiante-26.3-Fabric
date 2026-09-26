@@ -33,7 +33,8 @@ class HdrOutput {
     /**
      * Records the HDR composition of Minecraft's final image into `swapchainImage` on Minecraft's present
      * command buffer, in place of its own blit. The swapchain image is in TRANSFER_DST_OPTIMAL, the Minecraft
-     * image in `minecraftLayout`. Returns false when it could not (the caller then blits as usual).
+     * image in `minecraftLayout`. `flipY` presents it upside down, as Minecraft's own blit does. `debugView`
+     * tints everything shown as SDR blue. Returns false when it could not (the caller then blits as usual).
      */
     bool compose(VkCommandBuffer commandBuffer,
                  VkImage minecraftImage,
@@ -45,7 +46,9 @@ class HdrOutput {
                  uint32_t swapchainWidth,
                  uint32_t swapchainHeight,
                  float paperWhiteNits,
-                 float peakNits);
+                 float peakNits,
+                 bool flipY,
+                 bool debugView);
 
     /** Drops every Vulkan object; called when the renderer shuts down. */
     void release();
