@@ -68,6 +68,12 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private boolean rain;
     private boolean held;
     private float albedoEmission;
+    /**
+     * How far, in blocks, each vertex is pushed out along its normal. Rasterised, a layer drawn over the same
+     * model - armor trims, elytra trims, dyed overlays - sits exactly on it and wins the depth test by being drawn
+     * later; traced, two coplanar surfaces tie and the one underneath can come out on top, hiding the layer.
+     */
+    private float layerOffset;
     private boolean computeQuadNormals;
     private boolean overlayEnabled;
     private boolean glintEnabled;
@@ -153,6 +159,11 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         return this;
     }
 
+    public PBRVertexWriter layerOffset(float layerOffset) {
+        this.layerOffset = layerOffset;
+        return this;
+    }
+
     public PBRVertexWriter albedoEmission(float albedoEmission) {
         this.albedoEmission = albedoEmission;
         return this;
@@ -210,6 +221,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     }
 
     public void reset() {
+        this.layerOffset = 0.0f;
         this.vertexCount = 0;
         this.current = -1L;
         this.quadHasUnplaceableVertex = false;
@@ -372,6 +384,14 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
 
     @Override
     public VertexConsumer setNormal(float x, float y, float z) {
+        if (this.layerOffset != 0.0f) {
+            // A layer drawn over the same model (see layerOffset): the vertex moves out along its own normal.
+            MemoryUtil.memPutFloat(this.current + OFF_POS, MemoryUtil.memGetFloat(this.current + OFF_POS) + x * this.layerOffset);
+            MemoryUtil.memPutFloat(this.current + OFF_POS + 4,
+                MemoryUtil.memGetFloat(this.current + OFF_POS + 4) + y * this.layerOffset);
+            MemoryUtil.memPutFloat(this.current + OFF_POS + 8,
+                MemoryUtil.memGetFloat(this.current + OFF_POS + 8) + z * this.layerOffset);
+        }
         MemoryUtil.memPutInt(this.current + OFF_USE_NORM, 1);
         MemoryUtil.memPutFloat(this.current + OFF_NORM, x);
         MemoryUtil.memPutFloat(this.current + OFF_NORM + 4, y);

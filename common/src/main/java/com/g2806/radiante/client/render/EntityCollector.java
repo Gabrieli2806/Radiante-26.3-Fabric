@@ -83,9 +83,14 @@ public class EntityCollector implements SubmitNodeCollector {
     private final java.util.Set<RenderType> nameTagLayers = new java.util.HashSet<>();
     private boolean collectingNameTag;
     private int used;
+    /** How many times each model has been submitted for the current entity; see submitModel. */
+    private final java.util.Map<Object, Integer> modelLayers = new java.util.IdentityHashMap<>();
+    /** Blocks per layer: enough for the tracer to tell the surfaces apart, too little to see. */
+    private static final float LAYER_OFFSET = 0.002f;
 
     /** Drops the geometry of the previous entity, keeping the buffers for reuse. */
     public void reset() {
+        this.modelLayers.clear();
         this.writers.clear();
         this.nameTagLayers.clear();
         this.used = 0;
@@ -181,13 +186,20 @@ public class EntityCollector implements SubmitNodeCollector {
         // An outline colour means the glowing effect. Vanilla still draws the model, and draws the silhouette on
         // top from a post effect this renderer does not run; dropping the submission made a glowing mob or player
         // disappear instead. The outline comes from a separate copy of the entity; see EntityManager.collect.
-        VertexConsumer buffer = this.writer(renderType);
+        PBRVertexWriter writer = this.writer(renderType);
+        // Every further submission of the same model for this entity is a layer on top of the first (armor trims,
+        // elytra trims, leather dye overlays, any mod's decorations): lift it a hair per layer so it is traced in
+        // front of the one below, as drawing order puts it in front in vanilla.
+        int layer = this.modelLayers.merge(model, 1, Integer::sum) - 1;
+        writer.layerOffset(layer * LAYER_OFFSET);
+        VertexConsumer buffer = writer;
         if (uvMapping != null) {
             buffer = uvMapping.wrap(buffer);
         }
 
         model.setupAnim(state);
         model.renderToBuffer(poseStack, buffer, lightCoords, overlayCoords, tintedColor);
+        writer.layerOffset(0.0f);
     }
 
     @Override
