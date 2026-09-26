@@ -31,6 +31,9 @@ struct Vertex {
     // Likewise for rain sheets, whose texture falls while the sheets stand still.
     static constexpr uint32_t alphaModeRainFlag = 0x20u;
     static constexpr uint32_t rainSurfaceBit = 1u << 18u;
+    // And for what the player holds in first person, whose glow follows its own brightness setting.
+    static constexpr uint32_t alphaModeHeldFlag = 0x40u;
+    static constexpr uint32_t heldSurfaceBit = 1u << 19u;
 
     template <typename T>
     static VertexLayoutInfo initVertexLayout(std::vector<VertexAttribute> &attributes);

@@ -4,6 +4,7 @@
   "package": "com.g2806.radiante.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "compat.ClientShutdownWatchdogMixin",
     "compat.DistantHorizonsCloudsMixin",
     "backend.FailedStartFallbackMixin",
     "backend.PreferredGraphicsApiMixin",
@@ -24,6 +25,8 @@
     "framegen.FrameGenerationMarkerMixins$RenderMixin",
     "framegen.FrameGenerationMarkerMixins$TickMixin",
     "gui.VideoSettingsScreenMixin",
+    "render.EntityRenderStateMixin",
+    "render.EntityRendererMixin",
     "render.RenderTypeAccessors$RenderSetupAccessor",
     "render.RenderTypeAccessors$RenderTypeAccessor",
     "render.RenderTypeAccessors$TextureBindingAccessor",

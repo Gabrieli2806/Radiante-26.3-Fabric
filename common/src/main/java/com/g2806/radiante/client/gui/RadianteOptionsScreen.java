@@ -282,7 +282,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             brightnessSlider("options.radiante.night_brightness", Options.nightBrightness,
                 value -> Options.nightBrightness = value));
         this.list.addSmall(brightnessSlider("options.radiante.emission_brightness", Options.emissionBrightness,
-            value -> Options.emissionBrightness = value));
+                value -> Options.emissionBrightness = value),
+            brightnessSlider("options.radiante.held_light_brightness", Options.heldLightBrightness,
+                value -> Options.heldLightBrightness = value));
         this.list.addSmall(OptionInstance.createBoolean("options.radiante.block_outline",
                 tooltip("options.radiante.block_outline"), Options.blockOutline,
                 value -> Options.blockOutline = value),

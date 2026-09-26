@@ -6,6 +6,14 @@ backlog, not a promise.
 
 ## Open work and verification
 
+### Distant Horizons far terrain — keep improving compatibility
+
+Still seen in play: large LOD areas (coarse sections, up to 2048 blocks) blinking now and then as the quadtree
+swaps a coarse section for its finer children or back. Ideas: only swap once the replacements are built (the
+earlier `Retiring` approach, reworked for the "drop when built" selection), a short cross-fade or hysteresis on
+the split distance, and checking whether DH's own section timestamps change under us during generation and
+trigger rebuilds of whole coarse sections.
+
 ### Distant Horizons far terrain — implemented, pending in-game tuning
 
 `client/compat/distanthorizons`: DH's sections are read (the only DH-touching class is `DhData`; its public API
@@ -19,9 +27,11 @@ with ray tracing on, DH neither loaded nor generated anything. Sections are read
 (`provider.get`, not `getAsync`) and probed by their date only, so DH's file threads stay free for generation. Rays and the render distance haze reach out to DH's distance (`WorldUBO.traceDistance`).
 Verified in a fresh test world on Fabric and NeoForge: day, sunset, night, rain, clouds, underwater, from 70 to
 4000 blocks up, toggling ray tracing in a running world, leaving and rejoining, teleporting 4000 blocks.
-Known, not ours: quitting the game straight from a world while DH is still generating hangs on DH's world
-generation threads (non-daemon, waiting on chunks of a server that has stopped) until Minecraft's shutdown
-watchdog ends the process; it happens with ray tracing off too. Leaving the world first avoids it. Still to look at: frame cost at DH's default 512 chunk distance on a fully
+Quitting the game straight from a world while DH is still generating left DH's world generation threads
+(non-daemon, waiting on chunks of a server that has stopped) holding the process open until Minecraft's shutdown
+watchdog killed it with a crash report; it happens with ray tracing off too, so it is DH's. Worked around: once
+the game has quit, if only `DH-` threads are left, Radiante ends the process
+(`DistantHorizonsCompat.afterGameExit`). Still to look at: frame cost at DH's default 512 chunk distance on a fully
 generated world, the seam where far terrain meets loaded chunks, textured detail for the nearest sections, and
 NeoForge (same jar, untested).
 

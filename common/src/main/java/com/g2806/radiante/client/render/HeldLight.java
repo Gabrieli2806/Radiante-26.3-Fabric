@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -13,8 +14,8 @@ import org.joml.Vector4f;
 
 /**
  * The light of whatever the player holds: a torch, lantern, glowstone, a lava bucket. Vanilla has no such light;
- * the item only glows itself. Here it becomes a small point light a little in front of the player, bright in
- * proportion to the block's own light level, which the shaders sample like a block light.
+ * the item only glows itself. Here it becomes a small point light where the item is held, bright in proportion
+ * to the block's own light level, which the shaders sample like a block light.
  */
 public final class HeldLight {
 
@@ -28,19 +29,42 @@ public final class HeldLight {
     private HeldLight() {
     }
 
-    /** Camera-relative position (xyz) and reach (w); zero when nothing lit is held. */
+    /**
+     * Camera-relative position (xyz) and reach (w); zero when nothing lit is held. The light sits where the item
+     * is: in first person where vanilla draws the hand holding it, lower right or lower left of the view; seen
+     * from outside, at that hand beside the player's body.
+     */
     public static Vector4f position(Minecraft minecraft, Vec3 camera, float partialTicks) {
         LocalPlayer player = minecraft.player;
-        if (player == null || level(player) <= 0) {
+        ItemStack stack = player == null ? null : litStack(player);
+        if (stack == null) {
             return NONE;
         }
-        // Chest height, a little ahead: roughly where a held torch is, and outside the player's own model.
-        Vec3 look = player.getViewVector(partialTicks);
+        boolean mainHand = stack == player.getItemInHand(InteractionHand.MAIN_HAND);
+        boolean rightArm = (player.getMainArm() == HumanoidArm.RIGHT) == mainHand;
+        double side = rightArm ? 1.0 : -1.0;
         Vec3 eye = player.getEyePosition(partialTicks);
-        Vec3 at = eye.add(look.x * 0.45, look.y * 0.45 - 0.35, look.z * 0.45);
+        Vec3 at;
+        if (minecraft.options.getCameraType().isFirstPerson()) {
+            // Vanilla places a held item about half a block to the side, half down and three quarters ahead of
+            // the eye, turning with the view.
+            Vec3 forward = player.getViewVector(partialTicks);
+            // From the yaw alone, so looking straight up or down still has a side.
+            Vec3 right = Vec3.directionFromRotation(0.0f, player.getViewYRot(partialTicks)).cross(UP).normalize();
+            Vec3 up = right.cross(forward);
+            at = eye.add(forward.scale(0.7)).add(right.scale(0.45 * side)).add(up.scale(-0.4));
+        } else {
+            // A hanging arm's hand, beside the body and a little ahead of it.
+            float bodyYaw = net.minecraft.util.Mth.rotLerp(partialTicks, player.yBodyRotO, player.yBodyRot);
+            Vec3 forward = Vec3.directionFromRotation(0.0f, bodyYaw);
+            Vec3 right = forward.cross(UP).normalize();
+            at = eye.add(0.0, -0.95 * player.getScale(), 0.0).add(right.scale(0.4 * side)).add(forward.scale(0.15));
+        }
         return new Vector4f((float) (at.x - camera.x), (float) (at.y - camera.y), (float) (at.z - camera.z),
-            REACH * level(player) / 15.0f);
+            REACH * levelOf(stack) / 15.0f);
     }
+
+    private static final Vec3 UP = new Vec3(0.0, 1.0, 0.0);
 
     /** Radiance (rgb) and 1 in w while a lit item is held, all zero otherwise. */
     public static Vector4f color(Minecraft minecraft) {
@@ -56,11 +80,6 @@ public final class HeldLight {
         Vector3f tint = tintOf(stack);
         float strength = STRENGTH * level / 15.0f;
         return new Vector4f(tint.x * strength, tint.y * strength, tint.z * strength, 1.0f);
-    }
-
-    private static int level(LocalPlayer player) {
-        ItemStack stack = litStack(player);
-        return stack == null ? 0 : levelOf(stack);
     }
 
     /** The brighter of the two hands, or null when neither holds a light. */

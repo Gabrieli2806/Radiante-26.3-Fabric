@@ -211,7 +211,7 @@ vec3 sampleHeldLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, La
     shadowRay.pad0 = 0u;
     vec3 visibility = shadowRay.radiance * shadowRay.throughput;
 
-    return VPT_INDIRECT_LIGHT_STRENGTH * worldUBO.emissionBrightness * contribution * visibility * mainRay.throughput;
+    return VPT_INDIRECT_LIGHT_STRENGTH * worldUBO.heldLightBrightness * contribution * visibility * mainRay.throughput;
 }
 
 #endif

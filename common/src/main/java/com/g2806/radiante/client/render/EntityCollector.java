@@ -72,6 +72,7 @@ public class EntityCollector implements SubmitNodeCollector {
     private float entityEmission;
     private int colorOverride;
     private int colorTint = 0xFFFFFF;
+    private boolean held;
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
     /** Debug gizmo groups (F3+B hitboxes, F3+G chunk borders, ...) since the last drain; see drainGizmoGroups. */
     private final List<DrawableGizmoPrimitives.Group> gizmoGroups = new ArrayList<>();
@@ -91,6 +92,12 @@ public class EntityCollector implements SubmitNodeCollector {
         this.entityEmission = 0.0f;
         this.colorOverride = 0;
         this.colorTint = 0xFFFFFF;
+        this.held = false;
+    }
+
+    /** Marks everything collected from here on as held by the player; see PBRVertexWriter.held. */
+    public void held(boolean held) {
+        this.held = held;
     }
 
     /** Multiplies the colour of everything collected from here on, and so the light it gives off. */
@@ -152,6 +159,7 @@ public class EntityCollector implements SubmitNodeCollector {
             .computeQuadNormals(info.needsComputedNormals())
             .colorOverride(this.colorOverride)
             .colorTint(this.colorTint)
+            .held(this.held)
             .uvOffset(info.uOffset(), info.vOffset());
         this.writers.put(renderType, writer);
         return writer;

@@ -105,6 +105,45 @@ public final class DistantHorizonsCompat {
     }
 
     /**
+     * The game has quit and only its remaining threads keep the process alive. Distant Horizons' world generation
+     * threads are not daemons, and when the game is quit straight from a world while they generate, they wait
+     * forever for chunks from a server that has already stopped: the window was gone but the process hung until
+     * Minecraft's watchdog ended it half a minute later with a crash report. Once the game has had a moment to
+     * finish, if nothing but those threads is left, the process is ended here instead. Anything else still
+     * running is left alone.
+     */
+    public static void afterGameExit() {
+        if (!INSTALLED) {
+            return;
+        }
+        Thread watcher = new Thread(() -> {
+            try {
+                Thread.sleep(3000L);
+            } catch (InterruptedException e) {
+                return;
+            }
+            boolean onlyGeneration = false;
+            for (Thread thread : Thread.getAllStackTraces().keySet()) {
+                if (thread.isDaemon() || !thread.isAlive() || thread == Thread.currentThread()
+                    || thread.getName().equals("DestroyJavaVM")) {
+                    continue;
+                }
+                if (!thread.getName().startsWith("DH-")) {
+                    return;
+                }
+                onlyGeneration = true;
+            }
+            if (onlyGeneration) {
+                RadianteRenderer.LOGGER.info("Distant Horizons' world generation threads are stuck after quitting; "
+                    + "ending the process");
+                System.exit(0);
+            }
+        }, "Radiante exit watcher");
+        watcher.setDaemon(true);
+        watcher.start();
+    }
+
+    /**
      * How far rays have to reach to find the far terrain, in blocks; zero when there is none. The tracer's usual
      * reach ends well inside what Distant Horizons draws.
      */

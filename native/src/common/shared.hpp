@@ -301,7 +301,9 @@ namespace Data {
         // sheets, so the geometry never moves; the motion vectors of rain take this instead, or the upscalers
         // accumulate the drops over several frames into long streaks.
         T_FLOAT rainFallPerFrame;
-        T_UINT worldPad2;
+        // Brightness of what the player holds - its own glow and the light it casts - apart from light-giving
+        // blocks (emissionBrightness), so the two can be set separately.
+        T_FLOAT heldLightBrightness;
     };
 
     struct SkyUBO {

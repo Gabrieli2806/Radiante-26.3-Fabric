@@ -232,7 +232,7 @@ public final class EntityManager {
             return;
         }
 
-        addPending(System.identityHashCode(state), state.x, state.y, state.z, RAY_TRACING_WORLD);
+        addPending(historyId(state), state.x, state.y, state.z, RAY_TRACING_WORLD);
 
         if (state.appearsGlowing()) {
             // Vanilla's glowing effect is an outline of the entity in its team colour, seen through walls. A copy of
@@ -247,7 +247,7 @@ public final class EntityManager {
                 return;
             }
             if (!COLLECTOR.isEmpty()) {
-                addPending(System.identityHashCode(state) ^ GLOW_OUTLINE_ID_SALT, state.x, state.y, state.z,
+                addPending(historyId(state) ^ GLOW_OUTLINE_ID_SALT, state.x, state.y, state.z,
                     RAY_TRACING_GLOW_OUTLINE);
             }
         }
@@ -790,6 +790,7 @@ public final class EntityManager {
         POSE_STACK.setIdentity();
         // Minecraft poses the hands in its view space; rotate them into world orientation around the camera.
         POSE_STACK.mulPose(new Matrix4f(cameraState.viewRotationMatrix).invert());
+        COLLECTOR.held(true);
 
         try {
             minecraft.gameRenderer.firstPersonHandsAndItemsRenderer.submitHandsWithItems(
@@ -800,6 +801,17 @@ public final class EntityManager {
         }
 
         addPending(HAND_ID, cameraState.pos.x(), cameraState.pos.y(), cameraState.pos.z(), RAY_TRACING_HAND);
+    }
+
+    /**
+     * The id an entity's geometry is matched to the previous frame's by, for its motion vectors. Minecraft makes a
+     * new render state every frame, so keyed by the state object nothing ever matched: every moving mob and player
+     * was taken for a still one, and the upscaler, finding it elsewhere than the motion vectors said, threw its
+     * history away and showed it noisy.
+     */
+    private static int historyId(EntityRenderState state) {
+        int entityId = ((EntityIdHolder) state).radiante$entityId();
+        return entityId == Integer.MIN_VALUE ? System.identityHashCode(state) : entityId * 0x9E3779B1 ^ 0x7F4A7C15;
     }
 
     private static void addPending(int id, double x, double y, double z, int rayTracingFlag) {

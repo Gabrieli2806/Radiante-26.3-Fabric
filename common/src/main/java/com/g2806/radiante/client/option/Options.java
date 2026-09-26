@@ -106,6 +106,8 @@ public class Options {
     public static int nightBrightness = 25;
     /** Brightness of light emitting blocks and held lights, in percent. */
     public static int emissionBrightness = 5;
+    /** Brightness of what the player holds - its glow and the light it casts - in percent. */
+    public static int heldLightBrightness = 5;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
@@ -187,6 +189,9 @@ public class Options {
             nightBrightness = Integer.parseInt(props.getProperty("nightBrightness", String.valueOf(nightBrightness)));
             emissionBrightness =
                 Integer.parseInt(props.getProperty("emissionBrightness", String.valueOf(emissionBrightness)));
+            // Held lights used to follow the block setting; a config from before keeps them where they were.
+            heldLightBrightness = Integer.parseInt(props.getProperty("heldLightBrightness",
+                String.valueOf(emissionBrightness)));
             firstPersonShadow = Boolean.parseBoolean(
                 props.getProperty("firstPersonShadow", String.valueOf(firstPersonShadow)));
             vanillaSunPath = Boolean.parseBoolean(
@@ -242,6 +247,7 @@ public class Options {
         props.setProperty("dayBrightness", String.valueOf(dayBrightness));
         props.setProperty("nightBrightness", String.valueOf(nightBrightness));
         props.setProperty("emissionBrightness", String.valueOf(emissionBrightness));
+        props.setProperty("heldLightBrightness", String.valueOf(heldLightBrightness));
         props.setProperty("vanillaSunPath", String.valueOf(vanillaSunPath));
         props.setProperty("vanillaCelestialOrientation", String.valueOf(vanillaCelestialOrientation));
         props.setProperty("blockLightSampling", String.valueOf(blockLightSampling));

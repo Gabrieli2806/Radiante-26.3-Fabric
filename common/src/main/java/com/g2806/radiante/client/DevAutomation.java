@@ -160,6 +160,18 @@ public final class DevAutomation {
             RadianteClient.LOGGER.info("[dev] fps {} {}", action.substring(4), minecraft.getFps());
         } else if (action.startsWith("rainmv=")) {
             com.g2806.radiante.client.render.EntityManager.rainMotion = Boolean.parseBoolean(action.substring(7));
+        } else if (action.startsWith("hold=") || action.startsWith("release=")) {
+            // hold=forward / release=forward (also sprint, jump): walk in a test world to see bobbing and motion.
+            boolean down = action.startsWith("hold=");
+            String key = action.substring(action.indexOf('=') + 1);
+            net.minecraft.client.KeyMapping mapping = switch (key) {
+                case "sprint" -> minecraft.options.keySprint;
+                case "jump" -> minecraft.options.keyJump;
+                case "back" -> minecraft.options.keyDown;
+                default -> minecraft.options.keyUp;
+            };
+            mapping.setDown(down);
+            RadianteClient.LOGGER.info("[dev] {} {}", down ? "hold" : "release", key);
         } else if (action.startsWith("rt=")) {
             // As the toggle key does it (RadianteClient), without touching the saved options.
             com.g2806.radiante.client.option.Options.rayTracingEnabled = Boolean.parseBoolean(action.substring(3));

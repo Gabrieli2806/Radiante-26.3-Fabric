@@ -550,6 +550,17 @@ float worldTraceDistance() {
     return max(1000.0, worldUBO.traceDistance);
 }
 
+/** computeCameraMotionVector for a point of the hand, which is seen through the hand's own field of view. */
+vec2 handMotionVector(mat4 prevMVP, vec2 pixelCenter, vec3 position) {
+    vec4 oldPos = prevMVP * vec4(position, 1.0);
+    oldPos.xy /= oldPos.w;
+    // Last frame's scale: sprinting and other field of view effects change it from frame to frame.
+    float scale = lastWorldUBO.handFovScale;
+    if (scale > 0.0) { oldPos.xy /= scale; }
+    oldPos.xy = (oldPos.xy * 0.5 + 0.5) * vec2(gl_LaunchSizeEXT.xy);
+    return oldPos.xy - pixelCenter;
+}
+
 void preparePrimary(int step, int isHand, out float len, out uint mask, out uint missId) {
     if (isHand == 0) {
         missId = step == 0 ? VPT_WORLD_MISS_INDEX : VPT_WORLD_NO_VOLUMETRIC_MISS_INDEX;
@@ -820,6 +831,51 @@ void traceTransparent(inout MainRay transparentRay,
                   hasTransparentSecondHit, transparentSecondHitDistance);
 }
 
+#ifndef VPT_HAND_SAMPLES
+#    define VPT_HAND_SAMPLES 3
+#endif
+
+/**
+ * traceSecondary, several times from the same first hit, averaged. For the held item and hand: they sit right in
+ * front of the camera, big on screen, and a map or a block held up shows every speck of one-sample noise that the
+ * upscaler has not yet smoothed over. The first hit and its direct light are shared; only the bounces after it are
+ * taken again. The pixels are few, so the extra paths cost little.
+ */
+void traceSecondaryAveraged(int samples,
+                            int startBounce,
+                            int isHand,
+#if USE_SHARC && SHARC_QUERY
+                            SharcParameters sharcParameters,
+                            inout int sharcDebugBounceCount,
+                            inout bool sharcDebugCacheHit,
+#endif
+                            out bool hasSecondHit,
+                            out float secondHitDistance) {
+    MainRay start = mainRay;
+    MainRay path = start;
+    traceSecondary(path, startBounce, isHand,
+#if USE_SHARC && SHARC_QUERY
+                  sharcParameters, sharcDebugBounceCount, sharcDebugCacheHit,
+#endif
+                  hasSecondHit, secondHitDistance);
+    vec3 radiance = path.radiance;
+    for (int i = 1; i < samples; ++i) {
+        uint seed = path.seed;
+        path = start;
+        path.seed = seed;
+        bool extraHit;
+        float extraDistance;
+        traceSecondary(path, startBounce, isHand,
+#if USE_SHARC && SHARC_QUERY
+                      sharcParameters, sharcDebugBounceCount, sharcDebugCacheHit,
+#endif
+                      extraHit, extraDistance);
+        radiance += path.radiance;
+    }
+    path.radiance = radiance / float(max(samples, 1));
+    mainRay = path;
+}
+
 #if USE_SHARC && SHARC_UPDATE
 void traceSharcUpdate(
     ivec2 pixel, vec2 resolution, vec3 origin, vec3 direction, float fovY, float fovX, uint rayFlags) {
@@ -1079,27 +1135,30 @@ void main() {
             // zero motion vector tore it apart while walking. Where the hand sat last frame is the same point in the
             // camera's own (unbobbed) frame; last frame's bobbed projection then says where that was on screen.
             // The held item also moves by itself: a map held in both hands rises and sinks as the view tilts, and
-            // arms swing. Last frame's vertices of the hand are not a reliable guide to that (their buffers are
-            // rebuilt every frame), so when the hand has moved against the camera its history is dropped instead:
-            // a motion vector pointing off screen tells the upscaler this is new content, which is sharp at once
-            // rather than a blend of where the map was over the last frames.
+            // arms swing. Last frame's vertices of the hand say where it really was, but only roughly - a little
+            // off from frame to frame even when the hand is still. Following them on every small difference, or
+            // dropping the history on large ones, left whatever was held grainy: the upscaler kept starting over.
+            // So the hand is taken as fixed to the camera unless it clearly moved against it.
+            // The hand is traced with a field of view of its own (handFovScale): where a point of it shows on
+            // screen is the world projection with x and y divided by that scale. Projecting it as world geometry
+            // - and taking the point along the world ray rather than the hand ray - put its motion vectors off by
+            // as much as the view moved, so everything held smeared and went grainy in motion.
             vec2 motionVec;
             if (isHand == 1) {
-                vec3 handInView = mat3(worldUBO.cameraViewMat) * (origin + orgDirection * selectedFirstHit.tracedDistance);
+                vec3 handPos = origin + handDirection * selectedFirstHit.tracedDistance;
+                vec3 handInView = mat3(worldUBO.cameraViewMat) * handPos;
                 vec3 fixedInCamera = transpose(mat3(lastWorldUBO.cameraViewMat)) * handInView;
-                motionVec = computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(fixedInCamera, 1.0));
+                motionVec = handMotionVector(prevRelativeMVP, pixelCenter, fixedInCamera);
                 if (mainRay.hasPrevScenePos > 0u) {
-                    vec2 realMotion =
-                        computeCameraMotionVector(prevRelativeMVP, pixelCenter, vec4(mainRay.prevScenePos, 1.0));
-                    // The hand moved relative to the camera this frame (swing, two-handed map tilting with the
-                    // pitch): follow its real motion so the upscaler reprojects it instead of smearing. Dropping
-                    // the history here left the hand noisy; only a jump no reprojection explains resets it.
-                    vec2 delta = abs(realMotion - motionVec);
-                    if (any(greaterThan(delta, vec2(0.5)))) {
+                    vec2 realMotion = handMotionVector(prevRelativeMVP, pixelCenter, mainRay.prevScenePos);
+                    // Moved against the camera by a few pixels or more (a swing, a map tilting with the pitch):
+                    // follow it. A jump larger than any hand makes in a frame is a mismatch between last frame's
+                    // vertices and this frame's (another item, another pose), not motion; the camera-fixed guess
+                    // stands then.
+                    float moved = length(realMotion - motionVec);
+                    float screen = float(max(gl_LaunchSizeEXT.x, gl_LaunchSizeEXT.y));
+                    if (moved > max(3.0, screen * 0.004) && moved < screen * 0.15) {
                         motionVec = realMotion;
-                    }
-                    if (any(greaterThan(delta, vec2(gl_LaunchSizeEXT.xy) * 0.1))) {
-                        motionVec = vec2(gl_LaunchSizeEXT.xy) * 4.0;
                     }
                 }
             } else {
@@ -1121,7 +1180,8 @@ void main() {
         firstHitDirectRadiance = vec3(0.0);
         firstHitIndirectRadiance = vec3(0.0);
         if (isFirstHitNoisy) {
-            firstHitEmission = firstHitMat.albedoValue.rgb * firstHitMat.emission * worldUBO.emissionBrightness;
+            firstHitEmission = firstHitMat.albedoValue.rgb * firstHitMat.emission *
+                               (isHand == 1 ? worldUBO.heldLightBrightness : worldUBO.emissionBrightness);
             if (rayLobeType(mainRay) == 0u) {
                 isFirstHitDiffuse = true;
                 firstHitDirectRadiance = mainRay.directLightRadiance;
@@ -1177,7 +1237,7 @@ void main() {
                                   hasSecondHit, distFirstToSecond);
                 }
             } else {
-                traceSecondary(mainRay, startBounce, isHand,
+                traceSecondaryAveraged(isHand == 1 ? VPT_HAND_SAMPLES : 1, startBounce, isHand,
 #    if SHARC_QUERY && USE_SHARC
                               sharcParameters, sharcDebugBounceCount, sharcDebugCacheHit,
 #    endif
@@ -1186,7 +1246,7 @@ void main() {
                 if (isFirstHitDiffuse) { firstHitIndirectRadiance = mainRay.radiance - firstHitDirectRadiance; }
             }
         } else {
-            traceSecondary(mainRay, startBounce, isHand,
+            traceSecondaryAveraged(isHand == 1 ? VPT_HAND_SAMPLES : 1, startBounce, isHand,
 #    if SHARC_QUERY && USE_SHARC
                           sharcParameters, sharcDebugBounceCount, sharcDebugCacheHit,
 #    endif
