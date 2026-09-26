@@ -15,7 +15,6 @@ import com.seibel.distanthorizons.core.world.AbstractDhWorld;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.ILevelWrapper;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.Level;
@@ -40,7 +39,6 @@ final class DhData {
     /** Coarsest section level Distant Horizons stores. */
     static final int ROOT_SECTION_DETAIL = FullDataSourceProviderV2.ROOT_SECTION_DETAIL_LEVEL;
 
-    private static final long FETCH_TIMEOUT_SECONDS = 20;
 
     private DhData() {
     }
@@ -50,6 +48,19 @@ final class DhData {
         return DhApi.Delayed.worldProxy != null && DhApi.Delayed.configs != null
             && DhApi.Delayed.worldProxy.worldLoaded()
             && DhApi.Delayed.configs.graphics().renderingEnabled().getValue();
+    }
+
+    /**
+     * Has Distant Horizons take the client's level on as one it draws. It does that from its own renderer, the first
+     * time it draws the level; with ray tracing on from the start that never happens, and a level it does not draw
+     * is one it neither loads terrain for nor generates any, so the far terrain stayed empty. Cheap to repeat.
+     */
+    static void loadClientLevel() {
+        var world = SharedApi.tryGetDhClientWorld();
+        var wrapper = com.seibel.distanthorizons.core.api.internal.ClientApi.RENDER_STATE.clientLevelWrapper;
+        if (world != null && wrapper != null) {
+            world.getOrLoadClientLevel(wrapper);
+        }
     }
 
     /**
@@ -107,16 +118,18 @@ final class DhData {
     static final int COMPLETE = 2;
 
     /**
-     * How much of the section Distant Horizons has - none, some columns or all of them - without copying it out.
-     * Blocks; off the render thread.
+     * Whether Distant Horizons has stored anything for the section: a look at its date alone, without reading the
+     * data. Asking for the data itself to find out, for hundreds of sections, kept Distant Horizons' own file
+     * threads so busy that its terrain generation, which saves through the same threads, all but stopped.
      */
-    static int coverage(Object level, int detail, int x, int z) throws Exception {
+    static boolean exists(Object level, int detail, int x, int z) {
+        return timestamp(level, detail, x, z) != null;
+    }
+
+    /** How much of the section Distant Horizons has: none, some columns or all. Reads it; off the render thread. */
+    static int coverage(Object level, int detail, int x, int z) {
         FullDataSourceProviderV2 provider = provider(level);
-        if (provider == null) {
-            return NO_DATA;
-        }
-        FullDataSourceV2 source = provider.getAsync(DhSectionPos.encode((byte) detail, x, z))
-            .get(FETCH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        FullDataSourceV2 source = provider == null ? null : provider.get(DhSectionPos.encode((byte) detail, x, z));
         if (source == null) {
             return NO_DATA;
         }
@@ -150,8 +163,9 @@ final class DhData {
         if (provider == null) {
             return null;
         }
-        FullDataSourceV2 source = provider.getAsync(DhSectionPos.encode((byte) detail, x, z))
-            .get(FETCH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        // Read on this thread rather than through getAsync, which queues on Distant Horizons' own file threads;
+        // see exists.
+        FullDataSourceV2 source = provider.get(DhSectionPos.encode((byte) detail, x, z));
         if (source == null) {
             return null;
         }

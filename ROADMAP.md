@@ -13,7 +13,10 @@ only exposes full-detail columns, so three internal calls reach the coarse secti
 face boxes (`LodMesher`, caves filled, tops merged) and uploaded into `ChunkManager.EXTRA_SLOTS`, so they are
 traced like sections. Sections are chosen as a quadtree around the camera (`LodTerrain`), split only where DH
 has the finer sections complete (a coarse section keeps drawing the quadrants its children do not cover yet),
-leaving out loaded chunks. DH's render-thread task queue is drained each frame, or its loading stalls. Rays and the render distance haze reach out to DH's distance (`WorldUBO.traceDistance`).
+leaving out loaded chunks. DH's render-thread task queue is drained each frame, or its loading stalls, and the client level is
+handed to DH (`DhData.loadClientLevel`) since DH only does that from its own renderer: without it, starting
+with ray tracing on, DH neither loaded nor generated anything. Sections are read on Radiante's own threads
+(`provider.get`, not `getAsync`) and probed by their date only, so DH's file threads stay free for generation. Rays and the render distance haze reach out to DH's distance (`WorldUBO.traceDistance`).
 Verified in a fresh test world on Fabric and NeoForge: day, sunset, night, rain, clouds, underwater, from 70 to
 4000 blocks up, toggling ray tracing in a running world, leaving and rejoining, teleporting 4000 blocks.
 Known, not ours: quitting the game straight from a world while DH is still generating hangs on DH's world

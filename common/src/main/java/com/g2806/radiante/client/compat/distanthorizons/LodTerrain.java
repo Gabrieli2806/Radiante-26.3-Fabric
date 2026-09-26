@@ -54,7 +54,7 @@ final class LodTerrain {
     private static final long UNDATED_REFRESH_NS = 30_000_000_000L;
     /** A section Distant Horizons had no data for is asked again after this long. */
     private static final long RETRY_INTERVAL_NS = 15_000_000_000L;
-    private static final int BUILDER_THREADS = 3;
+    private static final int BUILDER_THREADS = 2;
     /**
      * Chunks past the loaded area that coarse sections leave out as well. They are built again when the player
      * moves, and flying fast the loaded area outran the rebuild: coarse blocks dozens wide stood over the new
@@ -106,6 +106,9 @@ final class LodTerrain {
         // Also with no world open: leaving one queues the release of Distant Horizons' GPU buffers here.
         DhData.runRenderThreadTasks();
         ClientLevel current = minecraft.level;
+        if (current != null) {
+            DhData.loadClientLevel();
+        }
         Object currentDhLevel = current != null && DhData.isActive() ? DhData.levelFor(current) : null;
         if (currentDhLevel == null) {
             reset();
@@ -537,7 +540,17 @@ final class LodTerrain {
         if (job.dhLevel == null || job.dhLevel != this.dhLevel) {
             return;
         }
-        int coverage = DhData.coverage(job.dhLevel, job.detail, job.x, job.z);
+        // A section with data is taken as complete until its build finds gaps: only reading the data tells, and
+        // that is left to the build. One already known to have gaps is read to see whether they have filled in.
+        Availability known = this.availability.get(job.key);
+        int coverage;
+        if (!DhData.exists(job.dhLevel, job.detail, job.x, job.z)) {
+            coverage = DhData.NO_DATA;
+        } else if (known != null && known.coverage() == DhData.PARTIAL) {
+            coverage = DhData.coverage(job.dhLevel, job.detail, job.x, job.z);
+        } else {
+            coverage = DhData.COMPLETE;
+        }
         if (job.dhLevel == this.dhLevel) {
             this.availability.put(job.key, new Availability(coverage, System.nanoTime()));
         }
