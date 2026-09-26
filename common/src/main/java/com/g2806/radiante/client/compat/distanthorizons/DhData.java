@@ -170,6 +170,29 @@ final class DhData {
     /** Stands for air while a column is being simplified; no run of it is kept. */
     private static final int AIR = -1;
 
+    /**
+     * Per column, whether Distant Horizons has it from a whole chunk - generated in full or read from one the
+     * player had loaded - rather than from its quick surface pass, which only roughs the height out in steps
+     * several blocks wide. Null when every column is.
+     */
+    private static boolean @Nullable [] detailed(FullDataSourceV2 source, int width) {
+        var steps = source.columnGenerationSteps;
+        if (steps == null || steps.size() < width * width) {
+            return null;
+        }
+        byte full = com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep.FEATURES.value;
+        boolean[] detailed = new boolean[width * width];
+        boolean all = true;
+        for (int x = 0; x < width; x++) {
+            for (int z = 0; z < width; z++) {
+                boolean whole = steps.getByte(FullDataSourceV2.relativePosToIndex(x, z)) >= full;
+                detailed[x * width + z] = whole;
+                all &= whole;
+            }
+        }
+        return all ? null : detailed;
+    }
+
     @SuppressWarnings("unchecked")
     private static LodSection copy(FullDataSourceV2 source, int detail, int minY, boolean complete) {
         int width = source.getWidthInDataColumns();
@@ -206,7 +229,7 @@ final class DhData {
                 runs[index] = simplify(sortTopFirst(Arrays.copyOf(column, count * LodSection.RUN_INTS)));
             }
         }
-        return new LodSection(width, columnBlocks, runs, biomes, complete);
+        return new LodSection(width, columnBlocks, runs, biomes, complete, detailed(source, width));
     }
 
     @SuppressWarnings("unchecked")

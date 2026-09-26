@@ -43,7 +43,7 @@ final class LodTerrain {
     /** A section is split while the camera is closer than this many of its widths. */
     private static final double SPLIT_DISTANCE = 1.0;
     private static final long RESELECT_INTERVAL_NS = 500_000_000L;
-    private static final double RESELECT_DISTANCE = 16.0;
+    private static final double RESELECT_DISTANCE = 8.0;
     /** How often built sections are checked for newer data: generation filling them in, or edits. */
     private static final long REFRESH_INTERVAL_NS = 5_000_000_000L;
     /**
@@ -60,7 +60,7 @@ final class LodTerrain {
      * moves, and flying fast the loaded area outran the rebuild: coarse blocks dozens wide stood over the new
      * chunks for a second or two. The margin gives the rebuild that long to land.
      */
-    private static final int SQUARE_MARGIN_CHUNKS = 3;
+    private static final int SQUARE_MARGIN_CHUNKS = 4;
     private static final int ALL_QUADRANTS = 0xF;
     private static final int ALL_CHUNKS = 0xFFFF;
 
@@ -262,10 +262,10 @@ final class LodTerrain {
             int minZ = z * width;
             boolean nearLoaded = overlapsLoaded(minX, minZ, width);
             int loadedChunks = 0;
-            int arrivedChunks = 0;
+            int rangeChunks = 0;
             if (nearLoaded && detail == DhData.BLOCK_SECTION_DETAIL) {
-                loadedChunks = loadedChunks(minX, minZ, width, true);
-                arrivedChunks = loadedChunks(minX, minZ, width, false);
+                loadedChunks = loadedChunks(minX, minZ, width);
+                rangeChunks = rangeChunks(minX, minZ, width);
                 if (loadedChunks == ALL_CHUNKS) {
                     return true;
                 }
@@ -307,7 +307,7 @@ final class LodTerrain {
                 ? new Hide(covered, 0, 0, true, this.minLoadedChunkX - SQUARE_MARGIN_CHUNKS,
                     this.maxLoadedChunkX + SQUARE_MARGIN_CHUNKS, this.minLoadedChunkZ - SQUARE_MARGIN_CHUNKS,
                     this.maxLoadedChunkZ + SQUARE_MARGIN_CHUNKS)
-                : new Hide(covered, loadedChunks, arrivedChunks, false, 0, 0, 0, 0);
+                : new Hide(covered, loadedChunks, rangeChunks, false, 0, 0, 0, 0);
             this.chosen.put(key, new Wanted(detail, x, z, hide));
             return built;
         }
@@ -366,8 +366,25 @@ final class LodTerrain {
                 && minChunkZ <= this.maxLoadedChunkZ + SQUARE_MARGIN_CHUNKS;
         }
 
+        /** Of the 4 x 4 chunks of a finest section, the ones inside the render distance, one bit each. */
+        private int rangeChunks(int minX, int minZ, int width) {
+            int chunks = width >> 4;
+            int mask = 0;
+            for (int cx = 0; cx < chunks; cx++) {
+                for (int cz = 0; cz < chunks; cz++) {
+                    int chunkX = (minX >> 4) + cx;
+                    int chunkZ = (minZ >> 4) + cz;
+                    if (chunkX >= this.minLoadedChunkX && chunkX <= this.maxLoadedChunkX
+                        && chunkZ >= this.minLoadedChunkZ && chunkZ <= this.maxLoadedChunkZ) {
+                        mask |= 1 << (cx * 4 + cz);
+                    }
+                }
+            }
+            return mask;
+        }
+
         /** Of the 4 x 4 chunks of a finest section, the ones built by the renderer, one bit each ({@code x * 4 + z}). */
-        private int loadedChunks(int minX, int minZ, int width, boolean mustBeBuilt) {
+        private int loadedChunks(int minX, int minZ, int width) {
             int chunks = width >> 4;
             int mask = 0;
             for (int cx = 0; cx < chunks; cx++) {
@@ -379,7 +396,7 @@ final class LodTerrain {
                     // Left to the far terrain until the renderer has built it, or the chunk would blink out
                     // between arriving and being built.
                     if (inRange && this.level.getChunkSource().hasChunk(chunkX, chunkZ)
-                        && (!mustBeBuilt || ChunkManager.isColumnBuilt(chunkX, chunkZ))) {
+                        && ChunkManager.isColumnBuilt(chunkX, chunkZ)) {
                         mask |= 1 << (cx * 4 + cz);
                     }
                 }
@@ -390,14 +407,16 @@ final class LodTerrain {
 
     /**
      * What a section leaves out: the quadrants finer sections draw (bit {@code (x & 1) | (z & 1) << 1} of the
-     * child), and the world's own chunks - exactly, one bit per chunk, for the finest sections; as the square of
-     * loaded chunks for coarser ones, which only draw near them while the finer ones are not there yet.
+     * child), and the world's own chunks - exactly, one bit per chunk, for the finest sections (built chunks in
+     * {@code chunks}; chunks in the render distance in {@code range}, where only whole-chunk data is drawn); as the
+     * square of loaded chunks and a margin for coarser ones, which only draw near them while the finer ones are
+     * not there yet.
      */
-    private record Hide(int quadrants, int chunks, int waterChunks, boolean square, int minChunkX, int maxChunkX, int minChunkZ,
-                        int maxChunkZ) {
+    private record Hide(int quadrants, int chunks, int range, boolean square, int minChunkX, int maxChunkX,
+                        int minChunkZ, int maxChunkZ) {
 
         boolean isEmpty() {
-            return this.quadrants == 0 && this.chunks == 0 && this.waterChunks == 0 && !this.square;
+            return this.quadrants == 0 && this.chunks == 0 && this.range == 0 && !this.square;
         }
     }
 
@@ -532,26 +551,34 @@ final class LodTerrain {
         }
         // Coarse sections are often put together from finer ones when asked for, without a stored date; a
         // missing date is no reason to skip one.
-        Long stamp = DhData.timestamp(job.dhLevel, tile.detail, tile.x, tile.z);
+        boolean cached = job.kind == KIND_BUILD && tile.section != null;
+        Long stamp = cached ? tile.dataStamp : DhData.timestamp(job.dhLevel, tile.detail, tile.x, tile.z);
         Hide hide = tile.hide;
         if (job.kind == KIND_REFRESH && Objects.equals(stamp, tile.dataStamp) && hide.equals(tile.builtHide)
             && (stamp != null || tile.builtComplete && System.nanoTime() - tile.builtAt < UNDATED_REFRESH_NS)) {
             return;
         }
-        LodSection section = DhData.fetch(job.dhLevel, tile.detail, tile.x, tile.z);
-        if (job.dhLevel == this.dhLevel) {
-            int coverage = section == null ? DhData.NO_DATA : section.complete() ? DhData.COMPLETE : DhData.PARTIAL;
-            this.availability.put(tile.key, new Availability(coverage, System.nanoTime()));
-        }
+        // Built again only because what it leaves out changed: the data it was built from is kept, so this is
+        // meshing alone. Reading a section back from Distant Horizons can take seconds, and flying fast the
+        // coarse terrain stood over the newly loaded chunks for all that time.
+        LodSection section = cached ? tile.section : null;
         if (section == null) {
-            return;
+            section = DhData.fetch(job.dhLevel, tile.detail, tile.x, tile.z);
+            if (job.dhLevel == this.dhLevel) {
+                int coverage = section == null ? DhData.NO_DATA
+                    : section.complete() ? DhData.COMPLETE : DhData.PARTIAL;
+                this.availability.put(tile.key, new Availability(coverage, System.nanoTime()));
+            }
+            if (section == null) {
+                return;
+            }
+            tile.section = section;
         }
 
         int width = 1 << tile.detail;
         int originX = tile.x * width;
         int originZ = tile.z * width;
         boolean[] hidden = hide.isEmpty() ? null : hiddenColumns(section, hide, originX, originZ);
-        boolean[] waterHidden = hide.waterChunks() == 0 ? null : chunkColumns(section, hide.waterChunks());
 
         solid.reset();
         water.reset();
@@ -560,7 +587,7 @@ final class LodTerrain {
             .overlayEnabled(false).computeQuadNormals(true);
         water.textureId(atlas).alphaMode(PBRVertexWriter.ALPHA_MODE_TRANSPARENT).coordinate(0).water(true)
             .overlayEnabled(false).computeQuadNormals(true);
-        LodMesher.mesh(section, currentLooks, this.minY, sinkOf(tile.detail), originX, originZ, hidden, waterHidden,
+        LodMesher.mesh(section, currentLooks, this.minY, sinkOf(tile.detail), originX, originZ, hidden,
             solid, water);
         solid.finish();
         water.finish();
@@ -638,6 +665,12 @@ final class LodTerrain {
                 if (!out && hide.chunks() != 0) {
                     out = inChunkMask(x, z, columnBlocks, hide.chunks());
                 }
+                if (!out && hide.range() != 0 && !section.detailed(x, z)) {
+                    // Inside the render distance only whole-chunk data stands in for a chunk not built yet; the
+                    // quick surface pass is steps several blocks wide at the wrong height, right next to the
+                    // real terrain. Flying fast into new land showed it everywhere.
+                    out = inChunkMask(x, z, columnBlocks, hide.range());
+                }
                 if (!out && hide.square()) {
                     // Any overlap, not the column's centre: a coarse column is up to a few dozen blocks wide and as
                     // tall as the highest thing in it, and one reaching into the loaded area stood over the real
@@ -650,22 +683,6 @@ final class LodTerrain {
                         && maxChunkZ >= hide.minChunkZ() && minChunkZ <= hide.maxChunkZ();
                 }
                 hidden[x * width + z] = out;
-            }
-        }
-        return hidden;
-    }
-
-    /**
-     * The columns of a finest section inside the given chunks. Water uses the chunks the world has loaded rather
-     * than built: two translucent surfaces a fraction of a block apart both show, darkening the sea in squares
-     * while a chunk is built, where two opaque ones would simply let the nearer win.
-     */
-    private static boolean[] chunkColumns(LodSection section, int chunks) {
-        int width = section.width();
-        boolean[] hidden = new boolean[width * width];
-        for (int x = 0; x < width; x++) {
-            for (int z = 0; z < width; z++) {
-                hidden[x * width + z] = inChunkMask(x, z, section.columnBlocks(), chunks);
             }
         }
         return hidden;
@@ -687,6 +704,8 @@ final class LodTerrain {
         volatile Hide hide;
         volatile boolean queued;
         volatile boolean urgent;
+        /** The data the geometry was last built from; see build. */
+        volatile @Nullable LodSection section;
         volatile boolean needsBuild = true;
         volatile boolean removed;
         volatile boolean builtOnce;
