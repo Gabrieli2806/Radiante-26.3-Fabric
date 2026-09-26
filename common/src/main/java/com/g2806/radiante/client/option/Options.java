@@ -107,7 +107,7 @@ public class Options {
     /** Brightness of light emitting blocks and held lights, in percent. */
     public static int emissionBrightness = 12;
     /** Brightness of what the player holds - its glow and the light it casts - in percent. */
-    public static int heldLightBrightness = 8;
+    public static int heldLightBrightness = 12;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
@@ -133,7 +133,7 @@ public class Options {
         dayBrightness = 25;
         nightBrightness = 35;
         emissionBrightness = 12;
-        heldLightBrightness = 8;
+        heldLightBrightness = 12;
         vanillaSunPath = true;
         vanillaCelestialOrientation = true;
     }

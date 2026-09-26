@@ -74,6 +74,9 @@ void main() {
 
         vec4 texel = sampleTexture(textures[nonuniformEXT(textureID)], uv, lod, false);
         alpha *= texel.a;
+        if (alphaMode == ALPHA_MODE_ADDITIVE) {
+            alpha = max(texel.r, max(texel.g, texel.b)) >= 0.1 ? alpha : 0.0;
+        }
         if (alphaMode == ALPHA_MODE_DECAL) {
             alpha *= clamp(1.0 - 2.0 * dot(texel.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
         }

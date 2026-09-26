@@ -84,6 +84,10 @@ void main() {
         }
     }
     vec4 shadedAlbedo = albedo * colorLayer;
+    if (alphaMode == ALPHA_MODE_ADDITIVE) {
+        ignoreIntersectionEXT;
+        return;
+    }
     // Stochastic surfaces (ice) block light with the same probability camera rays see them, so on average the
     // shadow lets through what the surface does.
     if (alphaMode == ALPHA_MODE_STOCHASTIC && shadedAlbedo.a >= 0.05 && shadedAlbedo.a < 0.999) {

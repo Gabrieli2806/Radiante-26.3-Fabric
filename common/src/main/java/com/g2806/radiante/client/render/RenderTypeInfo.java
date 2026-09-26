@@ -33,7 +33,7 @@ public final class RenderTypeInfo {
      * texture colour, so a high value pushes every channel past white and an enderman ends up with white eyes
      * instead of purple ones.
      */
-    private static final float ENTITY_EMISSION = 1.0f;
+    private static final float ENTITY_EMISSION = 0.5f;
     /**
      * The swirling shell of a charged creeper and a wither below half health. Vanilla adds it on top of the mob,
      * so it is light, not a lit surface.
@@ -256,6 +256,11 @@ public final class RenderTypeInfo {
         }
         if (this.solid || isEndPortal() || isEndGateway()) {
             return PBRVertexWriter.ALPHA_MODE_OPAQUE;
+        }
+        // Vanilla adds these onto the mob; read as a surface, their black texels covered the face with a dark
+        // glassy shell and the eyes came out washed out.
+        if (this.name.equals("eyes")) {
+            return PBRVertexWriter.ALPHA_MODE_ADDITIVE;
         }
         return this.blending ? PBRVertexWriter.ALPHA_MODE_TRANSPARENT : PBRVertexWriter.ALPHA_MODE_CUTOUT;
     }

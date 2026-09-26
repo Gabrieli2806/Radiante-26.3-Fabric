@@ -159,7 +159,7 @@ public class EntityCollector implements SubmitNodeCollector {
             .glintEnabled(info.isGlint())
             .alphaMode(info.alphaMode())
             .coordinate(NativeGeometry.COORDINATE_CAMERA)
-            .albedoEmission(info.emission() + this.entityEmission)
+            .albedoEmission((info.emission() + this.entityEmission) * emissionScale())
             .overlayEnabled(info.useOverlay())
             .computeQuadNormals(info.needsComputedNormals())
             .colorOverride(this.colorOverride)
@@ -168,6 +168,14 @@ public class EntityCollector implements SubmitNodeCollector {
             .uvOffset(info.uOffset(), info.vOffset());
         this.writers.put(renderType, writer);
         return writer;
+    }
+
+    /**
+     * Glowing entities (eyes, glow frames, end crystals, flames) follow the Block Emission slider like blocks do,
+     * their constants being tuned at its default of 12.
+     */
+    private static float emissionScale() {
+        return com.g2806.radiante.client.option.Options.emissionBrightness / 12.0f;
     }
 
     /** Set before an entity is submitted; cleared with the collector. */

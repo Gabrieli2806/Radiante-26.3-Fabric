@@ -50,7 +50,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
      * left out. Any of these changed by hand afterwards shows as Custom.
      */
     private enum Quality {
-        LOW("options.radiante.quality.low", 0, false, 0, false, 8),
+        LOW("options.radiante.quality.low", 0, false, 0, true, 8),
         MEDIUM("options.radiante.quality.medium", 1, false, 1, true, 12),
         HIGH("options.radiante.quality.high", 2, true, 1, true, 16),
         ULTRA("options.radiante.quality.ultra", 3, true, 2, true, 24),

@@ -13,6 +13,11 @@ const uint ALPHA_MODE_STOCHASTIC = 9u;
 // and a kept hit is shaded opaque in the texel's own dark colour.
 const uint ALPHA_MODE_DECAL = 10u;
 
+// An additive layer (vanilla's "eyes": enderman, spider and phantom eyes). Vanilla adds it onto what is below, so
+// its black texels change nothing. The any-hit shader keeps only texels with some colour, and a kept hit is shaded
+// opaque; it casts no shadow.
+const uint ALPHA_MODE_ADDITIVE = 11u;
+
 const float CUTOUT_ALPHA_THRESHOLD = 0.5;
 
 float resolveSurfaceAlpha(float alpha, uint alphaMode) {
@@ -20,7 +25,9 @@ float resolveSurfaceAlpha(float alpha, uint alphaMode) {
 
     if (alphaMode == ALPHA_MODE_OPAQUE) { return 1.0; }
 
-    if (alphaMode == ALPHA_MODE_STOCHASTIC || alphaMode == ALPHA_MODE_DECAL) { return alpha >= 0.05 ? 1.0 : 0.0; }
+    if (alphaMode == ALPHA_MODE_STOCHASTIC || alphaMode == ALPHA_MODE_DECAL || alphaMode == ALPHA_MODE_ADDITIVE) {
+        return alpha >= 0.05 ? 1.0 : 0.0;
+    }
 
     if (alphaMode == ALPHA_MODE_CUTOUT) {
         return alpha >= CUTOUT_ALPHA_THRESHOLD ? 1.0 : 0.0;

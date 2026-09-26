@@ -24,6 +24,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     public static final int ALPHA_MODE_STOCHASTIC = 9;
     /** A multiplicative decal such as block cracks; see util/alpha_mode.glsl. */
     public static final int ALPHA_MODE_DECAL = 10;
+    /** An additive layer: only its coloured texels are surface; see util/alpha_mode.glsl. */
+    public static final int ALPHA_MODE_ADDITIVE = 11;
 
     private static final int OFF_POS = 0;
     private static final int OFF_USE_NORM = 12;

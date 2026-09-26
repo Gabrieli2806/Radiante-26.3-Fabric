@@ -20,7 +20,7 @@ import org.joml.Vector4f;
 public final class HeldLight {
 
     /** Radiance of a light level 15 item. */
-    private static final float STRENGTH = 6.0f;
+    private static final float STRENGTH = 0.6f;
     /** How far a level 15 light reaches, in blocks; vanilla light fades out over the same distance. */
     private static final float REACH = 15.0f;
 
@@ -122,6 +122,6 @@ public final class HeldLight {
         if (id.contains("lava") || id.contains("magma")) {
             return new Vector3f(1.0f, 0.5f, 0.2f);
         }
-        return new Vector3f(1.0f, 0.78f, 0.5f);
+        return new Vector3f(1.0f, 0.7f, 0.35f);
     }
 }
