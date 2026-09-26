@@ -30,7 +30,8 @@ public abstract class PackDetectorMixin {
         if (isDropCheck()) {
             // A .mcpack dropped on the pack screen is only checked here before being copied into the folder, where
             // it gets converted like any other; without this Minecraft turned it away as "not a valid pack".
-            cir.setReturnValue(new FilePackResources.FileResourcesSupplier(content));
+            // That detector's pack type is the file's Path itself, which it then copies.
+            cir.setReturnValue(content);
             return;
         }
         if (!isResourcePackFolder(content.getParent())) {
