@@ -93,6 +93,23 @@ class ToneMappingModule : public WorldModule, public SharedObject<ToneMappingMod
 
     void preClose() override;
 
+    // What the HDR display output (HdrOutput) needs to tone map the same radiance the same way, brighter.
+    std::shared_ptr<vk::DeviceLocalBuffer> exposureBuffer() const {
+        return exposureData_;
+    }
+    float exposureBias() const {
+        return exposureBias_;
+    }
+    float saturation() const {
+        return saturation_;
+    }
+    float manualExposure() const {
+        return manualExposure_;
+    }
+    bool isAutoExposureEnabled() const {
+        return isAutoExposureEnabled_;
+    }
+
   private:
     static constexpr uint32_t histSize = 256;
 

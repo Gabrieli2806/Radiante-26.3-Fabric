@@ -112,7 +112,7 @@ void main() {
     vec3 shadedRgb = clamp(shaded.rgb, vec3(0.0), vec3(1.0));
     vec3 transmittance = vec3(clamp(albedo.a, 0.0, 1.0));
 
-    float factor = rayBounce(mainRay) == 0u ? VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
+    float factor = rayBounce(mainRay) == 0u ? 16.0 * VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
     float brightness = worldUBO.emissionBrightness;
     mainRay.radiance += factor * brightness * shadedRgb * alpha * pbrEmission * mainRay.throughput;
     // Layers that are light themselves rather than lit surfaces carry their emission per vertex: glowing eyes,

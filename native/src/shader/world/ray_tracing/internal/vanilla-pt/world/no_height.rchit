@@ -1024,7 +1024,7 @@ void main() {
     bool storedLobeType = false;
     for (int localBounce = 0; localBounce < 1; ++localBounce) {
         float emissionFactor =
-            (bounce == 0u && localBounce == 0) ? VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
+            (bounce == 0u && localBounce == 0) ? 16.0 * VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
         float blockEmissionWeight =
             (localBounce == 0 && bounce > 0u && vptBlockLightAlreadyCounted(gl_WorldRayOriginEXT, currentSurface.worldPos)) ?
                 0.0 : 1.0;

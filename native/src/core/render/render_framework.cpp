@@ -1,3 +1,4 @@
+#include "core/render/hdr_output.hpp"
 #include "core/vulkan/queue_lock.hpp"
 #include <thread>
 #include <chrono>
@@ -229,6 +230,7 @@ std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t wid
         }
 
         context->fuseInto(vk::ExternalImage::create(target, width, height, format));
+        HdrOutput::instance().noteWorldFrame(pipelineContext->worldPipelineContext);
     }
 
     context->uploadCommandBuffer->end();

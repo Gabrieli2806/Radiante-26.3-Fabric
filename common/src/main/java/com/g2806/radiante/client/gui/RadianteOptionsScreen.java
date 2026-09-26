@@ -336,6 +336,8 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 this.pendingReflex, value -> this.pendingReflex = value));
         }
 
+        addHdrOptions();
+
         if (clouds != null) {
             this.list.addSmall(clouds);
         }
@@ -410,8 +412,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                         this.pendingVolumetricFog = value;
                         refreshQualityLater();
                     }),
-                firstPersonShadow);
-            this.list.addSmall(debugLogging);
+                brightnessSlider("options.radiante.volumetric_fog_strength", Options.volumetricFogStrength,
+                    value -> Options.volumetricFogStrength = value));
+            this.list.addSmall(firstPersonShadow, debugLogging);
         } else {
             this.list.addSmall(firstPersonShadow, debugLogging);
         }
@@ -430,6 +433,38 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                     tooltip("options.radiante.depth_of_field"), this.pendingDepthOfField,
                     value -> this.pendingDepthOfField = value));
         }
+    }
+
+    /**
+     * HDR display output. The window's format is picked when it is created, so the toggle takes effect after a
+     * restart; its tooltip says whether HDR is running now. The brightness sliders apply at once.
+     */
+    private void addHdrOptions() {
+        String tooltipKey = com.g2806.radiante.client.hdr.HdrDisplay.isActive() ? "options.radiante.hdr_output.tooltip"
+            : Options.hdrOutput ? "options.radiante.hdr_output.tooltip_pending"
+                : "options.radiante.hdr_output.tooltip";
+        OptionInstance<Boolean> toggle = OptionInstance.createBoolean("options.radiante.hdr_output",
+            OptionInstance.cachedConstantTooltip(Component.translatable(tooltipKey)), Options.hdrOutput, value -> {
+                Options.hdrOutput = value;
+                if (this.minecraft != null) {
+                    this.minecraft.execute(this::reopenWithSameChoices);
+                }
+            });
+        if (!Options.hdrOutput) {
+            this.list.addSmall(toggle, null);
+            return;
+        }
+        this.list.addSmall(toggle, nitsSlider("options.radiante.hdr_peak", 400, 4000, Options.hdrPeakNits,
+            value -> Options.hdrPeakNits = value));
+        this.list.addSmall(nitsSlider("options.radiante.hdr_paper_white", 80, 400, Options.hdrPaperWhiteNits,
+            value -> Options.hdrPaperWhiteNits = value), null);
+    }
+
+    private static OptionInstance<Integer> nitsSlider(String key, int min, int max, int current,
+        java.util.function.Consumer<Integer> onChange) {
+        return new OptionInstance<Integer>(key, RadianteOptionsScreen.<Integer>tooltip(key),
+            (caption, value) -> Component.translatable("options.radiante.nits_value", caption, value),
+            new OptionInstance.IntRange(min, max, false), Math.max(min, Math.min(max, current)), onChange::accept);
     }
 
     /** A setting the quality level covers was changed by hand: the level shown above it has to follow. */

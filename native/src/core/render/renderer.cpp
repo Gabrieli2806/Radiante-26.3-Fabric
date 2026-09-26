@@ -1,3 +1,4 @@
+#include "core/render/hdr_output.hpp"
 #include "core/render/renderer.hpp"
 
 #include "core/render/buffers.hpp"
@@ -35,6 +36,7 @@ std::shared_ptr<World> Renderer::world() {
 
 void Renderer::close() {
     if (framework_ != nullptr) framework_->waitDeviceIdle();
+    HdrOutput::instance().release();
 
     if (world_ != nullptr) world_->close();
     if (framework_ != nullptr) framework_->close();

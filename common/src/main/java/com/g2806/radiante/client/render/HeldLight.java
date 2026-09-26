@@ -36,11 +36,30 @@ public final class HeldLight {
      */
     public static Vector4f position(Minecraft minecraft, Vec3 camera, float partialTicks) {
         LocalPlayer player = minecraft.player;
-        ItemStack stack = player == null ? null : litStack(player);
-        if (stack == null) {
+        if (player == null) {
             return NONE;
         }
-        boolean mainHand = stack == player.getItemInHand(InteractionHand.MAIN_HAND);
+        int mainLevel = levelOf(player.getItemInHand(InteractionHand.MAIN_HAND));
+        int offLevel = levelOf(player.getItemInHand(InteractionHand.OFF_HAND));
+        if (mainLevel <= 0 && offLevel <= 0) {
+            return NONE;
+        }
+        // A light in each hand: the renderer traces one held light, so it goes between the two hands, weighted
+        // toward the brighter, carrying both (see color). Both sides of the player are lit, not just one.
+        Vec3 at = Vec3.ZERO;
+        if (mainLevel > 0) {
+            at = at.add(handPosition(minecraft, player, true, partialTicks).scale(mainLevel));
+        }
+        if (offLevel > 0) {
+            at = at.add(handPosition(minecraft, player, false, partialTicks).scale(offLevel));
+        }
+        at = at.scale(1.0 / (mainLevel + offLevel));
+        return new Vector4f((float) (at.x - camera.x), (float) (at.y - camera.y), (float) (at.z - camera.z),
+            REACH * Math.max(mainLevel, offLevel) / 15.0f);
+    }
+
+    /** Where the hand holding an item is, in the world. */
+    private static Vec3 handPosition(Minecraft minecraft, LocalPlayer player, boolean mainHand, float partialTicks) {
         boolean rightArm = (player.getMainArm() == HumanoidArm.RIGHT) == mainHand;
         double side = rightArm ? 1.0 : -1.0;
         Vec3 eye = player.getEyePosition(partialTicks);
@@ -60,8 +79,7 @@ public final class HeldLight {
             Vec3 right = forward.cross(UP).normalize();
             at = eye.add(0.0, -0.95 * player.getScale(), 0.0).add(right.scale(0.4 * side)).add(forward.scale(0.15));
         }
-        return new Vector4f((float) (at.x - camera.x), (float) (at.y - camera.y), (float) (at.z - camera.z),
-            REACH * levelOf(stack) / 15.0f);
+        return at;
     }
 
     private static final Vec3 UP = new Vec3(0.0, 1.0, 0.0);
@@ -72,26 +90,18 @@ public final class HeldLight {
         if (player == null) {
             return NONE;
         }
-        ItemStack stack = litStack(player);
-        int level = stack == null ? 0 : levelOf(stack);
-        if (level <= 0) {
+        Vector3f radiance = new Vector3f();
+        for (InteractionHand hand : InteractionHand.values()) {
+            ItemStack stack = player.getItemInHand(hand);
+            int level = levelOf(stack);
+            if (level > 0) {
+                radiance.add(tintOf(stack).mul(STRENGTH * level / 15.0f));
+            }
+        }
+        if (radiance.lengthSquared() <= 0.0f) {
             return NONE;
         }
-        Vector3f tint = tintOf(stack);
-        float strength = STRENGTH * level / 15.0f;
-        return new Vector4f(tint.x * strength, tint.y * strength, tint.z * strength, 1.0f);
-    }
-
-    /** The brighter of the two hands, or null when neither holds a light. */
-    private static ItemStack litStack(LocalPlayer player) {
-        ItemStack main = player.getItemInHand(InteractionHand.MAIN_HAND);
-        ItemStack off = player.getItemInHand(InteractionHand.OFF_HAND);
-        int mainLevel = levelOf(main);
-        int offLevel = levelOf(off);
-        if (mainLevel <= 0 && offLevel <= 0) {
-            return null;
-        }
-        return mainLevel >= offLevel ? main : off;
+        return new Vector4f(radiance, 1.0f);
     }
 
     private static int levelOf(ItemStack stack) {

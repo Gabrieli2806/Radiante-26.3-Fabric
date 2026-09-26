@@ -292,7 +292,7 @@ public final class RadianteRenderer {
             EntityManager.rainFallPerFrame(levelRenderState), farReach, Options.heldLightBrightness / 100.0f));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
-        Vector4f mobEffect = mobEffectFog(minecraft,
+        Vector4f mobEffect = fogControls(minecraft,
             gameRenderer.gameRenderState().lightmapRenderState.darknessEffectScale);
         Vector3f skyColor = sky.skyColor == null ? new Vector3f(0.5f, 0.6f, 1.0f) : new Vector3f(sky.skyColor);
         Vector4f horizonColor = sky.sunriseAndSunsetColor == null
@@ -326,10 +326,11 @@ public final class RadianteRenderer {
      * by its blend factor, which eases in and out; Blindness over its last second. x is the stronger of the two,
      * y Darkness's lightmap pulse, which peaks at 0.45 in vanilla and is scaled here to 0 to 1.
      */
-    private static Vector4f mobEffectFog(Minecraft minecraft, float darknessEffectScale) {
+    private static Vector4f fogControls(Minecraft minecraft, float darknessEffectScale) {
         net.minecraft.client.player.LocalPlayer player = minecraft.player;
         if (player == null) {
-            return new Vector4f(0.0f);
+            return new Vector4f(0.0f, 0.0f, com.g2806.radiante.client.option.Options.volumetricFogStrength / 100.0f,
+                0.0f);
         }
         float darkness = player.getEffectBlendFactor(net.minecraft.world.effect.MobEffects.DARKNESS,
             minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false));
@@ -340,7 +341,7 @@ public final class RadianteRenderer {
             blindness = blind.isInfiniteDuration() ? 1.0f : Math.min(1.0f, blind.getDuration() / 20.0f);
         }
         return new Vector4f(Math.max(darkness, blindness), Mth.clamp(darknessEffectScale / 0.45f, 0.0f, 1.0f),
-            0.0f, 0.0f);
+            com.g2806.radiante.client.option.Options.volumetricFogStrength / 100.0f, 0.0f);
     }
 
     /** How far the custom sun path leans south of vanilla's overhead arc. */

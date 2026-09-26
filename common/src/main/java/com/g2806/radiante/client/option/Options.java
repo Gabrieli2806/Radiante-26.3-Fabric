@@ -68,8 +68,20 @@ public class Options {
     public static int emissionBrightness = 12;
     /** Brightness of what the player holds - its glow and the light it casts - in percent. */
     public static int heldLightBrightness = 12;
+    /** How thick the volumetric fog (the air that shows light shafts) is, in percent of the tuned values. */
+    public static int volumetricFogStrength = 100;
     /** How thick the biome haze is, in percent of the tuned values. */
     public static int biomeFogStrength = 100;
+    /**
+     * HDR display output: the window becomes a 16-bit float scRGB swapchain and the traced world keeps its
+     * highlights above SDR white. Needs HDR on in the operating system; the window format is picked at startup,
+     * so a change takes effect after a restart.
+     */
+    public static boolean hdrOutput = false;
+    /** HDR: the brightness of the display's brightest white, in nits. */
+    public static int hdrPeakNits = 1000;
+    /** HDR: the brightness SDR white (menus, text, the world's midtones) is shown at, in nits. */
+    public static int hdrPaperWhiteNits = 200;
     /** Loading Streamline replaces Minecraft's Vulkan loader, so it only happens when the player asks for it. */
     public static boolean frameGeneration = false;
     /** Frames DLSS generates per rendered frame: 0 is off, 1 is 2x, up to 5 for 6x. */
@@ -94,6 +106,7 @@ public class Options {
         nightBrightness = 35;
         emissionBrightness = 12;
         heldLightBrightness = 12;
+        volumetricFogStrength = 100;
         vanillaSunPath = true;
         vanillaCelestialOrientation = true;
     }
@@ -152,6 +165,8 @@ public class Options {
         bool("collectChunkEmission", () -> collectChunkEmission, v -> setCollectChunkEmission(v, false)),
         bool("debugLogging", () -> debugLogging, v -> setDebugLogging(v, false)),
         bool("biomeFog", () -> biomeFog, v -> biomeFog = v),
+        number("volumetricFogStrength", () -> volumetricFogStrength,
+            v -> volumetricFogStrength = Math.max(0, Math.min(400, v))),
         number("biomeFogStrength", () -> biomeFogStrength, v -> biomeFogStrength = Math.max(0, Math.min(400, v))),
         bool("firstPersonShadow", () -> firstPersonShadow, v -> firstPersonShadow = v),
         bool("heldItemLight", () -> heldItemLight, v -> heldItemLight = v),
@@ -172,7 +187,11 @@ public class Options {
         bool("useOpenGl", () -> useOpenGl, v -> useOpenGl = v),
         bool("frameGeneration", () -> frameGeneration, v -> frameGeneration = v),
         number("generatedFrames", () -> generatedFrames, v -> generatedFrames = v),
-        bool("reflex", () -> reflex, v -> reflex = v));
+        bool("reflex", () -> reflex, v -> reflex = v),
+        bool("hdrOutput", () -> hdrOutput, v -> hdrOutput = v),
+        number("hdrPeakNits", () -> hdrPeakNits, v -> hdrPeakNits = Math.max(200, Math.min(10000, v))),
+        number("hdrPaperWhiteNits", () -> hdrPaperWhiteNits,
+            v -> hdrPaperWhiteNits = Math.max(80, Math.min(500, v))));
 
     public static void readOptions() {
         Path path = RadianteClient.radianceDir.resolve(OPTION_PROPERTIES);

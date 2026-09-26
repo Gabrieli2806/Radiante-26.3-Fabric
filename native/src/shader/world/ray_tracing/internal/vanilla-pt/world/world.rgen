@@ -363,8 +363,10 @@ void integrateVolumetricFog(vec3 origin,
     volumetricAirMedium(cosTheta, sigmaS, sigmaT);
     float airDensity = volumetricAirDensity();
     float scatteringStrength = max(VPT_VOLUMETRIC_LIGHT_SCATTERING_STRENGTH, 0.0);
-    vec3 airSigmaS = sigmaS * airDensity * scatteringStrength;
-    vec3 airSigmaT = sigmaT * airDensity * 0.45;
+    // The Volumetric Fog Strength option thickens or thins the air as a whole, its glow and its haze together.
+    float fogStrength = max(skyUBO.fogControls.z, 0.0);
+    vec3 airSigmaS = sigmaS * airDensity * scatteringStrength * fogStrength;
+    vec3 airSigmaT = sigmaT * airDensity * 0.45 * fogStrength;
 
     float biomeDensity = biomeFogDensity();
     vec3 biomeAlbedo = clamp(skyUBO.biomeFog.rgb, vec3(0.0), vec3(1.5));
@@ -1180,8 +1182,9 @@ void main() {
         firstHitDirectRadiance = vec3(0.0);
         firstHitIndirectRadiance = vec3(0.0);
         if (isFirstHitNoisy) {
+            // Same strength as the hit shaders give a glowing surface; see default.rchit.
             firstHitEmission = firstHitMat.albedoValue.rgb * firstHitMat.emission *
-                               worldUBO.emissionBrightness;
+                               worldUBO.emissionBrightness * 16.0 * VPT_DIRECT_LIGHT_STRENGTH;
             if (rayLobeType(mainRay) == 0u) {
                 isFirstHitDiffuse = true;
                 firstHitDirectRadiance = mainRay.directLightRadiance;
@@ -1268,17 +1271,17 @@ void main() {
         // pulse) and everything past it goes black. Applied even where fog is otherwise skipped.
         // Linear from fogStart to fogEnd as vanilla's fog is; the sky (and, while the effect is still strong, all of
         // it) goes black with the effect's strength, so it fades back in as the fog pulls away instead of popping.
-        float strength = skyUBO.mobEffectFog.x;
+        float strength = skyUBO.fogControls.x;
         // Darkness's pulse also pulls the fog in: at each beat the wall closes to about half its distance and
         // then eases back out, so the dark visibly breathes toward the player.
-        float pulseReach = 1.0 - 0.5 * skyUBO.mobEffectFog.y;
+        float pulseReach = 1.0 - 0.5 * skyUBO.fogControls.y;
         float effectFogStart = worldUBO.fogStart * pulseReach;
         float effectFogEnd = worldUBO.fogEnd * pulseReach;
         float fogAmount = surfaceDepth == INF_DISTANCE ?
             1.0 : clamp((surfaceDepth - effectFogStart) / max(effectFogEnd - effectFogStart, 0.01), 0.0, 1.0);
         float transmittance = 1.0 - fogAmount * smoothstep(0.0, 0.3, strength);
         // Darkness's pulse: vanilla takes it off the lightmap, so everything lit dims at once and the world blinks.
-        transmittance *= 1.0 - 0.95 * skyUBO.mobEffectFog.y;
+        transmittance *= 1.0 - 0.95 * skyUBO.fogControls.y;
         // Black, not the fog colour: that one is still lifted by the sky and came out grey.
         vec3 additive = vec3(0.0);
         if (useTransparentSplit) {

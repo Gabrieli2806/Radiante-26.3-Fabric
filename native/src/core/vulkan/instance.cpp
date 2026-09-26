@@ -86,6 +86,8 @@ VkResult vk::Instance::createMerged(const VkInstanceCreateInfo *baseInfo,
     }
 
     extStorage.insert(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    // Lets the window offer HDR colour spaces (scRGB, HDR10); used only when the HDR option picks one.
+    extStorage.insert(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
 
     uint32_t extensionCount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);

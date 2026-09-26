@@ -162,7 +162,7 @@ public class BufferProxy {
                              Vector4fc biomeFogHeights,
                              Vector4fc waterExtinction,
                              Vector4fc waterAlbedo,
-                             Vector4fc mobEffectFog) {
+                             Vector4fc fogControls) {
     }
 
     public static void updateSkyUniform(SkyUniform uniform) {
@@ -255,7 +255,7 @@ public class BufferProxy {
             offset = putVec4(bb, offset, uniform.biomeFogHeights());
             offset = putVec4(bb, offset, uniform.waterExtinction());
             offset = putVec4(bb, offset, uniform.waterAlbedo());
-            putVec4(bb, offset, uniform.mobEffectFog());
+            putVec4(bb, offset, uniform.fogControls());
 
             updateSkyUniform(addr);
         }

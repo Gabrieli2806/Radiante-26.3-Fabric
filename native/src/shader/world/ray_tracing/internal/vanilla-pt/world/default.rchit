@@ -1023,8 +1023,10 @@ void main() {
     vec3 currentViewDir = viewDir;
     bool storedLobeType = false;
     for (int localBounce = 0; localBounce < 1; ++localBounce) {
+        // A glowing surface is seen at the strength its light is cast with (VPT_INDIRECT_LIGHT_STRENGTH is 16):
+        // at 1x a torch flame or glowstone lit the room around it while looking switched off itself.
         float emissionFactor =
-            (bounce == 0u && localBounce == 0) ? VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
+            (bounce == 0u && localBounce == 0) ? 16.0 * VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
         float blockEmissionWeight =
             (localBounce == 0 && bounce > 0u && vptBlockLightAlreadyCounted(gl_WorldRayOriginEXT, currentSurface.worldPos)) ?
                 0.0 : 1.0;
