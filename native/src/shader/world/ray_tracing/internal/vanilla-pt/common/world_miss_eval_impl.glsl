@@ -21,6 +21,9 @@ layout(set = 2, binding = 2) uniform SkyUniform {
 layout(location = 0) rayPayloadInEXT MainRay mainRay;
 
 #include "common/volumetric_cloud.glsl"
+#include "common/biome_fog_light.glsl"
+#include "common/bedrock_atmosphere.glsl"
+#include "common/biome_haze.glsl"
 
 bool missIntersectSphere(vec3 rayOrigin, vec3 rayDir, float radius, out float tNear, out float tFar) {
     float b = dot(rayOrigin, rayDir);
@@ -119,6 +122,13 @@ vec4 evalSunBillboard(vec3 rayDir) {
 }
 
 /** How much of a halo of the given angular width (radians) and strength reaches `rayDir`; 0 behind the body. */
+#ifndef VPT_SUN_GLOW
+#    define VPT_SUN_GLOW 0.08
+#endif
+#ifndef VPT_SUN_GLOW_WIDTH
+#    define VPT_SUN_GLOW_WIDTH 0.15
+#endif
+
 float celestialHalo(vec3 rayDir, vec3 bodyDir, float width, float strength) {
     float c = dot(normalize(rayDir), bodyDir);
     if (c <= 0.0) return 0.0;
@@ -210,10 +220,19 @@ void main() {
     // A soft halo around the sun and moon, as Bedrock RTX draws: faint, and only where the camera looks, so it
     // adds nothing to the light bounced around the world.
     if (worldUBO.skyType == 1 && rayBounce(mainRay) == 0u) {
-        backgroundRadiance += celestialHalo(rayDir, celestialSunDirection(), 0.035, 0.012) *
+        backgroundRadiance += celestialHalo(rayDir, celestialSunDirection(), VPT_SUN_GLOW_WIDTH, VPT_SUN_GLOW) *
                               (VPT_SUN_RADIANCE * worldUBO.sunBrightness) * (1.0 - progress);
         backgroundRadiance += celestialHalo(rayDir, celestialMoonDirection(), 0.10, 0.10) *
                               (VPT_MOON_RADIANCE * worldUBO.moonBrightness) * (1.0 - progress);
+    }
+
+    // Sky seen off water, glass or any bounce sits behind the same biome fog as the sky the camera sees; without it
+    // reflections showed the clear, dark blue sky above the fog.
+    if (worldUBO.skyType == 1 && rayBounce(mainRay) > 0u && biomeHazeActive()) {
+        float hazeTransmittance;
+        vec3 hazeAdditive;
+        biomeHaze(rayDir, true, 0.0, hazeTransmittance, hazeAdditive);
+        backgroundRadiance = backgroundRadiance * hazeTransmittance + hazeAdditive;
     }
 
 #if VPT_ALLOW_VOLUMETRIC_CLOUD_MISS

@@ -192,6 +192,54 @@
             "define": "VPT_VOLUMETRIC_LIGHT_SCATTERING_STRENGTH"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_atmosphere",
+            "type": "bool",
+            "default_value": "render_pipeline.true",
+            "define": "VPT_BEDROCK_ATMOSPHERE"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_sky_intensity",
+            "type": "float_range:0.0-64.0",
+            "default_value": "1.0",
+            "define": "VPT_BEDROCK_SKY_INTENSITY"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.biome_fog_scattering",
+            "type": "float_range:0.0-16.0",
+            "default_value": "0.4",
+            "define": "VPT_BIOME_FOG_SCATTERING"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.water_density",
+            "type": "float_range:0.0-4.0",
+            "default_value": "0.3",
+            "define": "VPT_WATER_DENSITY"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.water_scattering",
+            "type": "float_range:0.0-64.0",
+            "default_value": "8.0",
+            "define": "VPT_WATER_SCATTERING"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.sun_glow",
+            "type": "float_range:0.0-1.0",
+            "default_value": "0.08",
+            "define": "VPT_SUN_GLOW"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.sun_glow_width",
+            "type": "float_range:0.01-0.5",
+            "default_value": "0.15",
+            "define": "VPT_SUN_GLOW_WIDTH"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.biome_fog_forward",
+            "type": "float_range:0.0-0.95",
+            "default_value": "0.75",
+            "define": "VPT_BIOME_FOG_FORWARD"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_light_max_distance",
             "type": "float_range:32.0-320.0",
             "default_value": "128.0",
@@ -453,6 +501,42 @@
             "sampled_binding": 26,
             "filter": "linear",
             "address_mode": "repeat"
+        },
+        {
+            "name": "water_caustics",
+            "type": "file",
+            "path": "textures/caustics_fallback.png",
+            "external_paths": [
+                "radiante/bedrock/caustics.png",
+                "C:/XboxGames/Minecraft for Windows/Content/data/ray_tracing/caustics.png"
+            ],
+            "sampled_binding": 36,
+            "filter": "linear",
+            "address_mode": "repeat"
+        },
+        {
+            "name": "bedrock_sky",
+            "type": "file",
+            "path": "textures/caustics_fallback.png",
+            "external_paths": [
+                "radiante/bedrock/sky.png",
+                "C:/XboxGames/Minecraft for Windows/Content/data/ray_tracing/sky.png"
+            ],
+            "sampled_binding": 37,
+            "filter": "linear",
+            "address_mode": "clamp_to_edge"
+        },
+        {
+            "name": "bedrock_luts",
+            "type": "file",
+            "path": "textures/caustics_fallback.png",
+            "external_paths": [
+                "radiante/bedrock/look_up_tables.png",
+                "C:/XboxGames/Minecraft for Windows/Content/data/ray_tracing/look_up_tables.png"
+            ],
+            "sampled_binding": 38,
+            "filter": "linear",
+            "address_mode": "clamp_to_edge"
         },
         {
             "name": "post_dof_focus_ping",

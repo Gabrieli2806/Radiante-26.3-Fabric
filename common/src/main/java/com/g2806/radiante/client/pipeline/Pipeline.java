@@ -395,6 +395,8 @@ public class Pipeline {
     public static final String RAY_BOUNCES_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.num_ray_bounces";
     /** Carved (parallax) surfaces of resource packs with height maps. */
     public static final String PARALLAX_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.enable_parallax";
+    public static final String BEDROCK_ATMOSPHERE_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.bedrock_atmosphere";
     /** Steps the volumetric fog is marched in along each ray. */
     public static final String VOLUMETRIC_SAMPLES_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.volumetric_light_samples";

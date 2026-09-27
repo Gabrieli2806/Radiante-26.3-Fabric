@@ -783,6 +783,22 @@ ShaderPackLoader::parseTextureConfig(const json &textureJson,
     if (texture.imported) {
         texture.sourcePath = resolveRelativeFile(rootPath, requireString(textureJson, ShaderPackLoader::KEY_PATH, context),
                                                  context + "." + ShaderPackLoader::KEY_PATH);
+        // Files outside the pack taken in place of the bundled one when present: absolute paths, or relative to the
+        // game directory. They are the player's own (a Bedrock install's textures, which cannot ship in the pack);
+        // the bundled file stands in when none is there.
+        auto externalIter = textureJson.find(ShaderPackLoader::KEY_EXTERNAL_PATHS);
+        if (externalIter != textureJson.end() && externalIter->is_array()) {
+            for (const auto &candidate : *externalIter) {
+                if (!candidate.is_string()) { continue; }
+                fs::path path(candidate.get<std::string>());
+                if (!path.is_absolute()) { path = fs::current_path() / path; }
+                std::error_code error;
+                if (fs::is_regular_file(path, error)) {
+                    texture.sourcePath = path;
+                    break;
+                }
+            }
+        }
         texture.format =
             parseFormat(optionalString(textureJson, ShaderPackLoader::KEY_FORMAT, context).value_or("R8G8B8A8_UNORM"));
         if (!texture.sampledBinding.has_value()) { throw std::runtime_error(context + " requires sampled_binding"); }

@@ -250,6 +250,7 @@ class ShaderPackLoader {
     static constexpr char KEY_DEFINITIONS[] = "definitions";
     static constexpr char KEY_DIMENSION[] = "dimension";
     static constexpr char KEY_PATH[] = "path";
+    static constexpr char KEY_EXTERNAL_PATHS[] = "external_paths";
     static constexpr char KEY_FORMAT[] = "format";
     static constexpr char KEY_WIDTH[] = "width";
     static constexpr char KEY_HEIGHT[] = "height";

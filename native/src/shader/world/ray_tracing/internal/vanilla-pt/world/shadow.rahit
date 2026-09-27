@@ -7,6 +7,10 @@
 
 #include "util/alpha_mode.glsl"
 #include "common/fft_water.glsl"
+#include "common/bedrock_caustics.glsl"
+
+
+const float WATER_LIGHT_MAX_DEPTH = 10.0;
 #include "util/labpbr.glsl"
 #include "util/random.glsl"
 #include "util/ray.glsl"
@@ -172,12 +176,17 @@ void main() {
                 vec3 waterCoordNormal = worldNormal.y >= 0.0 ? worldNormal : -worldNormal;
                 vec2 waterCoord = fftWaterSurfaceCoord(absWorldPos, dPduWorld, dPdvWorld, waterCoordNormal);
                 float waterDepth = gl_HitTEXT * max(dot(normalize(gl_WorldRayDirectionEXT), waterCoordNormal), 0.01);
+                // Sunlight keeps reaching the bottom of deep water, tinted, as in Bedrock RTX: past a few blocks
+                // the full depth took it all, and a sunken hall lit only by its lanterns.
+                float absorbDepth = min(waterDepth, WATER_LIGHT_MAX_DEPTH);
                 // A Bedrock pack's water absorbs by its own coefficients; otherwise by the biome's water colour,
                 // the way the vanilla tint reads.
                 vec3 absorption = skyUBO.waterExtinction.w > 0.5 ?
-                                      exp(-max(skyUBO.waterExtinction.rgb, vec3(0.0)) * waterDepth) :
+                                      exp(-max(skyUBO.waterExtinction.rgb, vec3(0.0)) * absorbDepth) :
                                       exp(-(vec3(1.0) - clamp(colorLayer.rgb, vec3(0.0), vec3(1.0))) * waterDepth * 0.22);
-                float caustic = sampleFftWaterCaustic(waterCoord, ubo.gameTime, gl_WorldRayDirectionEXT, waterDepth);
+                float caustic = bedrockCausticsAvailable() ?
+                                    sampleBedrockCaustic(absWorldPos.xz, ubo.gameTime, waterDepth) :
+                                    sampleFftWaterCaustic(waterCoord, ubo.gameTime, gl_WorldRayDirectionEXT, waterDepth);
                 shadowTransmission = absorption * caustic;
             }
         }

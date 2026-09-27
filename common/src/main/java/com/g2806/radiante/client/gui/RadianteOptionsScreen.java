@@ -41,6 +41,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     // Shader pack settings that cost frame time; null until read from the pipeline, or when the pack lacks them.
     private Integer pendingBounces;
     private Boolean pendingParallax;
+    private Boolean pendingBedrockAtmosphere;
     private Integer pendingFogSamples;
     private Boolean pendingDepthOfField;
     private boolean pendingReflex = Options.reflex;
@@ -69,6 +70,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingMotionBlur = previous.pendingMotionBlur;
         this.pendingBounces = previous.pendingBounces;
         this.pendingParallax = previous.pendingParallax;
+        this.pendingBedrockAtmosphere = previous.pendingBedrockAtmosphere;
         this.pendingFogSamples = previous.pendingFogSamples;
         this.pendingDepthOfField = previous.pendingDepthOfField;
         this.pendingReflex = previous.pendingReflex;
@@ -297,6 +299,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         // The shader pack's own defaults.
         this.pendingBounces = this.pendingBounces == null ? null : 4;
         this.pendingParallax = this.pendingParallax == null ? null : Boolean.TRUE;
+        this.pendingBedrockAtmosphere = this.pendingBedrockAtmosphere == null ? null : Boolean.TRUE;
         this.pendingFogSamples = this.pendingFogSamples == null ? null : 16;
     }
 
@@ -319,6 +322,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingParallax == null && Pipeline.supportsShaderPackToggle(Pipeline.PARALLAX_ATTRIBUTE)) {
             this.pendingParallax = Pipeline.isShaderPackToggleOn(Pipeline.PARALLAX_ATTRIBUTE);
+        }
+        if (this.pendingBedrockAtmosphere == null
+            && Pipeline.supportsShaderPackToggle(Pipeline.BEDROCK_ATMOSPHERE_ATTRIBUTE)) {
+            this.pendingBedrockAtmosphere = Pipeline.isShaderPackToggleOn(Pipeline.BEDROCK_ATMOSPHERE_ATTRIBUTE);
         }
         if (this.pendingFogSamples == null
             && Pipeline.getShaderPackValue(Pipeline.VOLUMETRIC_SAMPLES_ATTRIBUTE) != null) {
@@ -528,6 +535,13 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         if (bounces != null || parallax != null) {
             this.list.addSmall(bounces != null ? bounces : parallax, bounces != null ? parallax : null);
         }
+        if (this.pendingBedrockAtmosphere != null) {
+            this.list.addSmall(OptionInstance.createBoolean("options.radiante.atmosphere_style",
+                tooltip("options.radiante.atmosphere_style"),
+                (caption, value) -> Component.translatable(value ? "options.radiante.atmosphere_style.bedrock"
+                    : "options.radiante.atmosphere_style.java"),
+                this.pendingBedrockAtmosphere, value -> this.pendingBedrockAtmosphere = value), null);
+        }
     }
 
     /** A setting the quality level covers was changed by hand: the level shown above it has to follow. */
@@ -593,6 +607,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingBounces != null) {
             rebuild |= Pipeline.setShaderPackValue(Pipeline.RAY_BOUNCES_ATTRIBUTE, String.valueOf(this.pendingBounces));
+        }
+        if (this.pendingBedrockAtmosphere != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.BEDROCK_ATMOSPHERE_ATTRIBUTE, this.pendingBedrockAtmosphere);
         }
         if (this.pendingParallax != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.PARALLAX_ATTRIBUTE, this.pendingParallax);

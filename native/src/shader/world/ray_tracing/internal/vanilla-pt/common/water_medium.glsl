@@ -8,6 +8,20 @@
 //
 // Needs skyUBO, skyFull and the volumetric cloud helpers (for the sun or moon light) to be declared first.
 
+#ifndef VPT_WATER_SCATTERING
+#    define VPT_WATER_SCATTERING 8.0
+#endif
+#ifndef VPT_WATER_DENSITY
+#    define VPT_WATER_DENSITY 0.3
+#endif
+
+// How thick the water is to look through, against its coefficients: Bedrock RTX's water is clear up close and
+// only fogs out far away, while the light through it still takes on its colour. Only the camera's own stretch of
+// water is thinned; the light's paths (bounces, and the sun in shadow.rahit) cross it at full strength.
+vec3 waterMediumExtinction(float density) {
+    return max(skyUBO.waterExtinction.rgb, vec3(0.0)) * max(density, 0.0);
+}
+
 bool waterMediumActive() {
     return skyUBO.waterExtinction.w > 0.5;
 }
@@ -23,12 +37,22 @@ vec3 waterMediumIncomingLight() {
     return max(sky + celestial, vec3(0.0));
 }
 
-// What a stretch of water of the given length lets through, and the light it scatters into it on the way.
-void waterMediumSegment(float distance, out vec3 transmittance, out vec3 inScatter) {
-    vec3 sigmaT = max(skyUBO.waterExtinction.rgb, vec3(0.0));
+// The colour the scattered light takes: white light after this many blocks of the water. Scattering alone (its
+// albedo, bluest of all) left Bedrock packs' water a deep navy, where Bedrock RTX shows it turquoise: most of the
+// light the water glows with has crossed some of it first, off the bottom and the walls.
+const float WATER_MEDIUM_HUE_DEPTH = 8.0;
+
+// What a stretch of water of the given length lets through, and the light it scatters into it on the way; density
+// scales the water (VPT_WATER_DENSITY for the camera's view, 1 for light).
+void waterMediumSegment(float distance, float density, out vec3 transmittance, out vec3 inScatter) {
+    vec3 sigmaT = waterMediumExtinction(density);
     transmittance = exp(-sigmaT * max(distance, 0.0));
-    inScatter = clamp(skyUBO.waterAlbedo.rgb, vec3(0.0), vec3(1.0)) * (vec3(1.0) - transmittance) *
-                waterMediumIncomingLight();
+    const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+    vec3 hue = exp(-max(skyUBO.waterExtinction.rgb, vec3(0.0)) * WATER_MEDIUM_HUE_DEPTH);
+    hue /= max(dot(hue, LUMA), 1e-4);
+    float albedo = clamp(dot(skyUBO.waterAlbedo.rgb, LUMA) * max(VPT_WATER_SCATTERING, 0.0), 0.0, 1.0);
+    float light = dot(waterMediumIncomingLight(), LUMA);
+    inScatter = hue * albedo * light * (vec3(1.0) - transmittance);
 }
 
 #endif

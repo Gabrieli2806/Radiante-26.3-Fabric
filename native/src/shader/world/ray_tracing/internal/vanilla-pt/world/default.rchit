@@ -854,7 +854,7 @@ void main() {
         if (rayInWater(mainRay)) {
             vec3 waterTransmittance;
             vec3 waterScatter;
-            waterMediumSegment(gl_HitTEXT, waterTransmittance, waterScatter);
+            waterMediumSegment(gl_HitTEXT, 1.0, waterTransmittance, waterScatter);
             mainRay.radiance += mainRay.throughput * waterScatter;
             mainRay.throughput *= waterTransmittance;
         } else if (bounce == 0u && skyUBO.cameraSubmersionType == 1) {
@@ -1083,7 +1083,11 @@ void main() {
                 sampleDir = normalize(refractionDir);
                 pdf = max(1.0 - fresnel, 1e-4);
                 lobeType = 2u;
-                bsdf = pow(max(currentSurface.albedoValue.rgb, vec3(0.0)), vec3(0.5)) * (1.0 - fresnel);
+                // The water medium colours the water by depth, as Bedrock RTX does (a pack's own, or one made from
+                // the biome's water colour); the surface itself is clear.
+                vec3 surfaceTint = waterMediumActive() ? vec3(1.0) :
+                                                         pow(max(currentSurface.albedoValue.rgb, vec3(0.0)), vec3(0.5));
+                bsdf = surfaceTint * (1.0 - fresnel);
             }
         } else {
             bsdf = DisneySample(currentSurface.mat, currentViewDir, currentSurface.shadingNormal, sampleDir, pdf,

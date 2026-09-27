@@ -19,6 +19,8 @@ layout(set = 2, binding = 2) uniform SkyUniform {
 layout(location = 1) rayPayloadInEXT ShadowRay shadowRay;
 
 #include "common/celestial.glsl"
+#include "common/bedrock_atmosphere.glsl"
+#include "common/biome_fog_light.glsl"
 
 vec2 transmittanceUv(float r, float mu) {
     float u = clamp(mu * 0.5 + 0.5, 0.0, 1.0);
@@ -52,16 +54,21 @@ void main() {
         muSun = clamp(muSun, -1.0, 1.0);
         r = clamp(r, VPT_ATMOSPHERE_RG, VPT_ATMOSPHERE_RT);
 
-        vec3 transmittance = sampleTransmittance(r, muSun);
+        vec3 transmittance = bedrockAtmosphereActive() ? bedrockSunlight(toSun.y) : sampleTransmittance(r, muSun);
 
         radiance = (VPT_SUN_RADIANCE * worldUBO.sunBrightness) * transmittance;
     } else {
         radiance = (VPT_MOON_RADIANCE * worldUBO.moonBrightness);
     }
 
+    radiance *= biomeFogLightTransmittance(gl_WorldRayOriginEXT.y + float(worldUBO.cameraPos.y), toSun);
+
     float factor = 1.0;
     float threshold = 0.3;
-    if (abs(toSun.y) < threshold) { factor = sin(PI / (2 * threshold) * abs(toSun.y)); }
+    // Bedrock's table already fades the sun out towards the horizon.
+    if (abs(toSun.y) < threshold && !(bedrockAtmosphereActive() && toSun.y > 0)) {
+        factor = sin(PI / (2 * threshold) * abs(toSun.y));
+    }
     radiance *= factor;
 
     shadowRay.radiance += radiance * shadowRay.throughput;

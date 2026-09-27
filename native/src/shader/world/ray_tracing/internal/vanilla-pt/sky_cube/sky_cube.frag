@@ -15,6 +15,8 @@ layout(set = 2, binding = 2) uniform SkyUniform {
 
 layout(set = 5, binding = 0) uniform sampler2D transLUT;
 
+#include "common/bedrock_atmosphere.glsl"
+
 layout(location = 0) in vec2 texCoord;
 
 layout(location = 0) out vec4 outColor;
@@ -119,6 +121,10 @@ void main() {
         rayDir = normalize(vec3(cubeUv.x, -1, -cubeUv.y));
     } else if (FACE == 4) {
         rayDir = normalize(vec3(cubeUv.x, -cubeUv.y, 1));
+    }
+    if (bedrockAtmosphereActive()) {
+        outColor = vec4(bedrockSkyRadiance(rayDir, celestialSunDirection()), 1.0);
+        return;
     }
     float blend = smoothstep(-0.05, 0.02, rayDir.y);
     rayDir.y = max(rayDir.y, VPT_ATMOSPHERE_MIN_VIEW_COS);

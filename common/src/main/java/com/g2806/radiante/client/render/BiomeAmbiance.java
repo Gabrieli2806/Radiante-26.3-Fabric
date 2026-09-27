@@ -375,6 +375,8 @@ public final class BiomeAmbiance {
                     .map(key -> PACK_WATER_BY_BIOME.get(key.identifier().toString())).orElse(null);
                 if (water == null) {
                     water = vanillaWater(biome.value().getWaterColor());
+                } else {
+                    water = coloured(water, biome.value().getWaterColor());
                 }
                 waterExtinction.add(water.extinctionR(), water.extinctionG(), water.extinctionB(), 0.0f);
                 waterAlbedo.add(water.albedoR(), water.albedoG(), water.albedoB(), 0.0f);
@@ -393,6 +395,38 @@ public final class BiomeAmbiance {
     private static final float VANILLA_WATER_MIN_EXTINCTION = 0.02f;
     /** How much of the vanilla water's extinction scatters back in its own colour. */
     private static final float VANILLA_WATER_SCATTER = 0.45f;
+
+    /**
+     * How much of a Bedrock pack's own water extinction is kept. Bedrock RTX's water reads far clearer than its
+     * coefficients taken per block: the length of a sunken hall stays in sight where they alone fog it out in ten.
+     */
+    private static final float PACK_WATER_CLARITY = 0.35f;
+    /** Over how many blocks light takes on the biome's water colour whole. */
+    private static final float WATER_COLOUR_DEPTH = 6.0f;
+    /**
+     * Bedrock RTX's water light is turquoise whatever the biome's own water colour (a deep blue for most oceans); the
+     * colour taken is this far towards that.
+     */
+    private static final float WATER_TURQUOISE_SHARE = 0.5f;
+    private static final float[] WATER_TURQUOISE = {0.25f, 0.85f, 0.9f};
+    /** Floor of each channel of the water colour, so no colour is absorbed outright. */
+    private static final float WATER_COLOUR_FLOOR = 0.12f;
+
+    /**
+     * A pack's water, coloured by the biome's water colour as Bedrock RTX colours it: a pack's coefficients are
+     * nearly grey for the ocean, yet its water is turquoise. Light takes on that colour over WATER_COLOUR_DEPTH blocks,
+     * on top of the pack's own, thinned, extinction.
+     */
+    private static Water coloured(Water pack, int rgb) {
+        float grey = (pack.extinctionR() + pack.extinctionG() + pack.extinctionB()) / 3.0f * PACK_WATER_CLARITY;
+        return new Water(grey + colourExtinction(rgb >> 16 & 0xFF, 0), grey + colourExtinction(rgb >> 8 & 0xFF, 1),
+            grey + colourExtinction(rgb & 0xFF, 2), pack.albedoR(), pack.albedoG(), pack.albedoB());
+    }
+
+    private static float colourExtinction(int channel, int index) {
+        float colour = channel / 255.0f + (WATER_TURQUOISE[index] - channel / 255.0f) * WATER_TURQUOISE_SHARE;
+        return (float) -Math.log(Math.max(colour, WATER_COLOUR_FLOOR)) / WATER_COLOUR_DEPTH;
+    }
 
     /** Water that looks like the vanilla tint: it keeps its colour and absorbs the rest. */
     private static Water vanillaWater(int rgb) {
