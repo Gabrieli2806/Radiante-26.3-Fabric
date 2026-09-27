@@ -42,6 +42,17 @@ import org.lwjgl.system.MemoryUtil;
  * rotating section grid so the shaders can look a chunk up from a section coordinate.
  */
 public final class ChunkManager {
+    /**
+     * Glass blocks (plain, stained, tinted) and glass panes. Their see-through texels are clear glass for the tracer,
+     * as Bedrock RTX renders them: a surface that reflects and refracts, not a hole. Iron bars share the pane class.
+     */
+    private static boolean isGlass(BlockState state) {
+        net.minecraft.world.level.block.Block block = state.getBlock();
+        return block instanceof net.minecraft.world.level.block.TransparentBlock
+            || block instanceof net.minecraft.world.level.block.StainedGlassPaneBlock
+            || state.is(net.minecraft.world.level.block.Blocks.GLASS_PANE);
+    }
+
 
 
     private static final int VERTEX_FORMAT_PBR = 12;
@@ -483,13 +494,16 @@ public final class ChunkManager {
             if (blockState.isAir()) {
                 continue;
             }
+            scratch.blockIsGlass = isGlass(blockState);
 
 
             FluidState fluidState = blockState.getFluidState();
             if (!fluidState.isEmpty()) {
+                scratch.blockIsGlass = false;
                 scratch.fluidIsWater = fluidState.is(net.minecraft.tags.FluidTags.WATER);
                 scratch.fluidIsLava = fluidState.is(net.minecraft.tags.FluidTags.LAVA);
                 fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
+                scratch.blockIsGlass = isGlass(blockState);
                 // Water with water or solid blocks on every side draws no face, and never asks for a writer: when
                 // that is the first fluid of the section there is none yet, and the whole section failed to build.
                 if (scratch.currentWriter() != null) {
@@ -688,6 +702,8 @@ public final class ChunkManager {
         private boolean collectPanel;
         private boolean fluidIsWater;
         private boolean fluidIsLava;
+        /** The block being written is glass or a glass pane; see PBRVertexWriter.glass. */
+        private boolean blockIsGlass;
         private final List<BakedQuad> panelQuads = new ArrayList<>();
 
         void reset() {
@@ -721,7 +737,7 @@ public final class ChunkManager {
                 writer = new PBRVertexWriter(4096);
                 this.writers.put(layer, writer);
             }
-            writer.textureId(atlasId).alphaMode(alphaModeOf(layer)).coordinate(0).water(false);
+            writer.textureId(atlasId).alphaMode(alphaModeOf(layer)).coordinate(0).water(false).glass(this.blockIsGlass);
             this.current = writer;
             return writer;
         }

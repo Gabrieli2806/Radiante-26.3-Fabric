@@ -118,6 +118,14 @@ vec4 evalSunBillboard(vec3 rayDir) {
     return sun;
 }
 
+/** How much of a halo of the given angular width (radians) and strength reaches `rayDir`; 0 behind the body. */
+float celestialHalo(vec3 rayDir, vec3 bodyDir, float width, float strength) {
+    float c = dot(normalize(rayDir), bodyDir);
+    if (c <= 0.0) return 0.0;
+    float angle = acos(clamp(c, -1.0, 1.0));
+    return strength * exp(-(angle * angle) / (width * width));
+}
+
 vec4 evalMoonBillboard(vec3 rayDir) {
     vec3 moonDir = celestialMoonDirection();
     rayDir = normalize(rayDir);
@@ -132,7 +140,9 @@ vec4 evalMoonBillboard(vec3 rayDir) {
     float tanHalf = 20.0 / 100.0;
     vec2 a = abs(q);
     if (a.x > tanHalf || a.y > tanHalf) return vec4(0.0);
-    vec2 uv = q / tanHalf * 0.5 + 0.5;
+    // The moon's frame comes from the sun's (celestialBasis), but vanilla draws it on the opposite side of the sky
+    // turned half a circle; without this its face was upside down.
+    vec2 uv = vec2(1.0) - (q / tanHalf * 0.5 + 0.5);
     vec4 moon = sampleSpriteLod0(textures[nonuniformEXT(skyUBO.moonTextureID)], uv, skyUBO.moonUvRect);
     // As with the sun: the moon texture is a small disc inside a faint square glow, and scaled up to moonlight that
     // glow drew a bright square frame around the moon. The sky model draws its halo; only the disc is kept, and it
@@ -195,6 +205,15 @@ void main() {
                 backgroundRadiance += mix(moonRadiance, vec3(0.0), progress);
             }
         }
+    }
+
+    // A soft halo around the sun and moon, as Bedrock RTX draws: faint, and only where the camera looks, so it
+    // adds nothing to the light bounced around the world.
+    if (worldUBO.skyType == 1 && rayBounce(mainRay) == 0u) {
+        backgroundRadiance += celestialHalo(rayDir, celestialSunDirection(), 0.035, 0.012) *
+                              (VPT_SUN_RADIANCE * worldUBO.sunBrightness) * (1.0 - progress);
+        backgroundRadiance += celestialHalo(rayDir, celestialMoonDirection(), 0.10, 0.10) *
+                              (VPT_MOON_RADIANCE * worldUBO.moonBrightness) * (1.0 - progress);
     }
 
 #if VPT_ALLOW_VOLUMETRIC_CLOUD_MISS

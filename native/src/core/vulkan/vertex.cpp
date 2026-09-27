@@ -18,6 +18,7 @@ uint32_t vk::Vertex::packMaterialFlags(const VertexFormat::PBRVertex &vertex) {
     packed |= (static_cast<uint32_t>(vertex.alphaMode) & alphaModeWaterFlag) != 0u ? waterSurfaceBit : 0u;
     packed |= (static_cast<uint32_t>(vertex.alphaMode) & alphaModeRainFlag) != 0u ? rainSurfaceBit : 0u;
     packed |= (static_cast<uint32_t>(vertex.alphaMode) & alphaModeHeldFlag) != 0u ? heldSurfaceBit : 0u;
+    packed |= (static_cast<uint32_t>(vertex.alphaMode) & alphaModeGlassFlag) != 0u ? glassSurfaceBit : 0u;
     return packed;
 }
 

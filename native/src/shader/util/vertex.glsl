@@ -19,6 +19,9 @@ const uint WATER_SURFACE_BIT = 1u << 17u;
 const uint RAIN_SURFACE_BIT = 1u << 18u;
 // What the player holds in first person.
 const uint HELD_SURFACE_BIT = 1u << 19u;
+// Glass blocks and panes: their see-through texels are a clear pane that reflects and refracts, as in Bedrock RTX,
+// not holes the ray passes through untouched.
+const uint GLASS_SURFACE_BIT = 1u << 20u;
 
 #ifndef CONST_ONLY
 layout(set = 1, binding = 4) readonly buffer PositionBufferAddr {
@@ -119,6 +122,10 @@ bool isHeldSurface(uint packedData) {
 
 bool isRainSurface(uint packedData) {
     return (packedData & RAIN_SURFACE_BIT) != 0u;
+}
+
+bool isGlassSurface(uint packedData) {
+    return (packedData & GLASS_SURFACE_BIT) != 0u;
 }
 
 bool isWaterSurface(uint packedData) {

@@ -99,6 +99,39 @@ final class TgaReader {
         }
 
         /** Nearest-neighbour resample, for maps authored at another resolution than their colour texture. */
+        /**
+         * Scaled to the given size; shrinking averages every source texel that falls in a destination texel
+         * (per channel), growing repeats texels as resized does.
+         */
+        Image averaged(int newWidth, int newHeight) {
+            if (newWidth >= this.width || newHeight >= this.height) {
+                return resized(newWidth, newHeight);
+            }
+            int[] out = new int[newWidth * newHeight];
+            for (int y = 0; y < newHeight; y++) {
+                int y0 = y * this.height / newHeight;
+                int y1 = Math.max(y0 + 1, (y + 1) * this.height / newHeight);
+                for (int x = 0; x < newWidth; x++) {
+                    int x0 = x * this.width / newWidth;
+                    int x1 = Math.max(x0 + 1, (x + 1) * this.width / newWidth);
+                    long a = 0, r = 0, g = 0, b = 0;
+                    int n = 0;
+                    for (int sy = y0; sy < y1; sy++) {
+                        for (int sx = x0; sx < x1; sx++) {
+                            int p = this.get(sx, sy);
+                            a += p >>> 24;
+                            r += p >> 16 & 0xFF;
+                            g += p >> 8 & 0xFF;
+                            b += p & 0xFF;
+                            n++;
+                        }
+                    }
+                    out[y * newWidth + x] = (int) (a / n) << 24 | (int) (r / n) << 16 | (int) (g / n) << 8 | (int) (b / n);
+                }
+            }
+            return new Image(newWidth, newHeight, out);
+        }
+
         Image resized(int newWidth, int newHeight) {
             if (newWidth == this.width && newHeight == this.height) {
                 return this;

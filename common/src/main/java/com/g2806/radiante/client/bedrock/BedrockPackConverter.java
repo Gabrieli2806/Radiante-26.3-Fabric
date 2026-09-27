@@ -38,7 +38,9 @@ public final class BedrockPackConverter {
     /** Under Radiante's folder in the game directory: the converted packs, one zip per .mcpack. */
     private static final String CACHE_FOLDER = "bedrock_packs";
     /** Stored as the zip comment; a pack converted by another version of the converter is converted again. */
-    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 6";
+    /** Largest size a Bedrock texture set is converted at, in pixels per side; finer maps are averaged down to it. */
+    private static final int MAX_DETAIL = 128;
+    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 8";
     /** Resource pack format of Minecraft 26.3. */
     private static final int PACK_FORMAT = 97;
     /** Slope of normals built from a height map: height units per texel. */
@@ -185,6 +187,18 @@ public final class BedrockPackConverter {
         TgaReader.Image height = image(zip, root + dir, set.get("heightmap"));
         TgaReader.Image normal = image(zip, root + dir, set.get("normal"));
 
+        // Bedrock RTX packs pair 16 px colours with far finer normal and MER maps (96 px is common) and shade with
+        // them at full detail. Squeezed down to the colour's size by picking one texel in six, a bevelled metal
+        // block kept only its steepest edge normals and reflected black in patches. When the colour may replace
+        // Java's, it is scaled up instead (nearest, so it looks the same) and the maps keep their detail.
+        int detail = Math.max(mer != null ? mer.width() : 0,
+            Math.max(normal != null ? normal.width() : 0, height != null ? height.width() : 0));
+        if (color != null && colorCompatible && detail > color.width() && detail % color.width() == 0) {
+            int scale = Math.min(detail, MAX_DETAIL) / color.width();
+            if (scale > 1) {
+                color = color.resized(color.width() * scale, color.height() * scale);
+            }
+        }
         int width = color != null ? color.width() : mer != null ? mer.width() : 16;
         int heightPx = color != null ? color.height() : mer != null ? mer.height() : 16;
         String target = "assets/minecraft/textures/block/" + javaName;
@@ -195,7 +209,7 @@ public final class BedrockPackConverter {
 
         int[] merUniform = uniform(merSource);
         if (mer != null || merUniform != null) {
-            TgaReader.Image merImage = mer != null ? mer.resized(width, heightPx) : null;
+            TgaReader.Image merImage = mer != null ? mer.averaged(width, heightPx) : null;
             int[] specular = new int[width * heightPx];
             for (int i = 0; i < specular.length; i++) {
                 int m, e, r, s;
@@ -217,9 +231,9 @@ public final class BedrockPackConverter {
         }
 
         if (normal != null) {
-            write(zos, target + "_n.png", png(labPbrFromNormal(normal.resized(width, heightPx))));
+            write(zos, target + "_n.png", png(labPbrFromNormal(normal.averaged(width, heightPx))));
         } else if (height != null) {
-            write(zos, target + "_n.png", png(labPbrFromHeight(height.resized(width, heightPx))));
+            write(zos, target + "_n.png", png(labPbrFromHeight(height.averaged(width, heightPx))));
         }
         return true;
     }
@@ -228,8 +242,17 @@ public final class BedrockPackConverter {
     static int labPbrSpecular(int metalness, int emission, int roughness, int subsurface) {
         // Bedrock roughness is perceptual, LabPBR stores perceptual smoothness.
         int smoothness = 255 - roughness;
-        // LabPBR has no partial metals: the metal reflects its colour, anything else is a 4 % dielectric.
-        int f0 = metalness >= 128 ? ALBEDO_METAL : DIELECTRIC_F0;
+        // LabPBR has no partial metals. Almost none is a 4 % dielectric and almost full reflects its colour; in
+        // between goes to 238-254, which LabPBR leaves unused and Radiante's shaders read as partly metallic
+        // ((value - 237) / 18), as Bedrock blends it. Gems are painted around half metal.
+        int f0;
+        if (metalness < 14) {
+            f0 = DIELECTRIC_F0;
+        } else if (metalness > 241) {
+            f0 = ALBEDO_METAL;
+        } else {
+            f0 = 237 + Math.max(1, Math.min(17, Math.round(metalness / 255.0f * 18.0f)));
+        }
         int porositySss = subsurface > 0 ? 65 + subsurface * 190 / 255 : 0;
         int emissive = emission > 0 ? Math.min(254, emission * EMISSION_SCALE) : 255;
         return emissive << 24 | smoothness << 16 | f0 << 8 | porositySss;

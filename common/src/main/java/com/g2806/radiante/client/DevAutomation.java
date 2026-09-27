@@ -103,7 +103,13 @@ public final class DevAutomation {
 
     private static boolean isTestWorld(Minecraft minecraft) {
         var server = minecraft.getSingleplayerServer();
-        return server != null && server.getWorldData().getLevelName().startsWith(TEST_WORLD_PREFIX);
+        if (server == null) {
+            return false;
+        }
+        // The save folder counts too: a copy of a player's world made for testing keeps the world's own name.
+        String folder = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).normalize()
+            .getFileName().toString();
+        return server.getWorldData().getLevelName().startsWith(TEST_WORLD_PREFIX) || folder.startsWith(TEST_WORLD_PREFIX);
     }
 
     /** Called every client tick by RadianteClient; does nothing unless a script was given. */
@@ -208,6 +214,11 @@ public final class DevAutomation {
                 case "attr" -> {
                     String[] nameValue = parts[1].split(":", 2);
                     yield com.g2806.radiante.client.pipeline.Pipeline.setShaderPackValue(nameValue[0], nameValue[1]);
+                }
+                // mattr:<module name>:<attribute name>:<value>, any module's attribute.
+                case "mattr" -> {
+                    String[] mv = parts[1].split(":", 3);
+                    yield com.g2806.radiante.client.pipeline.Pipeline.setModuleValue(mv[0], mv[1], mv[2]);
                 }
                 default -> false;
             };

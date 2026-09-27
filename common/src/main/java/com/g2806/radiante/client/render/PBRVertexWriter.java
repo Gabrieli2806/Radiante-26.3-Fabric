@@ -16,6 +16,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private static final int RAIN_FLAG = 0x20;
     /** Set in the alpha mode word for what the player holds in first person; see {@link #held}. */
     private static final int HELD_FLAG = 0x40;
+    /** Glass blocks and panes; see glass(). */
+    private static final int GLASS_FLAG = 0x80;
 
     public static final int ALPHA_MODE_OPAQUE = 0;
     public static final int ALPHA_MODE_CUTOUT = 1;
@@ -75,6 +77,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
      * later; traced, two coplanar surfaces tie and the one underneath can come out on top, hiding the layer.
      */
     private float layerOffset;
+    private boolean glass;
     private boolean computeQuadNormals;
     private boolean overlayEnabled;
     private boolean glintEnabled;
@@ -157,6 +160,12 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
 
     public PBRVertexWriter coordinate(int coordinate) {
         this.coordinate = coordinate;
+        return this;
+    }
+
+    /** Marks what follows as a glass block or pane, whose see-through texels are clear glass, not holes. */
+    public PBRVertexWriter glass(boolean glass) {
+        this.glass = glass;
         return this;
     }
 
@@ -285,7 +294,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         MemoryUtil.memPutInt(v + OFF_COORDINATE, this.coordinate);
         MemoryUtil.memPutFloat(v + OFF_ALBEDO_EMISSION, this.albedoEmission);
         MemoryUtil.memPutInt(v + OFF_ALPHA_MODE,
-            this.alphaMode | (this.water ? WATER_FLAG : 0) | (this.rain ? RAIN_FLAG : 0) | (this.held ? HELD_FLAG : 0));
+            this.alphaMode | (this.water ? WATER_FLAG : 0) | (this.rain ? RAIN_FLAG : 0) | (this.held ? HELD_FLAG : 0) | (this.glass ? GLASS_FLAG : 0));
         if (this.colorOverride != 0) {
             setColor(255, 255, 255, 255);
         }

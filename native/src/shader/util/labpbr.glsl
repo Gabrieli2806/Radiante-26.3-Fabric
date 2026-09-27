@@ -113,6 +113,13 @@ LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal
         mat.metallic = 1.0;
         mat.f0 = CalculateF0(n, k);
         mat.albedo = mat.f0;
+    } else if (metalIdx < 255) {
+        // 238-254, which LabPBR leaves unassigned: partly metallic, (value - 237) / 18. Bedrock RTX packs blend
+        // metalness smoothly (gems sit around half), and converted with only "metal or not" their surfaces broke up
+        // into mirror and plain texels. Only Radiante's Bedrock conversion writes these.
+        mat.metallic = float(metalIdx - 237) / 18.0;
+        mat.albedo = texAlbedo.rgb;
+        mat.f0 = mix(vec3(0.04), texAlbedo.rgb, mat.metallic);
     } else {
         mat.metallic = 1.0;
         mat.albedo = texAlbedo.rgb;

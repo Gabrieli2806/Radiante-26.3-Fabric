@@ -1,6 +1,14 @@
 {
  "_comment": "Java block texture -> Bedrock texture path. color: the Bedrock colour texture has the same layout and may replace Java's.",
  "textures": {
+  "acacia_door_bottom": {
+   "bedrock": "textures/blocks/door_acacia_lower",
+   "color": true
+  },
+  "acacia_door_top": {
+   "bedrock": "textures/blocks/door_acacia_upper",
+   "color": true
+  },
   "acacia_leaves": {
    "bedrock": "textures/blocks/leaves_acacia",
    "color": true
@@ -116,6 +124,10 @@
   "bamboo_fence": {
    "bedrock": "textures/blocks/bamboo_fence",
    "color": true
+  },
+  "bamboo_fence_gate": {
+   "bedrock": "textures/blocks/bamboo_fence_gate",
+   "color": false
   },
   "bamboo_mosaic": {
    "bedrock": "textures/blocks/bamboo_mosaic",
@@ -609,6 +621,14 @@
    "bedrock": "textures/blocks/chain_command_block_side",
    "color": false
   },
+  "cherry_door_bottom": {
+   "bedrock": "textures/blocks/cherry_door_bottom",
+   "color": true
+  },
+  "cherry_door_top": {
+   "bedrock": "textures/blocks/cherry_door_top",
+   "color": true
+  },
   "cherry_leaves": {
    "bedrock": "textures/blocks/cherry_leaves",
    "color": true
@@ -849,6 +869,10 @@
    "bedrock": "textures/blocks/copper_bulb_powered",
    "color": true
   },
+  "copper_door_bottom": {
+   "bedrock": "textures/blocks/copper_door_bottom",
+   "color": true
+  },
   "copper_door_top": {
    "bedrock": "textures/blocks/copper_door_top",
    "color": true
@@ -989,6 +1013,14 @@
    "bedrock": "textures/blocks/creaking_heart_top_dormant",
    "color": true
   },
+  "crimson_door_bottom": {
+   "bedrock": "textures/blocks/huge_fungus/crimson_door_lower",
+   "color": true
+  },
+  "crimson_door_top": {
+   "bedrock": "textures/blocks/huge_fungus/crimson_door_top",
+   "color": true
+  },
   "crimson_fungus": {
    "bedrock": "textures/blocks/crimson_fungus",
    "color": true
@@ -1079,6 +1111,14 @@
   },
   "dandelion": {
    "bedrock": "textures/blocks/flower_dandelion",
+   "color": true
+  },
+  "dark_oak_door_bottom": {
+   "bedrock": "textures/blocks/door_dark_oak_lower",
+   "color": true
+  },
+  "dark_oak_door_top": {
+   "bedrock": "textures/blocks/door_dark_oak_upper",
    "color": true
   },
   "dark_oak_leaves": {
@@ -1389,6 +1429,14 @@
    "bedrock": "textures/blocks/exposed_copper_bulb_powered",
    "color": true
   },
+  "exposed_copper_door_bottom": {
+   "bedrock": "textures/blocks/exposed_copper_door_bottom",
+   "color": true
+  },
+  "exposed_copper_door_top": {
+   "bedrock": "textures/blocks/exposed_copper_door_top",
+   "color": true
+  },
   "exposed_copper_grate": {
    "bedrock": "textures/blocks/exposed_copper_grate",
    "color": true
@@ -1473,6 +1521,26 @@
    "bedrock": "textures/blocks/flowering_azalea_top",
    "color": true
   },
+  "frogspawn": {
+   "bedrock": "textures/blocks/frogspawn",
+   "color": false
+  },
+  "frosted_ice_0": {
+   "bedrock": "textures/blocks/frosted_ice_0",
+   "color": false
+  },
+  "frosted_ice_1": {
+   "bedrock": "textures/blocks/frosted_ice_1",
+   "color": false
+  },
+  "frosted_ice_2": {
+   "bedrock": "textures/blocks/frosted_ice_2",
+   "color": false
+  },
+  "frosted_ice_3": {
+   "bedrock": "textures/blocks/frosted_ice_3",
+   "color": false
+  },
   "furnace_front": {
    "bedrock": "textures/blocks/furnace_front_off",
    "color": true
@@ -1496,6 +1564,10 @@
   "glass": {
    "bedrock": "textures/blocks/glass",
    "color": true
+  },
+  "glass_pane_top": {
+   "bedrock": "textures/blocks/glass_pane_top",
+   "color": false
   },
   "glow_item_frame": {
    "bedrock": "textures/blocks/glow_item_frame",
@@ -1653,12 +1725,24 @@
    "bedrock": "textures/blocks/coral_fan_yellow",
    "color": true
   },
+  "ice": {
+   "bedrock": "textures/blocks/ice",
+   "color": false
+  },
   "iron_bars": {
    "bedrock": "textures/blocks/iron_bars",
    "color": true
   },
   "iron_block": {
    "bedrock": "textures/blocks/iron_block",
+   "color": true
+  },
+  "iron_door_bottom": {
+   "bedrock": "textures/blocks/door_iron_lower",
+   "color": true
+  },
+  "iron_door_top": {
+   "bedrock": "textures/blocks/door_iron_upper",
    "color": true
   },
   "iron_ore": {
@@ -1699,6 +1783,14 @@
   },
   "jukebox_top": {
    "bedrock": "textures/blocks/jukebox_top",
+   "color": true
+  },
+  "jungle_door_bottom": {
+   "bedrock": "textures/blocks/door_jungle_lower",
+   "color": true
+  },
+  "jungle_door_top": {
+   "bedrock": "textures/blocks/door_jungle_upper",
    "color": true
   },
   "jungle_leaves": {
@@ -1929,6 +2021,10 @@
    "bedrock": "textures/blocks/loom_side",
    "color": true
   },
+  "loom_top": {
+   "bedrock": "textures/blocks/loom_top",
+   "color": false
+  },
   "magenta_candle": {
    "bedrock": "textures/blocks/candles/magenta_candle",
    "color": true
@@ -1960,6 +2056,14 @@
   "magma": {
    "bedrock": "textures/blocks/magma",
    "color": false
+  },
+  "mangrove_door_bottom": {
+   "bedrock": "textures/blocks/mangrove_door_bottom",
+   "color": true
+  },
+  "mangrove_door_top": {
+   "bedrock": "textures/blocks/mangrove_door_top",
+   "color": true
   },
   "mangrove_leaves": {
    "bedrock": "textures/blocks/mangrove_leaves",
@@ -2109,6 +2213,14 @@
    "bedrock": "textures/blocks/noteblock",
    "color": true
   },
+  "oak_door_bottom": {
+   "bedrock": "textures/blocks/door_wood_lower",
+   "color": true
+  },
+  "oak_door_top": {
+   "bedrock": "textures/blocks/door_wood_upper",
+   "color": true
+  },
   "oak_leaves": {
    "bedrock": "textures/blocks/leaves_oak",
    "color": true
@@ -2231,6 +2343,14 @@
   },
   "oxidized_copper_bulb_powered": {
    "bedrock": "textures/blocks/oxidized_copper_bulb_powered",
+   "color": true
+  },
+  "oxidized_copper_door_bottom": {
+   "bedrock": "textures/blocks/oxidized_copper_door_bottom",
+   "color": true
+  },
+  "oxidized_copper_door_top": {
+   "bedrock": "textures/blocks/oxidized_copper_door_top",
    "color": true
   },
   "oxidized_copper_grate": {
@@ -2837,6 +2957,10 @@
    "bedrock": "textures/blocks/respawn_anchor_side4",
    "color": true
   },
+  "respawn_anchor_top": {
+   "bedrock": "textures/blocks/respawn_anchor_top",
+   "color": false
+  },
   "respawn_anchor_top_off": {
    "bedrock": "textures/blocks/respawn_anchor_top_off",
    "color": true
@@ -2872,6 +2996,10 @@
   "scaffolding_bottom": {
    "bedrock": "textures/blocks/scaffolding_bottom",
    "color": true
+  },
+  "scaffolding_side": {
+   "bedrock": "textures/blocks/scaffolding_side",
+   "color": false
   },
   "scaffolding_top": {
    "bedrock": "textures/blocks/scaffolding_top",
@@ -3159,6 +3287,14 @@
   },
   "spore_blossom_base": {
    "bedrock": "textures/blocks/spore_blossom_base",
+   "color": true
+  },
+  "spruce_door_bottom": {
+   "bedrock": "textures/blocks/door_spruce_lower",
+   "color": true
+  },
+  "spruce_door_top": {
+   "bedrock": "textures/blocks/door_spruce_upper",
    "color": true
   },
   "spruce_leaves": {
@@ -3477,6 +3613,10 @@
    "bedrock": "textures/blocks/hardened_clay",
    "color": true
   },
+  "tinted_glass": {
+   "bedrock": "textures/blocks/tinted_glass",
+   "color": false
+  },
   "tnt_bottom": {
    "bedrock": "textures/blocks/tnt_bottom",
    "color": true
@@ -3669,6 +3809,14 @@
    "bedrock": "textures/blocks/vine",
    "color": true
   },
+  "warped_door_bottom": {
+   "bedrock": "textures/blocks/huge_fungus/warped_door_lower",
+   "color": true
+  },
+  "warped_door_top": {
+   "bedrock": "textures/blocks/huge_fungus/warped_door_top",
+   "color": true
+  },
   "warped_fungus": {
    "bedrock": "textures/blocks/warped_fungus",
    "color": true
@@ -3739,6 +3887,14 @@
   },
   "weathered_copper_bulb_powered": {
    "bedrock": "textures/blocks/weathered_copper_bulb_powered",
+   "color": true
+  },
+  "weathered_copper_door_bottom": {
+   "bedrock": "textures/blocks/weathered_copper_door_bottom",
+   "color": true
+  },
+  "weathered_copper_door_top": {
+   "bedrock": "textures/blocks/weathered_copper_door_top",
    "color": true
   },
   "weathered_copper_grate": {

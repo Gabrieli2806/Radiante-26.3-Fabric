@@ -82,6 +82,12 @@ void main() {
         }
     }
 
+    // The clear part of a glass block or pane is still glass: kept as a hit, and shaded as fully see-through glass
+    // (its alpha is 0), so it reflects the sky and bends the view instead of being skipped. Shadow rays still pass.
+    if (isGlassSurface(packedData) && alpha < 0.05) {
+        return;
+    }
+
     if ((alphaMode == ALPHA_MODE_STOCHASTIC || alphaMode == ALPHA_MODE_DECAL) && alpha >= 0.05 && alpha < 0.999) {
         uint seed = xxhash32(uvec3(gl_LaunchIDEXT.xy, ubo.seed ^ uint(gl_PrimitiveID)));
         if (rand(seed) >= alpha) {

@@ -34,6 +34,9 @@ struct Vertex {
     // And for what the player holds in first person, whose glow follows its own brightness setting.
     static constexpr uint32_t alphaModeHeldFlag = 0x40u;
     static constexpr uint32_t heldSurfaceBit = 1u << 19u;
+    // And for glass blocks and panes, whose see-through texels are clear glass rather than holes.
+    static constexpr uint32_t alphaModeGlassFlag = 0x80u;
+    static constexpr uint32_t glassSurfaceBit = 1u << 20u;
 
     template <typename T>
     static VertexLayoutInfo initVertexLayout(std::vector<VertexAttribute> &attributes);

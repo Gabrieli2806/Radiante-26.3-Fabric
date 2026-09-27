@@ -415,6 +415,21 @@ public class Pipeline {
         return true;
     }
 
+    /** Sets an attribute of any module by module and attribute name; true when it changed. */
+    public static boolean setModuleValue(String moduleName, String attributeName, String value) {
+        for (Module module : INSTANCE.modules) {
+            if (module != null && Objects.equals(module.name, moduleName)) {
+                AttributeConfig attribute = findAttribute(module, attributeName);
+                if (attribute == null || Objects.equals(attribute.value, value)) {
+                    return false;
+                }
+                attribute.value = value;
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** A shader pack attribute as a whole number, or {@code fallback} when it is missing or not a number. */
     public static int getShaderPackInt(String attributeName, int fallback) {
         String value = getShaderPackValue(attributeName);
