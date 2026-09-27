@@ -1236,8 +1236,10 @@ void main() {
             if (isFirstHitTransparent) {
                 // Only for glass. A translucent solid (ice) is mostly shaded as a surface and only partly let
                 // through; recomposing the frames that happened to go through as pure glass made it flicker.
+                // Not water either: split into a reflection and a refraction the water's own medium and fog were
+                // applied to the wrong half, and a sheet of water seen side on turned a flat blue smear.
                 useTransparentSplit = VPT_TRANSPARENT_SPLIT_MODE == VPT_TRANSPARENT_SPLIT_MODE_DETERMINISTIC &&
-                                      firstHitMat.transmission > 0.95;
+                                      firstHitMat.transmission > 0.95 && rayLoadAux(mainRay).y <= 0.5;
 
                 if (useTransparentSplit) {
                     MainRay transparentReflectionRay;
@@ -1337,6 +1339,8 @@ void main() {
             vec3 waterTransmittance;
             vec3 waterScatter;
             waterMediumSegment(surfaceDepth, VPT_WATER_DENSITY, waterTransmittance, waterScatter);
+            // Lit by the sky above: the camera's water under a roof or in a cave does not glow with it.
+            waterScatter *= mix(0.35, 1.0, volumetricSkyVisibility(eyePos, false));
             waterScatter += waterGodRays(eyePos, orgDirection, surfaceDepth);
             float waterComposeTransmittance = clamp(volumetricLightLuminance(waterTransmittance), 0.0, 1.0);
             if (useTransparentSplit) {

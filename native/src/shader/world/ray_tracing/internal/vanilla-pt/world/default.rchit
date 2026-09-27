@@ -226,14 +226,16 @@ void sampleSurfaceState(bool useTexture,
         }
     }
 
-    if (!isFftWaterSurface && VPT_PBR_SAMPLING_MODE != 0u && hasHeightMap && !localHit.sideWall && textureMap.normal >= 0 &&
+    // Water's sides (and any water face without the wave surface) stay flat, as in Bedrock RTX: the pack's water
+    // normal map bent the view through a vertical sheet of water into a blue smear.
+    if (!useWaterMaterial && !isFftWaterSurface && VPT_PBR_SAMPLING_MODE != 0u && hasHeightMap && !localHit.sideWall && textureMap.normal >= 0 &&
         !useFlatEdgeBand) {
         geometricNormal = sampleNormal(textures[nonuniformEXT(textureMap.normal)], uv, atlasUvMin, atlasUvMax,
                                        dPduWorld, dPdvWorld, baseGeoNormal, 0, VPT_PBR_SAMPLING_MODE,
                                        maxDepthWorld, viewDir);
     }
 
-    if (!isFftWaterSurface && !localHit.sideWall) {
+    if (!isFftWaterSurface && !localHit.sideWall && !useWaterMaterial) {
         vec3 tangent, bitangent;
         tangent = normalizeF(dPduWorld - geometricNormal * dot(geometricNormal, dPduWorld),
                              abs(geometricNormal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0));
@@ -826,6 +828,20 @@ bool loadPreviousScenePos(uint geometryBufferIndex, uint primitiveID, vec3 baryC
     return true;
 }
 
+// How much of a sheet of water seen side on is its texture, the rest seen through.
+const float WATER_SHEET_OPACITY = 0.45;
+
+// How open to the sky the water is straight up from here: the light the water scatters comes from the sky and the
+// sun above it, so water under a roof or in a cave stays dark instead of glowing with the open sky's light.
+float waterSkyVisibility(vec3 position) {
+    shadowRay.radiance = vec3(0.0);
+    shadowRay.throughput = vec3(1.0);
+    shadowRay.insideBoat = 0u;
+    shadowRay.pad0 = BLOCK_LIGHT_QUERY;
+    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS, WORLD_MASK, 0, 0, 0, position, 0.01, vec3(0.0, 1.0, 0.0), 256.0, 1);
+    return clamp(dot(shadowRay.radiance, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+}
+
 void main() {
     uint instanceID = gl_InstanceCustomIndexEXT;
     uint geometryID = gl_GeometryIndexEXT;
@@ -860,7 +876,13 @@ void main() {
             vec3 waterTransmittance;
             vec3 waterScatter;
             waterMediumSegment(gl_HitTEXT, waterMediumBounceDensity(bounce), waterTransmittance, waterScatter);
-            mainRay.radiance += mainRay.throughput * waterScatter * max(waterMediumBounceAmbient(bounce), 0.0);
+            float waterAmbient = max(waterMediumBounceAmbient(bounce), 0.0);
+            if (waterAmbient > 0.0) {
+                // Some light still reaches under an overhang sideways through the water around it.
+                waterAmbient *= mix(0.35, 1.0,
+                                    waterSkyVisibility(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * (gl_HitTEXT * 0.5)));
+            }
+            mainRay.radiance += mainRay.throughput * waterScatter * waterAmbient;
             mainRay.throughput *= waterTransmittance;
         } else if (bounce == 0u && skyUBO.cameraSubmersionType == 1) {
             raySetInWater(mainRay, true);
@@ -916,6 +938,35 @@ void main() {
             isWaterMaterial = isWaterMaterial || (flags.r & 0x1) > 0;
         }
         hasFftWaterSurface = useRealisticWaterSurface && isWaterMaterial && abs(planeGeoNormal.y) > 0.75;
+
+        // A side of the water (where a sheet of water stands against glass or an opening, as in a wall of aquarium
+        // windows) is seen straight through, as in Bedrock RTX: the view carries on into the water, clear and sharp,
+        // with what is behind it as the surface the denoiser sees. Refracting and shading it as a surface turned it
+        // a milky smear. The medium still colours the stretch beyond.
+        if (isWaterMaterial && abs(planeGeoNormal.y) <= 0.75 && bounce == 0u) {
+            mainRay.hitT = gl_HitTEXT;
+            mainRay.coneWidth += mainRay.hitT * mainRay.coneSpread;
+            mainRay.origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * (gl_HitTEXT + 0.002);
+            mainRay.normal = vec3(0.0);
+            mainRay.directLightRadiance = vec3(0.0);
+            mainRay.hasPrevScenePos = 0u;
+            // The pack's water texture stays on the sheet, faintly, so the falling water's streaks and their
+            // direction still show (Minecraft animates the flow texture in the atlas). Lit as the water around it.
+            vec4 sheet = sampleTexture(textures[nonuniformEXT(textureID)], textureUV, lod, false);
+            float sheetAlpha = clamp(sheet.a, 0.0, 1.0) * WATER_SHEET_OPACITY;
+            vec3 sheetLight = waterMediumIncomingLight() *
+                              mix(0.35, 1.0, waterSkyVisibility(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT));
+            vec3 sheetColour = sheet.rgb * clamp(colorLayer, vec3(0.05), vec3(1.0));
+            mainRay.radiance += mainRay.throughput * sheetAlpha * sheetColour * sheetLight;
+            mainRay.throughput *= 1.0 - sheetAlpha;
+            rayStoreMaterial(mainRay, vec4(1.0), vec3(0.02), 1.0, 0.0, 1.0, 1.0, 0.0);
+            raySetInWater(mainRay, !rayInWater(mainRay));
+            raySetNoisy(mainRay, false);
+            raySetContinue(mainRay, true);
+            raySetPassThrough(mainRay, true);
+            raySetStop(mainRay, false);
+            return;
+        }
 
         if (!isWaterMaterial && parallaxEnabled && bounce == 0u && textureMap.normal >= 0 && coordinate != 1u) {
             maxDepthWorld = heightMapMaxDepthWorld(atlasUvMin, atlasUvMax, dPduWorld, dPdvWorld);
