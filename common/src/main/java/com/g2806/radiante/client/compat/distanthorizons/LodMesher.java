@@ -73,6 +73,7 @@ final class LodMesher {
                 float x0 = x * cw;
                 float z0 = z * cw;
 
+                boolean underWater = looks.kind(runs[2]) == BlockLooks.KIND_WATER;
                 for (int r = 0; r < runCount; r++) {
                     int at = r * LodSection.RUN_INTS;
                     int state = runs[at + 2];
@@ -107,8 +108,10 @@ final class LodMesher {
                         int nz = z + (side == NORTH ? -1 : side == SOUTH ? 1 : 0);
                         int[] neighbour = nx < 0 || nz < 0 || nx >= width || nz >= width ? null
                             : section.column(nx, nz);
-                        if (neighbour == null && isWater) {
-                            // A skirt of water would stand along the edge as a pane of glass.
+                        if (neighbour == null && (isWater || underWater)) {
+                            // A skirt of water would stand along the edge as a pane of glass; one of the sea floor
+                            // showed through the water as a dark wall wherever the neighbouring section was not
+                            // drawn yet, ringing the loaded area after a teleport.
                             continue;
                         }
                         int sideBottom = neighbour == null ? Math.max(bottom, skirtFrom) : bottom;

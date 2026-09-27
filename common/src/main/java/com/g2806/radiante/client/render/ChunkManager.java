@@ -583,13 +583,27 @@ public final class ChunkManager {
 
     /** Whether the renderer has built any section of this chunk column yet. */
     public static boolean isColumnBuilt(int chunkX, int chunkZ) {
+        // Built from the bottom up to sea level at least, with nothing missing below the highest section built.
+        // Any one section built used to count: the sea floor came in before the water above it, and the far
+        // terrain standing in was dropped too soon, leaving a ring of bare, dark sea floor round the loaded area.
+        int seaSection = SectionPos.blockToSectionCoord(63);
         synchronized (compiledSections) {
-            for (int y = minSectionY; y < minSectionY + gridSizeY; y++) {
+            int highest = Integer.MIN_VALUE;
+            for (int y = minSectionY + gridSizeY - 1; y >= minSectionY; y--) {
                 if (compiledSections.contains(SectionPos.asLong(chunkX, y, chunkZ))) {
-                    return true;
+                    highest = y;
+                    break;
                 }
             }
-            return false;
+            if (highest < Math.min(seaSection, minSectionY + gridSizeY - 1)) {
+                return false;
+            }
+            for (int y = minSectionY; y < highest; y++) {
+                if (!compiledSections.contains(SectionPos.asLong(chunkX, y, chunkZ))) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 

@@ -38,6 +38,23 @@ by the player, or fetched on first use when chosen) would bring the jar near 15 
 
 ## Open work and verification
 
+### Bedrock RTX parity — in progress
+
+Tuned against Bedrock RTX side by side (same .mcpack, same map): Aquatic Adventure and Creeper Land. Done so far:
+Bedrock's own sky and sunlight tables and caustics read from a Bedrock install (Atmosphere: Java / Bedrock),
+water clear up close with god rays and a turquoise medium, sheets of water seen side on see-through with their
+texture, tinted glass passing its colour, light shafts through openings, fog that no longer lights dark rooms,
+partial eye adaptation (exposure adaptation 0.5, bias +0.7), bounce and sky light boost, saturation 1.2, and a
+one-time reset of stored settings when defaults change. Still to do:
+
+- **Picture style setting** (Natural / Bedrock / Vivid) in Radiante settings, with saturation, bounce light and
+  sky light sliders, so the Bedrock look is a choice rather than fixed.
+- Glowstone lighting a room orange where Bedrock's reads cream; interiors seen from outside a little too bright.
+- Sea seen from above bluer and lighter than Bedrock's green-teal; water density from above has no visible effect.
+- Room filling with coloured light from a skylight still weaker than Bedrock's.
+- Performance: 2 bounces by default with the bounce boost, cheaper volumetric light (fewer steps, one sky probe),
+  measured before and after.
+
 ### Distant Horizons far terrain — keep improving compatibility
 
 Still seen in play: large LOD areas (coarse sections, up to 2048 blocks) blinking now and then as the quadtree

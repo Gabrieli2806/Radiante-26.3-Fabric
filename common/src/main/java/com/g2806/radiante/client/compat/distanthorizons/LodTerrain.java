@@ -42,6 +42,12 @@ final class LodTerrain {
     private static final int COARSEST_DETAIL = 11;
     /** A section is split while the camera is closer than this many of its widths. */
     private static final double SPLIT_DISTANCE = 1.0;
+    /**
+     * A section already split stays split until the camera is this much further out: right at the split distance a
+     * far section went back and forth between itself and its children as the camera moved, blinking between two
+     * levels of detail.
+     */
+    private static final double SPLIT_HYSTERESIS = 1.35;
     private static final long RESELECT_INTERVAL_NS = 500_000_000L;
     private static final double RESELECT_DISTANCE = 8.0;
     /** How often built sections are checked for newer data: generation filling them in, or edits. */
@@ -65,6 +71,8 @@ final class LodTerrain {
     private static final int ALL_CHUNKS = 0xFFFF;
 
     private final Map<Long, Tile> tiles = new HashMap<>();
+    /** Sections split into their children at the last selection; see SPLIT_HYSTERESIS. */
+    private java.util.Set<Long> splitLast = new java.util.HashSet<>();
     /** What Distant Horizons has: whether a section has data, and when that was last asked. */
     private final Map<Long, Availability> availability = new ConcurrentHashMap<>();
     private final Set<Long> probing = ConcurrentHashMap.newKeySet();
@@ -199,6 +207,7 @@ final class LodTerrain {
             }
         }
 
+        this.splitLast = selection.split;
         for (Map.Entry<Long, Wanted> entry : selection.chosen.entrySet()) {
             Wanted wanted = entry.getValue();
             Tile tile = this.tiles.get(entry.getKey());
@@ -233,6 +242,7 @@ final class LodTerrain {
     private final class Selection {
 
         final Map<Long, Wanted> chosen = new HashMap<>();
+        final java.util.Set<Long> split = new java.util.HashSet<>();
         private final ClientLevel level;
         private final Vec3 camera;
         private final int distance;
@@ -275,8 +285,11 @@ final class LodTerrain {
             }
 
             int covered = 0;
-            boolean split = detail > DhData.BLOCK_SECTION_DETAIL
-                && (distanceTo < SPLIT_DISTANCE * width || nearLoaded);
+            double splitAt = SPLIT_DISTANCE * width * (LodTerrain.this.splitLast.contains(key) ? SPLIT_HYSTERESIS : 1.0);
+            boolean split = detail > DhData.BLOCK_SECTION_DETAIL && (distanceTo < splitAt || nearLoaded);
+            if (split) {
+                this.split.add(key);
+            }
             if (split) {
                 for (int i = 0; i < 4; i++) {
                     int childX = x * 2 + (i & 1);
@@ -299,18 +312,22 @@ final class LodTerrain {
             }
             Tile tile = LodTerrain.this.tiles.get(key);
             boolean built = tile != null && tile.builtOnce;
-            if (!built && !split) {
-                // Sections merging back into this one keep drawing until it is built.
+            // Quadrants this section's built geometry still leaves out although no finer section draws them any more:
+            // it was built while its children covered them, and is being built again. Dropping the children now
+            // opened a hole there for as long as that took, the far terrain blinking out for a few seconds.
+            Hide builtHide = tile == null ? null : tile.builtHide;
+            boolean staleHole = builtHide != null && (builtHide.quadrants() & ~covered) != 0;
+            if (!built && !split || staleHole) {
+                // Sections merging back into this one keep drawing until it covers their area itself.
                 keepBuiltInside(detail, x, z);
             }
             // The loaded square only matters to the coarser sections; left out of the others so they are not built
             // again each time the player crosses into another chunk.
             boolean square = nearLoaded && detail > DhData.BLOCK_SECTION_DETAIL;
             Hide hide = square
-                ? new Hide(covered, 0, 0, true, this.minLoadedChunkX - SQUARE_MARGIN_CHUNKS,
-                    this.maxLoadedChunkX + SQUARE_MARGIN_CHUNKS, this.minLoadedChunkZ - SQUARE_MARGIN_CHUNKS,
-                    this.maxLoadedChunkZ + SQUARE_MARGIN_CHUNKS)
-                : new Hide(covered, loadedChunks, rangeChunks, false, 0, 0, 0, 0);
+                ? new Hide(covered, 0, 0, true, this.minLoadedChunkX, this.maxLoadedChunkX, this.minLoadedChunkZ,
+                    this.maxLoadedChunkZ, builtSquare())
+                : new Hide(covered, loadedChunks, rangeChunks, false, 0, 0, 0, 0, 0);
             this.chosen.put(key, new Wanted(detail, x, z, hide));
             return built;
         }
@@ -358,6 +375,27 @@ final class LodTerrain {
             return Math.max(dx, dz);
         }
 
+        private int builtSquare = -1;
+
+        /**
+         * How many of the loaded chunks are built: part of what a coarse section near them leaves out, so it is
+         * meshed again as they come in (see hiddenColumns).
+         */
+        private int builtSquare() {
+            if (this.builtSquare < 0) {
+                int count = 0;
+                for (int cx = this.minLoadedChunkX; cx <= this.maxLoadedChunkX; cx++) {
+                    for (int cz = this.minLoadedChunkZ; cz <= this.maxLoadedChunkZ; cz++) {
+                        if (ChunkManager.isColumnBuilt(cx, cz)) {
+                            count++;
+                        }
+                    }
+                }
+                this.builtSquare = count;
+            }
+            return this.builtSquare;
+        }
+
         private boolean overlapsLoaded(int minX, int minZ, int width) {
             int minChunkX = minX >> 4;
             int maxChunkX = (minX + width - 1) >> 4;
@@ -377,8 +415,11 @@ final class LodTerrain {
                 for (int cz = 0; cz < chunks; cz++) {
                     int chunkX = (minX >> 4) + cx;
                     int chunkZ = (minZ >> 4) + cz;
+                    // Only chunks the client already has, about to be built: for one not even sent yet, leaving the
+                    // coarse surface out opened a dark pit ringing the loaded area for seconds after a teleport.
                     if (chunkX >= this.minLoadedChunkX && chunkX <= this.maxLoadedChunkX
-                        && chunkZ >= this.minLoadedChunkZ && chunkZ <= this.maxLoadedChunkZ) {
+                        && chunkZ >= this.minLoadedChunkZ && chunkZ <= this.maxLoadedChunkZ
+                        && this.level.getChunkSource().hasChunk(chunkX, chunkZ)) {
                         mask |= 1 << (cx * 4 + cz);
                     }
                 }
@@ -416,7 +457,7 @@ final class LodTerrain {
      * not there yet.
      */
     private record Hide(int quadrants, int chunks, int range, boolean square, int minChunkX, int maxChunkX,
-                        int minChunkZ, int maxChunkZ) {
+                        int minChunkZ, int maxChunkZ, int builtInSquare) {
 
         boolean isEmpty() {
             return this.quadrants == 0 && this.chunks == 0 && this.range == 0 && !this.square;
@@ -456,6 +497,7 @@ final class LodTerrain {
         }
         this.tiles.clear();
         this.availability.clear();
+        this.splitLast = new java.util.HashSet<>();
         this.probing.clear();
         this.freeSlots.clear();
         this.level = null;
@@ -685,20 +727,38 @@ final class LodTerrain {
                     out = inChunkMask(x, z, columnBlocks, hide.range());
                 }
                 if (!out && hide.square()) {
-                    // Any overlap, not the column's centre: a coarse column is up to a few dozen blocks wide and as
-                    // tall as the highest thing in it, and one reaching into the loaded area stood over the real
-                    // terrain there as a plateau.
+                    // Left out once the world's own chunks it reaches into are built, not before: leaving out the
+                    // whole loaded square at once opened a pit with the coarse sections' walls around it for the
+                    // seconds the chunks took to build after a teleport or a fast flight. Any overlap counts, not
+                    // the column's centre: a coarse column is up to a few dozen blocks wide and as tall as the
+                    // highest thing in it, and one reaching into built terrain stood over it as a plateau.
                     int minChunkX = originX + x * columnBlocks >> 4;
                     int maxChunkX = originX + (x + 1) * columnBlocks - 1 >> 4;
                     int minChunkZ = originZ + z * columnBlocks >> 4;
                     int maxChunkZ = originZ + (z + 1) * columnBlocks - 1 >> 4;
-                    out = maxChunkX >= hide.minChunkX() && minChunkX <= hide.maxChunkX()
-                        && maxChunkZ >= hide.minChunkZ() && minChunkZ <= hide.maxChunkZ();
+                    out = overlapsBuilt(hide, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
                 }
                 hidden[x * width + z] = out;
             }
         }
         return hidden;
+    }
+
+    /**
+     * Whether the world's own chunks stand in for this range: every chunk of it inside the loaded square built. With
+     * any one built, the coarse column was left out beside chunks still coming in, a pit where neither was drawn.
+     */
+    private static boolean overlapsBuilt(Hide hide, int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ) {
+        boolean any = false;
+        for (int cx = Math.max(minChunkX, hide.minChunkX()); cx <= Math.min(maxChunkX, hide.maxChunkX()); cx++) {
+            for (int cz = Math.max(minChunkZ, hide.minChunkZ()); cz <= Math.min(maxChunkZ, hide.maxChunkZ()); cz++) {
+                if (!ChunkManager.isColumnBuilt(cx, cz)) {
+                    return false;
+                }
+                any = true;
+            }
+        }
+        return any;
     }
 
     private static boolean inChunkMask(int x, int z, int columnBlocks, int chunks) {
