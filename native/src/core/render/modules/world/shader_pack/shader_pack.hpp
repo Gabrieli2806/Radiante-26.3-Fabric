@@ -680,6 +680,7 @@ class ShaderPack {
     void initStageRuntime(StageRuntime &stageRuntime, const ShaderPackLoader::ExecutionConfig &execution);
     void initRuntimeTextures();
     void initRuntimeBuffers();
+    void clearRuntimeResources();
     void loadRuntimeResources();
 
   private:

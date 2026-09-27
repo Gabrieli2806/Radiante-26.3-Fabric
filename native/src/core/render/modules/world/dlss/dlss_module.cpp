@@ -260,6 +260,7 @@ void DLSSModule::setAttributes(int attributeCount, std::vector<std::string> &att
 
 void DLSSModule::build() {
     // ngxContext_ must not be nullptr
+    framesSinceBuild_ = 0;
 
     auto framework = framework_.lock();
     auto worldPipeline = worldPipeline_.lock();
@@ -660,8 +661,9 @@ void DLSSModuleContext::render() {
 
             if (worldUBO != nullptr) {
                 glm::vec2 jitter = worldUBO->cameraJitter;
+                bool reset = module->framesSinceBuild_++ < 3;
                 module->dlss_->denoise(worldCommandBuffer, glm::uvec2{module->inputWidth_, module->inputHeight_},
-                                       jitter, worldUBO->cameraViewMat, worldUBO->cameraProjMat);
+                                       jitter, worldUBO->cameraViewMat, worldUBO->cameraProjMat, reset);
             }
         } else {
             // Plain upscaling: the colour arriving here has already been denoised by NRD, and the G-buffer that
@@ -673,8 +675,9 @@ void DLSSModuleContext::render() {
 
             if (worldUBO != nullptr) {
                 glm::vec2 jitter = worldUBO->cameraJitter;
+                bool reset = module->framesSinceBuild_++ < 3;
                 module->dlssSR_->upscale(worldCommandBuffer, glm::uvec2{module->inputWidth_, module->inputHeight_},
-                                         jitter);
+                                         jitter, reset);
             }
         }
     }

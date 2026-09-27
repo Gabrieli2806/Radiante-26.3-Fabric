@@ -69,6 +69,10 @@ class DLSSModule : public WorldModule, public SharedObject<DLSSModule> {
      * denoised, and wants nothing but colour, depth and motion vectors.
      */
     std::shared_ptr<DlssSR> dlssSR_;
+    // Frames since the pipeline was built. The first few ask DLSS to drop its history: the images it accumulates
+    // from start out as whatever memory they were given, and blending with that left pink and green blotches over
+    // the world for seconds after a settings change or a window resize.
+    uint32_t framesSinceBuild_ = 0;
     bool rayReconstruction_ = true;
     NgxContext::SupportedSizes supportedSizes_{};
     NVSDK_NGX_PerfQuality_Value mode_ = NVSDK_NGX_PerfQuality_Value_Balanced;

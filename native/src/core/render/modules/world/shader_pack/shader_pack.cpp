@@ -2803,7 +2803,8 @@ void ShaderPack::initRuntimeTextures() {
                 const bool isCube = textureConfig.dimension == ShaderPackLoader::TextureDimension::Cube;
                 const bool is3D = textureConfig.dimension == ShaderPackLoader::TextureDimension::Texture3D;
                 const bool is2DArray = textureConfig.dimension == ShaderPackLoader::TextureDimension::Texture2DArray;
-                VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+                // Transfer destination so it can be cleared once when created; see clearRuntimeResources.
+                VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
                 if (!is3D) { usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; }
                 if (textureConfig.storageBinding.has_value()) { usage |= VK_IMAGE_USAGE_STORAGE_BIT; }
 
@@ -2929,8 +2930,9 @@ void ShaderPack::initRuntimeBuffers() {
             std::max(static_cast<size_t>(1), static_cast<size_t>(std::ceil(evaluateNumericExpression(bufferConfig.sizeExpression))));
         for (uint32_t frameIndex = 0; frameIndex < bufferFrameCount; frameIndex++) {
             runtimeBuffer.frameBuffers[frameIndex] =
-                vk::DeviceLocalBuffer::create(vma, device, false, bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 0,
-                                              VMA_MEMORY_USAGE_GPU_ONLY);
+                vk::DeviceLocalBuffer::create(vma, device, false, bufferSize,
+                                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                              0, VMA_MEMORY_USAGE_GPU_ONLY);
         }
 
         runtimeBuffers[bufferIndex] = std::move(runtimeBuffer);
@@ -2942,6 +2944,54 @@ void ShaderPack::initRuntimeBuffers() {
     for (size_t i = 0; i < runtimeBuffers_.size(); i++) {
         runtimeBufferIndices_[runtimeBuffers_[i].config.name] = i;
     }
+    clearRuntimeResources();
+}
+
+void ShaderPack::clearRuntimeResources() {
+    // New images and buffers hold whatever memory they were given. The pack's passes read some of them before they
+    // first write them (history, accumulation, caches), and that showed as large pink, green and blue blotches over
+    // the world for seconds after every settings change or window resize, until the history washed them out.
+    auto framework = framework_.lock();
+    auto device = framework->device();
+
+    auto commandPool = vk::CommandPool::create(framework->physicalDevice(), device);
+    auto commandBuffer = vk::CommandBuffer::create(device, commandPool);
+    commandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    VkCommandBuffer cmd = commandBuffer->vkCommandBuffer();
+
+    VkClearColorValue zero{};
+    for (auto &texture : runtimeTextures_) {
+        for (auto &image : texture.frameImages) {
+            if (image == nullptr) continue;
+            VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, VK_REMAINING_MIP_LEVELS, 0,
+                                          VK_REMAINING_ARRAY_LAYERS};
+            VkImageMemoryBarrier2 barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+            barrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+            barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = image->vkImage();
+            barrier.subresourceRange = range;
+            VkDependencyInfo dependency{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+            dependency.imageMemoryBarrierCount = 1;
+            dependency.pImageMemoryBarriers = &barrier;
+            vkCmdPipelineBarrier2(cmd, &dependency);
+            vkCmdClearColorImage(cmd, image->vkImage(), VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &range);
+            image->imageLayout() = VK_IMAGE_LAYOUT_GENERAL;
+        }
+    }
+    for (auto &buffer : runtimeBuffers_) {
+        for (auto &frameBuffer : buffer.frameBuffers) {
+            if (frameBuffer != nullptr) vkCmdFillBuffer(cmd, frameBuffer->vkBuffer(), 0, VK_WHOLE_SIZE, 0);
+        }
+    }
+
+    commandBuffer->end();
+    commandBuffer->submitMainQueueIndividual(device);
+    vkQueueWaitIdle(device->mainVkQueue());
 }
 
 void ShaderPack::loadRuntimeResources() {
