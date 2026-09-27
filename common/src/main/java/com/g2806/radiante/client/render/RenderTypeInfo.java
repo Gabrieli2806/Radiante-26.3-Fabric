@@ -208,7 +208,7 @@ public final class RenderTypeInfo {
     }
 
     /** The patch over a boat's inside that keeps water out of it ("water_mask", or its order-independent twin). */
-    private boolean isWaterMask() {
+    public boolean isWaterMask() {
         return this.name.endsWith("water_mask");
     }
 

@@ -86,6 +86,8 @@ public class EntityCollector implements SubmitNodeCollector {
     private final java.util.Map<Object, Integer> modelLayers = new java.util.IdentityHashMap<>();
     /** Blocks per layer: enough for the tracer to tell the surfaces apart, too little to see. */
     private static final float LAYER_OFFSET = 0.002f;
+    /** How far a boat's water patch is raised above the water line, in blocks. */
+    private static final float WATER_MASK_LIFT = 0.06f;
 
     /** Drops the geometry of the previous entity, keeping the buffers for reuse. */
     public void reset() {
@@ -200,6 +202,17 @@ public class EntityCollector implements SubmitNodeCollector {
         int layer = this.modelLayers.merge(model, 1, Integer::sum) - 1;
         writer.layerOffset(layer * LAYER_OFFSET);
         VertexConsumer buffer = writer;
+        if (RenderTypeInfo.of(renderType).isWaterMask()) {
+            // A boat's water patch sits at the water line, level with the water surface around it. Rays have to
+            // meet the patch before the water to know they are inside the boat (see world/water_mask.rchit), so
+            // it is lifted a little; nothing of it is ever drawn.
+            buffer = new VertexConsumerWrapper(buffer) {
+                @Override
+                public VertexConsumer addVertex(float x, float y, float z) {
+                    return super.addVertex(x, y + WATER_MASK_LIFT, z);
+                }
+            };
+        }
         if (uvMapping != null) {
             buffer = uvMapping.wrap(buffer);
         }

@@ -95,6 +95,13 @@ void main() {
         return;
     }
 
+    // Past a boat's water patch (world/water_mask.rchit) the water inside the boat is not there, as in vanilla.
+    // Water from chunks is marked in its vertices, not in a flag texture, so this has to come first.
+    if (rayInsideBoat(mainRay) && isWaterSurface(packedData)) {
+        ignoreIntersectionEXT;
+        return;
+    }
+
     if (!hasTexture(packedData)) { return; }
 
     int flagTextureID = mapping.entries[textureID].flag;

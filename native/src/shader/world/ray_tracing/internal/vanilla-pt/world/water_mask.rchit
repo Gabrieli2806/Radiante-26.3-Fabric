@@ -62,6 +62,9 @@ void main() {
     mainRay.origin = worldPos + mainRay.direction * 0.001;
 
     raySetInsideBoat(mainRay, true);
+    // The boat floats in water: past its water patch the ray is below the water line, so what it sees through a
+    // see-through hull is seen through water - absorbed and tinted like any other water, not as clear air.
+    raySetInWater(mainRay, true);
     raySetContinue(mainRay, true);
     mainRay.hitT = gl_HitTEXT;
     mainRay.coneWidth += gl_HitTEXT * mainRay.coneSpread;
