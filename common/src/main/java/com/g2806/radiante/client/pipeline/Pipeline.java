@@ -391,6 +391,40 @@ public class Pipeline {
         return attribute != null && Objects.equals(attribute.value, "render_pipeline.true");
     }
 
+    /** Light bounces per path. Each one after the first is another ray per pixel. */
+    public static final String RAY_BOUNCES_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.num_ray_bounces";
+    /** Carved (parallax) surfaces of resource packs with height maps. */
+    public static final String PARALLAX_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.enable_parallax";
+    /** Steps the volumetric fog is marched in along each ray. */
+    public static final String VOLUMETRIC_SAMPLES_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.volumetric_light_samples";
+
+    /** A shader pack attribute's value as text, or null when the pack does not have it. */
+    public static String getShaderPackValue(String attributeName) {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), attributeName);
+        return attribute == null ? null : attribute.value;
+    }
+
+    /** Sets a shader pack attribute; true when it changed and the pipeline has to be rebuilt. */
+    public static boolean setShaderPackValue(String attributeName, String value) {
+        AttributeConfig attribute = findAttribute(getRayTracingModule(), attributeName);
+        if (attribute == null || Objects.equals(attribute.value, value)) {
+            return false;
+        }
+        attribute.value = value;
+        return true;
+    }
+
+    /** A shader pack attribute as a whole number, or {@code fallback} when it is missing or not a number. */
+    public static int getShaderPackInt(String attributeName, int fallback) {
+        String value = getShaderPackValue(attributeName);
+        try {
+            return value == null ? fallback : (int) Float.parseFloat(value.trim());
+        } catch (NumberFormatException notANumber) {
+            return fallback;
+        }
+    }
+
     /** False when the active shader pack does not offer the attribute at all. */
     public static boolean supportsShaderPackToggle(String attributeName) {
         return findAttribute(getRayTracingModule(), attributeName) != null;

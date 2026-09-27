@@ -2,17 +2,19 @@ package com.g2806.radiante.client.gui;
 
 /**
  * Quick quality levels for the settings measured to cost frame time (one scene, same chunks, DLSS Ultra
- * Performance as the baseline at about 150 fps): the DLSS mode (Performance -45 %, Quality -65 %), block light
- * sampling (-20 %), volumetric fog (-10 %), render distance (24 chunks -30 % against 16) and clouds (a few
- * percent). The held light, the first person shadow and the bounce count changed nothing measurable and are
- * left out. Any of these changed by hand afterwards shows as Custom.
+ * Performance as the baseline at about 150 fps, or Balanced at about 80 for the shader settings): the DLSS mode
+ * (Performance -45 %, Quality -65 %), light bounces (4 to 2: +55 %, 4 to 1: +130 %, with little visible change
+ * outdoors and indoors), block light sampling (-20 %), volumetric fog (-10 %; 32 samples -30 % against 16),
+ * render distance (24 chunks -30 % against 16), carved (parallax) surfaces and clouds (a few percent). The held
+ * light and the first person shadow changed nothing measurable and are left out. Any of these changed by hand
+ * afterwards shows as Custom.
  */
 enum QualityPreset {
-    LOW("options.radiante.quality.low", 0, false, 0, true, 8),
-    MEDIUM("options.radiante.quality.medium", 1, false, 1, true, 12),
-    HIGH("options.radiante.quality.high", 2, true, 1, true, 16),
-    ULTRA("options.radiante.quality.ultra", 3, true, 2, true, 24),
-    CUSTOM("options.radiante.quality.custom", -1, false, 0, false, 0);
+    LOW("options.radiante.quality.low", 0, false, 0, true, 8, 1, false, 8),
+    MEDIUM("options.radiante.quality.medium", 1, false, 1, true, 12, 2, false, 8),
+    HIGH("options.radiante.quality.high", 2, true, 1, true, 16, 3, true, 16),
+    ULTRA("options.radiante.quality.ultra", 3, true, 2, true, 24, 4, true, 24),
+    CUSTOM("options.radiante.quality.custom", -1, false, 0, false, 0, 0, false, 0);
 
     final String key;
     final int dlssMode;
@@ -20,14 +22,20 @@ enum QualityPreset {
     final int cloudMode;
     final boolean blockLights;
     final int renderDistance;
+    final int bounces;
+    final boolean parallax;
+    final int fogSamples;
 
     QualityPreset(String key, int dlssMode, boolean volumetricFog, int cloudMode, boolean blockLights,
-        int renderDistance) {
+        int renderDistance, int bounces, boolean parallax, int fogSamples) {
         this.key = key;
         this.dlssMode = dlssMode;
         this.volumetricFog = volumetricFog;
         this.cloudMode = cloudMode;
         this.blockLights = blockLights;
         this.renderDistance = renderDistance;
+        this.bounces = bounces;
+        this.parallax = parallax;
+        this.fogSamples = fogSamples;
     }
 }

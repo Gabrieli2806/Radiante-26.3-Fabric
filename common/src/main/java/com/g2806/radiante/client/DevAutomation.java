@@ -204,6 +204,11 @@ public final class DevAutomation {
                 case "fog" -> com.g2806.radiante.client.pipeline.Pipeline.setVolumetricFog(Boolean.parseBoolean(parts[1]));
                 case "clouds" -> com.g2806.radiante.client.pipeline.Pipeline.setCloudMode(
                     com.g2806.radiante.client.pipeline.Pipeline.CLOUD_MODES.get(Integer.parseInt(parts[1])));
+                // attr:<attribute name>:<value>, any shader pack attribute.
+                case "attr" -> {
+                    String[] nameValue = parts[1].split(":", 2);
+                    yield com.g2806.radiante.client.pipeline.Pipeline.setShaderPackValue(nameValue[0], nameValue[1]);
+                }
                 default -> false;
             };
             if (rebuild) {

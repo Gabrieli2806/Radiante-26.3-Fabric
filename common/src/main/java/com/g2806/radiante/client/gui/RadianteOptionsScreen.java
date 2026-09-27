@@ -38,6 +38,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private int pendingBiomeFogStrength = Options.biomeFogStrength;
     private Boolean pendingVolumetricFog;
     private Boolean pendingMotionBlur;
+    // Shader pack settings that cost frame time; null until read from the pipeline, or when the pack lacks them.
+    private Integer pendingBounces;
+    private Boolean pendingParallax;
+    private Integer pendingFogSamples;
     private Boolean pendingDepthOfField;
     private boolean pendingReflex = Options.reflex;
     private boolean applied;
@@ -63,6 +67,9 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingBiomeFogStrength = previous.pendingBiomeFogStrength;
         this.pendingVolumetricFog = previous.pendingVolumetricFog;
         this.pendingMotionBlur = previous.pendingMotionBlur;
+        this.pendingBounces = previous.pendingBounces;
+        this.pendingParallax = previous.pendingParallax;
+        this.pendingFogSamples = previous.pendingFogSamples;
         this.pendingDepthOfField = previous.pendingDepthOfField;
         this.pendingReflex = previous.pendingReflex;
     }
@@ -230,7 +237,11 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             boolean fogMatches = this.pendingVolumetricFog == null || this.pendingVolumetricFog == quality.volumetricFog;
             boolean cloudsMatch = this.pendingCloudMode == null
                 || Objects.equals(this.pendingCloudMode, Pipeline.CLOUD_MODES.get(quality.cloudMode));
-            if (dlssMatches && fogMatches && cloudsMatch && Options.blockLightSampling == quality.blockLights
+            boolean shaderMatches = (this.pendingBounces == null || this.pendingBounces == quality.bounces)
+                && (this.pendingParallax == null || this.pendingParallax == quality.parallax)
+                && (this.pendingFogSamples == null || this.pendingFogSamples == quality.fogSamples);
+            if (dlssMatches && fogMatches && cloudsMatch && shaderMatches
+                && Options.blockLightSampling == quality.blockLights
                 && this.options.renderDistance().get() == quality.renderDistance) {
                 return quality;
             }
@@ -253,6 +264,15 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         Options.blockLightSampling = quality.blockLights;
         this.options.renderDistance().set(quality.renderDistance);
+        if (this.pendingBounces != null) {
+            this.pendingBounces = quality.bounces;
+        }
+        if (this.pendingParallax != null) {
+            this.pendingParallax = quality.parallax;
+        }
+        if (this.pendingFogSamples != null) {
+            this.pendingFogSamples = quality.fogSamples;
+        }
     }
 
     /** Every setting on this screen back to how a fresh install has it. */
@@ -274,6 +294,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingMotionBlur = Boolean.FALSE;
         this.pendingDepthOfField = Boolean.FALSE;
         this.pendingReflex = false;
+        // The shader pack's own defaults.
+        this.pendingBounces = this.pendingBounces == null ? null : 4;
+        this.pendingParallax = this.pendingParallax == null ? null : Boolean.TRUE;
+        this.pendingFogSamples = this.pendingFogSamples == null ? null : 16;
     }
 
     @Override
@@ -289,6 +313,17 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         OptionInstance<String> clouds = cloudModeOption();
         if (Pipeline.supportsVolumetricFog() && this.pendingVolumetricFog == null) {
             this.pendingVolumetricFog = Pipeline.isVolumetricFog();
+        }
+        if (this.pendingBounces == null && Pipeline.getShaderPackValue(Pipeline.RAY_BOUNCES_ATTRIBUTE) != null) {
+            this.pendingBounces = Math.max(1, Math.min(4, Pipeline.getShaderPackInt(Pipeline.RAY_BOUNCES_ATTRIBUTE, 4)));
+        }
+        if (this.pendingParallax == null && Pipeline.supportsShaderPackToggle(Pipeline.PARALLAX_ATTRIBUTE)) {
+            this.pendingParallax = Pipeline.isShaderPackToggleOn(Pipeline.PARALLAX_ATTRIBUTE);
+        }
+        if (this.pendingFogSamples == null
+            && Pipeline.getShaderPackValue(Pipeline.VOLUMETRIC_SAMPLES_ATTRIBUTE) != null) {
+            this.pendingFogSamples = Math.max(4, Math.min(32,
+                Pipeline.getShaderPackInt(Pipeline.VOLUMETRIC_SAMPLES_ATTRIBUTE, 16)));
         }
 
         List<QualityPreset> levels = List.of(QualityPreset.values());
@@ -414,10 +449,18 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                     }),
                 brightnessSlider("options.radiante.volumetric_fog_strength", Options.volumetricFogStrength,
                     value -> Options.volumetricFogStrength = value));
+            if (this.pendingFogSamples != null) {
+                this.list.addSmall(slider("options.radiante.volumetric_fog_samples", 4, 32, this.pendingFogSamples,
+                    value -> {
+                        this.pendingFogSamples = value;
+                        refreshQualityLater();
+                    }), null);
+            }
             this.list.addSmall(firstPersonShadow, debugLogging);
         } else {
             this.list.addSmall(firstPersonShadow, debugLogging);
         }
+        addPathTracingOptions();
         if (Pipeline.supportsShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE)
             && Pipeline.supportsShaderPackToggle(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE)) {
             if (this.pendingMotionBlur == null) {
@@ -467,6 +510,24 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         return new OptionInstance<Integer>(key, RadianteOptionsScreen.<Integer>tooltip(key),
             (caption, value) -> Component.translatable("options.radiante.nits_value", caption, value),
             new OptionInstance.IntRange(min, max, false), Math.max(min, Math.min(max, current)), onChange::accept);
+    }
+
+    /** Light bounces and carved surfaces: shader pack settings that cost frame time; changing them rebuilds. */
+    private void addPathTracingOptions() {
+        OptionInstance<Integer> bounces = this.pendingBounces == null ? null
+            : slider("options.radiante.ray_bounces", 1, 4, this.pendingBounces, value -> {
+                this.pendingBounces = value;
+                refreshQualityLater();
+            });
+        OptionInstance<Boolean> parallax = this.pendingParallax == null ? null
+            : OptionInstance.createBoolean("options.radiante.parallax", tooltip("options.radiante.parallax"),
+                this.pendingParallax, value -> {
+                    this.pendingParallax = value;
+                    refreshQualityLater();
+                });
+        if (bounces != null || parallax != null) {
+            this.list.addSmall(bounces != null ? bounces : parallax, bounces != null ? parallax : null);
+        }
     }
 
     /** A setting the quality level covers was changed by hand: the level shown above it has to follow. */
@@ -529,6 +590,16 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         }
         if (this.pendingVolumetricFog != null) {
             rebuild |= Pipeline.setVolumetricFog(this.pendingVolumetricFog);
+        }
+        if (this.pendingBounces != null) {
+            rebuild |= Pipeline.setShaderPackValue(Pipeline.RAY_BOUNCES_ATTRIBUTE, String.valueOf(this.pendingBounces));
+        }
+        if (this.pendingParallax != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.PARALLAX_ATTRIBUTE, this.pendingParallax);
+        }
+        if (this.pendingFogSamples != null) {
+            rebuild |= Pipeline.setShaderPackValue(Pipeline.VOLUMETRIC_SAMPLES_ATTRIBUTE,
+                String.valueOf(this.pendingFogSamples));
         }
         if (this.pendingMotionBlur != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE, this.pendingMotionBlur);
