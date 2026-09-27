@@ -260,13 +260,13 @@
         {
             "name": "render_pipeline.module.ray_tracing.attribute.bounce_light_boost",
             "type": "float_range:0.5-2.0",
-            "default_value": "1.0",
+            "default_value": "1.5",
             "define": "VPT_BOUNCE_LIGHT_BOOST"
         },
         {
             "name": "render_pipeline.module.ray_tracing.attribute.sky_light_boost",
             "type": "float_range:0.5-4.0",
-            "default_value": "1.0",
+            "default_value": "1.8",
             "define": "VPT_SKY_LIGHT_BOOST"
         },
         {
