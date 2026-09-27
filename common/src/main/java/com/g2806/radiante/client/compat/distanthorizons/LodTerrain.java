@@ -60,7 +60,7 @@ final class LodTerrain {
     private static final long UNDATED_REFRESH_NS = 30_000_000_000L;
     /** A section Distant Horizons had no data for is asked again after this long. */
     private static final long RETRY_INTERVAL_NS = 15_000_000_000L;
-    private static final int BUILDER_THREADS = 2;
+    private static final int BUILDER_THREADS = 3;
     /**
      * Chunks past the loaded area that coarse sections leave out as well. They are built again when the player
      * moves, and flying fast the loaded area outran the rebuild: coarse blocks dozens wide stood over the new
@@ -214,28 +214,82 @@ final class LodTerrain {
             if (tile == null) {
                 Integer slot = this.freeSlots.poll();
                 if (slot == null) {
+                    slotsExhausted++;
                     continue;
                 }
                 tile = new Tile(wanted.detail(), wanted.x(), wanted.z(), slot, wanted.hide());
                 this.tiles.put(entry.getKey(), tile);
             } else if (!tile.hide.equals(wanted.hide())) {
+                // Only more of the loaded chunks built: the far terrain still standing there is under them, so it
+                // waits its turn. Rebuilt first every time, flying fast (elytra) the coarse sections along the
+                // loaded area were meshed again twice a second and the new far terrain ahead waited behind them.
+                boolean onlyBuiltCount = tile.hide.withBuiltInSquare(0).equals(wanted.hide().withBuiltInSquare(0));
                 tile.hide = wanted.hide();
                 tile.needsBuild = true;
                 // What it leaves out changed, so its geometry may be standing over real terrain now: first.
-                tile.urgent = true;
+                tile.urgent = !onlyBuiltCount;
             }
             if (tile.needsBuild) {
                 queueBuild(tile, camera, false);
             }
         }
 
+        int holes = 0;
         for (Iterator<Map.Entry<Long, Tile>> it = this.tiles.entrySet().iterator(); it.hasNext();) {
             Tile tile = it.next().getValue();
             if (!selection.chosen.containsKey(tile.key)) {
+                if (com.g2806.radiante.client.option.Options.debugLogging && tile.builtOnce
+                    && !coveredByBuilt(tile, camera, distance)) {
+                    holes++;
+                    RadianteRenderer.LOGGER.info("[lod]  hole: detail {} at {},{} ({} blocks away), hide {}",
+                        tile.detail, tile.x << tile.detail, tile.z << tile.detail,
+                        (int) Math.hypot((tile.x + 0.5) * (1 << tile.detail) - camera.x,
+                            (tile.z + 0.5) * (1 << tile.detail) - camera.z), tile.builtHide);
+                }
                 it.remove();
                 drop(tile);
             }
         }
+        if (com.g2806.radiante.client.option.Options.debugLogging && (holes > 0 || slotsExhausted > 0)) {
+            RadianteRenderer.LOGGER.info("[lod] dropped {} built sections with nothing built over their area, {} "
+                + "sections without a free slot ({} tiles)", holes, slotsExhausted, this.tiles.size());
+        }
+        slotsExhausted = 0;
+    }
+
+    private int slotsExhausted;
+
+    /**
+     * Debug: whether the dropped tile's area is still drawn, sampled on an 8 x 8 grid: by another built tile, by the
+     * world's own built chunks, or not needed (past the far distance).
+     */
+    private boolean coveredByBuilt(Tile dropped, Vec3 camera, int distance) {
+        double size = 1 << dropped.detail;
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                double px = dropped.x * size + (i + 0.5) * size / 8;
+                double pz = dropped.z * size + (j + 0.5) * size / 8;
+                if (Math.max(Math.abs(px - camera.x), Math.abs(pz - camera.z)) > distance
+                    || ChunkManager.isColumnBuilt(Math.floorDiv((int) px, 16), Math.floorDiv((int) pz, 16))) {
+                    continue;
+                }
+                boolean drawn = false;
+                for (Tile tile : this.tiles.values()) {
+                    if (tile == dropped || !tile.builtOnce) {
+                        continue;
+                    }
+                    double ts = 1 << tile.detail;
+                    if (px >= tile.x * ts && px < tile.x * ts + ts && pz >= tile.z * ts && pz < tile.z * ts + ts) {
+                        drawn = true;
+                        break;
+                    }
+                }
+                if (!drawn) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /** Walks the quadtree of sections, collecting the ones to draw and what each must leave out. */
@@ -458,6 +512,11 @@ final class LodTerrain {
      */
     private record Hide(int quadrants, int chunks, int range, boolean square, int minChunkX, int maxChunkX,
                         int minChunkZ, int maxChunkZ, int builtInSquare) {
+
+        Hide withBuiltInSquare(int count) {
+            return new Hide(this.quadrants, this.chunks, this.range, this.square, this.minChunkX, this.maxChunkX,
+                this.minChunkZ, this.maxChunkZ, count);
+        }
 
         boolean isEmpty() {
             return this.quadrants == 0 && this.chunks == 0 && this.range == 0 && !this.square;
