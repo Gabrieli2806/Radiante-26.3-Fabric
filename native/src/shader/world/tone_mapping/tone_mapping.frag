@@ -134,7 +134,7 @@ void main() {
     vec3 expColor = max(hdr * max(exposure, 0.0), vec3(0.0));
     vec3 mapped = applyToneMapping(expColor);
     mapped = max(mapped, vec3(0.0));
-    mapped = applySaturation(mapped, max(pc.saturation, 0.0));
+    mapped = max(applySaturation(mapped, max(pc.saturation, 0.0)), vec3(0.0));
     mapped = pow(mapped, vec3(1.0 / 2.2));
     if (pc.clampOutput != 0) mapped = clamp(mapped, vec3(0.0), vec3(1.0));
 

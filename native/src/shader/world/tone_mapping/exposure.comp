@@ -35,7 +35,7 @@ layout(push_constant) uniform PushConstant {
     int clampOutput;
     int exposureMeteringMode;
     float centerMeteringPercent;
-    float padding0;
+    float adaptation;
     float padding1;
     float padding2;
 }
@@ -93,6 +93,10 @@ void main() {
     float avgLum = exp2(avgLogLum);
 
     float targetExposure = pc.middleGrey / max(avgLum, 1e-6);
+    // Only part of the way, as an eye (and Bedrock RTX) does: a dark room stays darker than a sunlit field, around
+    // the exposure held for a scene of no particular brightness (manualExposure).
+    float anchor = clamp(pc.manualExposure, pc.minExposure, pc.maxExposure);
+    targetExposure = exp2(mix(log2(anchor), log2(max(targetExposure, 1e-6)), clamp(pc.adaptation, 0.0, 1.0)));
     float speed = (targetExposure > prev) ? pc.speedUp : pc.speedDown;
     float k = 1.0 - exp(-pc.dt * speed);
     float adapted = mix(prev, targetExposure, clamp(k, 0.0, 1.0));

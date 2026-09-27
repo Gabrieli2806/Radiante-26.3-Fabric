@@ -73,6 +73,10 @@ indexBuffer;
 #include "common/constants.glsl"
 #include "common/water_medium.glsl"
 
+#ifndef VPT_BOUNCE_LIGHT_BOOST
+#    define VPT_BOUNCE_LIGHT_BOOST 1.0
+#endif
+
 layout(location = 0) rayPayloadInEXT MainRay mainRay;
 layout(location = 1) rayPayloadEXT ShadowRay shadowRay;
 hitAttributeEXT vec2 attribs;
@@ -215,7 +219,8 @@ void sampleSurfaceState(bool useTexture,
             FftWaterSample waterSample = sampleFftWater(waterCoord, worldUBO.gameTime);
             vec3 tangent, bitangent;
             fftWaterStableBasis(baseGeoNormal, tangent, bitangent);
-            vec3 localWaterNormal = normalize(vec3(-waterSample.slope.x, waterSample.slope.y, 1.0));
+            vec3 localWaterNormal =
+                normalize(vec3(vec2(-waterSample.slope.x, waterSample.slope.y) * VPT_WATER_WAVE_STRENGTH, 1.0));
             mat.roughness = clamp(0.005 + 0.012 * min(length(waterSample.slope), 0.45), 0.005, 0.022);
             shadingNormal = applyNormalMapToBasis(localWaterNormal, tangent, bitangent, baseGeoNormal, viewDir);
         }
@@ -854,8 +859,8 @@ void main() {
         if (rayInWater(mainRay)) {
             vec3 waterTransmittance;
             vec3 waterScatter;
-            waterMediumSegment(gl_HitTEXT, 1.0, waterTransmittance, waterScatter);
-            mainRay.radiance += mainRay.throughput * waterScatter;
+            waterMediumSegment(gl_HitTEXT, waterMediumBounceDensity(bounce), waterTransmittance, waterScatter);
+            mainRay.radiance += mainRay.throughput * waterScatter * max(waterMediumBounceAmbient(bounce), 0.0);
             mainRay.throughput *= waterTransmittance;
         } else if (bounce == 0u && skyUBO.cameraSubmersionType == 1) {
             raySetInWater(mainRay, true);
@@ -1125,7 +1130,15 @@ void main() {
             return;
         }
 
+        vec3 throughputBefore = mainRay.throughput;
         mainRay.throughput *= bsdf / max(pdf, 1e-4);
+        // Bedrock RTX fills a room from a single patch of sunlight: light off rough surfaces carries on stronger than
+        // their albedo alone lets it (VPT_BOUNCE_LIGHT_BOOST), kept under 0.95 a bounce so it still dies out.
+        if (lobeType == 0u && VPT_BOUNCE_LIGHT_BOOST > 1.0) {
+            vec3 ratio = mainRay.throughput / max(throughputBefore, vec3(1e-6));
+            float bounceAlbedo = max(ratio.r, max(ratio.g, ratio.b));
+            mainRay.throughput *= clamp(0.95 / max(bounceAlbedo, 1e-3), 1.0, VPT_BOUNCE_LIGHT_BOOST);
+        }
 
         if (!traceLocalHeight) {
             if (hasFftWaterSurface) {

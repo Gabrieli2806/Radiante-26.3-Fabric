@@ -23,6 +23,15 @@ vec3 CalculateF0(vec3 n, vec3 k) {
     return r;
 }
 
+// The colour light takes through a see-through block, as Bedrock RTX filters it: the texture's hue at full
+// brightness, as strongly as its alpha says it is coloured. A stained pane's texture is a dark colour; filtering by
+// it as it stands let almost no light through, where Bedrock's tinted glass throws its colour bright and clear.
+vec3 glassTint(vec3 colour, float alpha) {
+    float peak = max(colour.r, max(colour.g, colour.b));
+    vec3 hue = peak > 1e-3 ? colour / peak : vec3(1.0);
+    return mix(vec3(1.0), hue, smoothstep(0.0, 0.3, alpha));
+}
+
 LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal) {
     LabPBRMat mat;
 
@@ -63,7 +72,7 @@ LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal
             // Vanilla blends see-through blocks by their alpha, so a half-opaque red pane still passes half the scene
             // behind it untinted. Filtering the view by the full saturated colour made stained and tinted glass read
             // near-opaque; the alpha sets how strongly the colour filters instead.
-            mat.albedo = mix(vec3(1.0), texAlbedo.rgb, texAlbedo.a);
+            mat.albedo = glassTint(texAlbedo.rgb, texAlbedo.a);
             // A see-through block with subsurface scattering authored (Radiante's own ice maps) is a translucent
             // solid, not glass: its alpha is how much of it is solid. The surface is always hit and shaded, and only
             // the rest of the light goes through, which is vanilla's blend without per-pixel hit-or-miss noise.

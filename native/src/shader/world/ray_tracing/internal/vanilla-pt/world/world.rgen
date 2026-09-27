@@ -218,15 +218,14 @@ float volumetricAirDensity() {
 }
 
 vec3 applySampledLightChroma(vec3 lightRadiance, vec3 lightDir) {
-    float lightLum = volumetricLightLuminance(max(lightRadiance, vec3(0.0)));
+    // Bedrock's sunlight table already gives the light its colour.
+    if (bedrockAtmosphereActive()) { return lightRadiance; }
     vec3 sampledRadiance = max(texture(skyFull, lightDir).rgb, vec3(0.0));
     float sampledLum = volumetricLightLuminance(sampledRadiance);
-    if (!finiteFloat(lightLum) || !finiteFloat(sampledLum) || lightLum <= 1e-6 || sampledLum <= 1e-6) {
-        return lightRadiance;
-    }
-
-    vec3 sampledChroma = sampledRadiance * (lightLum / sampledLum);
-    return mix(lightRadiance, sampledChroma, 0.65);
+    if (!finiteFloat(sampledLum) || sampledLum <= 1e-6) { return lightRadiance; }
+    // The sky's hue at the sun, as a factor: the light keeps whatever colour glass on its way gave it. Replacing its
+    // colour outright turned a shaft through yellow glass the sky's blue.
+    return lightRadiance * mix(vec3(1.0), sampledRadiance / sampledLum, 0.65);
 }
 
 vec3 sampleVolumetricDirectionalLight(vec3 position, vec3 lightDir, bool insideBoat) {
@@ -243,6 +242,18 @@ vec3 sampleVolumetricDirectionalLight(vec3 position, vec3 lightDir, bool insideB
     return applySampledLightChroma(shadowRay.radiance, lightDir) * (1.0 - skyUBO.rainGradient);
 }
 
+// 1 when the sky is in sight straight up from here, 0 under a roof.
+float volumetricSkyVisibility(vec3 position, bool insideBoat) {
+    shadowRay.radiance = vec3(0.0);
+    shadowRay.throughput = vec3(1.0);
+    shadowRay.insideBoat = insideBoat ? 1u : 0u;
+    // The miss shader answers a block light query with plain white: sky in sight or not, whatever the sun does.
+    shadowRay.pad0 = BLOCK_LIGHT_QUERY;
+    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS, WORLD_MASK, 0, 0, 0, position + vec3(0.0, 0.02, 0.0), 0.001,
+                vec3(0.0, 1.0, 0.0), 512.0, 1);
+    return clamp(volumetricLightLuminance(shadowRay.radiance), 0.0, 1.0);
+}
+
 void volumetricAirMedium(float cosTheta, out vec3 sigmaS, out vec3 sigmaT) {
     // A soft forward lobe, as in the sky (sky_cube.frag): a sharp one lit the fog in front of the sun into a white
     // halo around it.
@@ -250,13 +261,49 @@ void volumetricAirMedium(float cosTheta, out vec3 sigmaS, out vec3 sigmaT) {
     float miePhase = min(henyeyGreenstein(cosTheta, mieG), 1.2);
     float rPhase = 3.0 * INV_4_PI * 0.25 * (1.0 + cosTheta * cosTheta);
     float fogPhase = mix(INV_4_PI, miePhase, 0.75);
-    float fogRange = max(worldUBO.fogEnd - worldUBO.fogStart, 1.0);
-    float fogDensity = max(2.0 / fogRange, 0.0) * 0.02;
+    // Vanilla's fog distance is no measure of the air: maps and mods pull it in to a few dozen blocks, and it fogged
+    // everything white. The air is the atmosphere's own (and the biome's fog, marched with it), as in Bedrock RTX.
+    float fogDensity = 0.0;
 
     vec3 betaR = VPT_ATMOSPHERE_BETA_R * 18.0;
     vec3 betaM = VPT_ATMOSPHERE_BETA_M * mix(18.0, 54.0, skyUBO.rainGradient);
     sigmaS = betaR * rPhase + betaM * miePhase + vec3(fogDensity * fogPhase);
     sigmaT = betaR + betaM * 1.15 + vec3(fogDensity);
+}
+
+#ifndef VPT_LIGHT_SHAFTS
+#    define VPT_LIGHT_SHAFTS 0.015
+#endif
+const float LIGHT_SHAFT_REACH = 48.0;
+
+#ifndef VPT_WATER_GOD_RAYS
+#    define VPT_WATER_GOD_RAYS 0.12
+#endif
+
+// Shafts of sunlight in the water around the camera, as Bedrock RTX shows them: the sun (or moon) traced from a few
+// points along the camera's stretch of water, through the surface and its caustics (shadow.rahit), so the waves and
+// anything floating break the light into rays. VPT_WATER_GOD_RAYS is how much of that light the water scatters
+// towards the eye.
+vec3 waterGodRays(vec3 origin, vec3 rayDir, float distance) {
+    float strength = max(VPT_WATER_GOD_RAYS, 0.0);
+    if (strength <= 0.0 || distance <= 0.05) { return vec3(0.0); }
+    const int STEPS = 8;
+    float reach = min(distance, 48.0);
+    vec3 lightDir = celestialSunDirection();
+    if (lightDir.y < 0.0) { lightDir = -lightDir; }
+    // Mostly forward: the shafts show best looking towards the light, as under real water.
+    float phase = mix(INV_4_PI, min(henyeyGreenstein(dot(rayDir, lightDir), 0.6), 2.0), 0.7);
+    vec3 sigmaT = waterMediumExtinction(VPT_WATER_DENSITY);
+    uint seed = xxhash32(uvec3(uint(gl_LaunchIDEXT.x), uint(gl_LaunchIDEXT.y), worldUBO.seed ^ 0x3C6EF372u));
+    float jitter = rand(seed);
+    float stepLength = reach / float(STEPS);
+    vec3 sum = vec3(0.0);
+    for (int i = 0; i < STEPS; ++i) {
+        float t = (float(i) + jitter) * stepLength;
+        vec3 light = sampleVolumetricDirectionalLight(origin + rayDir * t, lightDir, false);
+        sum += exp(-sigmaT * t) * light;
+    }
+    return sum * stepLength * phase * strength;
 }
 
 vec3 segmentIntegral(vec3 sigmaT, vec3 segmentTransmittance, float stepLength) {
@@ -343,9 +390,19 @@ void integrateVolumetricFog(vec3 origin,
     float biomeSunScatter = max(VPT_BIOME_FOG_SCATTERING, 0.0);
     vec3 biomeChroma = biomeFogChroma();
     float biomePhase = mix(INV_4_PI, min(henyeyGreenstein(cosTheta, VPT_BIOME_FOG_FORWARD), 4.0), 0.6);
+    float shaftPhase = mix(INV_4_PI, min(henyeyGreenstein(cosTheta, 0.5), 2.0), 0.5);
     // The sky lights the fog from every side, which is what keeps it from going black in the shade the way a fog
     // lit by the sun alone does; Bedrock RTX's fog keeps the sky's colour in shadow for the same reason.
     vec3 skyAmbient = biomeFogAmbient(rayDir);
+    // How open to the sky the air along this ray is, from three looks straight up: the sky's light fills the fog
+    // outdoors, but a dark room with one skylight is lit only in its shaft. Without this the whole room glowed with
+    // the sky's light for having fog in it.
+    float skyOpen = 0.0;
+    for (int probe = 0; probe < 3; ++probe) {
+        vec3 probePos = origin + rayDir * (min(endDistance, volumetricMediumMaxDistance()) * (float(probe) + 0.5) / 3.0);
+        skyOpen += volumetricSkyVisibility(probePos, insideBoat);
+    }
+    skyAmbient *= skyOpen / 3.0;
     vec3 airAmbient = skyAmbient * airSigmaT * 0.35;
 
     // One cloud shadow for the whole ray, taken halfway along the march.
@@ -381,7 +438,11 @@ void integrateVolumetricFog(vec3 origin,
         vec3 localSigmaT = airSigmaT + localBiomeT;
         vec3 segmentTransmittance = exp(-localSigmaT * stepLength);
         vec3 segment = segmentIntegral(localSigmaT, segmentTransmittance, stepLength);
-        vec3 inScatter = lightRadiance * airSigmaS + airAmbient;
+        // Light shafts: the air near the camera scatters the sun it is lit by, so a beam through a skylight or a
+        // gap in the leaves shows as it does in Bedrock RTX, however clear the biome's fog. Only the sun's light (a
+        // dark room stays dark around the beam) and only within LIGHT_SHAFT_REACH, so the distance does not haze.
+        float shaftDensity = max(VPT_LIGHT_SHAFTS, 0.0) * (1.0 - smoothstep(LIGHT_SHAFT_REACH * 0.6, LIGHT_SHAFT_REACH, t));
+        vec3 inScatter = lightRadiance * (airSigmaS + vec3(shaftDensity * shaftPhase)) + airAmbient;
         inScatter += (lightRadiance * biomePhase * biomeSunScatter + skyAmbient) * biomeAlbedo * localBiomeT;
         radiance += transmittance * inScatter * segment;
         transmittance *= segmentTransmittance;
@@ -681,8 +742,7 @@ bool initTransparent(MainRay rayState,
     // untinted; glass takes its colour here.
     vec3 refractionTint = isWaterSurface && waterMediumActive() ?
                               vec3(1.0) :
-                              pow(clamp(mix(vec3(1.0), mat.albedoValue.rgb, mat.albedoValue.a), vec3(0.0), vec3(1.0)),
-                                  vec3(0.5));
+                              clamp(glassTint(mat.albedoValue.rgb, mat.albedoValue.a), vec3(0.0), vec3(1.0));
     vec3 branchThroughput = isReflection ? vec3(fresnel) : refractionTint * (1.0 - fresnel);
     if (max(branchThroughput.r, max(branchThroughput.g, branchThroughput.b)) <= 1e-6) { return false; }
     float originBias = isWaterSurface ? max(branchAux.x, 0.0002) : 0.0001;
@@ -1277,6 +1337,7 @@ void main() {
             vec3 waterTransmittance;
             vec3 waterScatter;
             waterMediumSegment(surfaceDepth, VPT_WATER_DENSITY, waterTransmittance, waterScatter);
+            waterScatter += waterGodRays(eyePos, orgDirection, surfaceDepth);
             float waterComposeTransmittance = clamp(volumetricLightLuminance(waterTransmittance), 0.0, 1.0);
             if (useTransparentSplit) {
                 transparentReflectionRadiance *= waterTransmittance;
@@ -1442,7 +1503,9 @@ void main() {
         useVolumetricFog && !raySkipFog(mainRay) && skyUBO.cameraSubmersionType != 1 && worldUBO.skyType == 1 &&
         skyUBO.hasBlindnessOrDarkness == 0;
     if (applyVolumetricCompose) {
-        float volumetricDistance = psrHitSky ? volumetricMediumMaxDistance() : length(psrHitPosition - eyePos);
+        // Only as far as the first surface, as the biome haze: a ray carried on off water or glass crosses its own
+        // air, and marching the whole reflected or refracted length hid every pool under a white wall of fog.
+        float volumetricDistance = surfaceDepth == INF_DISTANCE ? volumetricMediumMaxDistance() : surfaceDepth;
         vec3 volumetricTransmittance;
         vec3 volumetricLight;
         float biomeReach =

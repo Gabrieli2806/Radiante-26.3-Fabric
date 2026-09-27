@@ -46,6 +46,8 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private Boolean pendingDepthOfField;
     private boolean pendingReflex = Options.reflex;
     private boolean applied;
+    /** Reset to Defaults was pressed: the stored pipeline and shader pack settings go too, on apply. */
+    private boolean forgetStoredSettings;
 
     public RadianteOptionsScreen(Screen lastScreen, net.minecraft.client.Options options) {
         super(lastScreen, options, TITLE);
@@ -70,6 +72,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingMotionBlur = previous.pendingMotionBlur;
         this.pendingBounces = previous.pendingBounces;
         this.pendingParallax = previous.pendingParallax;
+        this.forgetStoredSettings = previous.forgetStoredSettings;
         this.pendingBedrockAtmosphere = previous.pendingBedrockAtmosphere;
         this.pendingFogSamples = previous.pendingFogSamples;
         this.pendingDepthOfField = previous.pendingDepthOfField;
@@ -280,6 +283,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     /** Every setting on this screen back to how a fresh install has it. */
     private void resetToDefaults() {
         Options.resetVisualDefaults();
+        this.forgetStoredSettings = true;
         this.pendingPreset = Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key) ? Presets.RT_DLSSRR : null;
         this.pendingDlssMode = "render_pipeline.module.dlss.attribute.mode.ultra_performance";
         this.pendingGeneratedFrames = 0;
@@ -597,6 +601,12 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         Options.overwriteConfig();
 
         boolean rebuild = false;
+        if (this.forgetStoredSettings) {
+            // Every shader pack setting back to the pack's defaults, those without a place on this screen included;
+            // the ones on it are applied over them below.
+            Pipeline.resetToDefaults();
+            rebuild = true;
+        }
         if (this.pendingPreset != null
             && !Objects.equals(this.pendingPreset.key, Pipeline.INSTANCE.getActivePresetName())) {
             Pipeline.switchToPresetMode(this.pendingPreset.key, false);

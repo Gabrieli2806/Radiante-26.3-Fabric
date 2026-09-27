@@ -61,6 +61,8 @@ public class Options {
     /** Light and shadow snap to the texture's pixels, a retro blocky look. Off: smooth, as vanilla-like. */
     public static boolean pixelLighting = false;
     /** Brightness of sunlight and the daytime sky, in percent of the shader pack's own. */
+    /** The Pipeline.SETTINGS_DEFAULTS_VERSION the stored pipeline settings were written under; 0 for none. */
+    public static int settingsDefaultsVersion = 0;
     public static int dayBrightness = 25;
     /** Brightness of moonlight and the night sky, in percent of the shader pack's own. */
     public static int nightBrightness = 35;
@@ -158,6 +160,7 @@ public class Options {
      */
     private static final List<Entry> ENTRIES = List.of(
         number("maxFps", () -> maxFps, v -> setMaxFps(v, false)),
+        number("settingsDefaultsVersion", () -> settingsDefaultsVersion, v -> settingsDefaultsVersion = v),
         number("inactivityFpsLimit", () -> inactivityFpsLimit, v -> setInactivityFpsLimit(v, false)),
         bool("vsync", () -> vsync, v -> setVsync(v, false)),
         number("chunkBuildingBatchSize", () -> chunkBuildingBatchSize, v -> setChunkBuildingBatchSize(v, false)),

@@ -51,6 +51,7 @@
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode": "Exposure Metering Mode",
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.global": "Global",
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.center": "Center",
+  "render_pipeline.module.tone_mapping.attribute.exposure_adaptation": "Exposure Adaptation",
   "render_pipeline.module.tone_mapping.attribute.center_metering_percent": "Center Metering Percent",
   "render_pipeline.module.tone_mapping.attribute.manual_exposure": "Manual Exposure",
   "render_pipeline.module.tone_mapping.attribute.exposure_bias": "Exposure Bias",

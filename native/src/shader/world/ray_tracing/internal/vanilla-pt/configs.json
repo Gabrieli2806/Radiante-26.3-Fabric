@@ -212,7 +212,7 @@
         {
             "name": "render_pipeline.module.ray_tracing.attribute.water_density",
             "type": "float_range:0.0-4.0",
-            "default_value": "0.3",
+            "default_value": "0.1",
             "define": "VPT_WATER_DENSITY"
         },
         {
@@ -220,6 +220,54 @@
             "type": "float_range:0.0-64.0",
             "default_value": "8.0",
             "define": "VPT_WATER_SCATTERING"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.water_light_depth",
+            "type": "float_range:0.0-64.0",
+            "default_value": "3.0",
+            "define": "VPT_WATER_LIGHT_DEPTH"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.water_ambient",
+            "type": "float_range:0.0-64.0",
+            "default_value": "8.0",
+            "define": "VPT_WATER_AMBIENT"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.water_wave_strength",
+            "type": "float_range:0.0-2.0",
+            "default_value": "0.35",
+            "define": "VPT_WATER_WAVE_STRENGTH"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.water_god_rays",
+            "type": "float_range:0.0-1.0",
+            "default_value": "0.12",
+            "define": "VPT_WATER_GOD_RAYS"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.light_shafts",
+            "type": "float_range:0.0-0.1",
+            "default_value": "0.015",
+            "define": "VPT_LIGHT_SHAFTS"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.water_density_from_above",
+            "type": "float_range:0.0-4.0",
+            "default_value": "0.4",
+            "define": "VPT_WATER_DENSITY_ABOVE"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bounce_light_boost",
+            "type": "float_range:0.5-2.0",
+            "default_value": "1.0",
+            "define": "VPT_BOUNCE_LIGHT_BOOST"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.sky_light_boost",
+            "type": "float_range:0.5-4.0",
+            "default_value": "1.0",
+            "define": "VPT_SKY_LIGHT_BOOST"
         },
         {
             "name": "render_pipeline.module.ray_tracing.attribute.sun_glow",

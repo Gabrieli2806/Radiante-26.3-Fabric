@@ -2106,6 +2106,53 @@ public class Pipeline {
         }
     }
 
+    /**
+     * Raised whenever a release changes the defaults of stored pipeline or shader pack settings (the tuning towards
+     * Bedrock RTX, for one). Settings saved under an older one are forgotten once, so an update brings the new
+     * defaults instead of the values a previous version wrote down; see Options.settingsDefaultsVersion.
+     */
+    public static final int SETTINGS_DEFAULTS_VERSION = 1;
+
+    /** Forgets settings stored under older defaults, once; called before the pipeline is first loaded. */
+    public static void migrateStoredDefaults() {
+        if (Options.settingsDefaultsVersion >= SETTINGS_DEFAULTS_VERSION) {
+            return;
+        }
+        forgetStoredSettings();
+        Options.settingsDefaultsVersion = SETTINGS_DEFAULTS_VERSION;
+        Options.overwriteConfig();
+    }
+
+    /**
+     * Deletes the stored pipeline (pipeline.yaml) and every shader pack's stored settings (the .txt beside each
+     * pack): the next load starts from a fresh install's.
+     */
+    public static void forgetStoredSettings() {
+        try {
+            if (PIPELINE_CONFIG_PATH != null) {
+                Files.deleteIfExists(PIPELINE_CONFIG_PATH);
+            }
+            if (RadianteClient.radianceDir != null) {
+                Path shaders = RadianteClient.radianceDir.resolve("shaders");
+                if (Files.isDirectory(shaders)) {
+                    try (var files = Files.walk(shaders)) {
+                        for (Path file : files.filter(f -> f.getFileName().toString().endsWith(".zip.txt")).toList()) {
+                            Files.deleteIfExists(file);
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            RadianteClient.LOGGER.error("Could not forget the stored pipeline settings", e);
+        }
+    }
+
+    /** Every pipeline and shader pack setting back to a fresh install's, and the pipeline rebuilt with them. */
+    public static void resetToDefaults() {
+        forgetStoredSettings();
+        loadPipeline();
+    }
+
     public static void loadPipeline() {
         PipelineConfigStorage storage = loadConfigStorage();
 

@@ -407,7 +407,7 @@ public final class BiomeAmbiance {
      * Bedrock RTX's water light is turquoise whatever the biome's own water colour (a deep blue for most oceans); the
      * colour taken is this far towards that.
      */
-    private static final float WATER_TURQUOISE_SHARE = 0.5f;
+    private static final float WATER_TURQUOISE_SHARE = 0.7f;
     private static final float[] WATER_TURQUOISE = {0.25f, 0.85f, 0.9f};
     /** Floor of each channel of the water colour, so no colour is absorbed outright. */
     private static final float WATER_COLOUR_FLOOR = 0.12f;

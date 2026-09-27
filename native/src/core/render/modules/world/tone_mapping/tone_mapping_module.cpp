@@ -140,6 +140,8 @@ void ToneMappingModule::setAttributes(int attributeCount, std::vector<std::strin
             exposureMeteringMode_ = parseExposureMeteringModeValue(value, exposureMeteringMode_);
         } else if (key == "render_pipeline.module.tone_mapping.attribute.center_metering_percent") {
             if (tryParseFloat(value, floatValue)) centerMeteringPercent_ = std::clamp(floatValue, 1.0f, 100.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.exposure_adaptation") {
+            if (tryParseFloat(value, floatValue)) adaptation_ = std::clamp(floatValue, 0.0f, 1.0f);
         }
     }
 }
@@ -502,6 +504,7 @@ void ToneMappingModuleContext::render() {
         std::clamp(module->exposureMeteringMode_, static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_GLOBAL),
                    static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_CENTER));
     pc.centerMeteringPercent = sanitizedCenterMeteringPercent;
+    pc.adaptation = std::clamp(module->adaptation_, 0.0f, 1.0f);
 
     vkCmdPushConstants(worldCommandBuffer->vkCommandBuffer(), descriptorTable->vkPipelineLayout(),
                        VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,

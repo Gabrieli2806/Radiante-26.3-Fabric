@@ -11,8 +11,22 @@
 #ifndef VPT_WATER_SCATTERING
 #    define VPT_WATER_SCATTERING 8.0
 #endif
+// How strongly the light scattered in the water lights what is under it (the stretches light crosses on its way to
+// a surface, not the camera's view): Bedrock RTX's sunken walls glow with it on every side.
+#ifndef VPT_WATER_WAVE_STRENGTH
+#    define VPT_WATER_WAVE_STRENGTH 0.35
+#endif
+
+// How thick the water looks through its surface from above (VPT_WATER_DENSITY is the same from inside it): Bedrock
+// RTX shows the sea floor teal and darkened from above, while under water the same water reads clear.
+#ifndef VPT_WATER_DENSITY_ABOVE
+#    define VPT_WATER_DENSITY_ABOVE 0.4
+#endif
+#ifndef VPT_WATER_AMBIENT
+#    define VPT_WATER_AMBIENT 8.0
+#endif
 #ifndef VPT_WATER_DENSITY
-#    define VPT_WATER_DENSITY 0.3
+#    define VPT_WATER_DENSITY 0.1
 #endif
 
 // How thick the water is to look through, against its coefficients: Bedrock RTX's water is clear up close and
@@ -20,6 +34,21 @@
 // water is thinned; the light's paths (bounces, and the sun in shadow.rahit) cross it at full strength.
 vec3 waterMediumExtinction(float density) {
     return max(skyUBO.waterExtinction.rgb, vec3(0.0)) * max(density, 0.0);
+}
+
+// A stretch of water a ray crossed after leaving a surface (the bounce it is on): how thick it is, and how much the
+// light scattered in it adds. A ray seen straight through the surface from above the water is the camera's view,
+// thinned (VPT_WATER_DENSITY) and not brightened: Bedrock RTX's water is clear and dark from above, and only the
+// light filling it under water glows (VPT_WATER_AMBIENT, when the camera is in it).
+float waterMediumBounceDensity(uint bounce) {
+    return bounce <= 1u && skyUBO.cameraSubmersionType != 1 ? VPT_WATER_DENSITY_ABOVE : 1.0;
+}
+
+float waterMediumBounceAmbient(uint bounce) {
+    if (skyUBO.cameraSubmersionType == 1) { return VPT_WATER_AMBIENT; }
+    // Seen from above, the water shows what is under it and nothing of its own: the scattered light is lit by the
+    // open sky whether or not the water is (an indoor pool glowed sky blue), and Bedrock's water is clear.
+    return bounce <= 1u ? 0.0 : 1.0;
 }
 
 bool waterMediumActive() {

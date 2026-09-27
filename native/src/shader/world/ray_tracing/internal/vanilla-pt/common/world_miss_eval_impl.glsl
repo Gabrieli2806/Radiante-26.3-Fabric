@@ -122,6 +122,9 @@ vec4 evalSunBillboard(vec3 rayDir) {
 }
 
 /** How much of a halo of the given angular width (radians) and strength reaches `rayDir`; 0 behind the body. */
+#ifndef VPT_SKY_LIGHT_BOOST
+#    define VPT_SKY_LIGHT_BOOST 1.0
+#endif
 #ifndef VPT_SUN_GLOW
 #    define VPT_SUN_GLOW 0.08
 #endif
@@ -255,6 +258,9 @@ void main() {
     }
 #endif
 
+    // The sky lighting the world (every bounce after the first): Bedrock RTX's shade under a building is lit well
+    // by the open sky around it, not left in deep shadow.
+    if (rayBounce(mainRay) > 0u && worldUBO.skyType == 1) { backgroundRadiance *= max(VPT_SKY_LIGHT_BOOST, 0.0); }
     mainRay.radiance += backgroundRadiance * mainRay.throughput;
     raySetStop(mainRay, true);
     mainRay.hitT = INF_DISTANCE;

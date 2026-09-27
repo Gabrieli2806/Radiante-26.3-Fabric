@@ -143,6 +143,7 @@ public final class RadianteRenderer {
         FrameGeneration.setGeneratedFrames(Options.frameGeneration ? Options.generatedFrames : 0);
         FrameGeneration.applyReflex();
         reserveFallbackTexture();
+        Pipeline.migrateStoredDefaults();
         Pipeline.loadPipeline();
         Pipeline.build();
         LOGGER.info("Radiante renderer initialised on Minecraft's Vulkan device");

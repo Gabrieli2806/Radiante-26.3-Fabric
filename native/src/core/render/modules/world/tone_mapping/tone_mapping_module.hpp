@@ -58,7 +58,7 @@ struct ToneMappingModulePushConstant {
     int clampOutput;
     int exposureMeteringMode;
     float centerMeteringPercent;
-    float padding0;
+    float adaptation;
     float padding1;
     float padding2;
 };
@@ -165,6 +165,8 @@ class ToneMappingModule : public WorldModule, public SharedObject<ToneMappingMod
     bool shouldClampOutput_ = true;
     int exposureMeteringMode_ = TONE_MAPPING_EXPOSURE_METERING_MODE_GLOBAL;
     float centerMeteringPercent_ = 20.0f;
+    // How far the exposure follows the scene: 1 all the way, 0 not at all (held at manualExposure_).
+    float adaptation_ = 1.0f;
 
     // output
     std::vector<std::shared_ptr<vk::DeviceLocalImage>> ldrImages_;

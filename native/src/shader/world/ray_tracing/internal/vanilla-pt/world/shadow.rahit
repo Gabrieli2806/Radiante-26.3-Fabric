@@ -10,7 +10,10 @@
 #include "common/bedrock_caustics.glsl"
 
 
-const float WATER_LIGHT_MAX_DEPTH = 10.0;
+#ifndef VPT_WATER_LIGHT_DEPTH
+#    define VPT_WATER_LIGHT_DEPTH 3.0
+#endif
+const float WATER_LIGHT_MAX_DEPTH = VPT_WATER_LIGHT_DEPTH;
 #include "util/labpbr.glsl"
 #include "util/random.glsl"
 #include "util/ray.glsl"
@@ -152,13 +155,12 @@ void main() {
     LabPBRMat mat = convertLabPBRMaterial(shadedAlbedo, specular, vec4(0.0));
 
     if (isWaterMaterial || mat.transmission > 0.0 || alpha < 0.95) {
-        // Light that gets through coloured glass takes the glass's colour. Mixing towards white by the texture's
-        // alpha left a red pane throwing almost white light on the floor, because vanilla stained glass is only
-        // about half opaque - but how much light a pane lets past and the colour it absorbs by are two different
-        // things. A surface that transmits takes its tint whole; anything else keeps the old blend.
-        float tintStrength = mat.transmission > 0.0 ? 1.0 : alpha;
+        // Light that gets through coloured glass takes the glass's colour: a see-through block filters by its hue at
+        // full brightness (glassTint), whatever its texture's darkness; anything else keeps vanilla's alpha blend.
         vec3 shadowTransmission =
-            isWaterMaterial ? vec3(1.0) : clamp(mix(vec3(1.0), tint, tintStrength), vec3(0.0), vec3(1.0));
+            isWaterMaterial ? vec3(1.0) :
+            mat.transmission > 0.0 ? clamp(glassTint(tint, alpha), vec3(0.0), vec3(1.0)) :
+                                     clamp(mix(vec3(1.0), tint, alpha), vec3(0.0), vec3(1.0));
         // Sunlight reaching the bottom through the top of the water: absorbed on the way down, and gathered into
         // the moving caustic pattern the waves focus it into.
         if (isWaterMaterial) {
