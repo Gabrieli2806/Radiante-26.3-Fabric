@@ -73,8 +73,11 @@ bool sameSize(const std::shared_ptr<vk::DeviceLocalImage> &image, uint32_t width
 } // namespace
 
 HdrOutput &HdrOutput::instance() {
-    static HdrOutput output;
-    return output;
+    // Never destroyed: it holds Vulkan objects, and a static destructor would free them while the process exits,
+    // after the device may already be gone (the game can end without the renderer closing) - a crash in the
+    // driver on quit. release() frees them properly when the renderer does close.
+    static HdrOutput *output = new HdrOutput();
+    return *output;
 }
 
 void HdrOutput::noteWorldFrame(const std::shared_ptr<WorldPipelineContext> &worldContext) {

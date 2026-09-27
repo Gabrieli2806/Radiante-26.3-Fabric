@@ -111,6 +111,10 @@ public final class DevAutomation {
         if (!active) {
             return;
         }
+        lastTickNanos = System.nanoTime();
+        if (stallWatcher == null) {
+            startStallWatcher(Thread.currentThread());
+        }
         clientTicks++;
         while (nextPre < PRE_STEPS.size() && PRE_STEPS.get(nextPre).tick() <= clientTicks) {
             run(minecraft, PRE_STEPS.get(nextPre++).action());
@@ -308,5 +312,33 @@ public final class DevAutomation {
             }
         }
         return false;
+    }
+
+    private static volatile long lastTickNanos;
+    private static Thread stallWatcher;
+
+    /** Development: logs where the render thread is while it has not ticked for over a second. */
+    private static void startStallWatcher(Thread renderThread) {
+        stallWatcher = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    return;
+                }
+                long stalledMs = (System.nanoTime() - lastTickNanos) / 1_000_000L;
+                if (stalledMs < 1000) {
+                    continue;
+                }
+                StringBuilder trace = new StringBuilder();
+                StackTraceElement[] stack = renderThread.getStackTrace();
+                for (int i = 0; i < Math.min(14, stack.length); i++) {
+                    trace.append(" <- ").append(stack[i]);
+                }
+                RadianteClient.LOGGER.info("[dev] render thread stalled {} ms:{}", stalledMs, trace);
+            }
+        }, "Radiante dev stall watcher");
+        stallWatcher.setDaemon(true);
+        stallWatcher.start();
     }
 }
