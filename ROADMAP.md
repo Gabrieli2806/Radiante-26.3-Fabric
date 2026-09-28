@@ -36,7 +36,7 @@ has one.
 mostly `libxess.dll` (~60 MB compressed of ~77 MB). Making XeSS optional like DLSS (downloaded or dropped in
 by the player, or fetched on first use when chosen) would bring the jar near 15 MB.
 
-## Open work and verification
+## Open work and verification needed
 
 ### Multi frame generation with HDR output — broken
 
