@@ -38,6 +38,17 @@ by the player, or fetched on first use when chosen) would bring the jar near 15 
 
 ## Open work and verification
 
+### Faster settings changes (pipeline cache) — planned
+
+Changing a setting that rebuilds the pipeline holds the render thread for a few seconds, long enough for Windows to
+mark the game Not Responding (the "Applying settings" screen at least shows it is working; building on another thread
+did not help, the build and the frame share the device's queue). Compiled SPIR-V is already cached on disk
+(`radiante/cache/shaders`, about 36 MB after trying many settings, 500 variants), so what is left is the driver
+turning SPIR-V into GPU code and creating the ray tracing pipelines. Plan: a `VkPipelineCache` saved to
+`radiante/cache/pipelines.bin` and loaded at start (expected a few MB to a few tens of MB), so a combination of
+settings seen before builds in well under a second; then prune both caches (oldest first) past a size limit, e.g.
+100 MB, so they do not grow without end. Measure build time before and after.
+
 ### Bedrock RTX parity — in progress
 
 Tuned against Bedrock RTX side by side (same .mcpack, same map): Aquatic Adventure and Creeper Land. Done so far:

@@ -7,8 +7,8 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Shown while the pipeline is rebuilt after a settings change. The rebuild compiles shaders on the render thread and
- * holds it for a few seconds; without this the game simply stopped answering with the settings still on screen, as if
- * it had hung. The message is drawn first, then the rebuild runs, then the next screen opens.
+ * holds it for a few seconds (running it on another thread still left the window unresponsive: the native build and
+ * the frame share the device and its queue); this puts a message on screen first so the game does not look hung.
  */
 final class ApplyingSettingsScreen extends Screen {
 
@@ -25,6 +25,11 @@ final class ApplyingSettingsScreen extends Screen {
     }
 
     @Override
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        graphics.fill(0, 0, this.width, this.height, 0xFF0E1010);
+    }
+
+    @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
@@ -32,7 +37,6 @@ final class ApplyingSettingsScreen extends Screen {
         graphics.centeredText(this.font, this.title, centerX, centerY - 20, 0xFFFFFFFF);
         graphics.centeredText(this.font, Component.translatable("options.radiante.applying.detail"), centerX,
             centerY - 6, 0xFFB0B8B4);
-        // A bar in Minecraft's loading colours; the rebuild itself cannot report progress.
         int barWidth = Math.min(240, this.width - 40);
         int x = centerX - barWidth / 2;
         int y = centerY + 12;

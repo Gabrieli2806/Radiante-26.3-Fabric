@@ -485,10 +485,10 @@ final class SettingsLayout {
      * Looked up once per screen: asking the resource manager for a missing file walks every pack and throws on each,
      * and doing that every frame stalled the render thread.
      */
-    private final java.util.Map<String, java.util.Optional<Identifier>> textures = new java.util.HashMap<>();
+    private static final java.util.Map<String, java.util.Optional<Identifier>> textures = new java.util.HashMap<>();
 
     private Identifier texture(String name) {
-        return this.textures.computeIfAbsent(name, key -> {
+        return textures.computeIfAbsent(name, key -> {
             Identifier id = Identifier.fromNamespaceAndPath("radiante", "textures/gui/settings/" + key + ".png");
             return Minecraft.getInstance().getResourceManager().getResource(id).isPresent() ? java.util.Optional.of(id)
                 : java.util.Optional.empty();

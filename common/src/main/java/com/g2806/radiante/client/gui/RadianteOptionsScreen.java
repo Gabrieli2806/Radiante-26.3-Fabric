@@ -661,10 +661,12 @@ public class RadianteOptionsScreen extends Screen {
 
     /** A setting the quality level covers was changed by hand: the level shown above it has to follow. */
     private void refreshQualityLater() {
-        if (this.minecraft != null) {
-            this.minecraft.execute(this::reopenWithSameChoices);
-        }
+        // Once the mouse is let go: laying the screen out again under a slider being dragged dropped the drag, so
+        // those sliders only moved by clicking where the value should be.
+        this.refreshPending = true;
     }
+
+    private boolean refreshPending;
 
     @Override
     protected void init() {
@@ -721,6 +723,11 @@ public class RadianteOptionsScreen extends Screen {
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
         if (this.layout != null) {
             this.layout.mouseReleased();
+        }
+        if (this.refreshPending) {
+            this.refreshPending = false;
+            reopenWithSameChoices();
+            return true;
         }
         return super.mouseReleased(event);
     }
