@@ -9,7 +9,7 @@
 // Needs skyUBO, skyFull and the volumetric cloud helpers (for the sun or moon light) to be declared first.
 
 #ifndef VPT_WATER_SCATTERING
-#    define VPT_WATER_SCATTERING 8.0
+#    define VPT_WATER_SCATTERING 2.0
 #endif
 // How strongly the light scattered in the water lights what is under it (the stretches light crosses on its way to
 // a surface, not the camera's view): Bedrock RTX's sunken walls glow with it on every side.
@@ -23,7 +23,7 @@
 #    define VPT_WATER_DENSITY_ABOVE 0.4
 #endif
 #ifndef VPT_WATER_AMBIENT
-#    define VPT_WATER_AMBIENT 8.0
+#    define VPT_WATER_AMBIENT 1.0
 #endif
 #ifndef VPT_WATER_DENSITY
 #    define VPT_WATER_DENSITY 0.1

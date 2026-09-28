@@ -2122,7 +2122,7 @@ public class Pipeline {
      * Bedrock RTX, for one). Settings saved under an older one are forgotten once, so an update brings the new
      * defaults instead of the values a previous version wrote down; see Options.settingsDefaultsVersion.
      */
-    public static final int SETTINGS_DEFAULTS_VERSION = 2;
+    public static final int SETTINGS_DEFAULTS_VERSION = 3;
 
     /** Forgets settings stored under older defaults, once; called before the pipeline is first loaded. */
     public static void migrateStoredDefaults() {

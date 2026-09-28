@@ -14,7 +14,7 @@ const float BEDROCK_CAUSTICS_FPS = 20.0;
 // The texture's mean brightness: dividing by it keeps the light reaching the bottom the same on average.
 const float BEDROCK_CAUSTICS_MEAN = 0.07;
 // How much of the light goes into the pattern, near the surface and fading with depth.
-const float BEDROCK_CAUSTICS_STRENGTH = 0.25;
+const float BEDROCK_CAUSTICS_STRENGTH = 0.15;
 
 bool bedrockCausticsAvailable() {
     ivec2 size = textureSize(waterCausticsTexture, 0);
@@ -37,7 +37,11 @@ float sampleBedrockCaustic(vec2 surfaceXZ, float gameTime, float waterDepth) {
     float a = bedrockCausticFrame(uv, floor(frame));
     float b = bedrockCausticFrame(uv, floor(frame) + 1.0);
     float value = mix(a, b, fract(frame)) / BEDROCK_CAUSTICS_MEAN;
-    float strength = BEDROCK_CAUSTICS_STRENGTH * exp(-waterDepth * 0.04);
+    // Faint, fading fast with depth, and not always there: a slow drift in strength (a minute or so) stands in for
+    // the calm and choppy spells of the surface above, so the net comes and goes.
+    float drift = 0.35 + 0.65 * smoothstep(0.2, 0.9, 0.5 + 0.5 * sin(gameTime * 24000.0 / 20.0 * 0.1 +
+                                                                        dot(surfaceXZ, vec2(0.013, 0.009))));
+    float strength = BEDROCK_CAUSTICS_STRENGTH * drift * exp(-waterDepth * 0.1);
     return max(mix(1.0, value, strength), 0.0);
 }
 

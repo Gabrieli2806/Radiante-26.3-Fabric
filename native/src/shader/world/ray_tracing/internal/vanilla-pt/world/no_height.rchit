@@ -1124,6 +1124,14 @@ void main() {
             float eta = dot(incident, waterUpNormal) < 0.0 ? (1.0 / currentSurface.mat.ior) : currentSurface.mat.ior;
             float fresnel = clamp(DielectricFresnel(abs(dot(currentViewDir, waterNormal)), eta), 0.0, 1.0);
             vec3 refractionDir = refract(incident, waterNormal, eta);
+            // Seen from under the water, the surface is let through everywhere with a light cyan tint and little
+            // reflection, as in Bedrock RTX: physically only a circle overhead (Snell's window) shows the sky and
+            // the rest mirrors the water below, which read as a hole in a turquoise ceiling.
+            bool fromBelow = dot(incident, waterUpNormal) > 0.0;
+            if (fromBelow) {
+                refractionDir = normalize(mix(incident, waterUpNormal, 0.15));
+                fresnel = min(fresnel, 0.08);
+            }
             bool hasRefraction = dot(refractionDir, refractionDir) > 1e-6;
             bool chooseReflection = !hasRefraction ||
                                     (VPT_TRANSPARENT_SPLIT_MODE != VPT_TRANSPARENT_SPLIT_MODE_DETERMINISTIC &&
@@ -1141,6 +1149,7 @@ void main() {
                 // the biome's water colour); the surface itself is clear.
                 vec3 surfaceTint = waterMediumActive() ? vec3(1.0) :
                                                          pow(max(currentSurface.albedoValue.rgb, vec3(0.0)), vec3(0.5));
+                if (fromBelow) { surfaceTint *= vec3(0.85, 0.97, 1.0); }
                 bsdf = surfaceTint * (1.0 - fresnel);
             }
         } else {

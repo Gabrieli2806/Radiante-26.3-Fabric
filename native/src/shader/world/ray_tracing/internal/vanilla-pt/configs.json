@@ -218,7 +218,7 @@
         {
             "name": "render_pipeline.module.ray_tracing.attribute.water_scattering",
             "type": "float_range:0.0-64.0",
-            "default_value": "8.0",
+            "default_value": "2.0",
             "define": "VPT_WATER_SCATTERING"
         },
         {
@@ -230,7 +230,7 @@
         {
             "name": "render_pipeline.module.ray_tracing.attribute.water_ambient",
             "type": "float_range:0.0-64.0",
-            "default_value": "8.0",
+            "default_value": "1.0",
             "define": "VPT_WATER_AMBIENT"
         },
         {

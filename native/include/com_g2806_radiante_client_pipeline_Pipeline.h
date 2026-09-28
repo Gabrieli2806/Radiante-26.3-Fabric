@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 #undef com_g2806_radiante_client_pipeline_Pipeline_SETTINGS_DEFAULTS_VERSION
-#define com_g2806_radiante_client_pipeline_Pipeline_SETTINGS_DEFAULTS_VERSION 2L
+#define com_g2806_radiante_client_pipeline_Pipeline_SETTINGS_DEFAULTS_VERSION 3L
 /*
  * Class:     com_g2806_radiante_client_pipeline_Pipeline
  * Method:    buildNative
