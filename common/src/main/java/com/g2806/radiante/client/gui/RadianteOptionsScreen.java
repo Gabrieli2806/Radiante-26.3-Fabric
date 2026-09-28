@@ -12,15 +12,15 @@ import java.util.List;
 import java.util.Objects;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Settings for the ray tracer: pipeline preset (upscaler and denoiser), lighting options and terrain building. Changes
- * are collected while the screen is open and applied once it is closed with Done, so the pipeline is rebuilt at most
- * once.
+ * Settings for the ray tracer, laid out the way Sodium lays out its own: a tab per section along the top, the section's
+ * options in a scrolling column on the left, and on the right what the option under the mouse does and what it costs.
+ * Changes are collected while the screen is open and applied with Apply or Done (or on leaving), so the pipeline is
+ * rebuilt at most once. What each section holds is the option builders below; the layout is {@link SettingsLayout}.
  */
-public class RadianteOptionsScreen extends OptionsSubScreen {
+public class RadianteOptionsScreen extends Screen {
 
     public static final Component TITLE = Component.translatable("options.radiante.title");
 
@@ -45,12 +45,38 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     private Integer pendingFogSamples;
     private Boolean pendingDepthOfField;
     private boolean pendingReflex = Options.reflex;
+    /** Numeric pipeline settings, read once per screen; a setting the pipeline lacks has no entry. */
+    private java.util.EnumMap<Tunable, Integer> pendingTunables;
+    private PictureStyle.ToneMethod pendingToneMethod;
     private boolean applied;
+
+    /** The part of the settings shown; kept while the game runs, so the screen reopens where it was left. */
+    enum Category {
+        QUALITY, IMAGE, LIGHTING, SKY_AND_WATER, PERFORMANCE, OTHER;
+
+        String key() {
+            return "options.radiante.category." + name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
     /** Reset to Defaults was pressed: the stored pipeline and shader pack settings go too, on apply. */
     private boolean forgetStoredSettings;
 
+    private final Screen lastScreen;
+    private final net.minecraft.client.Options options;
+    /** The options of the section shown, filled by the add*Options builders. */
+    private final List<OptionInstance<?>> page = new ArrayList<>();
+    private final List<SettingsLayout.Section> sections = new ArrayList<>();
+    private SettingsLayout layout;
+    /** The search text, kept when the screen is laid out again after a change. */
+    private String search = "";
+    /** Where the option column was scrolled to, kept when the screen is laid out again after a change. */
+    private double scroll;
+
     public RadianteOptionsScreen(Screen lastScreen, net.minecraft.client.Options options) {
-        super(lastScreen, options, TITLE);
+        super(TITLE);
+        this.lastScreen = lastScreen;
+        this.options = options;
     }
 
     /** Carries every choice made so far into a fresh screen. */
@@ -77,6 +103,10 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingFogSamples = previous.pendingFogSamples;
         this.pendingDepthOfField = previous.pendingDepthOfField;
         this.pendingReflex = previous.pendingReflex;
+        this.pendingTunables = previous.pendingTunables;
+        this.pendingToneMethod = previous.pendingToneMethod;
+        this.scroll = previous.layout != null ? previous.layout.scroll() : previous.scroll;
+        this.search = previous.layout != null ? previous.layout.searchText() : previous.search;
     }
 
     /**
@@ -305,13 +335,70 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         this.pendingParallax = this.pendingParallax == null ? null : Boolean.TRUE;
         this.pendingBedrockAtmosphere = this.pendingBedrockAtmosphere == null ? null : Boolean.TRUE;
         this.pendingFogSamples = this.pendingFogSamples == null ? null : 16;
+        if (this.pendingTunables != null) {
+            this.pendingTunables.replaceAll((tunable, value) -> tunable.defaultSteps);
+        }
+        if (this.pendingToneMethod != null) {
+            this.pendingToneMethod = PictureStyle.ToneMethod.PBR_NEUTRAL;
+        }
     }
 
-    @Override
-    protected void addOptions() {
-        if (this.list == null) {
+    private void readTunables() {
+        if (this.pendingTunables != null) {
             return;
         }
+        this.pendingTunables = new java.util.EnumMap<>(Tunable.class);
+        for (Tunable tunable : Tunable.ALL) {
+            Integer value = tunable.read();
+            if (value != null) {
+                this.pendingTunables.put(tunable, value);
+            }
+        }
+        this.pendingToneMethod = PictureStyle.ToneMethod.of(Pipeline.getModuleValue(Pipeline.TONE_MAPPING_MODULE_NAME,
+            "render_pipeline.module.tone_mapping.attribute.method"));
+    }
+
+    private PictureStyle currentStyle() {
+        for (PictureStyle style : PictureStyle.values()) {
+            if (style.matches(this.pendingToneMethod, this.pendingTunables)) {
+                return style;
+            }
+        }
+        return PictureStyle.CUSTOM;
+    }
+
+    /** A slider for a numeric pipeline setting, or null when the pipeline lacks it. */
+    private OptionInstance<Integer> tunable(Tunable tunable, boolean affectsStyle) {
+        Integer current = this.pendingTunables.get(tunable);
+        if (current == null) {
+            return null;
+        }
+        return new OptionInstance<Integer>(tunable.key(), RadianteOptionsScreen.<Integer>tooltip(tunable.key()),
+            (caption, value) -> tunable.format == Tunable.Format.EV
+                ? Component.translatable("options.radiante.ev_value", caption,
+                    String.format(java.util.Locale.ROOT, "%+.1f", value * tunable.unit))
+                : Component.translatable("options.percent_value", caption, value),
+            new OptionInstance.IntRange(tunable.min, tunable.max, false), current, value -> {
+                this.pendingTunables.put(tunable, value);
+                if (affectsStyle) {
+                    refreshQualityLater();
+                }
+            });
+    }
+
+    /** Adds options two to a row, skipping the ones the pipeline lacks. */
+    private void addRows(OptionInstance<?>... options) {
+        List<OptionInstance<?>> present = new ArrayList<>();
+        for (OptionInstance<?> option : options) {
+            if (option != null) {
+                present.add(option);
+            }
+        }
+        this.page.addAll(present);
+    }
+
+    /** Builds every section's options, in order, into {@link #sections}. */
+    private void buildPage() {
 
         // Filled in first so the quality level below can tell which one the current settings match.
         OptionInstance<Presets> preset = presetOption();
@@ -322,7 +409,7 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             this.pendingVolumetricFog = Pipeline.isVolumetricFog();
         }
         if (this.pendingBounces == null && Pipeline.getShaderPackValue(Pipeline.RAY_BOUNCES_ATTRIBUTE) != null) {
-            this.pendingBounces = Math.max(1, Math.min(4, Pipeline.getShaderPackInt(Pipeline.RAY_BOUNCES_ATTRIBUTE, 4)));
+            this.pendingBounces = Math.max(1, Math.min(8, Pipeline.getShaderPackInt(Pipeline.RAY_BOUNCES_ATTRIBUTE, 4)));
         }
         if (this.pendingParallax == null && Pipeline.supportsShaderPackToggle(Pipeline.PARALLAX_ATTRIBUTE)) {
             this.pendingParallax = Pipeline.isShaderPackToggleOn(Pipeline.PARALLAX_ATTRIBUTE);
@@ -337,6 +424,8 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 Pipeline.getShaderPackInt(Pipeline.VOLUMETRIC_SAMPLES_ATTRIBUTE, 16)));
         }
 
+        readTunables();
+
         List<QualityPreset> levels = List.of(QualityPreset.values());
         OptionInstance<QualityPreset> quality = new OptionInstance<>("options.radiante.quality",
             tooltip("options.radiante.quality"), (caption, value) -> Component.translatable(value.key),
@@ -350,128 +439,69 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                     this.minecraft.execute(this::reopenWithSameChoices);
                 }
             });
-        net.minecraft.client.gui.components.Button reset = net.minecraft.client.gui.components.Button.builder(
-                Component.translatable("options.radiante.reset_defaults"), button -> {
-                    resetToDefaults();
-                    reopenWithSameChoices();
-                })
-            .tooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("options.radiante.reset_defaults.tooltip")))
-            .build();
-        this.list.addSmall(quality.createButton(this.options), reset);
-
-        if (preset != null) {
-            this.list.addSmall(preset);
+        this.sections.clear();
+        for (Category section : Category.values()) {
+            this.page.clear();
+            switch (section) {
+                case QUALITY -> {
+                    addRows(quality);
+                    addQualityOptions(preset, dlssMode, frameGeneration);
+                }
+                case IMAGE -> addImageOptions();
+                case LIGHTING -> addLightingOptions();
+                case SKY_AND_WATER -> addSkyAndWaterOptions(clouds);
+                case PERFORMANCE -> addPerformanceOptions();
+                case OTHER -> addOtherOptions();
+            }
+            this.sections.add(new SettingsLayout.Section(section, List.copyOf(this.page)));
         }
+    }
 
-        if (dlssMode != null && frameGeneration != null) {
-            this.list.addSmall(dlssMode, frameGeneration);
-        } else if (dlssMode != null) {
-            this.list.addSmall(dlssMode);
-        } else if (frameGeneration != null) {
-            this.list.addSmall(frameGeneration);
-        }
-
+    private void addQualityOptions(OptionInstance<Presets> preset, OptionInstance<String> dlssMode,
+        OptionInstance<Integer> frameGeneration) {
+        OptionInstance<Boolean> reflex = null;
         // Reflex comes with Streamline, which has to be loaded before Minecraft creates its Vulkan device: the
         // first time it is turned on it takes effect after a restart, the same as frame generation.
         if (com.g2806.radiante.platform.RadiantePlatform.INSTANCE.supportsStreamline()) {
-            this.list.addSmall(OptionInstance.createBoolean("options.radiante.reflex",
+            reflex = OptionInstance.createBoolean("options.radiante.reflex",
                 OptionInstance.cachedConstantTooltip(Component.translatable(
                     RadianteClient.streamlineLoaded() ? "options.radiante.reflex.tooltip"
                         : "options.radiante.reflex.tooltip_restart")),
-                this.pendingReflex, value -> this.pendingReflex = value));
+                this.pendingReflex, value -> this.pendingReflex = value);
         }
+        addRows(preset, dlssMode, frameGeneration, reflex);
+    }
 
-        addHdrOptions();
-
-        if (clouds != null) {
-            this.list.addSmall(clouds);
-        }
-
-        this.list.addSmall(
-            slider("options.radiante.chunk_building_threads", 1, Options.getMaxChunkBuildingThreads(),
-                this.pendingChunkThreads, value -> this.pendingChunkThreads = value),
-            slider("options.radiante.chunk_building_batch_size", 1, 64, this.pendingChunkBatchSize,
-                value -> this.pendingChunkBatchSize = value));
-
-        this.list.addSmall(
-            slider("options.radiante.chunk_building_total_batches", 1, 64, this.pendingChunkTotalBatches,
-                value -> this.pendingChunkTotalBatches = value),
-            OptionInstance.createBoolean("options.radiante.collect_chunk_emission",
-                tooltip("options.radiante.collect_chunk_emission"), this.pendingCollectEmission,
-                value -> this.pendingCollectEmission = value));
-
-        this.list.addSmall(
-            OptionInstance.createBoolean("options.radiante.biome_fog",
-                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
-                this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
-            new OptionInstance<>("options.radiante.biome_fog_strength", tooltip("options.radiante.biome_fog_strength"),
-                (caption, value) -> Component.translatable("options.percent_value", caption, value),
-                new OptionInstance.IntRange(0, 400, false), this.pendingBiomeFogStrength,
-                value -> this.pendingBiomeFogStrength = value));
-
-        OptionInstance<Boolean> firstPersonShadow = OptionInstance.createBoolean(
-            "options.radiante.first_person_shadow",
-            OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.first_person_shadow.tooltip")),
-            this.pendingFirstPersonShadow, value -> this.pendingFirstPersonShadow = value);
-        OptionInstance<Boolean> debugLogging = OptionInstance.createBoolean("options.radiante.debug_logging",
-            this.pendingDebugLogging, value -> this.pendingDebugLogging = value);
-        this.list.addSmall(OptionInstance.createBoolean("options.radiante.block_light_sampling",
-                tooltip("options.radiante.block_light_sampling"), Options.blockLightSampling,
-                value -> {
-                    Options.blockLightSampling = value;
+    private void addImageOptions() {
+        OptionInstance<PictureStyle> style = null;
+        if (this.pendingTunables.containsKey(Tunable.SATURATION)) {
+            style = new OptionInstance<>("options.radiante.picture_style", tooltip("options.radiante.picture_style"),
+                (caption, value) -> Component.translatable(value.key),
+                new OptionInstance.Enum<>(List.of(PictureStyle.values()),
+                    Codec.STRING.xmap(PictureStyle::valueOf, PictureStyle::name)),
+                currentStyle(), value -> {
+                    if (value == PictureStyle.CUSTOM || value == currentStyle()) {
+                        return;
+                    }
+                    value.applyTo(this.pendingTunables);
+                    if (this.pendingToneMethod != null) {
+                        this.pendingToneMethod = value.method;
+                    }
                     refreshQualityLater();
-                }),
-            OptionInstance.createBoolean("options.radiante.held_item_light",
-                tooltip("options.radiante.held_item_light"), Options.heldItemLight,
-                value -> Options.heldItemLight = value));
-        this.list.addSmall(brightnessSlider("options.radiante.day_brightness", Options.dayBrightness,
-                value -> Options.dayBrightness = value),
-            brightnessSlider("options.radiante.night_brightness", Options.nightBrightness,
-                value -> Options.nightBrightness = value));
-        this.list.addSmall(brightnessSlider("options.radiante.emission_brightness", Options.emissionBrightness,
-                value -> Options.emissionBrightness = value),
-            brightnessSlider("options.radiante.held_light_brightness", Options.heldLightBrightness,
-                value -> Options.heldLightBrightness = value));
-        this.list.addSmall(OptionInstance.createBoolean("options.radiante.block_outline",
-                tooltip("options.radiante.block_outline"), Options.blockOutline,
-                value -> Options.blockOutline = value),
-            OptionInstance.createBoolean("options.radiante.parallax_transparent_edges",
-                tooltip("options.radiante.parallax_transparent_edges"), Options.parallaxTransparentEdges,
-                value -> Options.parallaxTransparentEdges = value));
-        this.list.addSmall(OptionInstance.createBoolean("options.radiante.pixel_lighting",
-            tooltip("options.radiante.pixel_lighting"), Options.pixelLighting, value -> Options.pixelLighting = value),
-            null);
-        this.list.addSmall(OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
-                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
-                Options.vanillaSunPath, value -> Options.vanillaSunPath = value),
-            OptionInstance.createBoolean("options.radiante.vanilla_celestial_orientation",
-                OptionInstance.cachedConstantTooltip(
-                    Component.translatable("options.radiante.vanilla_celestial_orientation.tooltip")),
-                Options.vanillaCelestialOrientation, value -> Options.vanillaCelestialOrientation = value));
-        if (Pipeline.supportsVolumetricFog()) {
-            this.list.addSmall(
-                OptionInstance.createBoolean("options.radiante.volumetric_fog",
-                    OptionInstance.cachedConstantTooltip(
-                        Component.translatable("options.radiante.volumetric_fog.tooltip")),
-                    this.pendingVolumetricFog, value -> {
-                        this.pendingVolumetricFog = value;
-                        refreshQualityLater();
-                    }),
-                brightnessSlider("options.radiante.volumetric_fog_strength", Options.volumetricFogStrength,
-                    value -> Options.volumetricFogStrength = value));
-            if (this.pendingFogSamples != null) {
-                this.list.addSmall(slider("options.radiante.volumetric_fog_samples", 4, 32, this.pendingFogSamples,
-                    value -> {
-                        this.pendingFogSamples = value;
-                        refreshQualityLater();
-                    }), null);
-            }
-            this.list.addSmall(firstPersonShadow, debugLogging);
-        } else {
-            this.list.addSmall(firstPersonShadow, debugLogging);
+                });
         }
-        addPathTracingOptions();
+        OptionInstance<PictureStyle.ToneMethod> method = this.pendingToneMethod == null ? null
+            : new OptionInstance<>("options.radiante.tone_method", tooltip("options.radiante.tone_method"),
+                (caption, value) -> Component.translatable(value.key()),
+                new OptionInstance.Enum<>(List.of(PictureStyle.ToneMethod.values()),
+                    Codec.STRING.xmap(PictureStyle.ToneMethod::valueOf, PictureStyle.ToneMethod::name)),
+                this.pendingToneMethod, value -> {
+                    this.pendingToneMethod = value;
+                    refreshQualityLater();
+                });
+        addRows(style, method, tunable(Tunable.SATURATION, true), tunable(Tunable.EXPOSURE_ADAPTATION, false),
+            tunable(Tunable.EXPOSURE_BIAS, false));
+        addHdrOptions();
         if (Pipeline.supportsShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE)
             && Pipeline.supportsShaderPackToggle(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE)) {
             if (this.pendingMotionBlur == null) {
@@ -480,13 +510,118 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             if (this.pendingDepthOfField == null) {
                 this.pendingDepthOfField = Pipeline.isShaderPackToggleOn(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE);
             }
-            this.list.addSmall(
+            addRows(
                 OptionInstance.createBoolean("options.radiante.motion_blur", tooltip("options.radiante.motion_blur"),
                     this.pendingMotionBlur, value -> this.pendingMotionBlur = value),
                 OptionInstance.createBoolean("options.radiante.depth_of_field",
                     tooltip("options.radiante.depth_of_field"), this.pendingDepthOfField,
                     value -> this.pendingDepthOfField = value));
         }
+    }
+
+    private void addLightingOptions() {
+        addRows(brightnessSlider("options.radiante.day_brightness", Options.dayBrightness,
+                value -> Options.dayBrightness = value),
+            brightnessSlider("options.radiante.night_brightness", Options.nightBrightness,
+                value -> Options.nightBrightness = value),
+            brightnessSlider("options.radiante.emission_brightness", Options.emissionBrightness,
+                value -> Options.emissionBrightness = value),
+            brightnessSlider("options.radiante.held_light_brightness", Options.heldLightBrightness,
+                value -> Options.heldLightBrightness = value),
+            tunable(Tunable.BOUNCE_LIGHT, true), tunable(Tunable.SKY_LIGHT, true),
+            OptionInstance.createBoolean("options.radiante.block_light_sampling",
+                tooltip("options.radiante.block_light_sampling"), Options.blockLightSampling,
+                value -> {
+                    Options.blockLightSampling = value;
+                    refreshQualityLater();
+                }),
+            OptionInstance.createBoolean("options.radiante.held_item_light",
+                tooltip("options.radiante.held_item_light"), Options.heldItemLight,
+                value -> Options.heldItemLight = value),
+            OptionInstance.createBoolean("options.radiante.pixel_lighting",
+                tooltip("options.radiante.pixel_lighting"), Options.pixelLighting, value -> Options.pixelLighting = value),
+            OptionInstance.createBoolean("options.radiante.first_person_shadow",
+                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.first_person_shadow.tooltip")),
+                this.pendingFirstPersonShadow, value -> this.pendingFirstPersonShadow = value));
+    }
+
+    private void addSkyAndWaterOptions(OptionInstance<String> clouds) {
+        OptionInstance<Boolean> atmosphere = this.pendingBedrockAtmosphere == null ? null
+            : OptionInstance.createBoolean("options.radiante.atmosphere_style",
+                tooltip("options.radiante.atmosphere_style"),
+                (caption, value) -> Component.translatable(value ? "options.radiante.atmosphere_style.bedrock"
+                    : "options.radiante.atmosphere_style.java"),
+                this.pendingBedrockAtmosphere, value -> this.pendingBedrockAtmosphere = value);
+        OptionInstance<Boolean> volumetricFog = null;
+        OptionInstance<Integer> volumetricStrength = null;
+        if (Pipeline.supportsVolumetricFog()) {
+            volumetricFog = OptionInstance.createBoolean("options.radiante.volumetric_fog",
+                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.volumetric_fog.tooltip")),
+                this.pendingVolumetricFog, value -> {
+                    this.pendingVolumetricFog = value;
+                    refreshQualityLater();
+                });
+            volumetricStrength = brightnessSlider("options.radiante.volumetric_fog_strength",
+                Options.volumetricFogStrength, value -> Options.volumetricFogStrength = value);
+        }
+        addRows(atmosphere, clouds, tunable(Tunable.SUN_GLOW, false), tunable(Tunable.LIGHT_SHAFTS, false),
+            OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
+                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
+                Options.vanillaSunPath, value -> Options.vanillaSunPath = value),
+            OptionInstance.createBoolean("options.radiante.vanilla_celestial_orientation",
+                OptionInstance.cachedConstantTooltip(
+                    Component.translatable("options.radiante.vanilla_celestial_orientation.tooltip")),
+                Options.vanillaCelestialOrientation, value -> Options.vanillaCelestialOrientation = value),
+            OptionInstance.createBoolean("options.radiante.biome_fog",
+                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
+                this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
+            new OptionInstance<>("options.radiante.biome_fog_strength", tooltip("options.radiante.biome_fog_strength"),
+                (caption, value) -> Component.translatable("options.percent_value", caption, value),
+                new OptionInstance.IntRange(0, 400, false), this.pendingBiomeFogStrength,
+                value -> this.pendingBiomeFogStrength = value),
+            volumetricFog, volumetricStrength,
+            tunable(Tunable.WATER_WAVES, false), tunable(Tunable.WATER_DENSITY, false),
+            tunable(Tunable.WATER_GOD_RAYS, false));
+    }
+
+    private void addPerformanceOptions() {
+        OptionInstance<Integer> bounces = this.pendingBounces == null ? null
+            : slider("options.radiante.ray_bounces", 1, 8, this.pendingBounces, value -> {
+                this.pendingBounces = value;
+                refreshQualityLater();
+            });
+        OptionInstance<Boolean> parallax = this.pendingParallax == null ? null
+            : OptionInstance.createBoolean("options.radiante.parallax", tooltip("options.radiante.parallax"),
+                this.pendingParallax, value -> {
+                    this.pendingParallax = value;
+                    refreshQualityLater();
+                });
+        OptionInstance<Integer> fogSamples = this.pendingFogSamples == null || !Pipeline.supportsVolumetricFog() ? null
+            : slider("options.radiante.volumetric_fog_samples", 4, 32, this.pendingFogSamples, value -> {
+                this.pendingFogSamples = value;
+                refreshQualityLater();
+            });
+        addRows(bounces, parallax, fogSamples,
+            slider("options.radiante.chunk_building_threads", 1, Options.getMaxChunkBuildingThreads(),
+                this.pendingChunkThreads, value -> this.pendingChunkThreads = value),
+            slider("options.radiante.chunk_building_batch_size", 1, 64, this.pendingChunkBatchSize,
+                value -> this.pendingChunkBatchSize = value),
+            slider("options.radiante.chunk_building_total_batches", 1, 64, this.pendingChunkTotalBatches,
+                value -> this.pendingChunkTotalBatches = value),
+            OptionInstance.createBoolean("options.radiante.collect_chunk_emission",
+                tooltip("options.radiante.collect_chunk_emission"), this.pendingCollectEmission,
+                value -> this.pendingCollectEmission = value));
+    }
+
+    private void addOtherOptions() {
+        addRows(OptionInstance.createBoolean("options.radiante.block_outline",
+                tooltip("options.radiante.block_outline"), Options.blockOutline,
+                value -> Options.blockOutline = value),
+            OptionInstance.createBoolean("options.radiante.parallax_transparent_edges",
+                tooltip("options.radiante.parallax_transparent_edges"), Options.parallaxTransparentEdges,
+                value -> Options.parallaxTransparentEdges = value),
+            OptionInstance.createBoolean("options.radiante.debug_logging",
+                this.pendingDebugLogging, value -> this.pendingDebugLogging = value));
     }
 
     /**
@@ -505,13 +640,14 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
                 }
             });
         if (!Options.hdrOutput) {
-            this.list.addSmall(toggle, null);
+            addRows(toggle);
             return;
         }
-        this.list.addSmall(toggle, nitsSlider("options.radiante.hdr_peak", 400, 4000, Options.hdrPeakNits,
-            value -> Options.hdrPeakNits = value));
-        this.list.addSmall(nitsSlider("options.radiante.hdr_paper_white", 80, 400, Options.hdrPaperWhiteNits,
-            value -> Options.hdrPaperWhiteNits = value), OptionInstance.createBoolean("options.radiante.hdr_debug_view",
+        addRows(toggle, nitsSlider("options.radiante.hdr_peak", 400, 4000, Options.hdrPeakNits,
+                value -> Options.hdrPeakNits = value),
+            nitsSlider("options.radiante.hdr_paper_white", 80, 400, Options.hdrPaperWhiteNits,
+                value -> Options.hdrPaperWhiteNits = value),
+            OptionInstance.createBoolean("options.radiante.hdr_debug_view",
                 tooltip("options.radiante.hdr_debug_view"), Options.hdrDebugView,
                 value -> Options.hdrDebugView = value));
     }
@@ -523,31 +659,6 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
             new OptionInstance.IntRange(min, max, false), Math.max(min, Math.min(max, current)), onChange::accept);
     }
 
-    /** Light bounces and carved surfaces: shader pack settings that cost frame time; changing them rebuilds. */
-    private void addPathTracingOptions() {
-        OptionInstance<Integer> bounces = this.pendingBounces == null ? null
-            : slider("options.radiante.ray_bounces", 1, 4, this.pendingBounces, value -> {
-                this.pendingBounces = value;
-                refreshQualityLater();
-            });
-        OptionInstance<Boolean> parallax = this.pendingParallax == null ? null
-            : OptionInstance.createBoolean("options.radiante.parallax", tooltip("options.radiante.parallax"),
-                this.pendingParallax, value -> {
-                    this.pendingParallax = value;
-                    refreshQualityLater();
-                });
-        if (bounces != null || parallax != null) {
-            this.list.addSmall(bounces != null ? bounces : parallax, bounces != null ? parallax : null);
-        }
-        if (this.pendingBedrockAtmosphere != null) {
-            this.list.addSmall(OptionInstance.createBoolean("options.radiante.atmosphere_style",
-                tooltip("options.radiante.atmosphere_style"),
-                (caption, value) -> Component.translatable(value ? "options.radiante.atmosphere_style.bedrock"
-                    : "options.radiante.atmosphere_style.java"),
-                this.pendingBedrockAtmosphere, value -> this.pendingBedrockAtmosphere = value), null);
-        }
-    }
-
     /** A setting the quality level covers was changed by hand: the level shown above it has to follow. */
     private void refreshQualityLater() {
         if (this.minecraft != null) {
@@ -556,9 +667,77 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
     }
 
     @Override
+    protected void init() {
+        buildPage();
+        this.layout = new SettingsLayout(this.font, this.width, this.height, this.sections,
+            new SettingsLayout.Actions(
+                () -> {
+                    resetToDefaults();
+                    reopenWithSameChoices();
+                },
+                () -> {
+                    // Undo: a fresh screen reads everything back from what is applied.
+                    this.applied = true;
+                    RadianteOptionsScreen fresh = new RadianteOptionsScreen(this.lastScreen, this.options);
+                    fresh.scroll = this.layout.scroll();
+                    this.minecraft.gui.setScreen(fresh);
+                },
+                () -> {
+                    this.applyChanges();
+                    RadianteOptionsScreen fresh = new RadianteOptionsScreen(this.lastScreen, this.options);
+                    fresh.scroll = this.layout.scroll();
+                    this.minecraft.gui.setScreen(fresh);
+                },
+                this::onClose),
+            value -> this.scroll = value);
+        addRenderableWidget(this.layout.init(this.scroll, this.search));
+    }
+
+    @Override
+    public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+        float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        if (this.layout != null) {
+            this.layout.extract(graphics, mouseX, mouseY);
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        if (super.mouseClicked(event, doubleClick)) {
+            return true;
+        }
+        return this.layout != null && this.layout.mouseClicked(event.x(), event.y(), event.button());
+    }
+
+    @Override
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dragX, double dragY) {
+        if (this.layout != null && this.layout.mouseDragged(event.x())) {
+            return true;
+        }
+        return super.mouseDragged(event, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        if (this.layout != null) {
+            this.layout.mouseReleased();
+        }
+        return super.mouseReleased(event);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (this.layout != null && this.layout.scrollBy(mouseX, mouseY, scrollY)) {
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
     public void onClose() {
         this.applyChanges();
-        super.onClose();
+        this.minecraft.gui.setScreen(this.lastScreen);
     }
 
     private void applyChanges() {
@@ -627,6 +806,15 @@ public class RadianteOptionsScreen extends OptionsSubScreen {
         if (this.pendingFogSamples != null) {
             rebuild |= Pipeline.setShaderPackValue(Pipeline.VOLUMETRIC_SAMPLES_ATTRIBUTE,
                 String.valueOf(this.pendingFogSamples));
+        }
+        if (this.pendingTunables != null) {
+            for (java.util.Map.Entry<Tunable, Integer> entry : this.pendingTunables.entrySet()) {
+                rebuild |= entry.getKey().write(entry.getValue());
+            }
+        }
+        if (this.pendingToneMethod != null) {
+            rebuild |= Pipeline.setModuleValue(Pipeline.TONE_MAPPING_MODULE_NAME,
+                "render_pipeline.module.tone_mapping.attribute.method", this.pendingToneMethod.value);
         }
         if (this.pendingMotionBlur != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE, this.pendingMotionBlur);

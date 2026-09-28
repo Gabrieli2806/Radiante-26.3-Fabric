@@ -47,7 +47,7 @@ public class Pipeline {
     private static final String TEMPORAL_ACCUMULATION_MODULE_NAME = "render_pipeline.module.temporal_accumulation.name";
     private static final String FSR3_MODULE_NAME = "render_pipeline.module.fsr_upscaler.name";
     private static final String XESS_MODULE_NAME = "render_pipeline.module.xess_sr.name";
-    private static final String TONE_MAPPING_MODULE_NAME = "render_pipeline.module.tone_mapping.name";
+    public static final String TONE_MAPPING_MODULE_NAME = "render_pipeline.module.tone_mapping.name";
     private static final String POST_RENDER_MODULE_NAME = "render_pipeline.module.post_render.name";
     private static Path PIPELINE_CONFIG_PATH = null;
     private final List<Module> modules = new ArrayList<>();
@@ -415,6 +415,17 @@ public class Pipeline {
         }
         attribute.value = value;
         return true;
+    }
+
+    /** An attribute of any module by module and attribute name, or null when there is no such module or attribute. */
+    public static String getModuleValue(String moduleName, String attributeName) {
+        for (Module module : INSTANCE.modules) {
+            if (module != null && Objects.equals(module.name, moduleName)) {
+                AttributeConfig attribute = findAttribute(module, attributeName);
+                return attribute == null ? null : attribute.value;
+            }
+        }
+        return null;
     }
 
     /** Sets an attribute of any module by module and attribute name; true when it changed. */

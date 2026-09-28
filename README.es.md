@@ -3,7 +3,7 @@
 Renderizado con trazado de rayos para Minecraft 26.3 (Fabric, NeoForge y Forge), construido sobre el backend
 Vulkan propio de Minecraft.
 
-[GitHub](https://github.com/Gabrieli2806/Radiante-26.3-Fabric) · [Modrinth](https://modrinth.com/project/radiante) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/radiante) · [Discord](https://discord.gg/DhBbAzugZ9)
+[GitHub](https://github.com/Gabrieli2806/Radiante-26.3-Fabric) · [Modrinth](https://modrinth.com/project/radiante) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/radiante) · [Discord](https://discord.gg/DhBbAzugZ9) · [Documentación completa](docs/es/README.md)
 
 Idiomas: [EN](README.md) · **ES**
 

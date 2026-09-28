@@ -776,6 +776,8 @@ bool initTransparent(MainRay rayState,
     return true;
 }
 
+const int MIRROR_EXTRA_BOUNCES = 8;
+
 void traceSecondary(inout MainRay rayState,
                    int startBounce,
                    int isHand,
@@ -790,7 +792,11 @@ void traceSecondary(inout MainRay rayState,
     hasSecondHit = false;
     secondHitDistance = 0.0;
 
-    for (int b = startBounce; b < VPT_NUM_RAY_BOUNCES; b++) {
+    // Bounces off a mirror or through clear glass do not count against the budget, up to MIRROR_EXTRA_BOUNCES more:
+    // two mirrors facing each other used up the few bounces in the first reflections, and the mirror seen inside the
+    // mirror came out black.
+    int extraBounces = 0;
+    for (int b = startBounce; b < VPT_NUM_RAY_BOUNCES + extraBounces; b++) {
         if (rayShouldStop(rayState)) break;
 
         uint mask;
@@ -839,6 +845,9 @@ void traceSecondary(inout MainRay rayState,
 #endif
             bool isPerfectMirrorOrTransparent = (hitMat.roughness < 0.02) && (rayLobeType(rayState) != 0u);
             if (!isPerfectMirrorOrTransparent) { isPrimaryCameraPath = false; }
+            if (hitMat.roughness < 0.08 && rayLobeType(rayState) != 0u && extraBounces < MIRROR_EXTRA_BOUNCES) {
+                extraBounces++;
+            }
         }
 
         if (b > 2) {
