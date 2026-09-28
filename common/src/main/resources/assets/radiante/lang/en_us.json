@@ -274,6 +274,8 @@
   "options.radiante.impact.varies": "Varies",
   "options.radiante.search": "Search...",
   "options.radiante.subtitle": "Ray tracing",
+  "options.radiante.applying": "Applying settings...",
+  "options.radiante.applying.detail": "Rebuilding the renderer; this takes a few seconds.",
   "options.radiante.biome_fog_strength": "Biome Fog Strength",
   "options.radiante.motion_blur": "Motion Blur",
   "options.radiante.motion_blur.tooltip": "Smears what moves across the screen along its motion, as a camera does. Changing it rebuilds the shaders.",

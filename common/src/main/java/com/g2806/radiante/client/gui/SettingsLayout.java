@@ -169,6 +169,10 @@ final class SettingsLayout {
         String filter = this.search == null ? "" : this.search.getValue().trim().toLowerCase(Locale.ROOT);
         int y = 0;
         for (Section section : this.sections) {
+            // One section at a time, as tabs; a search looks through all of them.
+            if (filter.isEmpty() && section.category() != selected) {
+                continue;
+            }
             List<OptionInstance<?>> shown = new ArrayList<>();
             for (OptionInstance<?> option : section.options()) {
                 if (filter.isEmpty() || caption(option).getString().toLowerCase(Locale.ROOT).contains(filter)) {
@@ -385,11 +389,14 @@ final class SettingsLayout {
         int entryY = this.top + 38;
         for (Section section : this.sections) {
             if (inside(mouseX, mouseY, this.sidebarX, entryY, this.sidebarW, 18)) {
-                for (int[] span : this.sectionSpans) {
-                    if (span[0] == section.category().ordinal()) {
-                        this.scroll = clampScroll(span[1]);
-                        this.onScroll.accept(this.scroll);
+                if (selected != section.category()) {
+                    selected = section.category();
+                    this.scroll = 0.0;
+                    this.onScroll.accept(this.scroll);
+                    if (this.search != null) {
+                        this.search.setValue("");
                     }
+                    layoutLines();
                 }
                 return true;
             }
@@ -463,14 +470,11 @@ final class SettingsLayout {
 
     // ---- helpers ----
 
+    /** The section shown; kept while the game runs, so the screen reopens on it. */
+    private static RadianteOptionsScreen.Category selected = RadianteOptionsScreen.Category.QUALITY;
+
     private RadianteOptionsScreen.Category sectionInView() {
-        RadianteOptionsScreen.Category result = null;
-        for (int[] span : this.sectionSpans) {
-            if (span[1] <= this.scroll + 4 || result == null) {
-                result = RadianteOptionsScreen.Category.values()[span[0]];
-            }
-        }
-        return result;
+        return selected;
     }
 
     private static boolean inside(double x, double y, int rx, int ry, int rw, int rh) {

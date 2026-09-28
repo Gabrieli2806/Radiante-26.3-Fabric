@@ -274,6 +274,8 @@
   "options.radiante.impact.varies": "Variable",
   "options.radiante.search": "Buscar...",
   "options.radiante.subtitle": "Trazado de rayos",
+  "options.radiante.applying": "Aplicando ajustes...",
+  "options.radiante.applying.detail": "Reconstruyendo el renderizador; tarda unos segundos.",
   "options.radiante.biome_fog_strength": "Intensidad de Neblina de Bioma",
   "options.radiante.motion_blur": "Desenfoque de Movimiento",
   "options.radiante.motion_blur.tooltip": "Difumina lo que se mueve en pantalla a lo largo de su movimiento, como una cámara. Cambiarlo recompila los shaders.",

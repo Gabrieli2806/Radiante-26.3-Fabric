@@ -683,10 +683,9 @@ public class RadianteOptionsScreen extends Screen {
                     this.minecraft.gui.setScreen(fresh);
                 },
                 () -> {
-                    this.applyChanges();
                     RadianteOptionsScreen fresh = new RadianteOptionsScreen(this.lastScreen, this.options);
                     fresh.scroll = this.layout.scroll();
-                    this.minecraft.gui.setScreen(fresh);
+                    applyAndOpen(fresh);
                 },
                 this::onClose),
             value -> this.scroll = value);
@@ -736,13 +735,13 @@ public class RadianteOptionsScreen extends Screen {
 
     @Override
     public void onClose() {
-        this.applyChanges();
-        this.minecraft.gui.setScreen(this.lastScreen);
+        applyAndOpen(this.lastScreen);
     }
 
-    private void applyChanges() {
+    /** Applies what was changed; true when the pipeline has to be rebuilt (left to the caller, see applyAndOpen). */
+    private boolean applyChanges() {
         if (this.applied) {
-            return;
+            return false;
         }
         this.applied = true;
 
@@ -831,7 +830,16 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (rebuild) {
             Pipeline.savePipeline();
-            Pipeline.build();
+        }
+        return rebuild;
+    }
+
+    /** Opens the next screen, through the rebuild's wait screen when the pipeline has to be built again. */
+    private void applyAndOpen(Screen next) {
+        if (applyChanges()) {
+            this.minecraft.gui.setScreen(new ApplyingSettingsScreen(next));
+        } else {
+            this.minecraft.gui.setScreen(next);
         }
     }
 }

@@ -204,6 +204,8 @@
   "options.radiante.impact.varies": "视情况",
   "options.radiante.search": "搜索...",
   "options.radiante.subtitle": "光线追踪",
+  "options.radiante.applying": "正在应用设置...",
+  "options.radiante.applying.detail": "正在重建渲染器，需要几秒钟。",
   "options.radiante.biome_fog_strength": "生物群系雾强度",
   "options.radiante.volumetric_fog": "体积雾",
   "options.radiante.volumetric_fog.tooltip": "像基岩版 RTX 一样对空气进行光线步进：阳光和月光在生物群系雾中散射，树木和地形会投下光束。比普通雾气明显更耗 GPU。",
