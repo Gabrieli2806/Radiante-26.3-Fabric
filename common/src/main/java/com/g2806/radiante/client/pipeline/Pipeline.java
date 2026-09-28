@@ -46,7 +46,6 @@ public class Pipeline {
     private static final String NRD_MODULE_NAME = "render_pipeline.module.nrd.name";
     private static final String TEMPORAL_ACCUMULATION_MODULE_NAME = "render_pipeline.module.temporal_accumulation.name";
     private static final String FSR3_MODULE_NAME = "render_pipeline.module.fsr_upscaler.name";
-    private static final String XESS_MODULE_NAME = "render_pipeline.module.xess_sr.name";
     public static final String TONE_MAPPING_MODULE_NAME = "render_pipeline.module.tone_mapping.name";
     private static final String POST_RENDER_MODULE_NAME = "render_pipeline.module.post_render.name";
     private static Path PIPELINE_CONFIG_PATH = null;
@@ -300,6 +299,29 @@ public class Pipeline {
         return changed;
     }
 
+    /**
+     * The render resolution modes of the FSR and XeSS upscalers, from full resolution down; the renderer draws at
+     * the mode's share of the screen and upscales the rest. Index-aligned with the quality levels (QualityPreset).
+     */
+    public static final String FSR_MODULE_NAME = "render_pipeline.module.fsr_upscaler.name";
+    public static final String FSR_MODE_ATTRIBUTE = "render_pipeline.module.fsr_upscaler.attribute.quality_mode";
+    public static final List<String> FSR_MODES = List.of(
+        "render_pipeline.module.fsr_upscaler.attribute.quality_mode.ultra",
+        "render_pipeline.module.fsr_upscaler.attribute.quality_mode.performance",
+        "render_pipeline.module.fsr_upscaler.attribute.quality_mode.balanced",
+        "render_pipeline.module.fsr_upscaler.attribute.quality_mode.quality",
+        "render_pipeline.module.fsr_upscaler.attribute.quality_mode.native");
+    public static final String XESS_MODULE_NAME = "render_pipeline.module.xess_sr.name";
+    public static final String XESS_MODE_ATTRIBUTE = "render_pipeline.module.xess_sr.attribute.quality_mode";
+    public static final List<String> XESS_MODES = List.of(
+        "render_pipeline.module.xess_sr.attribute.quality_mode.ultra_performance",
+        "render_pipeline.module.xess_sr.attribute.quality_mode.performance",
+        "render_pipeline.module.xess_sr.attribute.quality_mode.balanced",
+        "render_pipeline.module.xess_sr.attribute.quality_mode.quality",
+        "render_pipeline.module.xess_sr.attribute.quality_mode.ultra_quality",
+        "render_pipeline.module.xess_sr.attribute.quality_mode.ultra_quality_plus",
+        "render_pipeline.module.xess_sr.attribute.quality_mode.native");
+
     public static final String CLOUD_MODE_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.cloud_mode";
     /**
      * The modes the renderer can produce: none, Minecraft's own blocky clouds as traced geometry, or the pack's
@@ -397,6 +419,9 @@ public class Pipeline {
     public static final String PARALLAX_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.enable_parallax";
     public static final String BEDROCK_ATMOSPHERE_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.bedrock_atmosphere";
+    public static final String FAR_BOUNCE_DISTANCE_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.far_bounce_distance";
+    public static final String FAR_BOUNCES_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.far_bounces";
     /** Steps the volumetric fog is marched in along each ray. */
     public static final String VOLUMETRIC_SAMPLES_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.volumetric_light_samples";

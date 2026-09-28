@@ -778,6 +778,23 @@ bool initTransparent(MainRay rayState,
 
 const int MIRROR_EXTRA_BOUNCES = 8;
 
+#ifndef VPT_FAR_BOUNCE_DISTANCE
+#    define VPT_FAR_BOUNCE_DISTANCE 0
+#endif
+#ifndef VPT_FAR_BOUNCES
+#    define VPT_FAR_BOUNCES 1
+#endif
+
+// Bounces for a path whose first surface is this far from the camera: past VPT_FAR_BOUNCE_DISTANCE blocks (0: off)
+// only VPT_FAR_BOUNCES, as Bedrock RTX lights far terrain more cheaply. Distant detail is small on screen and the
+// denoiser hides the difference.
+int bounceBudget(vec3 firstHit) {
+    if (VPT_FAR_BOUNCE_DISTANCE > 0 && length(firstHit) > float(VPT_FAR_BOUNCE_DISTANCE)) {
+        return min(VPT_NUM_RAY_BOUNCES, max(VPT_FAR_BOUNCES, 1));
+    }
+    return VPT_NUM_RAY_BOUNCES;
+}
+
 void traceSecondary(inout MainRay rayState,
                    int startBounce,
                    int isHand,
@@ -796,7 +813,8 @@ void traceSecondary(inout MainRay rayState,
     // two mirrors facing each other used up the few bounces in the first reflections, and the mirror seen inside the
     // mirror came out black.
     int extraBounces = 0;
-    for (int b = startBounce; b < VPT_NUM_RAY_BOUNCES + extraBounces; b++) {
+    int budget = bounceBudget(rayState.origin);
+    for (int b = startBounce; b < budget + extraBounces; b++) {
         if (rayShouldStop(rayState)) break;
 
         uint mask;
@@ -1245,10 +1263,11 @@ void main() {
             if (isFirstHitTransparent) {
                 // Only for glass. A translucent solid (ice) is mostly shaded as a surface and only partly let
                 // through; recomposing the frames that happened to go through as pure glass made it flicker.
-                // Not water either: split into a reflection and a refraction the water's own medium and fog were
-                // applied to the wrong half, and a sheet of water seen side on turned a flat blue smear.
+                // Water too: its surface is traced as a reflection and a refraction each frame, so what lies under
+                // shallow water stays sharp instead of the denoiser blending a random pick of the two. (Sheets of
+                // water seen side on are passed straight through before this, see default.rchit.)
                 useTransparentSplit = VPT_TRANSPARENT_SPLIT_MODE == VPT_TRANSPARENT_SPLIT_MODE_DETERMINISTIC &&
-                                      firstHitMat.transmission > 0.95 && rayLoadAux(mainRay).y <= 0.5;
+                                      firstHitMat.transmission > 0.95;
 
                 if (useTransparentSplit) {
                     MainRay transparentReflectionRay;

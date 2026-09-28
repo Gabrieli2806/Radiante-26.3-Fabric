@@ -37,7 +37,10 @@ enum OptionImpact {
         Map.entry("options.radiante.tunable.light_shafts", LOW),
         Map.entry("options.radiante.tunable.water_god_rays", LOW),
         Map.entry("options.radiante.chunk_building_threads", VARIES),
-        Map.entry("options.radiante.hdr_output", LOW));
+        Map.entry("options.radiante.hdr_output", LOW),
+        Map.entry("options.radiante.upscaler_mode", HIGH),
+        Map.entry("options.radiante.far_bounce_distance", MEDIUM),
+        Map.entry("options.radiante.far_bounces", MEDIUM));
 
     static OptionImpact of(String optionKey) {
         return BY_OPTION.get(optionKey);

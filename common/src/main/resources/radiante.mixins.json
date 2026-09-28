@@ -6,6 +6,7 @@
   "client": [
     "compat.ClientShutdownWatchdogMixin",
     "compat.DistantHorizonsCloudsMixin",
+    "compat.DistantHorizonsRenderBuildMixin",
     "compat.DistantHorizonsShutdownMixin",
     "backend.FailedStartFallbackMixin",
     "backend.HdrPresentMixin",

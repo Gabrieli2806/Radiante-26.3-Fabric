@@ -270,6 +270,18 @@
             "define": "VPT_SKY_LIGHT_BOOST"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.far_bounce_distance",
+            "type": "int_range:0-512",
+            "default_value": "0",
+            "define": "VPT_FAR_BOUNCE_DISTANCE"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.far_bounces",
+            "type": "int_range:1-8",
+            "default_value": "1",
+            "define": "VPT_FAR_BOUNCES"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.sun_glow",
             "type": "float_range:0.0-1.0",
             "default_value": "0.08",

@@ -26,6 +26,10 @@ public class RadianteOptionsScreen extends Screen {
 
     private Presets pendingPreset;
     private String pendingDlssMode;
+    /** FSR or XeSS render resolution mode; null when neither is in the pipeline. */
+    private String pendingUpscalerMode;
+    private Integer pendingFarBounceDistance;
+    private Integer pendingFarBounces;
     private int pendingGeneratedFrames = Options.frameGeneration ? Options.generatedFrames : 0;
     private String pendingCloudMode;
     private int pendingChunkThreads = Options.chunkBuildingThreads;
@@ -84,6 +88,9 @@ public class RadianteOptionsScreen extends Screen {
         this(previous.lastScreen, previous.options);
         this.pendingPreset = previous.pendingPreset;
         this.pendingDlssMode = previous.pendingDlssMode;
+        this.pendingUpscalerMode = previous.pendingUpscalerMode;
+        this.pendingFarBounceDistance = previous.pendingFarBounceDistance;
+        this.pendingFarBounces = previous.pendingFarBounces;
         this.pendingGeneratedFrames = previous.pendingGeneratedFrames;
         this.pendingCloudMode = previous.pendingCloudMode;
         this.pendingChunkThreads = previous.pendingChunkThreads;
@@ -261,6 +268,49 @@ public class RadianteOptionsScreen extends Screen {
             Math.min(this.pendingGeneratedFrames, max), value -> this.pendingGeneratedFrames = value);
     }
 
+    /** The FSR or XeSS modes when the chosen pipeline has one of those upscalers; null otherwise. */
+    private List<String> upscalerModes() {
+        if (this.pendingPreset == Presets.RT_NRD_FSR) {
+            return Pipeline.FSR_MODES;
+        }
+        if (this.pendingPreset == Presets.RT_NRD_XESS) {
+            return Pipeline.XESS_MODES;
+        }
+        return null;
+    }
+
+    private String upscalerModule() {
+        return this.pendingPreset == Presets.RT_NRD_FSR ? Pipeline.FSR_MODULE_NAME : Pipeline.XESS_MODULE_NAME;
+    }
+
+    private String upscalerAttribute() {
+        return this.pendingPreset == Presets.RT_NRD_FSR ? Pipeline.FSR_MODE_ATTRIBUTE : Pipeline.XESS_MODE_ATTRIBUTE;
+    }
+
+    /** Render resolution for FSR and XeSS, as DLSS Mode is for DLSS. */
+    private OptionInstance<String> upscalerModeOption() {
+        List<String> modes = upscalerModes();
+        if (modes == null) {
+            return null;
+        }
+        if (this.pendingUpscalerMode == null || !modes.contains(this.pendingUpscalerMode)) {
+            String current = Pipeline.getModuleValue(upscalerModule(), upscalerAttribute());
+            this.pendingUpscalerMode = current != null && modes.contains(current) ? current : modes.get(3);
+        }
+        return new OptionInstance<>("options.radiante.upscaler_mode", tooltip("options.radiante.upscaler_mode"),
+            (caption, value) -> Component.translatable(value),
+            new OptionInstance.Enum<>(modes, Codec.STRING), this.pendingUpscalerMode, value -> {
+                this.pendingUpscalerMode = value;
+                refreshQualityLater();
+            });
+    }
+
+    /** The FSR / XeSS mode a quality level uses: the same step as its DLSS mode. */
+    private String upscalerModeFor(QualityPreset quality) {
+        List<String> modes = upscalerModes();
+        return modes == null ? null : modes.get(Math.min(quality.dlssMode, modes.size() - 1));
+    }
+
     /** The quality level the current choices match, or Custom. */
     private QualityPreset currentQuality() {
         for (QualityPreset quality : QualityPreset.values()) {
@@ -269,6 +319,8 @@ public class RadianteOptionsScreen extends Screen {
             }
             boolean dlssMatches = !usingDlss() || Objects.equals(this.pendingDlssMode,
                 Pipeline.DLSS_MODES.get(quality.dlssMode));
+            dlssMatches &= upscalerModes() == null || this.pendingUpscalerMode == null
+                || Objects.equals(this.pendingUpscalerMode, upscalerModeFor(quality));
             boolean fogMatches = this.pendingVolumetricFog == null || this.pendingVolumetricFog == quality.volumetricFog;
             boolean cloudsMatch = this.pendingCloudMode == null
                 || Objects.equals(this.pendingCloudMode, Pipeline.CLOUD_MODES.get(quality.cloudMode));
@@ -290,6 +342,9 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (usingDlss()) {
             this.pendingDlssMode = Pipeline.DLSS_MODES.get(quality.dlssMode);
+        }
+        if (upscalerModes() != null) {
+            this.pendingUpscalerMode = upscalerModeFor(quality);
         }
         if (Pipeline.supportsVolumetricFog()) {
             this.pendingVolumetricFog = quality.volumetricFog;
@@ -335,6 +390,9 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingParallax = this.pendingParallax == null ? null : Boolean.TRUE;
         this.pendingBedrockAtmosphere = this.pendingBedrockAtmosphere == null ? null : Boolean.TRUE;
         this.pendingFogSamples = this.pendingFogSamples == null ? null : 16;
+        this.pendingUpscalerMode = null;
+        this.pendingFarBounceDistance = this.pendingFarBounceDistance == null ? null : 0;
+        this.pendingFarBounces = this.pendingFarBounces == null ? null : 1;
         if (this.pendingTunables != null) {
             this.pendingTunables.replaceAll((tunable, value) -> tunable.defaultSteps);
         }
@@ -469,7 +527,7 @@ public class RadianteOptionsScreen extends Screen {
                         : "options.radiante.reflex.tooltip_restart")),
                 this.pendingReflex, value -> this.pendingReflex = value);
         }
-        addRows(preset, dlssMode, frameGeneration, reflex);
+        addRows(preset, dlssMode, upscalerModeOption(), frameGeneration, reflex);
     }
 
     private void addImageOptions() {
@@ -601,7 +659,23 @@ public class RadianteOptionsScreen extends Screen {
                 this.pendingFogSamples = value;
                 refreshQualityLater();
             });
-        addRows(bounces, parallax, fogSamples,
+        if (this.pendingFarBounceDistance == null
+            && Pipeline.getShaderPackValue(Pipeline.FAR_BOUNCE_DISTANCE_ATTRIBUTE) != null) {
+            this.pendingFarBounceDistance = Pipeline.getShaderPackInt(Pipeline.FAR_BOUNCE_DISTANCE_ATTRIBUTE, 0);
+            this.pendingFarBounces = Pipeline.getShaderPackInt(Pipeline.FAR_BOUNCES_ATTRIBUTE, 1);
+        }
+        OptionInstance<Integer> farDistance = this.pendingFarBounceDistance == null ? null
+            : new OptionInstance<Integer>("options.radiante.far_bounce_distance",
+                tooltip("options.radiante.far_bounce_distance"),
+                (caption, value) -> value == 0 ? Component.translatable("options.generic_value", caption,
+                    Component.translatable("options.off"))
+                    : Component.translatable("options.radiante.chunks_value", caption, value),
+                new OptionInstance.IntRange(0, 32, false), this.pendingFarBounceDistance / 16,
+                value -> this.pendingFarBounceDistance = value * 16);
+        OptionInstance<Integer> farBounces = this.pendingFarBounces == null ? null
+            : slider("options.radiante.far_bounces", 1, 4, this.pendingFarBounces,
+                value -> this.pendingFarBounces = value);
+        addRows(bounces, parallax, farDistance, farBounces, fogSamples,
             slider("options.radiante.chunk_building_threads", 1, Options.getMaxChunkBuildingThreads(),
                 this.pendingChunkThreads, value -> this.pendingChunkThreads = value),
             slider("options.radiante.chunk_building_batch_size", 1, 64, this.pendingChunkBatchSize,
@@ -834,6 +908,14 @@ public class RadianteOptionsScreen extends Screen {
         // The mode lives on the DLSS module, which only exists once the DLSS pipeline is assembled.
         if (this.pendingDlssMode != null) {
             rebuild |= Pipeline.setDlssMode(this.pendingDlssMode);
+        }
+        if (this.pendingUpscalerMode != null && upscalerModes() != null) {
+            rebuild |= Pipeline.setModuleValue(upscalerModule(), upscalerAttribute(), this.pendingUpscalerMode);
+        }
+        if (this.pendingFarBounceDistance != null) {
+            rebuild |= Pipeline.setShaderPackValue(Pipeline.FAR_BOUNCE_DISTANCE_ATTRIBUTE,
+                String.valueOf(this.pendingFarBounceDistance));
+            rebuild |= Pipeline.setShaderPackValue(Pipeline.FAR_BOUNCES_ATTRIBUTE, String.valueOf(this.pendingFarBounces));
         }
         if (rebuild) {
             Pipeline.savePipeline();
