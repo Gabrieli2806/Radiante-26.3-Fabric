@@ -1474,6 +1474,11 @@ void main() {
     }
 
     if (useTransparentSplit) {
+        // The denoiser's albedo guide for see-through glass is the colour light takes through it. Its texture albedo
+        // times alpha was nearly black for clear glass and panes (alpha 0 where they are clear), and DLSS Ray
+        // Reconstruction, dividing the picture by that guide, drew everything seen through them dark.
+        imageStore(diffuseAlbedoImage, pixel,
+                   vec4(clamp(glassTint(firstHitMat.albedoValue.rgb, firstHitMat.albedoValue.a), 0.0, 1.0), 0.0));
         firstHitEmission += transparentFogAdditive;
         mainRay.radiance = transparentReflectionRadiance + transparentRefractionRadiance + firstHitEmission;
         composeFogAdditive = vec3(0.0);

@@ -142,6 +142,9 @@ vec3 applyNormalMapToBasis(vec3 matNormal,
     return viewDir * weight + edgeNormal * inversesqrt(edgeNormalLen2 / tangentWeight2);
 }
 
+/** The hit being shaded is glass or a glass pane (set by main from the vertex flag). */
+bool g_hitIsGlass = false;
+
 void sampleSurfaceState(bool useTexture,
                         uint textureID,
                         TextureMapEntry textureMap,
@@ -194,6 +197,14 @@ void sampleSurfaceState(bool useTexture,
     }
 
     albedoValue = vec4(tint, albedoValue.a);
+    // Glass and panes read from their texture only how clear they are and their colour: Bedrock packs author
+    // glass with subsurface scattering and roughness that made it shade as a milky solid, and a pane's mip levels
+    // blend its frame into the clear middle, so from a distance it went grey and let little through.
+    if (g_hitIsGlass) {
+        float clarity = sampleTexture(textures[nonuniformEXT(textureID)], uv, 0.0, false).a * colorLayerValue.a;
+        albedoValue.a = resolveSurfaceAlpha(clarity, alphaMode);
+        specularValue = vec4(0.0);
+    }
     LabPBRMat mat = convertLabPBRMaterial(albedoValue, specularValue, normalValue);
 
     vec3 geometricNormal = localHit.sideWall ? localHit.geometricNormal : baseGeoNormal;
@@ -933,6 +944,7 @@ void main() {
         if (dot(baseGeoNormal, baseViewDir) < 0.0) { baseGeoNormal = -baseGeoNormal; }
 
         isWaterMaterial = isWaterSurface(packedData);
+        g_hitIsGlass = isGlassSurface(packedData);
         if (textureMap.flag >= 0) {
             ivec4 flags = ivec4(round(sampleTexture(textures[nonuniformEXT(textureMap.flag)], textureUV, ceil(lod), false) * 255.0));
             isWaterMaterial = isWaterMaterial || (flags.r & 0x1) > 0;
@@ -966,6 +978,37 @@ void main() {
             raySetPassThrough(mainRay, true);
             raySetStop(mainRay, false);
             return;
+        }
+
+        // The clear or tinted part of glass and panes is seen straight through by the camera, as in Bedrock RTX:
+        // the view carries on, filtered by the glass's colour, with a faint Fresnel reflection of the sky on top.
+        // Refracted as a surface, what lay behind was denoised as if it were on the glass and came out noisy and
+        // soft. The frame (opaque texels) stays a surface.
+        if (g_hitIsGlass && bounce == 0u) {
+            vec4 glassTexel = sampleTexture(textures[nonuniformEXT(textureID)], textureUV, 0.0, false);
+            float glassAlpha = resolveSurfaceAlpha(glassTexel.a * colorLayerValue.a, alphaMode);
+            if (glassAlpha < 0.9) {
+                vec3 incident = normalize(gl_WorldRayDirectionEXT);
+                float cosTheta = clamp(abs(dot(incident, baseGeoNormal)), 0.0, 1.0);
+                float fresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
+                vec3 skyReflection = texture(skyFull, reflect(incident, baseGeoNormal)).rgb;
+                mainRay.radiance += mainRay.throughput * fresnel * skyReflection;
+                vec3 filterColour = glassTint(glassTexel.rgb * colorLayer, glassAlpha);
+                // Squared: light crossing a stained pane is coloured as deeply as the pane looks, not washed out.
+                mainRay.throughput *= pow(clamp(filterColour, 0.0, 1.0), vec3(2.0)) * (1.0 - fresnel);
+                mainRay.hitT = gl_HitTEXT;
+                mainRay.coneWidth += mainRay.hitT * mainRay.coneSpread;
+                mainRay.origin = gl_WorldRayOriginEXT + incident * (gl_HitTEXT + 0.002);
+                mainRay.normal = vec3(0.0);
+                mainRay.directLightRadiance = vec3(0.0);
+                mainRay.hasPrevScenePos = 0u;
+                rayStoreMaterial(mainRay, vec4(1.0), vec3(0.04), 1.0, 0.0, 1.0, 1.0, 0.0);
+                raySetNoisy(mainRay, false);
+                raySetContinue(mainRay, true);
+                raySetPassThrough(mainRay, true);
+                raySetStop(mainRay, false);
+                return;
+            }
         }
 
         if (!isWaterMaterial && parallaxEnabled && bounce == 0u && textureMap.normal >= 0 && coordinate != 1u) {

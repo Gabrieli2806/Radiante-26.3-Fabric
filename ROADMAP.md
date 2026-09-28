@@ -38,6 +38,13 @@ by the player, or fetched on first use when chosen) would bring the jar near 15 
 
 ## Open work and verification
 
+### Multi frame generation with HDR output — broken
+
+DLSS multi frame generation (3x and 4x) does not work while HDR output is on (reported in play). Check whether
+Streamline is given the FP16 scRGB swapchain format and the HDR colour space in its frame generation options, and
+whether the generated frames go through the HDR present path (HdrPresentMixin). Until fixed, the two could warn
+when combined.
+
 ### Faster settings changes (pipeline cache) — planned
 
 Changing a setting that rebuilds the pipeline holds the render thread for a few seconds, long enough for Windows to
@@ -103,6 +110,12 @@ Vulkan (`VulkanBackend.checkBackendAvailable` / `loadLibrary`), so the timing
 matches Fabric's pre-launch, yet it still crashes, which points at the loaders
 loading the Vulkan library some other way first. Until that is understood both
 opt out (`RadiantePlatform.supportsStreamline`) and hide the two options.
+Found (NeoForge, 2026-09-28): the instance is created through Streamline as on Fabric, and the crash is a call to a
+null function inside device creation, right after the frame generation queues are reserved. On Fabric Streamline is
+loaded on the main thread at pre-launch; on NeoForge only on the render thread, after LWJGL (likely for NeoForge's
+early loading window) has already loaded the system Vulkan library, so Minecraft's Vulkan objects and Streamline's
+come from different loaders. Next: load Streamline before anything touches Vulkan on NeoForge/Forge (an early FML
+hook, or the early window's Vulkan use), then drop the opt-out. A dev run can force it with RADIANTE_DEV_STREAMLINE.
 Also still to check: the Forge jar installed in a real Forge client (the dev run
 works; the hand-nested SnakeYAML only matters outside dev).
 

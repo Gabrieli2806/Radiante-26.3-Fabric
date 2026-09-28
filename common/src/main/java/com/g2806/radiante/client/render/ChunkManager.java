@@ -48,7 +48,8 @@ public final class ChunkManager {
      */
     private static boolean isGlass(BlockState state) {
         net.minecraft.world.level.block.Block block = state.getBlock();
-        return block instanceof net.minecraft.world.level.block.TransparentBlock
+        // Tinted glass is dark on purpose and keeps light out: it stays a solid-looking surface.
+        return block instanceof net.minecraft.world.level.block.TransparentBlock && !state.is(Blocks.TINTED_GLASS)
             || block instanceof net.minecraft.world.level.block.StainedGlassPaneBlock
             || state.is(net.minecraft.world.level.block.Blocks.GLASS_PANE);
     }

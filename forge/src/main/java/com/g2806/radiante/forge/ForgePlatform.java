@@ -13,7 +13,8 @@ public final class ForgePlatform implements RadiantePlatform {
 
     @Override
     public boolean supportsStreamline() {
-        return false;
+        // Off until device creation with Streamline stops crashing here (ROADMAP); a dev run can force it on.
+        return "true".equals(System.getenv("RADIANTE_DEV_STREAMLINE"));
     }
 
     @Override

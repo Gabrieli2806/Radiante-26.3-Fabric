@@ -91,6 +91,29 @@ final class SettingsLayout {
 
     private final List<FlatButton> buttons = new ArrayList<>();
 
+    /** Which options take effect only after a restart, and whether their current choice still needs one. */
+    interface RestartInfo {
+        boolean needsRestart(OptionInstance<?> option);
+
+        boolean pending(OptionInstance<?> option);
+    }
+
+    private RestartInfo restart = new RestartInfo() {
+        @Override
+        public boolean needsRestart(OptionInstance<?> option) {
+            return false;
+        }
+
+        @Override
+        public boolean pending(OptionInstance<?> option) {
+            return false;
+        }
+    };
+
+    void restartInfo(RestartInfo info) {
+        this.restart = info;
+    }
+
     SettingsLayout(Font font, int width, int height, List<Section> sections, Actions actions, Consumer<Double> onScroll) {
         this.font = font;
         this.width = width;
@@ -301,6 +324,14 @@ final class SettingsLayout {
     private void drawRow(GuiGraphicsExtractor g, OptionInstance<?> option, int y, boolean hover) {
         int right = this.listX + this.listW - PAD - 4;
         g.text(this.font, caption(option), this.listX + PAD + 4, y + 6, TEXT);
+        if (this.restart.needsRestart(option)) {
+            // Marked on the row itself, amber once the choice differs from what the running game uses.
+            boolean pending = this.restart.pending(option);
+            Component tag = Component.translatable(pending ? "options.radiante.restart.tag_pending"
+                : "options.radiante.restart.tag");
+            g.text(this.font, tag, this.listX + PAD + 12 + this.font.width(caption(option)), y + 6,
+                pending ? 0xFFF0B040 : 0xFF808080);
+        }
         Object value = option.get();
         if (isCheckbox(option) && value instanceof Boolean on) {
             int box = 10;
@@ -340,6 +371,10 @@ final class SettingsLayout {
             lines.addAll(tooltip.toCharSequence(Minecraft.getInstance()));
         }
         OptionImpact impact = OptionImpact.of(keyOf(caption(option)));
+        if (this.restart.needsRestart(option)) {
+            lines.addAll(this.font.split(Component.translatable("options.radiante.restart.hint")
+                .withColor(0xFFF0B040), wrap));
+        }
         if (this.panelW <= 0) {
             List<FormattedCharSequence> all = new ArrayList<>(lines);
             if (impact != null) {

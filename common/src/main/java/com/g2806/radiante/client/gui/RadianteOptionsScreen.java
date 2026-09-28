@@ -265,7 +265,44 @@ public class RadianteOptionsScreen extends Screen {
             (caption, value) -> value == 0 ? Component.translatable("options.off")
                 : Component.literal((value + 1) + "x"),
             new OptionInstance.Enum<>(values, Codec.intRange(0, max)),
-            Math.min(this.pendingGeneratedFrames, max), value -> this.pendingGeneratedFrames = value);
+            Math.min(this.pendingGeneratedFrames, max), value -> {
+                this.pendingGeneratedFrames = value;
+                refreshQualityLater();
+            });
+    }
+
+    // The options that only take effect after a restart; kept to mark them on the list.
+    private OptionInstance<?> hdrToggle;
+    private OptionInstance<?> frameGenerationToggle;
+    private OptionInstance<?> reflexToggle;
+
+    /** HDR output chosen differently from what the window was created with. */
+    private boolean hdrPending() {
+        return Options.hdrOutput != com.g2806.radiante.client.hdr.HdrDisplay.isActive();
+    }
+
+    /**
+     * Frame generation or Reflex chosen while Streamline is not loaded: it is loaded only at start. (Changing the
+     * frame count, or turning them off, works without a restart once it is.)
+     */
+    private boolean streamlinePending() {
+        boolean wanted = this.pendingGeneratedFrames > 0 || this.pendingReflex;
+        return wanted && !RadianteClient.streamlineLoaded();
+    }
+
+    /** What the player changed that needs the game started again, for the notice after leaving. */
+    private List<Component> restartChanges() {
+        List<Component> changes = new ArrayList<>();
+        if (hdrPending()) {
+            changes.add(Component.translatable("options.radiante.hdr_output"));
+        }
+        if (this.pendingGeneratedFrames > 0 && !RadianteClient.streamlineLoaded()) {
+            changes.add(Component.translatable("options.radiante.frame_generation"));
+        }
+        if (this.pendingReflex && !RadianteClient.streamlineLoaded()) {
+            changes.add(Component.translatable("options.radiante.reflex"));
+        }
+        return changes;
     }
 
     /** The FSR or XeSS modes when the chosen pipeline has one of those upscalers; null otherwise. */
@@ -525,8 +562,13 @@ public class RadianteOptionsScreen extends Screen {
                 OptionInstance.cachedConstantTooltip(Component.translatable(
                     RadianteClient.streamlineLoaded() ? "options.radiante.reflex.tooltip"
                         : "options.radiante.reflex.tooltip_restart")),
-                this.pendingReflex, value -> this.pendingReflex = value);
+                this.pendingReflex, value -> {
+                    this.pendingReflex = value;
+                    refreshQualityLater();
+                });
         }
+        this.frameGenerationToggle = frameGeneration;
+        this.reflexToggle = reflex;
         addRows(preset, dlssMode, upscalerModeOption(), frameGeneration, reflex);
     }
 
@@ -709,10 +751,9 @@ public class RadianteOptionsScreen extends Screen {
         OptionInstance<Boolean> toggle = OptionInstance.createBoolean("options.radiante.hdr_output",
             OptionInstance.cachedConstantTooltip(Component.translatable(tooltipKey)), Options.hdrOutput, value -> {
                 Options.hdrOutput = value;
-                if (this.minecraft != null) {
-                    this.minecraft.execute(this::reopenWithSameChoices);
-                }
+                refreshQualityLater();
             });
+        this.hdrToggle = toggle;
         if (!Options.hdrOutput) {
             addRows(toggle);
             return;
@@ -765,6 +806,23 @@ public class RadianteOptionsScreen extends Screen {
                 },
                 this::onClose),
             value -> this.scroll = value);
+        this.layout.restartInfo(new SettingsLayout.RestartInfo() {
+            @Override
+            public boolean needsRestart(OptionInstance<?> option) {
+                return option == hdrToggle || option == frameGenerationToggle || option == reflexToggle;
+            }
+
+            @Override
+            public boolean pending(OptionInstance<?> option) {
+                if (option == hdrToggle) {
+                    return hdrPending();
+                }
+                if (option == frameGenerationToggle || option == reflexToggle) {
+                    return streamlinePending();
+                }
+                return false;
+            }
+        });
         addRenderableWidget(this.layout.init(this.scroll, this.search));
     }
 
@@ -925,6 +983,10 @@ public class RadianteOptionsScreen extends Screen {
 
     /** Opens the next screen, through the rebuild's wait screen when the pipeline has to be built again. */
     private void applyAndOpen(Screen next) {
+        List<Component> restart = restartChanges();
+        if (!restart.isEmpty()) {
+            next = new RestartRequiredScreen(next, restart);
+        }
         if (applyChanges()) {
             this.minecraft.gui.setScreen(new ApplyingSettingsScreen(next));
         } else {

@@ -72,7 +72,8 @@ void main() {
         computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, dposdu, dposdv);
         lod = lodWithCone(textures[nonuniformEXT(textureID)], uv, coneRadiusWorld, dposdu, dposdv);
 
-        vec4 texel = sampleTexture(textures[nonuniformEXT(textureID)], uv, lod, false);
+        // Glass at its full-resolution alpha: mip levels blend a pane's frame into its clear middle.
+        vec4 texel = sampleTexture(textures[nonuniformEXT(textureID)], uv, isGlassSurface(packedData) ? 0.0 : lod, false);
         alpha *= texel.a;
         if (alphaMode == ALPHA_MODE_ADDITIVE) {
             alpha = max(texel.r, max(texel.g, texel.b)) >= 0.1 ? alpha : 0.0;
