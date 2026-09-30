@@ -36,6 +36,11 @@ manual download:
 | --- | --- | --- | --- |
 | `dlss/nvngx_dlss.dll` | DLSS Super Resolution | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
 | `dlss/nvngx_dlssd.dll` | DLSS Ray Reconstruction | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
+| `linux-x64/dlss/libnvidia-ngx-dlss.so.*` | DLSS Super Resolution (Linux) | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
+| `linux-x64/dlss/libnvidia-ngx-dlssd.so.*` | DLSS Ray Reconstruction (Linux) | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
+
+`linux-x64/libcore.so` is the Linux build of Radiante's renderer (GPL-3.0), with the same
+statically linked components as `core.dll` below.
 
 They stay proprietary NVIDIA files, are not licensed under the GPL, and are combined with
 Radiante under the additional permission in [LICENSE-EXCEPTION.md](LICENSE-EXCEPTION.md).

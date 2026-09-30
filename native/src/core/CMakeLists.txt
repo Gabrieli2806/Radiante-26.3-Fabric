@@ -84,12 +84,28 @@ if(MCVR_ENABLE_STREAMLINE)
 endif()
 
 # DLSS Super Resolution and Ray Reconstruction runtimes, redistributed under the NVIDIA RTX SDK licence (see
-# THIRD_PARTY_NOTICES.md). The mod extracts them into run/radiante/dlss, where NGX looks for them.
-set(DLSS_RUNTIME_DIR "${PROJECT_SOURCE_DIR}/extern/DLSS/lib/Windows_x86_64/rel")
-if(EXISTS "${DLSS_RUNTIME_DIR}/nvngx_dlss.dll")
-    set(DLSS_RUNTIME_DLLS "${DLSS_RUNTIME_DIR}/nvngx_dlss.dll" "${DLSS_RUNTIME_DIR}/nvngx_dlssd.dll")
-    install(FILES ${DLSS_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_LIB_DIR}/dlss)
-    install(FILES ${DLSS_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_BIN_DIR}/dlss)
+# common/src/main/resources/licenses/THIRD-PARTY-NOTICES.md). The mod extracts them into run/radiante/dlss, where
+# NGX looks for them. Linux builds go to their own folder of the jar, next to the Windows ones.
+if(WIN32)
+    set(MCVR_PLATFORM_LIB_DIR ${MCVR_INSTALL_LIB_DIR})
+    set(MCVR_PLATFORM_BIN_DIR ${MCVR_INSTALL_BIN_DIR})
+    set(DLSS_RUNTIME_DIR "${PROJECT_SOURCE_DIR}/extern/DLSS/lib/Windows_x86_64/rel")
+    file(GLOB DLSS_RUNTIME_DLLS "${DLSS_RUNTIME_DIR}/nvngx_dlss.dll" "${DLSS_RUNTIME_DIR}/nvngx_dlssd.dll")
+else()
+    set(MCVR_PLATFORM_LIB_DIR ${MCVR_INSTALL_LIB_DIR}/linux-x64)
+    set(MCVR_PLATFORM_BIN_DIR ${MCVR_INSTALL_BIN_DIR}/linux-x64)
+    set(DLSS_RUNTIME_DIR "${PROJECT_SOURCE_DIR}/extern/DLSS/lib/Linux_x86_64/rel")
+    file(GLOB DLSS_RUNTIME_DLLS "${DLSS_RUNTIME_DIR}/libnvidia-ngx-dlss.so.*"
+                                "${DLSS_RUNTIME_DIR}/libnvidia-ngx-dlssd.so.*")
+endif()
+if(DLSS_RUNTIME_DLLS)
+    install(FILES ${DLSS_RUNTIME_DLLS} DESTINATION ${MCVR_PLATFORM_LIB_DIR}/dlss)
+    install(FILES ${DLSS_RUNTIME_DLLS} DESTINATION ${MCVR_PLATFORM_BIN_DIR}/dlss)
+endif()
+
+if(NOT WIN32)
+    # The C++ runtime goes inside libcore.so: distributions older than the build machine ship an older libstdc++.
+    target_link_options(core PRIVATE -static-libstdc++ -static-libgcc)
 endif()
 
 if(MSVC)
@@ -99,5 +115,5 @@ endif()
 
 set_target_properties(core PROPERTIES CXX_VISIBILITY_PRESET default VISIBILITY_INLINES_HIDDEN OFF)
 
-install(TARGETS core DESTINATION ${MCVR_INSTALL_LIB_DIR})
-install(TARGETS core DESTINATION ${MCVR_INSTALL_BIN_DIR})
+install(TARGETS core DESTINATION ${MCVR_PLATFORM_LIB_DIR})
+install(TARGETS core DESTINATION ${MCVR_PLATFORM_BIN_DIR})

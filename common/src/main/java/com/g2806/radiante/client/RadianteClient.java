@@ -103,8 +103,14 @@ public final class RadianteClient {
         }
 
         String osName = System.getProperty("os.name").toLowerCase();
-        if (!osName.contains("windows")) {
-            throw new IllegalStateException("Radiante currently supports Windows only (detected " + osName + ")");
+        boolean windows = osName.contains("windows");
+        if (!windows && !osName.contains("linux")) {
+            throw new IllegalStateException("Radiante supports Windows and Linux only (detected " + osName + ")");
+        }
+        if (!windows && !"amd64".equals(System.getProperty("os.arch"))
+            && !"x86_64".equals(System.getProperty("os.arch"))) {
+            throw new IllegalStateException("Radiante on Linux needs an x86-64 CPU (detected "
+                + System.getProperty("os.arch") + ")");
         }
 
         radianceDir = RadiantePlatform.INSTANCE.gameDir().resolve("radiante");
@@ -115,18 +121,25 @@ public final class RadianteClient {
         }
 
         removeStaleNatives();
-        copyOptionalFile("libxess.dll");
-        copyFile("core.dll");
         copyFolder("shaders", radianceDir.resolve("shaders"));
         copyFolder(null, radianceDir.resolve("modules"), "/modules");
-        copyFolder("streamline", radianceDir.resolve("streamline"));
-        copyFolder("dlss", radianceDir.resolve("dlss"));
+        if (windows) {
+            copyOptionalFile("libxess.dll");
+            copyFile("core.dll");
+            copyFolder("streamline", radianceDir.resolve("streamline"));
+            copyFolder("dlss", radianceDir.resolve("dlss"));
 
-        Path xess = radianceDir.resolve("libxess.dll");
-        if (Files.exists(xess)) {
-            System.load(xess.toAbsolutePath().toString());
+            Path xess = radianceDir.resolve("libxess.dll");
+            if (Files.exists(xess)) {
+                System.load(xess.toAbsolutePath().toString());
+            }
+            System.load(radianceDir.resolve("core.dll").toAbsolutePath().toString());
+        } else {
+            // Linux: no XeSS or Streamline (both Windows only); the renderer and DLSS come from their own folder.
+            copyFile(LINUX_FOLDER + "/libcore.so", radianceDir.resolve("libcore.so"));
+            copyFolder(null, radianceDir.resolve("dlss"), NATIVE_RESOURCE_ROOT + "/" + LINUX_FOLDER + "/dlss");
+            System.load(radianceDir.resolve("libcore.so").toAbsolutePath().toString());
         }
-        System.load(radianceDir.resolve("core.dll").toAbsolutePath().toString());
         nativeLoaded = true;
 
         RendererProxy.initFolderPath(radianceDir.toAbsolutePath().toString());
@@ -144,6 +157,9 @@ public final class RadianteClient {
     }
 
     /** Libraries older builds shipped and this one no longer does. */
+    /** Where the Linux renderer and its DLSS libraries sit inside radiante-native. */
+    private static final String LINUX_FOLDER = "linux-x64";
+
     private static final String[] RETIRED_NATIVES = {"libxess_fg.dll", "libxess_dx11.dll"};
 
     /**
@@ -170,17 +186,24 @@ public final class RadianteClient {
     }
 
     private static void copyFile(String name) {
-        if (!copyOptionalFile(name)) {
+        copyFile(name, radianceDir.resolve(name));
+    }
+
+    private static void copyFile(String name, Path target) {
+        if (!copyOptionalFile(name, target)) {
             throw new IllegalStateException("Missing bundled native file: " + name);
         }
     }
 
     private static boolean copyOptionalFile(String name) {
+        return copyOptionalFile(name, radianceDir.resolve(name));
+    }
+
+    private static boolean copyOptionalFile(String name, Path target) {
         try (InputStream is = RadianteClient.class.getResourceAsStream(NATIVE_RESOURCE_ROOT + "/" + name)) {
             if (is == null) {
                 return false;
             }
-            Path target = radianceDir.resolve(name);
             try {
                 Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
@@ -191,7 +214,7 @@ public final class RadianteClient {
                         StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException retry) {
                     try {
-                        Files.move(target, target.resolveSibling(name + "." + System.nanoTime() + ".old"));
+                        Files.move(target, target.resolveSibling(target.getFileName() + "." + System.nanoTime() + ".old"));
                         Files.copy(RadianteClient.class.getResourceAsStream(NATIVE_RESOURCE_ROOT + "/" + name), target,
                             StandardCopyOption.REPLACE_EXISTING);
                     } catch (IOException giveUp) {
@@ -263,7 +286,7 @@ public final class RadianteClient {
                 Path destination = target.resolve(source.relativize(file).toString());
                 Files.createDirectories(destination.getParent());
                 if (Files.exists(destination) && Files.size(destination) == Files.size(file)
-                    && destination.getFileName().toString().startsWith("nvngx_")) {
+                    && destination.getFileName().toString().contains("ngx")) {
                     // The DLSS runtimes are over 100 MB and only change with a new SDK; skip rewriting them each start.
                     continue;
                 }
