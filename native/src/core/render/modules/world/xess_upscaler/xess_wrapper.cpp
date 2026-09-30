@@ -5,8 +5,8 @@
 #ifdef MCVR_ENABLE_XESS
 #include <xess/xess.h>
 #include <xess/xess_vk.h>
-#include "core/util/logging.hpp"
 #endif
+#include "core/util/logging.hpp"
 
 namespace mcvr {
 

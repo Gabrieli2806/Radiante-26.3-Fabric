@@ -120,6 +120,7 @@ public final class RadianteClient {
         copyFolder("shaders", radianceDir.resolve("shaders"));
         copyFolder(null, radianceDir.resolve("modules"), "/modules");
         copyFolder("streamline", radianceDir.resolve("streamline"));
+        copyFolder("dlss", radianceDir.resolve("dlss"));
 
         Path xess = radianceDir.resolve("libxess.dll");
         if (Files.exists(xess)) {
@@ -261,6 +262,11 @@ public final class RadianteClient {
             for (Path file : (Iterable<Path>) stream.filter(Files::isRegularFile)::iterator) {
                 Path destination = target.resolve(source.relativize(file).toString());
                 Files.createDirectories(destination.getParent());
+                if (Files.exists(destination) && Files.size(destination) == Files.size(file)
+                    && destination.getFileName().toString().startsWith("nvngx_")) {
+                    // The DLSS runtimes are over 100 MB and only change with a new SDK; skip rewriting them each start.
+                    continue;
+                }
                 try {
                     Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException e) {

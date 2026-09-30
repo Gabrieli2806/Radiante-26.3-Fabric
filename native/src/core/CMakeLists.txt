@@ -83,6 +83,15 @@ if(MCVR_ENABLE_STREAMLINE)
     install(FILES ${STREAMLINE_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_BIN_DIR}/streamline)
 endif()
 
+# DLSS Super Resolution and Ray Reconstruction runtimes, redistributed under the NVIDIA RTX SDK licence (see
+# THIRD_PARTY_NOTICES.md). The mod extracts them into run/radiante/dlss, where NGX looks for them.
+set(DLSS_RUNTIME_DIR "${PROJECT_SOURCE_DIR}/extern/DLSS/lib/Windows_x86_64/rel")
+if(EXISTS "${DLSS_RUNTIME_DIR}/nvngx_dlss.dll")
+    set(DLSS_RUNTIME_DLLS "${DLSS_RUNTIME_DIR}/nvngx_dlss.dll" "${DLSS_RUNTIME_DIR}/nvngx_dlssd.dll")
+    install(FILES ${DLSS_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_LIB_DIR}/dlss)
+    install(FILES ${DLSS_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_BIN_DIR}/dlss)
+endif()
+
 if(MSVC)
     target_compile_definitions(core PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
     target_compile_options(core PRIVATE /utf-8)

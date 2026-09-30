@@ -60,7 +60,12 @@ set(TINYEXPR_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/tinyexpr)
 add_subdirectory(extern/DLSS EXCLUDE_FROM_ALL)
 
 # JNI
-find_package(JNI REQUIRED)
+if(WIN32)
+    find_package(JNI REQUIRED)
+else()
+    # Only the JNI headers and libjvm: headless JDKs, common on Linux build machines, have no AWT.
+    find_package(JNI REQUIRED COMPONENTS JVM)
+endif()
 message(STATUS "${JNI_INCLUDE_DIRS}")
 message(STATUS "${JNI_LIBRARIES}")
 
@@ -143,7 +148,11 @@ endif()
 
 # NVIDIA Streamline (DLSS Frame Generation)
 option(MCVR_ENABLE_STREAMLINE "Enable NVIDIA Streamline (DLSS Frame Generation)" ON)
-if(MCVR_ENABLE_STREAMLINE)
+if(MCVR_ENABLE_STREAMLINE AND NOT WIN32)
+    # Streamline ships for Windows only; frame generation and Reflex are not available on Linux.
+    message(STATUS "NVIDIA Streamline Disabled (Windows only)")
+    set(MCVR_ENABLE_STREAMLINE OFF)
+elseif(MCVR_ENABLE_STREAMLINE)
     set(STREAMLINE_DIR ${PROJECT_SOURCE_DIR}/extern/streamline)
     if(EXISTS "${STREAMLINE_DIR}/include/sl.h" AND EXISTS "${STREAMLINE_DIR}/lib/x64/sl.interposer.lib")
         message(STATUS "NVIDIA Streamline Enabled")

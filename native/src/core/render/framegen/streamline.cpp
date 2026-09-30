@@ -361,43 +361,6 @@ bool framegen::Streamline::reflexEnabled() {
 void framegen::Streamline::setVulkanInfo(VkInstance, VkPhysicalDevice, VkDevice, uint32_t, uint32_t, uint32_t,
                                          uint32_t) {}
 
-namespace {
-bool featureRequirements(sl::FeatureRequirements &requirements) {
-    if (!g_initialised || g_api.getFeatureRequirements == nullptr) return false;
-    return g_api.getFeatureRequirements(sl::kFeatureDLSS_G, requirements) == sl::Result::eOk;
-}
-} // namespace
-
-std::vector<std::string> framegen::Streamline::requiredInstanceExtensions() {
-    std::vector<std::string> extensions;
-    sl::FeatureRequirements requirements{};
-    if (!featureRequirements(requirements)) return extensions;
-    for (uint32_t i = 0; i < requirements.vkNumInstanceExtensions; i++) {
-        extensions.emplace_back(requirements.vkInstanceExtensions[i]);
-    }
-    return extensions;
-}
-
-std::vector<std::string> framegen::Streamline::requiredDeviceExtensions() {
-    std::vector<std::string> extensions;
-    sl::FeatureRequirements requirements{};
-    if (!featureRequirements(requirements)) return extensions;
-    for (uint32_t i = 0; i < requirements.vkNumDeviceExtensions; i++) {
-        extensions.emplace_back(requirements.vkDeviceExtensions[i]);
-    }
-    return extensions;
-}
-
-uint32_t framegen::Streamline::requiredExtraComputeQueues() {
-    sl::FeatureRequirements requirements{};
-    return featureRequirements(requirements) ? requirements.vkNumComputeQueuesRequired : 0;
-}
-
-uint32_t framegen::Streamline::requiredExtraGraphicsQueues() {
-    sl::FeatureRequirements requirements{};
-    return featureRequirements(requirements) ? requirements.vkNumGraphicsQueuesRequired : 0;
-}
-
 PFN_vkCreateInstance framegen::Streamline::createInstanceProxy() {
     return nullptr;
 }

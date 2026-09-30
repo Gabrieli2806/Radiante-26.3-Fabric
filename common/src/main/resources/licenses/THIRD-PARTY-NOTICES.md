@@ -28,9 +28,17 @@ components below.
 
 ## DLSS feature DLLs
 
-The DLSS Super Resolution and Ray Reconstruction feature libraries (`nvngx_dlss.dll`,
-`nvngx_dlssd.dll`) are **not** redistributed in this jar. They are loaded from the
-installed NVIDIA display driver at runtime.
+The DLSS Super Resolution and Ray Reconstruction feature libraries are redistributed in
+`radiante-native/dlss/` and extracted to `radiante/dlss` at start, so players need no
+manual download:
+
+| File | Component | Owner | License |
+| --- | --- | --- | --- |
+| `dlss/nvngx_dlss.dll` | DLSS Super Resolution | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
+| `dlss/nvngx_dlssd.dll` | DLSS Ray Reconstruction | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
+
+They stay proprietary NVIDIA files, are not licensed under the GPL, and are combined with
+Radiante under the additional permission in [LICENSE-EXCEPTION.md](LICENSE-EXCEPTION.md).
 
 ## Note on the NVIDIA RTX SDK terms
 
