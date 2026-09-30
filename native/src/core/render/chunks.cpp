@@ -337,6 +337,7 @@ void ChunkBuildData::buildLightInfos(const Emission &emission) {
         return;
     }
 
+    std::unordered_map<uint32_t, Emission::TextureOccupancy> textureOccupancyCache;
     for (uint32_t geometryIndex = 0; geometryIndex < vertices.size(); geometryIndex++) {
         auto &geometryVertices = vertices[geometryIndex];
         if (geometryVertices.size() < 4) {
@@ -369,6 +370,15 @@ void ChunkBuildData::buildLightInfos(const Emission &emission) {
 
             glm::vec2 uvSize = uvMax - uvMin;
             if (uvSize.x <= 1e-6f || uvSize.y <= 1e-6f) {
+                continue;
+            }
+
+            // Most quads have no emissive texels at all: skip them without locking or searching the cells.
+            auto [occupancyIter, inserted] = textureOccupancyCache.try_emplace(v0.textureID);
+            if (inserted) {
+                emission.copyTextureOccupancy(v0.textureID, occupancyIter->second);
+            }
+            if (!Emission::textureOccupancyOverlaps(occupancyIter->second, uvMin, uvMax)) {
                 continue;
             }
 
@@ -1473,21 +1483,29 @@ void Chunks::queueChunkBuild(ChunkBuildTask task) {
         allIndexCount += geometryIndices.size();
     }
 
-    std::unique_lock<std::recursive_mutex> lock(mutex_);
+    int64_t version;
+    {
+        std::unique_lock<std::recursive_mutex> versionLock(mutex_);
+        version = chunks_[task.id]->latestVersion++;
+    }
 
     const bool collectChunkEmission = Renderer::options.collectChunkEmission;
     std::shared_ptr<ChunkBuildData> chunkBuildData =
-        ChunkBuildData::create(task.id, task.x, task.y, task.z, chunks_[task.id]->latestVersion++,
-                               collectChunkEmission, allVertexCount, allIndexCount,
-                               static_cast<uint32_t>(vertices.size()), std::move(geometryTypes),
+        ChunkBuildData::create(task.id, task.x, task.y, task.z, version, collectChunkEmission, allVertexCount,
+                               allIndexCount, static_cast<uint32_t>(vertices.size()), std::move(geometryTypes),
                                std::move(geometryGroupNames), std::move(vertices), std::move(indices));
 
+    // The light list of a section full of torches and lamps takes a while to build. Done before taking the chunks'
+    // lock, which the render thread needs every frame: built under it, loading chunks in a well-lit area held
+    // frames back and the frame rate dropped each time new chunks came in.
     if (collectChunkEmission && (Renderer::instance().textures() != nullptr)) {
         auto textures = Renderer::instance().textures();
         if (auto emission = textures->emission(); emission != nullptr) {
             chunkBuildData->buildLightInfos(*emission);
         }
     }
+
+    std::unique_lock<std::recursive_mutex> lock(mutex_);
 
     if (task.isImportant) {
         auto &frr = Renderer::instance().framework()->frameResourceRetainer();

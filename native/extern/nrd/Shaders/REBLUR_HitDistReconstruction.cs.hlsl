@@ -35,7 +35,7 @@ void Preload( uint2 sharedPos, int2 globalPos )
         hitDist.x = ExtractHitDist( gIn_Diff[ globalPos ] );
 
         #if( REBLUR_USE_DECOMPRESSED_HIT_DIST_IN_RECONSTRUCTION == 1 )
-            hitDist.x *= _REBLUR_GetHitDistanceNormalization( viewZ, gHitDistParams, 1.0 );
+            hitDist.x *= _REBLUR_GetHitDistanceNormalization( viewZ, gHitDistSettings.xyz, 1.0 );
         #endif
     #endif
 
@@ -43,11 +43,11 @@ void Preload( uint2 sharedPos, int2 globalPos )
         hitDist.y = ExtractHitDist( gIn_Spec[ globalPos ] );
 
         #if( REBLUR_USE_DECOMPRESSED_HIT_DIST_IN_RECONSTRUCTION == 1 )
-            hitDist.y *= _REBLUR_GetHitDistanceNormalization( viewZ, gHitDistParams, normalAndRoughness.w );
+            hitDist.y *= _REBLUR_GetHitDistanceNormalization( viewZ, gHitDistSettings.xyz, normalAndRoughness.w );
         #endif
     #endif
 
-    s_HitDist_ViewZ[ sharedPos.y ][ sharedPos.x ] = float3( hitDist, viewZ );
+    s_HitDist_ViewZ[ sharedPos.y ][ sharedPos.x ] = float3( !IsInDenoisingRange( viewZ ) ? 0.0 : hitDist, viewZ );
 }
 
 [numthreads( GROUP_X, GROUP_Y, 1 )]
@@ -64,9 +64,9 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
         return;
 
     // Early out
-    int2 smemPos = threadPos + BORDER;
+    int2 smemPos = threadPos + NRD_BORDER;
     float3 center = s_HitDist_ViewZ[ smemPos.y ][ smemPos.x ];
-    if( center.z > gDenoisingRange )
+    if( !IsInDenoisingRange( center.z ) )
         return;
 
     // Center data
@@ -81,7 +81,7 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
 
     float frustumSize = GetFrustumSize( gMinRectDimMulUnproject, gOrthoMode, center.z );
 
-    float2 geometryWeightParams = GetGeometryWeightParams( gPlaneDistSensitivity, frustumSize, Xv, Nv, 1.0 );
+    float2 geometryWeightParams = GetGeometryWeightParams( gPlaneDistSensitivity, frustumSize, Xv, Nv );
     float2 relaxedRoughnessWeightParams = GetRelaxedRoughnessWeightParams( roughness * roughness );
     float diffNormalWeightParam = GetNormalWeightParam( 1.0, 1.0 );
     float specNormalWeightParam = GetNormalWeightParam( 1.0, 1.0, roughness );
@@ -91,12 +91,12 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     center.xy *= sum;
 
     [unroll]
-    for( j = 0; j <= BORDER * 2; j++ )
+    for( j = 0; j <= NRD_BORDER * 2; j++ )
     {
         [unroll]
-        for( i = 0; i <= BORDER * 2; i++ )
+        for( i = 0; i <= NRD_BORDER * 2; i++ )
         {
-            float2 o = float2( i, j ) - BORDER;
+            float2 o = float2( i, j ) - NRD_BORDER;
             if( o.x == 0.0 && o.y == 0.0 )
                 continue;
 
@@ -113,7 +113,6 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
             float NoX = dot( Nv, Xvs );
 
             w *= ComputeWeight( NoX, geometryWeightParams.x, geometryWeightParams.y );
-            w = data.z < gDenoisingRange ? w : 0.0; // |NoX| can be ~0 if "data.z" is out of range
 
             float2 ww = w;
             #if( REBLUR_PERFORMANCE_MODE == 0 )
@@ -128,9 +127,9 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
                 ww.y *= ComputeExponentialWeight( normalAndRoughness.w * normalAndRoughness.w, relaxedRoughnessWeightParams.x, relaxedRoughnessWeightParams.y );
             #endif
 
-            data.x = Denanify( ww.x, data.x );
-            data.y = Denanify( ww.y, data.y );
-            ww *= float2( data.xy != 0.0 );
+            // Ignore "no data"
+            ww.x = data.x == 0.0 ? 0.0 : ww.x;
+            ww.y = data.y == 0.0 ? 0.0 : ww.y;
 
             // Accumulate
             center.xy += data.xy * ww;
@@ -143,8 +142,8 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
 
     // Return back to normalized hit distances
     #if( REBLUR_USE_DECOMPRESSED_HIT_DIST_IN_RECONSTRUCTION == 1 )
-        center.x /= _REBLUR_GetHitDistanceNormalization( center.z, gHitDistParams, 1.0 );
-        center.y /= _REBLUR_GetHitDistanceNormalization( center.z, gHitDistParams, roughness );
+        center.x /= _REBLUR_GetHitDistanceNormalization( center.z, gHitDistSettings.xyz, 1.0 );
+        center.y /= _REBLUR_GetHitDistanceNormalization( center.z, gHitDistSettings.xyz, roughness );
     #endif
 
     // Output

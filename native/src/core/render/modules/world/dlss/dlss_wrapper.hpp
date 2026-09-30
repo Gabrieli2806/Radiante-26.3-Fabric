@@ -139,6 +139,17 @@ class NgxContext : public SharedObject<NgxContext> {
     NVSDK_NGX_Result
     initDlssSR(const DlssSRInitInfo &initInfo, std::shared_ptr<vk::CommandPool> cmdPool, std::shared_ptr<DlssSR> dlsssr);
 
+    // DLSS Frame Generation, used through NGX directly rather than Streamline.
+    NVSDK_NGX_Result queryDlssFrameGenerationAvailable();
+    uint32_t queryDlssFrameGenerationMaxFrames();
+    NVSDK_NGX_Parameter *parameters();
+    static NVSDK_NGX_Result
+    getDlssFrameGenerationRequiredInstanceExtensions(std::vector<VkExtensionProperties> &extensions);
+    static NVSDK_NGX_Result
+    getDlssFrameGenerationRequiredDeviceExtensions(std::shared_ptr<vk::Instance> instance,
+                                                   std::shared_ptr<vk::PhysicalDevice> physicalDevice,
+                                                   std::vector<VkExtensionProperties> &extensions);
+
     // Append 'extensions' with the instance extensions that should be enabled for DLSS_RR
     static NVSDK_NGX_Result getDlssRRRequiredInstanceExtensions(std::vector<VkExtensionProperties> &extensions);
 

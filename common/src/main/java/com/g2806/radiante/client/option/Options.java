@@ -54,6 +54,8 @@ public class Options {
     public static boolean blockLightSampling = true;
     /** A torch, lantern or other light held in either hand lights up the surroundings. */
     public static boolean heldItemLight = true;
+    /** Ground under open sky turns darker and glossy while it rains, and dries slowly after. */
+    public static boolean rainWetness = true;
     /** The outline around the block under the crosshair. */
     public static boolean blockOutline = false;
     /** Carved (parallax) resource pack faces are see-through at the outer edges of their block. */
@@ -90,6 +92,8 @@ public class Options {
     public static boolean frameGeneration = false;
     /** Frames DLSS generates per rendered frame: 0 is off, 1 is 2x, up to 5 for 6x. */
     public static int generatedFrames = 1;
+    /** Which frame generation to use: 0 automatic (DLSS where it runs, else FSR), 1 DLSS, 2 FSR. */
+    public static int frameGenerationBackend = 0;
     /** NVIDIA Reflex low latency mode. Loads Streamline at startup, so turning it on takes a restart. */
     public static boolean reflex = false;
 
@@ -103,6 +107,7 @@ public class Options {
     public static void resetVisualDefaults() {
         blockLightSampling = true;
         heldItemLight = true;
+        rainWetness = true;
         blockOutline = false;
         parallaxTransparentEdges = false;
         pixelLighting = false;
@@ -175,6 +180,7 @@ public class Options {
         number("biomeFogStrength", () -> biomeFogStrength, v -> biomeFogStrength = Math.max(0, Math.min(400, v))),
         bool("firstPersonShadow", () -> firstPersonShadow, v -> firstPersonShadow = v),
         bool("heldItemLight", () -> heldItemLight, v -> heldItemLight = v),
+        bool("rainWetness", () -> rainWetness, v -> rainWetness = v),
         bool("blockOutline", () -> blockOutline, v -> blockOutline = v),
         bool("parallaxTransparentEdges", () -> parallaxTransparentEdges, v -> parallaxTransparentEdges = v),
         bool("pixelLighting", () -> pixelLighting, v -> pixelLighting = v),
@@ -192,6 +198,7 @@ public class Options {
         bool("useOpenGl", () -> useOpenGl, v -> useOpenGl = v),
         bool("frameGeneration", () -> frameGeneration, v -> frameGeneration = v),
         number("generatedFrames", () -> generatedFrames, v -> generatedFrames = v),
+        number("frameGenerationBackend", () -> frameGenerationBackend, v -> frameGenerationBackend = v),
         bool("reflex", () -> reflex, v -> reflex = v),
         bool("hdrOutput", () -> hdrOutput, v -> hdrOutput = v),
         number("hdrPeakNits", () -> hdrPeakNits, v -> hdrPeakNits = Math.max(200, Math.min(10000, v))),

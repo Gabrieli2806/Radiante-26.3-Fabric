@@ -319,7 +319,8 @@ public final class RadianteRenderer {
             gameRenderer.gameRenderState().lightmapRenderState.nightVisionEffectIntensity,
             new Vector4f(celestialAxis, Options.vanillaCelestialOrientation ? 1.0f : 0.0f),
             BiomeAmbiance.chroma(), BiomeAmbiance.heights(), BiomeAmbiance.waterExtinction(),
-            BiomeAmbiance.waterAlbedo(), mobEffect));
+            BiomeAmbiance.waterAlbedo(), mobEffect,
+            RainExposure.update(minecraft, cameraState.pos.x(), cameraState.pos.z())));
     }
 
     /**

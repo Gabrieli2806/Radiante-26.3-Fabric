@@ -11,7 +11,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #pragma once
 
 #define NRD_DESCS_VERSION_MAJOR 4
-#define NRD_DESCS_VERSION_MINOR 16
+#define NRD_DESCS_VERSION_MINOR 17
 
 static_assert(NRD_VERSION_MAJOR == NRD_DESCS_VERSION_MAJOR && NRD_VERSION_MINOR == NRD_DESCS_VERSION_MINOR, "Please, update all NRD SDK files");
 
@@ -49,8 +49,13 @@ namespace nrd
         // Linear view depth for primary rays (R16f+)
         IN_VIEWZ,
 
-        // (Optional) User-provided history confidence in range 0-1, i.e. antilag (R8+)
-        // Used only if "CommonSettings::isHistoryConfidenceAvailable = true" and "NRD_SUPPORTS_HISTORY_CONFIDENCE = 1"
+        // (Optional) User-provided history confidence in range 0-1, i.e. antilag (R8+):
+        //  - used only if "CommonSettings::isHistoryConfidenceAvailable = true" and "NRD_SUPPORTS_HISTORY_CONFIDENCE = 1"
+        //  - must be computed for the previous frame in the current frame (the only one trivial solution in any case)
+        //  - textures may be at lower resolution (linearly upscaled)
+        //  - separation into diffuse and specular is optional:
+        //    - 1 path/pixel (probabilistic lobe selection) => better compute lighting confidence and use for both inputs
+        //    - 1 diffuse path/pixel + 1 specular path/pixel => may be better to separate
         IN_DIFF_CONFIDENCE,
         IN_SPEC_CONFIDENCE,
 
@@ -58,12 +63,6 @@ namespace nrd
         // Disocclusion threshold is mixed between "disocclusionThreshold" and "disocclusionThresholdAlternate"
         // Used only if "CommonSettings::isDisocclusionThresholdMixAvailable = true" and "NRD_SUPPORTS_DISOCCLUSION_THRESHOLD_MIX = 1"
         IN_DISOCCLUSION_THRESHOLD_MIX,
-
-        // (Optional) Base color (can be decoupled to diffuse and specular albedo based on metalness) and metalness (RGBA8+)
-        // Used only if "CommonSettings::isBaseColorMetalnessAvailable = true" and "NRD_SUPPORTS_BASECOLOR_METALNESS = 1".
-        // Currently used only by REBLUR (if Temporal Stabilization pass is available and "stabilizationStrength != 0")
-        // to patch MV if specular (virtual) motion prevails on diffuse (surface) motion
-        IN_BASECOLOR_METALNESS,
 
         //=============================================================================================================================
         // NOISY INPUTS
@@ -76,7 +75,7 @@ namespace nrd
         IN_SPEC_RADIANCE_HITDIST,
 
         // Hit distance (R8+)
-        //      REBLUR: use "REBLUR_FrontEnd_GetNormHitDist" for encoding
+        //      REBLUR: use "REBLUR_FrontEnd_GetNormHitDist" for encoding (only if a diffuse or specular lobe was not skipped due to probabilistic selection)
         IN_DIFF_HITDIST,
         IN_SPEC_HITDIST,
 
@@ -162,8 +161,8 @@ namespace nrd
         /*
         IMPORTANT:
           - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ are used by any denoiser, but these denoisers DON'T use:
-              - SIGMA_SHADOW & SIGMA_SHADOW_TRANSLUCENCY - IN_MV, if "stabilizationStrength = 0"
-              - REFERENCE - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ
+            - SIGMA_SHADOW & SIGMA_SHADOW_TRANSLUCENCY - IN_MV, if "stabilizationStrength = 0"
+            - REFERENCE - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ
           - Optional inputs are in ()
         */
 
@@ -183,7 +182,7 @@ namespace nrd
         // OUTPUTS - OUT_DIFF_SH0, OUT_DIFF_SH1
         REBLUR_DIFFUSE_SH,
 
-        // INPUTS - IN_SPEC_RADIANCE_HITDIST (IN_SPEC_CONFIDENCE, IN_DISOCCLUSION_THRESHOLD_MIX, IN_BASECOLOR_METALNESS)
+        // INPUTS - IN_SPEC_RADIANCE_HITDIST (IN_SPEC_CONFIDENCE, IN_DISOCCLUSION_THRESHOLD_MIX)
         // OUTPUTS - OUT_SPEC_RADIANCE_HITDIST
         REBLUR_SPECULAR,
 
@@ -191,11 +190,11 @@ namespace nrd
         // OUTPUTS - OUT_SPEC_HITDIST
         REBLUR_SPECULAR_OCCLUSION,
 
-        // INPUTS - IN_SPEC_SH0, IN_SPEC_SH1 (IN_SPEC_CONFIDENCE, IN_DISOCCLUSION_THRESHOLD_MIX, IN_BASECOLOR_METALNESS)
+        // INPUTS - IN_SPEC_SH0, IN_SPEC_SH1 (IN_SPEC_CONFIDENCE, IN_DISOCCLUSION_THRESHOLD_MIX)
         // OUTPUTS - OUT_SPEC_SH0, OUT_SPEC_SH1
         REBLUR_SPECULAR_SH,
 
-        // INPUTS - IN_DIFF_RADIANCE_HITDIST, IN_SPEC_RADIANCE_HITDIST (IN_DIFF_CONFIDENCE, IN_SPEC_CONFIDENCE, IN_DISOCCLUSION_THRESHOLD_MIX, IN_BASECOLOR_METALNESS)
+        // INPUTS - IN_DIFF_RADIANCE_HITDIST, IN_SPEC_RADIANCE_HITDIST (IN_DIFF_CONFIDENCE, IN_SPEC_CONFIDENCE, IN_DISOCCLUSION_THRESHOLD_MIX)
         // OUTPUTS - OUT_DIFF_RADIANCE_HITDIST, OUT_SPEC_RADIANCE_HITDIST
         REBLUR_DIFFUSE_SPECULAR,
 
@@ -203,7 +202,7 @@ namespace nrd
         // OUTPUTS - OUT_DIFF_HITDIST, OUT_SPEC_HITDIST
         REBLUR_DIFFUSE_SPECULAR_OCCLUSION,
 
-        // INPUTS - IN_DIFF_SH0, IN_DIFF_SH1, IN_SPEC_SH0, IN_SPEC_SH1 (IN_DIFF_CONFIDENCE, IN_SPEC_CONFIDENCE, IN_DISOCCLUSION_THRESHOLD_MIX, IN_BASECOLOR_METALNESS)
+        // INPUTS - IN_DIFF_SH0, IN_DIFF_SH1, IN_SPEC_SH0, IN_SPEC_SH1 (IN_DIFF_CONFIDENCE, IN_SPEC_CONFIDENCE, IN_DISOCCLUSION_THRESHOLD_MIX)
         // OUTPUTS - OUT_DIFF_SH0, OUT_DIFF_SH1, OUT_SPEC_SH0, OUT_SPEC_SH1
         REBLUR_DIFFUSE_SPECULAR_SH,
 
@@ -467,7 +466,7 @@ namespace nrd
         uint32_t perSetStorageTexturesMaxNum;
 
         // If tight (per pipeline) pipeline layouts are used:
-        // - summed up across all dispatches
+        //  - summed up across all dispatches
         uint32_t totalTexturesNum;
         uint32_t totalStorageTexturesNum;
 

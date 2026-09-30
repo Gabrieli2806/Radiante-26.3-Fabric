@@ -6,6 +6,7 @@
 #include "core/render/render_framework.hpp"
 
 #include "core/render/framegen/frame_generation.hpp"
+#include "core/render/framegen/native_frame_generation.hpp"
 #include "core/render/framegen/streamline.hpp"
 
 #include "common/shared.hpp"
@@ -221,11 +222,10 @@ std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t wid
             int depthSlot = framegen::FrameGeneration::depthSlot();
             int motionSlot = framegen::FrameGeneration::motionVectorSlot();
             if (depthSlot >= 0 && motionSlot >= 0) {
-                framegen::FrameGeneration::beginFrame(
-                    pipelineContext->worldPipelineContext->outputImage,
+                framegen::NativeFrameGeneration::instance().captureWorldFrame(
+                    shared_from_this(), pipelineContext->worldPipelineContext->outputImage,
                     worldPipeline->sharedImage(context->frameIndex, static_cast<uint32_t>(depthSlot)),
-                    worldPipeline->sharedImage(context->frameIndex, static_cast<uint32_t>(motionSlot)),
-                    context->worldCommandBuffer->vkCommandBuffer());
+                    worldPipeline->sharedImage(context->frameIndex, static_cast<uint32_t>(motionSlot)));
             }
         }
 
@@ -339,6 +339,7 @@ void Framework::recreate() {
         pipeline_->isRecreationNeeded = false;
 
         waitRenderQueueIdle();
+        framegen::NativeFrameGeneration::instance().reset();
 
         createContexts();
         pipeline_->recreate(shared_from_this());
@@ -365,6 +366,7 @@ void Framework::waitBackendQueueIdle() {
 }
 
 void Framework::close() {
+    framegen::NativeFrameGeneration::instance().release();
     if (running_ && pipeline_ != nullptr) { pipeline_->close(); }
     running_ = false;
 }

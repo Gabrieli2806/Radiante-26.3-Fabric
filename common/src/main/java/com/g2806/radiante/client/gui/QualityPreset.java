@@ -10,7 +10,8 @@ package com.g2806.radiante.client.gui;
  * afterwards shows as Custom.
  */
 enum QualityPreset {
-    LOW("options.radiante.quality.low", 0, false, 0, true, 8, 1, false, 8),
+    // Two bounces even at Low: with one, rooms lose the light that bounces off walls and ceilings and look flat.
+    LOW("options.radiante.quality.low", 0, false, 0, true, 8, 2, false, 8),
     MEDIUM("options.radiante.quality.medium", 1, false, 1, true, 12, 2, false, 8),
     HIGH("options.radiante.quality.high", 2, true, 1, true, 16, 3, true, 16),
     ULTRA("options.radiante.quality.ultra", 3, true, 2, true, 24, 4, true, 24),

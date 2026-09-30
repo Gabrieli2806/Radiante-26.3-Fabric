@@ -304,6 +304,9 @@ namespace Data {
         // Brightness of what the player holds - its own glow and the light it casts - apart from light-giving
         // blocks (emissionBrightness), so the two can be set separately.
         T_FLOAT heldLightBrightness;
+        // Frames rendered so far, set natively: which half of a ping-pong history (ReSTIR reservoirs) is read and
+        // which written this frame.
+        T_UINT frameCounter;
     };
 
     struct SkyUBO {
@@ -360,6 +363,10 @@ namespace Data {
         // subtracts from the lightmap to make the world blink dark. z: the Volumetric Fog Strength option, 1 at
         // 100 %.
         T_VEC4 fogControls;
+
+        // Rain on the ground (RainExposure): x how wet, 0 to 1, rising with the rain and drying slowly after; y the
+        // id of the 512 x 512 texture of rain-blocking column heights around the camera (0 when nothing is wet).
+        T_VEC4 rainWetness;
     };
 
     struct TextureMapEntry {

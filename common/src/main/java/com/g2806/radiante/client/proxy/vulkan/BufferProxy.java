@@ -13,8 +13,8 @@ import org.lwjgl.system.MemoryStack;
 /** Uploads the uniform blocks the ray tracing shaders read (see native common/shared.hpp). */
 public class BufferProxy {
 
-    private static final int WORLD_UBO_SIZE = 656;
-    private static final int SKY_UBO_SIZE = 224;
+    private static final int WORLD_UBO_SIZE = 672; // the last field (frameCounter) is written natively
+    private static final int SKY_UBO_SIZE = 240;
     private static final int TEXTURE_MAPPING_ENTRIES = 4096;
 
     private static native void updateWorldUniform(long ptr);
@@ -162,7 +162,8 @@ public class BufferProxy {
                              Vector4fc biomeFogHeights,
                              Vector4fc waterExtinction,
                              Vector4fc waterAlbedo,
-                             Vector4fc fogControls) {
+                             Vector4fc fogControls,
+                             Vector4fc rainWetness) {
     }
 
     public static void updateSkyUniform(SkyUniform uniform) {
@@ -255,7 +256,8 @@ public class BufferProxy {
             offset = putVec4(bb, offset, uniform.biomeFogHeights());
             offset = putVec4(bb, offset, uniform.waterExtinction());
             offset = putVec4(bb, offset, uniform.waterAlbedo());
-            putVec4(bb, offset, uniform.fogControls());
+            offset = putVec4(bb, offset, uniform.fogControls());
+            putVec4(bb, offset, uniform.rainWetness());
 
             updateSkyUniform(addr);
         }

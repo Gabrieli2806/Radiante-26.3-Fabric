@@ -45,6 +45,7 @@
 // #include <nvvk/debug_util_vk.hpp>
 
 #include <nvsdk_ngx_defs_dlssd.h>
+#include <nvsdk_ngx_defs_dlssg.h>
 #include <nvsdk_ngx_helpers_dlssd.h>
 #include <nvsdk_ngx_helpers_dlssd_vk.h>
 #include <nvsdk_ngx_helpers_vk.h>
@@ -341,6 +342,96 @@ NVSDK_NGX_Result NgxContext::getDlssRRRequiredDeviceExtensions(std::shared_ptr<v
     extensions.insert(extensions.end(), props, props + numExtensions);
 
     return NVSDK_NGX_Result_Success;
+}
+
+// DLSS Frame Generation driven through NGX directly (ported from Radiance/MCVR 0.1.6), so it needs no Streamline.
+NVSDK_NGX_Result
+NgxContext::getDlssFrameGenerationRequiredInstanceExtensions(std::vector<VkExtensionProperties> &extensions) {
+    NVSDK_NGX_FeatureCommonInfo commonInfo = {};
+    NVSDK_NGX_FeatureDiscoveryInfo info{};
+    info.SDKVersion = NVSDK_NGX_Version_API;
+    info.FeatureID = NVSDK_NGX_Feature_FrameGeneration;
+    info.Identifier.IdentifierType = NVSDK_NGX_Application_Identifier_Type_Application_Id;
+    info.Identifier.v.ApplicationId = g_ApplicationID;
+    info.FeatureInfo = &commonInfo;
+
+    uint32_t numExtensions = 0;
+    VkExtensionProperties *props = nullptr;
+    NGX_RETURN_ON_FAIL(NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements(&info, &numExtensions, &props));
+    extensions.insert(extensions.end(), props, props + numExtensions);
+    return NVSDK_NGX_Result_Success;
+}
+
+NVSDK_NGX_Result
+NgxContext::getDlssFrameGenerationRequiredDeviceExtensions(std::shared_ptr<vk::Instance> instance,
+                                                           std::shared_ptr<vk::PhysicalDevice> physicalDevice,
+                                                           std::vector<VkExtensionProperties> &extensions) {
+    NVSDK_NGX_FeatureCommonInfo commonInfo = {};
+    NVSDK_NGX_FeatureDiscoveryInfo info{};
+    info.SDKVersion = NVSDK_NGX_Version_API;
+    info.FeatureID = NVSDK_NGX_Feature_FrameGeneration;
+    info.Identifier.IdentifierType = NVSDK_NGX_Application_Identifier_Type_Application_Id;
+    info.Identifier.v.ApplicationId = g_ApplicationID;
+    info.ApplicationDataPath = L"";
+    info.FeatureInfo = &commonInfo;
+
+    uint32_t numExtensions = 0;
+    VkExtensionProperties *props = nullptr;
+    NVSDK_NGX_Result result = NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements(
+        instance->vkInstance(), physicalDevice->vkPhysicalDevice(), &info, &numExtensions, &props);
+    if (NVSDK_NGX_FAILED(result)) {
+        LOGW << ws2s(GetNGXResultAsString(result)) << " while querying DLSS frame generation device extensions"
+             << std::endl;
+        return result;
+    }
+    extensions.insert(extensions.end(), props, props + numExtensions);
+    return NVSDK_NGX_Result_Success;
+}
+
+NVSDK_NGX_Result NgxContext::queryDlssFrameGenerationAvailable() {
+    if (ngxParams_ == nullptr) return NVSDK_NGX_Result_Fail;
+
+    int needsUpdatedDriver = 0;
+    unsigned minDriverVersionMajor = 0;
+    unsigned minDriverVersionMinor = 0;
+    NVSDK_NGX_Result resUpdatedDriver =
+        ngxParams_->Get(NVSDK_NGX_Parameter_FrameGeneration_NeedsUpdatedDriver, &needsUpdatedDriver);
+    if (NVSDK_NGX_SUCCEED(resUpdatedDriver) && needsUpdatedDriver) {
+        ngxParams_->Get(NVSDK_NGX_Parameter_FrameGeneration_MinDriverVersionMajor, &minDriverVersionMajor);
+        ngxParams_->Get(NVSDK_NGX_Parameter_FrameGeneration_MinDriverVersionMinor, &minDriverVersionMinor);
+        LOGW << "DLSS frame generation needs a newer driver, minimum " << minDriverVersionMajor << "."
+             << minDriverVersionMinor << std::endl;
+        return NVSDK_NGX_Result_FAIL_OutOfDate;
+    }
+
+    int supported = 0;
+    NVSDK_NGX_Result resSupported = ngxParams_->Get(NVSDK_NGX_Parameter_FrameGeneration_Available, &supported);
+    if (NVSDK_NGX_FAILED(resSupported) || !supported) {
+        LOGI << "DLSS frame generation is not available on this GPU" << std::endl;
+        return NVSDK_NGX_Result_FAIL_FeatureNotSupported;
+    }
+
+    int initResult = 0;
+    NVSDK_NGX_Result resInit = ngxParams_->Get(NVSDK_NGX_Parameter_FrameGeneration_FeatureInitResult, &initResult);
+    if (NVSDK_NGX_FAILED(resInit) || !initResult) {
+        LOGW << "DLSS frame generation is denied for this application" << std::endl;
+        return NVSDK_NGX_Result_FAIL_Denied;
+    }
+    return NVSDK_NGX_Result_Success;
+}
+
+uint32_t NgxContext::queryDlssFrameGenerationMaxFrames() {
+    if (ngxParams_ == nullptr) return 1;
+    unsigned int maxGeneratedFrames = 1;
+    if (NVSDK_NGX_FAILED(ngxParams_->Get(NVSDK_NGX_DLSSG_Parameter_MultiFrameCountMax, &maxGeneratedFrames)) ||
+        maxGeneratedFrames == 0) {
+        return 1;
+    }
+    return maxGeneratedFrames;
+}
+
+NVSDK_NGX_Parameter *NgxContext::parameters() {
+    return ngxParams_;
 }
 
 NVSDK_NGX_Result NgxContext::querySupportedDlssInputSizes(const QuerySizeInfo &queryInfo, SupportedSizes &sizes) {

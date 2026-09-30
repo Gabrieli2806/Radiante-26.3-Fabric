@@ -28,6 +28,8 @@ struct CreatedDeviceInfo {
     VkDevice device = VK_NULL_HANDLE;
     bool extendedDynamicState2LogicOp = false;
     bool dlssCompatible = false;
+    bool dlssgCompatible = false;
+    bool fsrgCompatible = false;
     bool xessCompatible = false;
 };
 
@@ -109,10 +111,28 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
         requested.emplace_back(ext);
     }
 
-    // DLSS Frame Generation asks for its own extensions (Reflex low latency among them).
+    // Reflex (through Streamline) asks for its own extensions.
     for (const std::string &ext : framegen::Streamline::requiredDeviceExtensions()) {
         requested.emplace_back(ext);
     }
+
+    // DLSS Frame Generation, driven through NGX directly.
+    std::vector<std::string> dlssgRequired;
+    bool dlssgQueried = false;
+    {
+        std::vector<VkExtensionProperties> dlssgExtensions;
+        if (NVSDK_NGX_SUCCEED(
+                NgxContext::getDlssFrameGenerationRequiredDeviceExtensions(instance, physicalDevice, dlssgExtensions))) {
+            dlssgQueried = true;
+            for (const auto &ext : dlssgExtensions) {
+                dlssgRequired.emplace_back(ext.extensionName);
+                if (std::strcmp(ext.extensionName, "VK_EXT_buffer_device_address") == 0) continue;
+                requested.emplace_back(ext.extensionName);
+            }
+        }
+    }
+    // FSR frame generation needs these (all core to the Radiante device already, except the format list).
+    requested.emplace_back(VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME);
 
     std::vector<std::string> dlssRequired;
     bool dlssQueried = false;
@@ -165,6 +185,12 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
 
     const bool dlssCompatible =
         instance->isDlssInstanceExtensionsCompatible() && dlssQueried && allSupported(dlssRequired);
+    const bool dlssgCompatible = instance->isDlssFrameGenerationInstanceExtensionsCompatible() && dlssgQueried &&
+                                 allSupported(dlssgRequired);
+    const bool fsrgCompatible =
+        allSupported({VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+                      VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+                      VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME});
 #ifdef MCVR_ENABLE_XESS
     bool xessCompatible = instance->isXessInstanceExtensionsCompatible() && xessQueried && allSupported(xessRequired);
 #else
@@ -452,8 +478,11 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
     g_created.device = *outDevice;
     g_created.extendedDynamicState2LogicOp = logicOp;
     g_created.dlssCompatible = dlssCompatible;
+    g_created.dlssgCompatible = dlssgCompatible;
+    g_created.fsrgCompatible = fsrgCompatible;
     g_created.xessCompatible = xessCompatible;
     deviceCout() << "created shared device with " << selected.size() << " extensions (dlss=" << dlssCompatible
+                 << ", dlss frame generation=" << dlssgCompatible << ", fsr frame generation=" << fsrgCompatible
                  << ", xess=" << xessCompatible << ")" << std::endl;
     return VK_SUCCESS;
 }
@@ -498,4 +527,12 @@ bool vk::Device::isDlssDeviceExtensionsCompatible() const {
 
 bool vk::Device::isXessDeviceExtensionsCompatible() const {
     return g_created.device == device_ && g_created.xessCompatible;
+}
+
+bool vk::Device::isDlssFrameGenerationDeviceExtensionsCompatible() const {
+    return g_created.device == device_ && g_created.dlssgCompatible;
+}
+
+bool vk::Device::isFsrFrameGenerationDeviceExtensionsCompatible() const {
+    return g_created.device == device_ && g_created.fsrgCompatible;
 }

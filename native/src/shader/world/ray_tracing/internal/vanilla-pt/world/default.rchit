@@ -72,6 +72,7 @@ indexBuffer;
 #include "util/vertex.glsl"
 #include "common/constants.glsl"
 #include "common/water_medium.glsl"
+#include "common/rain_wetness.glsl"
 
 #ifndef VPT_BOUNCE_LIGHT_BOOST
 #    define VPT_BOUNCE_LIGHT_BOOST 1.0
@@ -253,6 +254,15 @@ void sampleSurfaceState(bool useTexture,
         bitangent = normalizeF(cross(geometricNormal, tangent), dPdvWorld);
         tangent = normalizeF(cross(bitangent, geometricNormal), tangent);
         shadingNormal = applyNormalMapToBasis(mat.normal, tangent, bitangent, geometricNormal, viewDir);
+    }
+
+    // Rain soaks the ground under open sky: darker, glossy, and the bumps of the normal map drown.
+    if (!useWaterMaterial && !isFftWaterSurface && !g_hitIsGlass) {
+        float wetness = vptGroundWetness(worldPos, baseGeoNormal);
+        if (wetness > 0.0) {
+            vptApplyGroundWetness(mat, wetness);
+            shadingNormal = normalizeF(mix(shadingNormal, geometricNormal, wetness * 0.7), geometricNormal);
+        }
     }
 
     surface.uv = uv;
@@ -1149,8 +1159,8 @@ void main() {
             sampleSurfaceDirectLight(litSurface, currentViewDir, textureUV, planeHitWorldPos, atlasUvMin, atlasUvMax,
                                      dPduWorld, dPdvWorld, baseGeoNormal, traceLocalHeight,
                                      textureMap.normal, maxDepthWorld, hasFftWaterSurface);
-        vec3 blockLight = sampleBlockLight(litSurface.worldPos, litSurface.geometricNormal,
-                                           litSurface.shadingNormal, litSurface.mat);
+        vec3 blockLight = sampleBlockLightAt(litSurface.worldPos, litSurface.geometricNormal,
+                                             litSurface.shadingNormal, litSurface.mat, rayBounce(mainRay) == 0u);
         directLight += blockLight;
         directLight += sampleHeldLight(litSurface.worldPos, litSurface.geometricNormal,
                                        litSurface.shadingNormal, litSurface.mat);

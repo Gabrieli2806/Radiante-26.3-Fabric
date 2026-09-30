@@ -11,7 +11,7 @@ This software contains source code provided by NVIDIA Corporation.
 | File | Component | Owner | License |
 | --- | --- | --- | --- |
 | `streamline/sl.interposer.dll`, `sl.common.dll`, `sl.pcl.dll` | Streamline SDK | NVIDIA | [MIT](NVIDIA-Streamline-LICENSE.txt) |
-| `streamline/sl.dlss_g.dll`, `streamline/nvngx_dlssg.dll` | DLSS Frame Generation | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
+| `streamline/sl.dlss_g.dll` | DLSS Frame Generation (Streamline plugin) | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
 | `streamline/sl.reflex.dll`, `streamline/NvLowLatencyVk.dll` | Reflex | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
 | `libxess.dll`, `libxess_dx11.dll`, `libxess_fg.dll` | XeSS | Intel | [Intel XeSS](Intel-XeSS-LICENSE.txt) |
 
@@ -36,8 +36,10 @@ manual download:
 | --- | --- | --- | --- |
 | `dlss/nvngx_dlss.dll` | DLSS Super Resolution | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
 | `dlss/nvngx_dlssd.dll` | DLSS Ray Reconstruction | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
+| `dlss/nvngx_dlssg.dll` | DLSS Frame Generation | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
 | `linux-x64/dlss/libnvidia-ngx-dlss.so.*` | DLSS Super Resolution (Linux) | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
 | `linux-x64/dlss/libnvidia-ngx-dlssd.so.*` | DLSS Ray Reconstruction (Linux) | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
+| `linux-x64/dlss/libnvidia-ngx-dlssg.so.*` | DLSS Frame Generation (Linux) | NVIDIA | [NVIDIA RTX SDK](NVIDIA-RTX-SDK-LICENSE.txt) |
 
 `linux-x64/libcore.so` is the Linux build of Radiante's renderer (GPL-3.0), with the same
 statically linked components as `core.dll` below.

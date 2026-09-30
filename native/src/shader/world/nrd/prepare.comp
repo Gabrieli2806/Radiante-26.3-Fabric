@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #define NRD_GLSL 1
-#include "../../../extern/nrd/Shaders/Include/NRD.hlsli"
+#include "../../../extern/nrd/Shaders/NRD.hlsli"
 #include "common/shared.hpp"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;

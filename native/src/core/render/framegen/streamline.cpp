@@ -83,7 +83,9 @@ bool framegen::Streamline::init(const std::string &folder) {
 
     std::wstring pluginPath = std::filesystem::path(folder).wstring();
     const wchar_t *paths[] = {pluginPath.c_str()};
-    sl::Feature features[] = {sl::kFeatureDLSS_G, sl::kFeatureReflex, sl::kFeaturePCL};
+    // Streamline is only kept for Reflex now: frame generation runs through NGX / FidelityFX directly
+    // (NativeFrameGeneration), which works on every loader and does not need to own the Vulkan loader.
+    sl::Feature features[] = {sl::kFeatureReflex, sl::kFeaturePCL};
 
     sl::Preferences preferences{};
     preferences.logLevel = sl::LogLevel::eOff;

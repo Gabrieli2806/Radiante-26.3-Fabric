@@ -26,6 +26,7 @@ struct CreatedInstanceInfo {
     VkInstance instance = VK_NULL_HANDLE;
     uint32_t apiVersion = VK_API_VERSION_1_3;
     bool dlssCompatible = false;
+    bool dlssgCompatible = false;
     bool xessCompatible = false;
 };
 
@@ -80,9 +81,21 @@ VkResult vk::Instance::createMerged(const VkInstanceCreateInfo *baseInfo,
     }
 #endif
 
-    // DLSS Frame Generation asks for its own instance extensions.
+    // Reflex (through Streamline) asks for its own instance extensions.
     for (const std::string &ext : framegen::Streamline::requiredInstanceExtensions()) {
         extStorage.insert(ext);
+    }
+
+    // DLSS Frame Generation, driven through NGX directly.
+    std::vector<std::string> dlssgRequired;
+    bool dlssgQueried = false;
+    std::vector<VkExtensionProperties> dlssgExtensions;
+    if (NVSDK_NGX_SUCCEED(NgxContext::getDlssFrameGenerationRequiredInstanceExtensions(dlssgExtensions))) {
+        dlssgQueried = true;
+        for (const auto &ext : dlssgExtensions) {
+            extStorage.insert(ext.extensionName);
+            dlssgRequired.emplace_back(ext.extensionName);
+        }
     }
 
     extStorage.insert(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -102,6 +115,7 @@ VkResult vk::Instance::createMerged(const VkInstanceCreateInfo *baseInfo,
     };
 
     g_created.dlssCompatible = dlssQueried && allSupported(dlssRequired);
+    g_created.dlssgCompatible = dlssgQueried && allSupported(dlssgRequired);
 #ifdef MCVR_ENABLE_XESS
     g_created.xessCompatible = xessQueried && allSupported(xessRequired);
 #endif
@@ -164,4 +178,8 @@ bool vk::Instance::isDlssInstanceExtensionsCompatible() const {
 
 bool vk::Instance::isXessInstanceExtensionsCompatible() const {
     return g_created.instance == instance_ && g_created.xessCompatible;
+}
+
+bool vk::Instance::isDlssFrameGenerationInstanceExtensionsCompatible() const {
+    return g_created.instance == instance_ && g_created.dlssgCompatible;
 }

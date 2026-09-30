@@ -65,33 +65,26 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     #define NRD_SUPPORTS_DISOCCLUSION_THRESHOLD_MIX             1
 #endif
 
-#ifndef NRD_SUPPORTS_BASECOLOR_METALNESS
-    #define NRD_SUPPORTS_BASECOLOR_METALNESS                    1
-#endif
-
 #ifndef NRD_SUPPORTS_ANTIFIREFLY
     #define NRD_SUPPORTS_ANTIFIREFLY                            1
 #endif
 
 // Switches ( default 1 )
 #define NRD_USE_TILE_CHECK                                      1 // significantly improves performance by skipping computations in "empty" regions
-#define NRD_USE_HIGH_PARALLAX_CURVATURE                         1 // flattens surface on high motion
 #define NRD_USE_DENANIFICATION                                  1 // needed only if inputs have NAN / INF outside of viewport or denoising range
-#define NRD_USE_SPECULAR_MOTION_V2                              1 // this method offers better IQ on bumpy and wavy surfaces, but it doesn't work on concave mirrors ( no motion acceleration )
 
 // Switches ( default 0 )
 #define NRD_USE_QUADRATIC_DISTRIBUTION                          0
 #define NRD_USE_EXPONENTIAL_WEIGHTS                             0
-#define NRD_USE_HIGH_PARALLAX_CURVATURE_SILHOUETTE_FIX          0 // it fixes silhouettes, but leads to less flattening on bumpy surfaces ( worse for bumpy surfaces ) and shorter arcs on smooth curved surfaces ( worse for low bit normals )
 
 // Settings
 #define NRD_DISOCCLUSION_THRESHOLD                              0.02 // normalized % // TODO: use CommonSettings::disocclusionThreshold?
-#define NRD_CATROM_SHARPNESS                                    0.5 // [ 0; 1 ], 0.5 matches Catmull-Rom // TODO: use 0.6?
-#define NRD_RADIANCE_COMPRESSION_MODE                           3 // 0-4, specular color compression for spatial passes
+#define NRD_CATROM_SHARPNESS                                    0.5  // [ 0; 1 ], 0.5 matches Catmull-Rom // TODO: use 0.6?
+#define NRD_RADIANCE_COMPRESSION_MODE                           3    // 0-4, specular color compression for spatial passes
 #define NRD_EXP_WEIGHT_DEFAULT_SCALE                            3.0
 #define NRD_ROUGHNESS_SENSITIVITY                               0.01 // smaller => more sensitive
-#define NRD_CURVATURE_Z_THRESHOLD                               0.1 // normalized %
-#define NRD_MAX_ALLOWED_VIRTUAL_MOTION_ACCELERATION             15.0 // keep relatively high to avoid ruining concave mirrors
+#define NRD_CURVATURE_HIGH_PARALLAX_DISOCCLUSION_THRESHOLD      0.04 // normalized %
+#define NRD_MAX_ALLOWED_VIRTUAL_MOTION_ACCELERATION             5.0  // TODO: keep relatively high to avoid ruining concave mirrors ( was 15 )
 #define NRD_MAX_PERCENT_OF_LOBE_VOLUME                          0.75 // normalized % // TODO: have a gut feeling that it's too much...
 #define NRD_STRAND_RELAXED_DISOCCLUSION_THRESHOLD               0.25
 
@@ -102,7 +95,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     #define NRD_NORMAL_ENCODING_ERROR                           ( 0.75 / 255.0 )
     #define STOCHASTIC_BILINEAR_FILTER                          gNearestClamp
 #else
-    #define NRD_NORMAL_ENCODING_ERROR                           ( 0.40 / 255.0 )
+    #define NRD_NORMAL_ENCODING_ERROR                           ( 0.40 / 255.0 ) // TODO: tweak!
     #define STOCHASTIC_BILINEAR_FILTER                          gLinearClamp
 #endif
 
@@ -128,20 +121,14 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     const int2 pixelPos = _pixelPos
 
 // Preloading in SMEM
-#ifdef NRD_USE_BORDER_2
-    #define BORDER                                              2
-#else
-    #define BORDER                                              1
-#endif
-
-#define BUFFER_X                                                ( GROUP_X + BORDER * 2 )
-#define BUFFER_Y                                                ( GROUP_Y + BORDER * 2 )
+#define BUFFER_X ( GROUP_X + NRD_BORDER * 2 )
+#define BUFFER_Y ( GROUP_Y + NRD_BORDER * 2 )
 
 #define PRELOAD_INTO_SMEM_WITH_TILE_CHECK \
     isSky *= NRD_USE_TILE_CHECK; \
     if( isSky == 0.0 ) \
     { \
-        int2 groupBase = pixelPos - threadPos - BORDER; \
+        int2 groupBase = pixelPos - threadPos - NRD_BORDER; \
         uint stageNum = ( BUFFER_X * BUFFER_Y + GROUP_X * GROUP_Y - 1 ) / ( GROUP_X * GROUP_Y ); \
         [unroll] \
         for( uint stage = 0; stage < stageNum; stage++ ) \
@@ -157,7 +144,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     int i, j
 
 #define PRELOAD_INTO_SMEM \
-    int2 groupBase = pixelPos - threadPos - BORDER; \
+    int2 groupBase = pixelPos - threadPos - NRD_BORDER; \
     uint stageNum = ( BUFFER_X * BUFFER_Y + GROUP_X * GROUP_Y - 1 ) / ( GROUP_X * GROUP_Y ); \
     [unroll] \
     for( uint stage = 0; stage < stageNum; stage++ ) \
@@ -255,6 +242,7 @@ static const float3 g_Special8[ 8 ] =
 #endif
 
 #define UnpackViewZ( z )                        abs( z * gViewZScale )
+#define IsInDenoisingRange( z )                 ( z < gDenoisingRange ) // "!IsInDenoisingRange( viewZ )" is NAN safe
 
 float PixelRadiusToWorld( float unproject, float orthoMode, float pixelRadius, float viewZ )
 {
@@ -307,7 +295,9 @@ float IsInScreenNearest( float2 uv )
 float2 MirrorUv( float2 uv )
 {
     // https://www.desmos.com/calculator/vreqlhocsm
-    return 1.0 - abs( 1.0 - frac( uv * 0.5 ) * 2.0 );
+    float2 mirrorUv = 1.0 - abs( 1.0 - frac( uv * 0.5 ) * 2.0 );
+
+    return min( mirrorUv, 0.99999 ); // avoid "uv == 1", because "1 * gRectSize" is outside of the render area
 }
 
 // x y
@@ -338,10 +328,7 @@ float2 ApplyCheckerboardShift( float2 pos, uint mode, uint counter, uint frameIn
 // https://www.desmos.com/calculator/xwq1nrawho
 float GetSpecMagicCurve( float roughness, float power = 0.25 )
 {
-    float f = 1.0 - exp2( -200.0 * roughness * roughness );
-    f *= Math::Pow01( roughness, power );
-
-    return f;
+    return _NRD_GetSpecMagicCurve( roughness, power );
 }
 
 float ComputeParallaxInPixels( float3 X, float2 uvForZeroParallax, float4x4 mWorldToClip, float2 rectSize )
@@ -414,64 +401,44 @@ Interactive graph:
     https://www.desmos.com/calculator/dn9spdgwiz
 */
 
-float ApplyThinLensEquation( float O, float curvature )
-{
-    float I = O / ( 2.0 * curvature * O + 1.0 );
-
-    return I;
-}
-
 float3 GetXvirtual( float hitDist, float curvature, float3 X, float3 Xprev, float3 N, float3 V, float roughness )
 {
     // GGX dominant direction
     float4 D = ImportanceSampling::GetSpecularDominantDirection( N, V, roughness, ML_SPECULAR_DOMINANT_DIRECTION_G2 );
 
-    // It will be image position in world space relative to the primary hit
-    float3 Iw = V;
+    // Specular ray direction can be used instead of GGX dominant direction
+    float3 reflectionRay = D.xyz * hitDist;
 
-    #if( NRD_USE_SPECULAR_MOTION_V2 == 0 )
-        float hitDistFocused = ApplyThinLensEquation( hitDist, curvature );
+    // Construct a basis for the reflector
+    float3x3 reflectorBasis = Geometry::GetBasis( N );
 
-        Iw *= hitDistFocused;
-    #else
-        // Specular ray direction can be used instead of GGX dominant direction
-        float3 reflectionRay = D.xyz * hitDist;
+    // Object position
+    float3 O = Geometry::RotateVector( reflectorBasis, reflectionRay );
+    O.z = -O.z; // O.z is always negative due to sign convention ( assuming no self intersection rays )
 
-        // Construct a basis for the reflector
-        float3 principalAxis = N;
-        float3x3 reflectorBasis = Geometry::GetBasis( principalAxis );
+    // Magnification ( negative sign is responsible for  motion acceleration )
+    float mag = 1.0 / ( 2.0 * curvature * O.z - 1.0 );
 
-        // Object position
-        float3 O = Geometry::RotateVector( reflectorBasis, reflectionRay );
+    // Avoid smearing on silhouettes ( tests b7, b10 )
+    float NoV = abs( dot( N, V ) );
+    float f = length( X ); // if close to...
+    f *= saturate( 1.0 - NoV ); // a silhouette...
+    f *= max( curvature, 0.0 ); // of a convex hull... ( works badly with negative curvature )
+    f = 1.0 / ( 1.0 + f ); // reduce magnification
+    mag *= f;
 
-        // O.z is always negative due to sign convention ( assuming no self intersection rays )
-        O.z = -O.z;
+    // Image position
+    float3 I = O * mag;
 
-        // Image position
-        float mag = 1.0 / ( 2.0 * curvature * O.z - 1.0 );
-
-        // Workaround: avoid smearing on silhouettes
-        float f = length( X ); // if close to...
-        f *= 1.0 - abs( dot( N, V ) ); // a silhouette...
-        f *= max( curvature, 0.0 ); // of a convex hull...
-        mag *= 1.0 / ( 1.0 + f ); // reduce magnification
-
-        float3 I = O * mag;
-
-        Iw *= length( I );
-
-        // TODO: to fix bahavior on concave mirrors, signed world position is needed. But the code below can't be used "as is"
-        // because motion can become inconsistent in some cases ( tests 133, 164, 171 - 176 ) leading to reprojection artefacts
-        //Iw = Geometry::RotateVectorInverse( reflectorBasis, I ); // no
-        //Iw *= -Math::Sign( mag ); // closer
-    #endif
+    // Elongation
+    D.w *= length( I );
 
     // Only hit distance is provided, not real motion in the virtual world. If the virtual position is close to the
     // surface due to focusing, better to replace current position with previous position because surface motion is known
-    float closenessToSurface = saturate( length( Iw ) / ( hitDist + NRD_EPS ) );
-    float3 origin = lerp( Xprev, X, closenessToSurface * D.w );
+    float closenessToSurface = saturate( D.w / ( hitDist + NRD_EPS ) );
+    float3 x = lerp( Xprev, X, closenessToSurface );
 
-    return origin - Iw * D.w;
+    return x + V * D.w * Math::Sign( mag );
 }
 
 // Kernel
@@ -499,7 +466,7 @@ float2 GetKernelSampleCoordinates( float4x4 mToClip, float3 offset, float3 X, fl
 
 float GetNormalWeightParam( float nonLinearAccumSpeed, float lobeAngleFraction, float roughness = 1.0 )
 {
-    float percentOfVolume = NRD_MAX_PERCENT_OF_LOBE_VOLUME * lerp( lobeAngleFraction, 1.0, nonLinearAccumSpeed );
+    float percentOfVolume = NRD_MAX_PERCENT_OF_LOBE_VOLUME * lerp( saturate( lobeAngleFraction ), 1.0, nonLinearAccumSpeed );
     float tanHalfAngle = ImportanceSampling::GetSpecularLobeTanHalfAngle( roughness, percentOfVolume );
 
     // TODO: use gLobeAngleFraction = 0.1 ( non squared! ) and:
@@ -511,8 +478,9 @@ float GetNormalWeightParam( float nonLinearAccumSpeed, float lobeAngleFraction, 
     return 1.0 / angle;
 }
 
-float2 GetGeometryWeightParams( float planeDistSensitivity, float frustumSize, float3 Xv, float3 Nv, float nonLinearAccumSpeed )
+float2 GetGeometryWeightParams( float planeDistSensitivity, float frustumSize, float3 Xv, float3 Nv )
 {
+    // TODO: should depend on "nonLinearAccumSpeed"? Probably, not...
     float norm = planeDistSensitivity * frustumSize;
     float a = 1.0 / norm;
     float b = dot( Nv, Xv ) * a;
@@ -520,14 +488,12 @@ float2 GetGeometryWeightParams( float planeDistSensitivity, float frustumSize, f
     return float2( a, -b );
 }
 
-float2 GetHitDistanceWeightParams( float hitDist, float nonLinearAccumSpeed, float roughness = 1.0 )
+float2 GetHitDistanceWeightParams( float hitDist, float nonLinearAccumSpeed )
 {
-    // TODO: compare "GetHitDistFactor"?
-    // IMPORTANT: since this weight is exponential, 3% can lead to leaks from bright objects in reflections.
-    // Even 1% is not enough in some cases, but using a lower value makes things even more fragile
-    float smc = GetSpecMagicCurve( roughness );
-    float norm = lerp( 0.0005, 1.0, min( nonLinearAccumSpeed, smc ) );
-    float a = 1.0 / norm;
+    // This math is fragile!
+    // - non-denoised ( only accumulated ) hit distances are needed to reduce bias and to avoid "banding" if history is long
+    // - firefly suppressor for hit distances is needed to minimize "sparse bright pixels" on specular lobe boundaries
+    float a = 1.0 / nonLinearAccumSpeed;
     float b = hitDist * a;
 
     return float2( a, -b );
@@ -546,7 +512,7 @@ float2 GetRelaxedRoughnessWeightParams( float m, float fraction = 1.0, float sen
     // "m = roughness * roughness" makes test less sensitive to small deltas
 
     // https://www.desmos.com/calculator/wkvacka5za
-    float a = 1.0 / lerp( sensitivity, 1.0, lerp( m * m, m, fraction ) );
+    float a = 1.0 / lerp( sensitivity, 1.0, lerp( m * m, m, saturate( fraction ) ) );
     float b = m * a;
 
     return float2( a, -b );
@@ -580,6 +546,13 @@ float2 GetRelaxedRoughnessWeightParams( float m, float fraction = 1.0, float sen
 #else
     #define ComputeWeight( x, px, py )     ComputeNonExponentialWeight( x, px, py )
 #endif
+
+float ApplyGeometryWeightLast( float w, float z, float NoX, float2 geometryWeightParams )
+{
+    w *= ComputeWeight( NoX, geometryWeightParams.x, geometryWeightParams.y );
+
+    return !IsInDenoisingRange( z ) ? 0.0 : w; // |NoX| can be ~0 if "zs" is out of range
+}
 
 float GetGaussianWeight( float r )
 {

@@ -352,9 +352,69 @@ EmissionCellRTree::Rect Emission::buildRect(const glm::vec2 &uvMin, const glm::v
     };
 }
 
+int Emission::occupancyCoord(float uv) {
+    int coord = static_cast<int>(std::floor(uv * static_cast<float>(kOccupancyGridSize)));
+    return std::clamp(coord, 0, kOccupancyGridSize - 1);
+}
+
+void Emission::markTextureOccupancy(TextureOccupancy &occupancy, const EmissionCell &cell) {
+    if (cell.avgEmission <= 0.0f) return;
+    glm::vec2 uvMin = glm::min(cell.uvMin, cell.uvMax);
+    glm::vec2 uvMax = glm::max(cell.uvMin, cell.uvMax);
+    if (uvMax.x < 0.0f || uvMax.y < 0.0f || uvMin.x > 1.0f || uvMin.y > 1.0f) return;
+    int minX = occupancyCoord(uvMin.x);
+    int minY = occupancyCoord(uvMin.y);
+    int maxX = occupancyCoord(uvMax.x);
+    int maxY = occupancyCoord(uvMax.y);
+    for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+            occupancy.occupiedCells.set(static_cast<size_t>(y * kOccupancyGridSize + x));
+        }
+    }
+    occupancy.hasEmissionCells = true;
+}
+
+void Emission::rebuildTextureOccupancy(TextureState &state) {
+    state.occupancy = {};
+    for (const auto &[tileKey, cells] : state.tiles) {
+        (void)tileKey;
+        for (const auto &cell : cells) {
+            if (cell != nullptr) markTextureOccupancy(state.occupancy, *cell);
+        }
+    }
+}
+
+bool Emission::copyTextureOccupancy(uint32_t textureID, TextureOccupancy &occupancy) const {
+    occupancy = {};
+    if (textureID >= texturesState_.size()) return false;
+    std::shared_lock lock(mtx_);
+    occupancy = texturesState_[textureID].occupancy;
+    return occupancy.hasEmissionCells;
+}
+
+bool Emission::textureOccupancyOverlaps(const TextureOccupancy &occupancy,
+                                        const glm::vec2 &uvMin,
+                                        const glm::vec2 &uvMax) {
+    if (!occupancy.hasEmissionCells) return false;
+    glm::vec2 lo = glm::min(uvMin, uvMax);
+    glm::vec2 hi = glm::max(uvMin, uvMax);
+    if (hi.x < 0.0f || hi.y < 0.0f || lo.x > 1.0f || lo.y > 1.0f) return false;
+    int minX = occupancyCoord(lo.x);
+    int minY = occupancyCoord(lo.y);
+    int maxX = occupancyCoord(hi.x);
+    int maxY = occupancyCoord(hi.y);
+    for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+            if (occupancy.occupiedCells.test(static_cast<size_t>(y * kOccupancyGridSize + x))) return true;
+        }
+    }
+    return false;
+}
+
 void Emission::clearTextureState(TextureState &state) {
     state.tiles.clear();
     state.tree = nullptr;
+    state.occupancy = {};
     state.version++;
 }
 
@@ -416,6 +476,7 @@ void Emission::updateTile(uint32_t textureID, uint64_t tileKey, const EmissionCe
     if (!newCells.empty()) {
         state.tiles.emplace(tileKey, std::move(newCells));
     }
+    rebuildTextureOccupancy(state);
     state.version++;
 }
 

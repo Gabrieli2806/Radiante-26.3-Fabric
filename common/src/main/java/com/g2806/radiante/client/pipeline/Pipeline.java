@@ -393,6 +393,11 @@ public class Pipeline {
         "render_pipeline.module.ray_tracing.attribute.post_enable_motion_blur";
     public static final String DEPTH_OF_FIELD_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.post_enable_dof";
+    /** Volumetric clouds shade the ground under them (only with Volumetric clouds). */
+    /** ReSTIR reuse of block light samples across frames and pixels (needs block light sampling). */
+    public static final String RESTIR_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.restir";
+    public static final String CLOUD_SHADOWS_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_cast_shadow";
 
     /**
      * Switches one of the shader pack's on/off attributes, such as motion blur or depth of field. They are compiled

@@ -34,7 +34,8 @@ if(USE_AMD)
 endif()
 if(MCVR_ENABLE_FFX_UPSCALER)
     # amd_fidelityfx_vk provides the main FFX API (ffxCreateContext, ffxQuery, etc.)
-    target_link_libraries(core PUBLIC amd_fidelityfx_vk ffx_backend_vk_x64 ffx_fsr3upscaler_x64)
+    target_link_libraries(core PUBLIC amd_fidelityfx_vk ffx_backend_vk_x64 ffx_fsr3_x64 ffx_fsr3upscaler_x64
+                                      ffx_frameinterpolation_x64 ffx_opticalflow_x64)
     target_compile_definitions(core PUBLIC MCVR_ENABLE_FFX_UPSCALER)
 endif()
 if(MCVR_ENABLE_NRD)
@@ -79,6 +80,8 @@ if(MCVR_ENABLE_STREAMLINE)
 
     # Shipped next to the renderer; the mod extracts them into run/radiante/streamline.
     file(GLOB STREAMLINE_RUNTIME_DLLS "${STREAMLINE_DIR}/bin/x64/*.dll")
+    # Frame generation's own runtime comes from the DLSS SDK (newer) and goes in the dlss folder.
+    list(FILTER STREAMLINE_RUNTIME_DLLS EXCLUDE REGEX "nvngx_dlssg\.dll$")
     install(FILES ${STREAMLINE_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_LIB_DIR}/streamline)
     install(FILES ${STREAMLINE_RUNTIME_DLLS} DESTINATION ${MCVR_INSTALL_BIN_DIR}/streamline)
 endif()
@@ -90,13 +93,15 @@ if(WIN32)
     set(MCVR_PLATFORM_LIB_DIR ${MCVR_INSTALL_LIB_DIR})
     set(MCVR_PLATFORM_BIN_DIR ${MCVR_INSTALL_BIN_DIR})
     set(DLSS_RUNTIME_DIR "${PROJECT_SOURCE_DIR}/extern/DLSS/lib/Windows_x86_64/rel")
-    file(GLOB DLSS_RUNTIME_DLLS "${DLSS_RUNTIME_DIR}/nvngx_dlss.dll" "${DLSS_RUNTIME_DIR}/nvngx_dlssd.dll")
+    file(GLOB DLSS_RUNTIME_DLLS "${DLSS_RUNTIME_DIR}/nvngx_dlss.dll" "${DLSS_RUNTIME_DIR}/nvngx_dlssd.dll"
+                                "${DLSS_RUNTIME_DIR}/nvngx_dlssg.dll")
 else()
     set(MCVR_PLATFORM_LIB_DIR ${MCVR_INSTALL_LIB_DIR}/linux-x64)
     set(MCVR_PLATFORM_BIN_DIR ${MCVR_INSTALL_BIN_DIR}/linux-x64)
     set(DLSS_RUNTIME_DIR "${PROJECT_SOURCE_DIR}/extern/DLSS/lib/Linux_x86_64/rel")
     file(GLOB DLSS_RUNTIME_DLLS "${DLSS_RUNTIME_DIR}/libnvidia-ngx-dlss.so.*"
-                                "${DLSS_RUNTIME_DIR}/libnvidia-ngx-dlssd.so.*")
+                                "${DLSS_RUNTIME_DIR}/libnvidia-ngx-dlssd.so.*"
+                                "${DLSS_RUNTIME_DIR}/libnvidia-ngx-dlssg.so.*")
 endif()
 if(DLSS_RUNTIME_DLLS)
     install(FILES ${DLSS_RUNTIME_DLLS} DESTINATION ${MCVR_PLATFORM_LIB_DIR}/dlss)

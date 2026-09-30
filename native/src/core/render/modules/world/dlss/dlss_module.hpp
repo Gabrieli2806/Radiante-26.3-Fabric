@@ -25,6 +25,10 @@ class DLSSModule : public WorldModule, public SharedObject<DLSSModule> {
 
     static bool initNGXContext();
     static void deinitNGXContext();
+    // NGX is one per process; frame generation shares the context the DLSS module set up.
+    static std::shared_ptr<NgxContext> ngxContext() {
+        return ngxContext_;
+    }
 
     DLSSModule();
 

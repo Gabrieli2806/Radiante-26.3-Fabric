@@ -437,6 +437,10 @@ void Buffers::setAndUploadWorldUniformBuffer(vk::Data::WorldUBO &ubo) {
         static std::uniform_int_distribution<> distrib;
         ubo.seed = distrib(engine);
     }
+    {
+        static uint32_t frameCounter = 0;
+        ubo.frameCounter = frameCounter++;
+    }
 
     ubo.cameraJitter = useJitter_ ? halton(sequenceIndex++) - glm::vec2(0.5) : glm::vec2(0.0);
 

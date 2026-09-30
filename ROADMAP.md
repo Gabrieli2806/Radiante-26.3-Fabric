@@ -38,12 +38,24 @@ by the player, or fetched on first use when chosen) would bring the jar near 15 
 
 ## Open work and verification needed
 
-### Multi frame generation with HDR output — broken
+### Frame generation with HDR output — not supported yet
 
-DLSS multi frame generation (3x and 4x) does not work while HDR output is on (reported in play). Check whether
-Streamline is given the FP16 scRGB swapchain format and the HDR colour space in its frame generation options, and
-whether the generated frames go through the HDR present path (HdrPresentMixin). Until fixed, the two could warn
-when combined.
+Frame generation now runs without Streamline (see "Native frame generation" below) and is switched off while HDR
+output is on: the generated frames would have to go through the HDR composition (HdrOutput::compose) one by one,
+which needs the world's HDR image for each of them. Until then the option is hidden with HDR on.
+
+### Native frame generation (DLSS / FSR without Streamline) — done, keep testing
+
+Ported from Radiance/MCVR 0.1.6 (`dlss_frame_generation.cpp`, `fsr_frame_generation.cpp`) into
+`core/render/framegen/native_frame_generation.cpp`: DLSS frame generation through NGX on NVIDIA (up to 4x on RTX 50),
+FSR 3 frame generation on every other GPU (2x). Minecraft owns the swapchain here, so the generated frames are
+evaluated in its present command buffer (HdrPresentMixin), the first replaces the real frame in Minecraft's blit and
+the rest, then the real frame, are presented on further swapchain images after Minecraft's present
+(FrameGenerationPresentMixin). While it is on the swapchain uses FIFO, which is what paces the frames (so real
+frames run at refresh / multiplier). Works on Fabric and NeoForge alike (no Streamline, no restart); verified
+2x/4x DLSS and 2x FSR (`RADIANTE_FRAME_GENERATION=fsr`, `RADIANTE_FG_SHOW_GENERATED` shows only generated
+frames). Still to do: create the DLSS feature ahead of time (its first frame holds the game ~2 s), measure latency,
+and a present thread for pacing without V-Sync.
 
 ### Faster settings changes (pipeline cache) — planned
 
@@ -102,22 +114,40 @@ the game has quit, if only `DH-` threads are left, Radiante ends the process
 generated world, the seam where far terrain meets loaded chunks, textured detail for the nearest sections, and
 NeoForge (same jar, untested).
 
-### Frame generation and Reflex on Forge / NeoForge — investigate
+### Reflex on Forge / NeoForge — investigate
 
-With Streamline loaded, Forge and NeoForge crash in the native `createDevice`
-(Fabric is fine). Streamline is now loaded from the first point LWJGL could load
-Vulkan (`VulkanBackend.checkBackendAvailable` / `loadLibrary`), so the timing
-matches Fabric's pre-launch, yet it still crashes, which points at the loaders
-loading the Vulkan library some other way first. Until that is understood both
-opt out (`RadiantePlatform.supportsStreamline`) and hide the two options.
-Found (NeoForge, 2026-09-28): the instance is created through Streamline as on Fabric, and the crash is a call to a
-null function inside device creation, right after the frame generation queues are reserved. On Fabric Streamline is
-loaded on the main thread at pre-launch; on NeoForge only on the render thread, after LWJGL (likely for NeoForge's
+Frame generation no longer needs Streamline; only Reflex does. With Streamline loaded, Forge and NeoForge crash in the
+native `createDevice` (Fabric is fine): on NeoForge Streamline is only loaded on the render thread, after LWJGL (the
 early loading window) has already loaded the system Vulkan library, so Minecraft's Vulkan objects and Streamline's
 come from different loaders. Next: load Streamline before anything touches Vulkan on NeoForge/Forge (an early FML
-hook, or the early window's Vulkan use), then drop the opt-out. A dev run can force it with RADIANTE_DEV_STREAMLINE.
-Also still to check: the Forge jar installed in a real Forge client (the dev run
-works; the hand-nested SnakeYAML only matters outside dev).
+hook), then drop the opt-out (`RadiantePlatform.supportsStreamline`). A dev run can force it with
+RADIANTE_DEV_STREAMLINE. Also still to check: the Forge jar installed in a real Forge client.
+
+### ReSTIR for block lights — done, keep tuning
+
+`common/block_light.glsl` (`sampleBlockLightRestir`): on the surface each pixel sees first, the RIS pick of block
+lights is kept in a reservoir (`restir_reservoir`, two ping-pong halves by `WorldUBO.frameCounter`) and merged with
+the previous frame's reservoir of the same surface and three neighbours around it (normal and distance checked),
+with visibility reuse. Reservoirs store which light (section slot, index, point on it), so broken lights stop being
+picked. Toggle: "ReSTIR Block Lights" (shader pack attribute `restir`, on by default). Measured with DLSS RR in a room
+of 17 lights: same brightness (within 1 %), ~10 % less frame-to-frame flicker, no frame rate change. Still to do:
+MIS weights for less bias, reuse on bounces, and a look without a denoiser (NRD) where the gain is larger.
+
+### NRD 4.17.3 — done
+
+`native/extern/nrd` updated from 4.16.1 (Ljiong's `reblur-sh` fork, which was plain 4.16.1 plus built shaders). API
+changes handled in `nrd_module.cpp` (hit distance D and base colour/metalness input removed). NRD's GLSL header
+needed three local fixes (marked "Radiante: GLSL") where it uses HLSL-only forms; re-apply them on the next update.
+Linux builds need `-DSHADERMAKE_FIND_DXC=OFF` (the DXC download ShaderMake asks for 404s; only SPIR-V is needed).
+
+### Ported from Radiance 0.1.6 — done
+
+- Wet ground in rain (`RainExposure`, `common/rain_wetness.glsl`, option "Wet Ground in Rain").
+- Emission cell occupancy map: chunk builds skip non-emissive quads without locking or searching (`Emission`).
+- NaN-safe depth conversion for the upscalers and frame generation (`linear_to_device_depth.comp`).
+- Cloud shadows exposed as a setting (volumetric clouds; the clouds and the physical atmosphere were already the same
+  as 0.1.6's vanilla-pt, whose changes there were formatting).
+- Still worth a look: the advanced pack's rain splash refraction (a raster post pass), ReSTIR and its clouds.
 
 ### Visual smoke test suite — planned
 

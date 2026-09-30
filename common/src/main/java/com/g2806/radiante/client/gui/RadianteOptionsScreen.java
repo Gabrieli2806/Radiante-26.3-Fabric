@@ -31,6 +31,7 @@ public class RadianteOptionsScreen extends Screen {
     private Integer pendingFarBounceDistance;
     private Integer pendingFarBounces;
     private int pendingGeneratedFrames = Options.frameGeneration ? Options.generatedFrames : 0;
+    private int pendingFrameGenerationBackend = Options.frameGenerationBackend;
     private String pendingCloudMode;
     private int pendingChunkThreads = Options.chunkBuildingThreads;
     private int pendingChunkBatchSize = Options.chunkBuildingBatchSize;
@@ -42,6 +43,8 @@ public class RadianteOptionsScreen extends Screen {
     private int pendingBiomeFogStrength = Options.biomeFogStrength;
     private Boolean pendingVolumetricFog;
     private Boolean pendingMotionBlur;
+    private Boolean pendingCloudShadows;
+    private Boolean pendingRestir;
     // Shader pack settings that cost frame time; null until read from the pipeline, or when the pack lacks them.
     private Integer pendingBounces;
     private Boolean pendingParallax;
@@ -103,6 +106,9 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingBiomeFogStrength = previous.pendingBiomeFogStrength;
         this.pendingVolumetricFog = previous.pendingVolumetricFog;
         this.pendingMotionBlur = previous.pendingMotionBlur;
+        this.pendingCloudShadows = previous.pendingCloudShadows;
+        this.pendingRestir = previous.pendingRestir;
+        this.pendingFrameGenerationBackend = previous.pendingFrameGenerationBackend;
         this.pendingBounces = previous.pendingBounces;
         this.pendingParallax = previous.pendingParallax;
         this.forgetStoredSettings = previous.forgetStoredSettings;
@@ -239,20 +245,19 @@ public class RadianteOptionsScreen extends Screen {
     }
 
     /**
-     * Streamline has to be loaded before Minecraft creates its Vulkan device, so turning frame generation on for the
-     * first time only takes effect after a restart.
+     * Frame generation: DLSS on NVIDIA cards that support it, FSR on the others. It runs in the renderer, so it
+     * switches on and off without a restart. Not offered with HDR output, which presents its own way.
      */
     private OptionInstance<Integer> frameGenerationOption() {
-        if (!usingDlss() || !com.g2806.radiante.platform.RadiantePlatform.INSTANCE.supportsStreamline()) {
-            return null;
+        int max = FrameGeneration.maxGeneratedFrames();
+        String backend = FrameGeneration.backendName();
+        if (FrameGeneration.hasBackendChoice() && this.pendingFrameGenerationBackend != Options.frameGenerationBackend) {
+            // Not applied yet: show the range and name of the one picked.
+            boolean fsr = this.pendingFrameGenerationBackend == 2;
+            max = fsr ? 1 : FrameGeneration.dlssMaxGeneratedFrames();
+            backend = fsr ? "FSR" : "DLSS";
         }
-
-        int max = RendererProxy.maxGeneratedFrames();
-        if (max <= 0 && !RadianteClient.streamlineLoaded()) {
-            // Offer 2x so the player can switch it on; the real maximum shows up after the restart.
-            max = 1;
-        }
-        if (max <= 0) {
+        if (max <= 0 || Options.hdrOutput) {
             return null;
         }
 
@@ -261,12 +266,47 @@ public class RadianteOptionsScreen extends Screen {
             values.add(frames);
         }
 
-        return new OptionInstance<>("options.radiante.frame_generation", tooltip("options.radiante.frame_generation"),
+        String backendName = backend;
+        return new OptionInstance<>("options.radiante.frame_generation",
+            OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.frame_generation.tooltip",
+                backendName == null ? "" : backendName)),
             (caption, value) -> value == 0 ? Component.translatable("options.off")
-                : Component.literal((value + 1) + "x"),
+                : Component.literal((value + 1) + "x" + (backendName == null ? "" : " (" + backendName + ")")),
             new OptionInstance.Enum<>(values, Codec.intRange(0, max)),
             Math.min(this.pendingGeneratedFrames, max), value -> {
                 this.pendingGeneratedFrames = value;
+                refreshQualityLater();
+            });
+    }
+
+    /** ReSTIR for block lights, where the shader pack has it. */
+    private OptionInstance<Boolean> restirOption() {
+        if (!Pipeline.supportsShaderPackToggle(Pipeline.RESTIR_ATTRIBUTE)) {
+            return null;
+        }
+        if (this.pendingRestir == null) {
+            this.pendingRestir = Pipeline.isShaderPackToggleOn(Pipeline.RESTIR_ATTRIBUTE);
+        }
+        return OptionInstance.createBoolean("options.radiante.restir", tooltip("options.radiante.restir"),
+            this.pendingRestir, value -> this.pendingRestir = value);
+    }
+
+    /** DLSS or FSR frame generation, offered where the GPU runs both (FSR works next to any upscaler). */
+    private OptionInstance<Integer> frameGenerationBackendOption() {
+        if (!FrameGeneration.hasBackendChoice() || Options.hdrOutput) {
+            return null;
+        }
+        return new OptionInstance<>("options.radiante.frame_generation_backend",
+            tooltip("options.radiante.frame_generation_backend"),
+            (caption, value) -> Component.translatable(switch (value) {
+                case 1 -> "options.radiante.frame_generation_backend.dlss";
+                case 2 -> "options.radiante.frame_generation_backend.fsr";
+                default -> "options.radiante.frame_generation_backend.auto";
+            }),
+            new OptionInstance.Enum<>(List.of(0, 1, 2), Codec.intRange(0, 2)), this.pendingFrameGenerationBackend,
+            value -> {
+                this.pendingFrameGenerationBackend = value;
+                // The multiplier's range follows the backend (FSR: 2x only).
                 refreshQualityLater();
             });
     }
@@ -281,13 +321,9 @@ public class RadianteOptionsScreen extends Screen {
         return Options.hdrOutput != com.g2806.radiante.client.hdr.HdrDisplay.isActive();
     }
 
-    /**
-     * Frame generation or Reflex chosen while Streamline is not loaded: it is loaded only at start. (Changing the
-     * frame count, or turning them off, works without a restart once it is.)
-     */
+    /** Reflex chosen while Streamline is not loaded: it is loaded only at start. */
     private boolean streamlinePending() {
-        boolean wanted = this.pendingGeneratedFrames > 0 || this.pendingReflex;
-        return wanted && !RadianteClient.streamlineLoaded();
+        return this.pendingReflex && !RadianteClient.streamlineLoaded();
     }
 
     /** What the player changed that needs the game started again, for the notice after leaving. */
@@ -295,9 +331,6 @@ public class RadianteOptionsScreen extends Screen {
         List<Component> changes = new ArrayList<>();
         if (hdrPending()) {
             changes.add(Component.translatable("options.radiante.hdr_output"));
-        }
-        if (this.pendingGeneratedFrames > 0 && !RadianteClient.streamlineLoaded()) {
-            changes.add(Component.translatable("options.radiante.frame_generation"));
         }
         if (this.pendingReflex && !RadianteClient.streamlineLoaded()) {
             changes.add(Component.translatable("options.radiante.reflex"));
@@ -420,6 +453,8 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingBiomeFogStrength = 100;
         this.pendingVolumetricFog = Pipeline.supportsVolumetricFog() ? Boolean.TRUE : null;
         this.pendingMotionBlur = Boolean.FALSE;
+        this.pendingCloudShadows = Boolean.FALSE;
+        this.pendingRestir = Boolean.TRUE;
         this.pendingDepthOfField = Boolean.FALSE;
         this.pendingReflex = false;
         // The shader pack's own defaults.
@@ -569,7 +604,7 @@ public class RadianteOptionsScreen extends Screen {
         }
         this.frameGenerationToggle = frameGeneration;
         this.reflexToggle = reflex;
-        addRows(preset, dlssMode, upscalerModeOption(), frameGeneration, reflex);
+        addRows(preset, dlssMode, upscalerModeOption(), frameGenerationBackendOption(), frameGeneration, reflex);
     }
 
     private void addImageOptions() {
@@ -635,6 +670,7 @@ public class RadianteOptionsScreen extends Screen {
                     Options.blockLightSampling = value;
                     refreshQualityLater();
                 }),
+            restirOption(),
             OptionInstance.createBoolean("options.radiante.held_item_light",
                 tooltip("options.radiante.held_item_light"), Options.heldItemLight,
                 value -> Options.heldItemLight = value),
@@ -664,7 +700,17 @@ public class RadianteOptionsScreen extends Screen {
             volumetricStrength = brightnessSlider("options.radiante.volumetric_fog_strength",
                 Options.volumetricFogStrength, value -> Options.volumetricFogStrength = value);
         }
-        addRows(atmosphere, clouds, tunable(Tunable.SUN_GLOW, false), tunable(Tunable.LIGHT_SHAFTS, false),
+        OptionInstance<Boolean> cloudShadows = null;
+        if (Pipeline.supportsShaderPackToggle(Pipeline.CLOUD_SHADOWS_ATTRIBUTE)) {
+            if (this.pendingCloudShadows == null) {
+                this.pendingCloudShadows = Pipeline.isShaderPackToggleOn(Pipeline.CLOUD_SHADOWS_ATTRIBUTE);
+            }
+            cloudShadows = OptionInstance.createBoolean("options.radiante.cloud_shadows",
+                tooltip("options.radiante.cloud_shadows"), this.pendingCloudShadows,
+                value -> this.pendingCloudShadows = value);
+        }
+        addRows(atmosphere, clouds, cloudShadows, tunable(Tunable.SUN_GLOW, false),
+            tunable(Tunable.LIGHT_SHAFTS, false),
             OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
                 Options.vanillaSunPath, value -> Options.vanillaSunPath = value),
@@ -672,6 +718,9 @@ public class RadianteOptionsScreen extends Screen {
                 OptionInstance.cachedConstantTooltip(
                     Component.translatable("options.radiante.vanilla_celestial_orientation.tooltip")),
                 Options.vanillaCelestialOrientation, value -> Options.vanillaCelestialOrientation = value),
+            OptionInstance.createBoolean("options.radiante.rain_wetness",
+                tooltip("options.radiante.rain_wetness"), Options.rainWetness,
+                value -> Options.rainWetness = value),
             OptionInstance.createBoolean("options.radiante.biome_fog",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
                 this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
@@ -800,16 +849,22 @@ public class RadianteOptionsScreen extends Screen {
                     this.minecraft.gui.setScreen(fresh);
                 },
                 () -> {
-                    RadianteOptionsScreen fresh = new RadianteOptionsScreen(this.lastScreen, this.options);
-                    fresh.scroll = this.layout.scroll();
-                    applyAndOpen(fresh);
+                    // The fresh screen reads the settings back when it is built, so only once they are applied:
+                    // built before, it showed (and on leaving wrote back) the old frame generation, Reflex and the
+                    // other values kept in Options, so a change had to be applied twice to stick.
+                    double scroll = this.layout.scroll();
+                    applyAndOpen(() -> {
+                        RadianteOptionsScreen fresh = new RadianteOptionsScreen(this.lastScreen, this.options);
+                        fresh.scroll = scroll;
+                        return fresh;
+                    });
                 },
                 this::onClose),
             value -> this.scroll = value);
         this.layout.restartInfo(new SettingsLayout.RestartInfo() {
             @Override
             public boolean needsRestart(OptionInstance<?> option) {
-                return option == hdrToggle || option == frameGenerationToggle || option == reflexToggle;
+                return option == hdrToggle || option == reflexToggle;
             }
 
             @Override
@@ -817,7 +872,7 @@ public class RadianteOptionsScreen extends Screen {
                 if (option == hdrToggle) {
                     return hdrPending();
                 }
-                if (option == frameGenerationToggle || option == reflexToggle) {
+                if (option == reflexToggle) {
                     return streamlinePending();
                 }
                 return false;
@@ -906,9 +961,12 @@ public class RadianteOptionsScreen extends Screen {
         if (this.pendingDebugLogging != Options.debugLogging) {
             Options.setDebugLogging(this.pendingDebugLogging, false);
         }
-        if (!usingDlss()) {
+        if (FrameGeneration.maxGeneratedFrames() <= 0) {
             this.pendingGeneratedFrames = 0;
         }
+        Options.frameGenerationBackend = this.pendingFrameGenerationBackend;
+        FrameGeneration.applyBackend();
+        this.pendingGeneratedFrames = Math.min(this.pendingGeneratedFrames, FrameGeneration.maxGeneratedFrames());
         boolean wantsFrameGeneration = this.pendingGeneratedFrames > 0;
         if (wantsFrameGeneration != Options.frameGeneration || this.pendingGeneratedFrames != Options.generatedFrames) {
             Options.frameGeneration = wantsFrameGeneration;
@@ -957,6 +1015,12 @@ public class RadianteOptionsScreen extends Screen {
         if (this.pendingMotionBlur != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE, this.pendingMotionBlur);
         }
+        if (this.pendingRestir != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.RESTIR_ATTRIBUTE, this.pendingRestir);
+        }
+        if (this.pendingCloudShadows != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.CLOUD_SHADOWS_ATTRIBUTE, this.pendingCloudShadows);
+        }
         if (this.pendingDepthOfField != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE, this.pendingDepthOfField);
         }
@@ -983,11 +1047,18 @@ public class RadianteOptionsScreen extends Screen {
 
     /** Opens the next screen, through the rebuild's wait screen when the pipeline has to be built again. */
     private void applyAndOpen(Screen next) {
+        applyAndOpen(() -> next);
+    }
+
+    /** {@code next} is only made after the changes are applied, so a new settings screen shows them. */
+    private void applyAndOpen(java.util.function.Supplier<Screen> nextAfterApply) {
         List<Component> restart = restartChanges();
+        boolean rebuild = applyChanges();
+        Screen next = nextAfterApply.get();
         if (!restart.isEmpty()) {
             next = new RestartRequiredScreen(next, restart);
         }
-        if (applyChanges()) {
+        if (rebuild) {
             this.minecraft.gui.setScreen(new ApplyingSettingsScreen(next));
         } else {
             this.minecraft.gui.setScreen(next);

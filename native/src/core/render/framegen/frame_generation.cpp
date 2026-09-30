@@ -2,6 +2,25 @@
 
 #include "core/render/framegen/streamline.hpp"
 
+namespace {
+// The pipeline images frame generation reads (Streamline or not).
+int g_depthSlot = -1;
+int g_motionVectorSlot = -1;
+} // namespace
+
+void framegen::FrameGeneration::setImageSlots(int depthSlot, int motionVectorSlot) {
+    g_depthSlot = depthSlot;
+    g_motionVectorSlot = motionVectorSlot;
+}
+
+int framegen::FrameGeneration::depthSlot() {
+    return g_depthSlot;
+}
+
+int framegen::FrameGeneration::motionVectorSlot() {
+    return g_motionVectorSlot;
+}
+
 #ifdef MCVR_ENABLE_STREAMLINE
 
 #include "core/render/buffers.hpp"
@@ -25,9 +44,6 @@
 #include "core/util/logging.hpp"
 
 namespace {
-
-int g_depthSlot = -1;
-int g_motionVectorSlot = -1;
 
 bool g_hasPrevious = false;
 bool g_enabled = false;
@@ -104,21 +120,8 @@ bool resolveApi() {
 
 } // namespace
 
-void framegen::FrameGeneration::setImageSlots(int depthSlot, int motionVectorSlot) {
-    g_depthSlot = depthSlot;
-    g_motionVectorSlot = motionVectorSlot;
-}
-
 int framegen::FrameGeneration::presentedFrameRate() {
     return g_presentedPerSecond;
-}
-
-int framegen::FrameGeneration::depthSlot() {
-    return g_depthSlot;
-}
-
-int framegen::FrameGeneration::motionVectorSlot() {
-    return g_motionVectorSlot;
 }
 
 void framegen::FrameGeneration::reset() {
@@ -305,18 +308,8 @@ void framegen::FrameGeneration::beginFrame(std::shared_ptr<vk::DeviceLocalImage>
 
 #else
 
-void framegen::FrameGeneration::setImageSlots(int, int) {}
-
 int framegen::FrameGeneration::presentedFrameRate() {
     return 0;
-}
-
-int framegen::FrameGeneration::depthSlot() {
-    return -1;
-}
-
-int framegen::FrameGeneration::motionVectorSlot() {
-    return -1;
 }
 
 void framegen::FrameGeneration::reset() {}

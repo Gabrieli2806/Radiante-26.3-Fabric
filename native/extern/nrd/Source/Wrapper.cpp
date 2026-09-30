@@ -66,7 +66,6 @@ const char* g_NrdResourceTypeNames[] = {
     "IN_DIFF_CONFIDENCE",
     "IN_SPEC_CONFIDENCE",
     "IN_DISOCCLUSION_THRESHOLD_MIX",
-    "IN_BASECOLOR_METALNESS",
     "IN_PENUMBRA",
     "IN_TRANSLUCENCY",
     "IN_SIGNAL",
@@ -87,7 +86,7 @@ const char* g_NrdResourceTypeNames[] = {
     "TRANSIENT_POOL",
     "PERMANENT_POOL",
 };
-static_assert(GetCountOf(g_NrdResourceTypeNames) == (uint32_t)nrd::ResourceType::MAX_NUM);
+static_assert(nrd::GetCountOf(g_NrdResourceTypeNames) == (uint32_t)nrd::ResourceType::MAX_NUM);
 
 const char* g_NrdDenoiserNames[] = {
     "REBLUR_DIFFUSE",
@@ -113,7 +112,7 @@ const char* g_NrdDenoiserNames[] = {
 
     "REFERENCE",
 };
-static_assert(GetCountOf(g_NrdDenoiserNames) == (uint32_t)nrd::Denoiser::MAX_NUM);
+static_assert(nrd::GetCountOf(g_NrdDenoiserNames) == (uint32_t)nrd::Denoiser::MAX_NUM);
 
 #if _WIN32
 

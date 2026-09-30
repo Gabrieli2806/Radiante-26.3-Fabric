@@ -27,7 +27,6 @@ void NrdModule::updateReblurSettings() {
     settings.hitDistanceParameters.A = std::max(settings.hitDistanceParameters.A, 0.0f);
     settings.hitDistanceParameters.B = std::max(settings.hitDistanceParameters.B, 0.0f);
     settings.hitDistanceParameters.C = std::max(settings.hitDistanceParameters.C, 1.0f);
-    settings.hitDistanceParameters.D = std::min(settings.hitDistanceParameters.D, 0.0f);
 
     settings.antilagSettings.luminanceSigmaScale = std::clamp(settings.antilagSettings.luminanceSigmaScale, 1.0f, 5.0f);
     settings.antilagSettings.luminanceSensitivity =
@@ -231,7 +230,7 @@ void NrdModule::setAttributes(int attributeCount, std::vector<std::string> &attr
         } else if (key == "render_pipeline.module.nrd.attribute.hit_distance_parameters_c") {
             reblurSettings_.hitDistanceParameters.C = parseFloat(value, reblurSettings_.hitDistanceParameters.C);
         } else if (key == "render_pipeline.module.nrd.attribute.hit_distance_parameters_d") {
-            reblurSettings_.hitDistanceParameters.D = parseFloat(value, reblurSettings_.hitDistanceParameters.D);
+            // NRD 4.17.2 dropped D (a remapped roughness is used instead); the attribute is kept and ignored.
         } else if (key == "render_pipeline.module.nrd.attribute.antilag_luminance_sigma_scale") {
             reblurSettings_.antilagSettings.luminanceSigmaScale =
                 parseFloat(value, reblurSettings_.antilagSettings.luminanceSigmaScale);
@@ -496,7 +495,6 @@ void NrdModule::initImages() {
                                          VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
         prepareDescriptorTables_[i]->bindImage(nrdLinearDepthImages_[i], VK_IMAGE_LAYOUT_GENERAL, 1, 4);
         userTexturePools_[i]->at((size_t)nrd::ResourceType::IN_VIEWZ) = nrdLinearDepthImages_[i];
-        userTexturePools_[i]->at((size_t)nrd::ResourceType::IN_BASECOLOR_METALNESS) = diffuseAlbedoMetallicImages_[i];
 
         composeDescriptorTables_[i]->bindImage(diffuseAlbedoMetallicImages_[i], VK_IMAGE_LAYOUT_GENERAL, 0, 0);
         composeDescriptorTables_[i]->bindImage(specularAlbedoImages_[i], VK_IMAGE_LAYOUT_GENERAL, 0, 1);
@@ -717,7 +715,6 @@ void NrdModuleContext::render() {
         commonSettings.disocclusionThresholdAlternate = 0.15f;
         commonSettings.isMotionVectorInWorldSpace = false;
 
-        commonSettings.isBaseColorMetalnessAvailable = true;
         commonSettings.isDisocclusionThresholdMixAvailable = false;
         commonSettings.enableValidation = false;
 

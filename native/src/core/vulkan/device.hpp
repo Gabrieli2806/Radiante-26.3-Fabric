@@ -24,6 +24,8 @@ class Device : public SharedObject<Device> {
     bool hasExtendedDynamicState2LogicOp() const;
     bool isDlssDeviceExtensionsCompatible() const;
     bool isXessDeviceExtensionsCompatible() const;
+    bool isDlssFrameGenerationDeviceExtensionsCompatible() const;
+    bool isFsrFrameGenerationDeviceExtensionsCompatible() const;
 
     static VkResult createMerged(VkPhysicalDevice physicalDevice,
                                  const VkDeviceCreateInfo *baseInfo,

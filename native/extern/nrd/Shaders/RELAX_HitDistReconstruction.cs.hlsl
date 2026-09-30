@@ -57,12 +57,12 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     if (isSky != 0.0 || pixelPos.x >= gRectSize.x || pixelPos.y >= gRectSize.y)
         return;
 
-    int2 smemPos = threadPos + BORDER;
+    int2 smemPos = threadPos + NRD_BORDER;
     float3 centerHitdistViewZ = s_HitDist_ViewZ[smemPos.y][smemPos.x];
     float centerViewZ = centerHitdistViewZ.z;
 
     // Early out
-    if (centerViewZ > gDenoisingRange)
+    if (!IsInDenoisingRange( centerViewZ ))
         return;
 
     // Center data
@@ -91,12 +91,12 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
 #endif
 
     [unroll]
-    for (int dy = 0; dy <= BORDER * 2; dy++)
+    for (int dy = 0; dy <= NRD_BORDER * 2; dy++)
     {
         [unroll]
-        for (int dx = 0; dx <= BORDER * 2; dx++)
+        for (int dx = 0; dx <= NRD_BORDER * 2; dx++)
         {
-            int2 o = int2(dx, dy) - BORDER;
+            int2 o = int2(dx, dy) - NRD_BORDER;
 
             if (o.x == 0 && o.y == 0)
                 continue;
@@ -111,7 +111,7 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
             float angle = Math::AcosApprox(cosa);
 
             float w = IsInScreenNearest(pixelUv + o * gRectSizeInv);
-            w *= float(sampleViewZ < gDenoisingRange);
+            w *= IsInDenoisingRange( sampleViewZ );
             w *= GetGaussianWeight(length(o) * 0.5);
             w *= GetBilateralWeight(sampleViewZ, centerViewZ);
 

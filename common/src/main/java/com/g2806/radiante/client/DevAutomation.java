@@ -167,7 +167,8 @@ public final class DevAutomation {
                 Integer.parseInt(v[1]), Integer.parseInt(v[2])), Integer.parseInt(v[3]));
         } else if (action.startsWith("fps=")) {
             // Frames drawn in the last second, for comparing settings from a fixed camera.
-            RadianteClient.LOGGER.info("[dev] fps {} {}", action.substring(4), minecraft.getFps());
+            RadianteClient.LOGGER.info("[dev] fps {} {} presented {}", action.substring(4), minecraft.getFps(),
+                com.g2806.radiante.client.render.FrameGeneration.presentedFrameRate());
         } else if (action.startsWith("rainmv=")) {
             com.g2806.radiante.client.render.EntityManager.rainMotion = Boolean.parseBoolean(action.substring(7));
         } else if (action.startsWith("hold=") || action.startsWith("release=")) {
@@ -208,6 +209,11 @@ public final class DevAutomation {
                 case "dlss" -> com.g2806.radiante.client.pipeline.Pipeline.setDlssMode(
                     com.g2806.radiante.client.pipeline.Pipeline.DLSS_MODES.get(Integer.parseInt(parts[1])));
                 case "fog" -> com.g2806.radiante.client.pipeline.Pipeline.setVolumetricFog(Boolean.parseBoolean(parts[1]));
+                // preset:<preset key>, e.g. the NRD + FSR pipeline.
+                case "preset" -> {
+                    com.g2806.radiante.client.pipeline.Pipeline.switchToPresetMode(parts[1], false);
+                    yield true;
+                }
                 case "clouds" -> com.g2806.radiante.client.pipeline.Pipeline.setCloudMode(
                     com.g2806.radiante.client.pipeline.Pipeline.CLOUD_MODES.get(Integer.parseInt(parts[1])));
                 // attr:<attribute name>:<value>, any shader pack attribute.

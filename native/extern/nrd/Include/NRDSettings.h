@@ -11,7 +11,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #pragma once
 
 #define NRD_SETTINGS_VERSION_MAJOR 4
-#define NRD_SETTINGS_VERSION_MINOR 16
+#define NRD_SETTINGS_VERSION_MINOR 17
 
 static_assert(NRD_VERSION_MAJOR == NRD_SETTINGS_VERSION_MAJOR && NRD_VERSION_MINOR == NRD_SETTINGS_VERSION_MINOR, "Please, update all NRD SDK files");
 
@@ -37,14 +37,14 @@ namespace nrd
     //     BLACK and WHITE modes define cells with VALID data
     // Checkerboard can be only horizontal
     // Notes:
-    //     - if checkerboarding is enabled, "mode" defines the orientation of even numbered frames
-    //     - all inputs have the same resolution - logical FULL resolution
-    //     - noisy input signals ("IN_DIFF_XXX / IN_SPEC_XXX") are tightly packed to the LEFT HALF of the texture (the input pixel = 2x1 screen pixel)
-    //     - for others the input pixel = 1x1 screen pixel
-    //     - upsampling will be handled internally in checkerboard mode
+    //  - if checkerboarding is enabled, "mode" defines the orientation of even numbered frames
+    //  - all inputs must have the same resolution - logical FULL resolution
+    //  - noisy input signals ("IN_DIFF_XXX / IN_SPEC_XXX") are tightly packed to the LEFT HALF of the texture (the input pixel = 2x1 screen pixel)
+    //  - for others the input pixel = 1x1 screen pixel
+    //  - upsampling is handled internally in checkerboard mode
     enum class CheckerboardMode : uint8_t
     {
-        OFF,
+        OFF,        // RECOMMENDED (probabilistic lobe selection at the primary/PSR hit is the best choice, see "HitDistanceReconstructionMode")
         BLACK,
         WHITE,
 
@@ -54,12 +54,12 @@ namespace nrd
     enum class AccumulationMode : uint8_t
     {
         // Common mode (accumulation continues normally)
-        CONTINUE,
+        CONTINUE,   // RECOMMENDED (no overhead from history loss)
 
         // Discards history and resets accumulation
         RESTART,
 
-        // Like RESTART, but additionally clears resources from potential garbage
+        // Like RESTART, but additionally clears resources from potential garbage (slow)
         CLEAR_AND_RESTART,
 
         MAX_NUM
@@ -71,9 +71,9 @@ namespace nrd
         OFF,
 
         // If hit distance is invalid due to probabilistic sampling, it's reconstructed using 3x3 (or 5x5) neighbors.
-        // Probability at primary hit must be clamped to [1/4; 3/4] (or [1/16; 15/16) range to guarantee a sample in this area.
+        // Probability at primary hit must be clamped to [1/4; 3/4] (or [1/16; 15/16]) range to guarantee a sample in this area.
         // White noise must be replaced with Bayer dithering to gurantee a sample in this area (see NRD sample)
-        AREA_3X3, // RECOMMENDED
+        AREA_3X3,   // RECOMMENDED (better sampling and denoising quality)
         AREA_5X5,
 
         MAX_NUM
@@ -84,9 +84,9 @@ namespace nrd
     struct CommonSettings
     {
         // Matrix requirements:
-        //     - usage - vector is a column
-        //     - layout - column-major
-        //     - non jittered!
+        //  - usage - vector is a column
+        //  - layout - column-major
+        //  - non jittered!
         // LH / RH projection matrix (INF far plane is supported) with non-swizzled rows, i.e. clip-space depth = z / w
         float viewToClipMatrix[16] = {};
 
@@ -130,6 +130,7 @@ namespace nrd
         float timeDeltaBetweenFrames = 0.0f;
 
         // (units > 0) - use TLAS or tracing range
+        // Pixels with "viewZ < denoisingRange" are considered valid, others are ignored
         // It's highly recommended to use "viewZ > denoisingRange" for INF (sky) pixels
         float denoisingRange = 500000.0f;
 
@@ -164,8 +165,9 @@ namespace nrd
         float debug = 0.0f;
 
         // (Optional) (pixels) - viewport origin
-        // IMPORTANT: gets applied only to non-noisy guides (aka g-buffer), including "IN_DIFF_CONFIDENCE", "IN_SPEC_CONFIDENCE",
-        // "IN_DISOCCLUSION_THRESHOLD_MIX" and "IN_BASECOLOR_METALNESS". Used only if "NRD_SUPPORTS_VIEWPORT_OFFSET = 1"
+        // IMPORTANT: gets applied only to non-noisy guides (aka g-buffer):
+        // - excluding: "IN_DIFF_CONFIDENCE", "IN_SPEC_CONFIDENCE" and "IN_DISOCCLUSION_THRESHOLD_MIX"
+        // Used only if "NRD_SUPPORTS_VIEWPORT_OFFSET = 1"
         uint32_t rectOrigin[2] = {};
 
         // A consecutively growing number. Valid usage:
@@ -187,9 +189,6 @@ namespace nrd
         // If "true" "IN_DISOCCLUSION_THRESHOLD_MIX" is available
         bool isDisocclusionThresholdMixAvailable = false;
 
-        // If "true" "IN_BASECOLOR_METALNESS" is available
-        bool isBaseColorMetalnessAvailable = false;
-
         // Enables debug overlay in OUT_VALIDATION
         bool enableValidation = false;
     };
@@ -202,8 +201,10 @@ namespace nrd
     const float REBLUR_DEFAULT_ACCUMULATION_TIME = 0.5f; // sec
 
     // "Normalized hit distance" = saturate( "hit distance" / f ), where:
-    // f = ( A + viewZ * B ) * lerp( 1.0, C, exp2( D * roughness ^ 2 ) ), see "NRD.hlsl/REBLUR_FrontEnd_GetNormHitDist"
-    struct HitDistanceParameters
+    // f = ( A + viewZ * B ) * lerp( C, 1.0, smc )
+    //  - smc = F( roughness ) - represents lobe spread
+    //  - see "NRD.hlsli/_REBLUR_GetHitDistanceNormalization"
+    struct ReblurHitDistanceParameters
     {
         // (units > 0) - constant value
         float A = 3.0f;
@@ -211,23 +212,21 @@ namespace nrd
         // (> 0) - viewZ based linear scale (1 m - 10 cm, 10 m - 1 m, 100 m - 10 m)
         float B = 0.1f;
 
-        // (>= 1) - roughness based scale, use values > 1 to get bigger hit distance for low roughness
+        // (>= 1) - roughness based scale, use values > 1 to clamp hit distance to a larger value for low roughness
         float C = 20.0f;
-
-        // (<= 0) - absolute value should be big enough to collapse "exp2( D * roughness ^ 2 )" to "~0" for roughness = 1
-        float D = -25.0f;
     };
 
+    // Use the validation layer output to ensure that under complicated lighting conditions "diff/spec frames" visualization stays in the "violet" zone
     struct ReblurAntilagSettings
     {
-        // [1; 5] - delta is reduced by local variance multiplied by this value
-        float luminanceSigmaScale = 4.0f; // can be 3.0 or even less if signal is good
+        // (> 0) - luminance gradient (delta) gets reduced by local variance multiplied by this value
+        float luminanceSigmaScale = 2.0f; // old default was 4.0
 
-        // [1; 5] - antilag sensitivity (smaller values increase sensitivity)
-        float luminanceSensitivity = 3.0f; // can be 2.0 or even less if signal is good
+        // (> 0) - sensitivity (smaller values increase sensitivity)
+        float luminanceSensitivity = 3.0f;
     };
 
-    struct ResponsiveAccumulationSettings
+    struct ReblurResponsiveAccumulationSettings
     {
         // [0; 1] - if roughness < roughnessThreshold, temporal accumulation becomes responsive and driven by roughness (useful for animated water)
         // maxAccumulatedFrameNum *= smoothstep( 0, 1, max( roughness, 1e-3 ) / max( roughnessThreshold, 1e-3 ) )
@@ -238,27 +237,44 @@ namespace nrd
         uint32_t minAccumulatedFrameNum = 3;
     };
 
+    struct ReblurConvergenceSettings
+    {
+        // REBLUR uses "f = 1 / (1 + k * N)" formula, where "N" is the number of accumulated frames, to drive denoising process. Smaller "f" mean "higher convergence, higher confidence"
+        // Before v4.17:
+        //  - "k = 1" was implicitly assumed
+        // Starting from v4.17:
+        //  - k = s * lerp( b, 1, saturate( N / ( 1 + f * maxAccumulatedFrameNum ) ) )
+        //  - b < 1 - allows to "do more" denoising after a history reset (a blurry result is better on average than a dirty result)
+        //  - s > 1 - allows to "do less" denoising for a short accumulation, i.e. "maxAccumulatedFrameNum" is low (blurriness is undesired for clean signals)
+        //  - b = 1, b = 1 - matches old behavior
+        // Interactive sandbox: https://www.desmos.com/calculator/6h9ydbvm1y
+        float s = 1.0f; // (> 0) - overall scale, how fast "f" approaches "0"
+        float b = 0.2f; // [0; 1] - controls "short history" behavior
+        float p = 0.8f; // (normalized %) - percentage of "maxAccumulatedFrameNum" affected by "b"
+    };
+
     struct ReblurSettings
     {
-        HitDistanceParameters hitDistanceParameters = {};
+        ReblurHitDistanceParameters hitDistanceParameters = {};
         ReblurAntilagSettings antilagSettings = {};
-        ResponsiveAccumulationSettings responsiveAccumulationSettings = {};
+        ReblurResponsiveAccumulationSettings responsiveAccumulationSettings = {};
+        ReblurConvergenceSettings convergenceSettings = {};
 
         // [0; REBLUR_MAX_HISTORY_FRAME_NUM] - maximum number of linearly accumulated frames
         // Always accumulate in "seconds" not in "frames", use "GetMaxAccumulatedFrameNum" for conversion
         uint32_t maxAccumulatedFrameNum = 30;
 
-        // [0; maxAccumulatedFrameNum) - maximum number of linearly accumulated frames for fast history
+        // [0; maxAccumulatedFrameNum] - maximum number of linearly accumulated frames for fast history
         // Values ">= maxAccumulatedFrameNum" disable fast history
         // Usually 5x-7x times shorter than the main history (casting more rays, using SHARC or other signal improving techniques help to accumulate less)
         uint32_t maxFastAccumulatedFrameNum = 6;
 
         // [0; maxAccumulatedFrameNum] - maximum number of linearly accumulated frames for stabilized radiance
         // "0" disables the stabilization pass
-        // Values ">= maxAccumulatedFrameNum"  get clamped to "maxAccumulatedFrameNum"
+        // Values ">= maxAccumulatedFrameNum" get clamped to "maxAccumulatedFrameNum"
         uint32_t maxStabilizedFrameNum = REBLUR_MAX_HISTORY_FRAME_NUM;
 
-        // [0; 3] - number of reconstructed frames after history reset (less than "maxFastAccumulatedFrameNum")
+        // [0; maxFastAccumulatedFrameNum) - number of reconstructed frames after history reset
         uint32_t historyFixFrameNum = 3;
 
         // (> 0) - base stride between pixels in 5x5 history reconstruction kernel
@@ -308,8 +324,8 @@ namespace nrd
         // Must be used only in case of probabilistic sampling (not checkerboarding), when a pixel can be skipped and have "0" (invalid) hit distance
         HitDistanceReconstructionMode hitDistanceReconstructionMode = HitDistanceReconstructionMode::OFF;
 
-        // Adds bias in case of badly defined signals, but tries to fight with fireflies
-        bool enableAntiFirefly = false;
+        // Helps to mitigate fireflies emphasized by DLSS. Very cheap and unbiased in most of the cases, better keep in enabled to maximize quality
+        bool enableAntiFirefly = true;
 
         // In rare cases, when bright samples are so sparse that any other bright neighbor can't
         // be reached, pre-pass transforms a standalone bright pixel into a standalone bright blob,

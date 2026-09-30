@@ -5,6 +5,7 @@ render_pipeline.module.ray_tracing.attribute.cloud_mode=云模式
 render_pipeline.module.ray_tracing.attribute.cloud_mode.off=关闭
 render_pipeline.module.ray_tracing.attribute.cloud_mode.vanilla=原版
 render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric=体积云
+render_pipeline.module.ray_tracing.attribute.restir=ReSTIR 方块光源
 render_pipeline.module.ray_tracing.attribute.capture_volumetric_cloud_indirect=间接光线捕捉体积云
 render_pipeline.module.ray_tracing.attribute.volumetric_cloud_temporal_accumulation=体积云时间积累
 render_pipeline.module.ray_tracing.attribute.indirect_volumetric_cloud_view_steps=间接体积云视线步数

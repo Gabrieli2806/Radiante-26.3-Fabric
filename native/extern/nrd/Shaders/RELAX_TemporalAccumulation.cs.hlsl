@@ -20,6 +20,13 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 
 groupshared float4 sharedNormalSpecHitT[BUFFER_Y][BUFFER_X];
 
+float ApplyThinLensEquation( float O, float curvature ) // TODO: delete and use code from REBLUR?
+{
+    float I = O / ( 2.0 * curvature * O + 1.0 );
+
+    return I;
+}
+
 float isReprojectionTapValid(float3 currentWorldPos, float3 previousWorldPos, float3 currentNormal, float disocclusionThreshold)
 {
     // Check if plane distance is acceptable
@@ -54,8 +61,8 @@ float loadSurfaceMotionBasedPrevData(
     , out float4 prevDiffuseIllumAnd2ndMoment
     , out float3 prevDiffuseResponsiveIllum
     #if( NRD_MODE == SH )
-        , out float4 prevDiffuseSH
-        , out float4 prevDiffuseResponsiveSH
+        , out RELAX_SH_TYPE prevDiffuseSH
+        , out RELAX_SH_TYPE prevDiffuseResponsiveSH
     #endif
 #endif
 #if( NRD_SPEC )
@@ -63,8 +70,8 @@ float loadSurfaceMotionBasedPrevData(
     , out float3 prevSpecularResponsiveIllum
     , out float  prevReflectionHitT
     #if( NRD_MODE == SH )
-        , out float4 prevSpecularSH
-        , out float4 prevSpecularResponsiveSH
+        , out RELAX_SH_TYPE prevSpecularSH
+        , out RELAX_SH_TYPE prevSpecularResponsiveSH
     #endif
 #endif
 )
@@ -187,12 +194,12 @@ float loadSurfaceMotionBasedPrevData(
     // Fitering previous SH data
 #if( NRD_MODE == SH )
     #if( NRD_DIFF )
-        prevDiffuseSH = BilinearWithCustomWeightsFloat4(gHistory_DiffSh, bilinearOrigin, bilinearCustomWeights);
-        prevDiffuseResponsiveSH = BilinearWithCustomWeightsFloat4(gHistory_DiffShFast, bilinearOrigin, bilinearCustomWeights);
+        prevDiffuseSH = BilinearWithCustomWeightsSH(gHistory_DiffSh, bilinearOrigin, bilinearCustomWeights);
+        prevDiffuseResponsiveSH = BilinearWithCustomWeightsSH(gHistory_DiffShFast, bilinearOrigin, bilinearCustomWeights);
     #endif
     #if( NRD_SPEC )
-        prevSpecularSH = BilinearWithCustomWeightsFloat4(gHistory_SpecSh, bilinearOrigin, bilinearCustomWeights);
-        prevSpecularResponsiveSH = BilinearWithCustomWeightsFloat4(gHistory_SpecShFast, bilinearOrigin, bilinearCustomWeights);
+        prevSpecularSH = BilinearWithCustomWeightsSH(gHistory_SpecSh, bilinearOrigin, bilinearCustomWeights);
+        prevSpecularResponsiveSH = BilinearWithCustomWeightsSH(gHistory_SpecShFast, bilinearOrigin, bilinearCustomWeights);
     #endif
 #endif
 
@@ -231,15 +238,10 @@ float loadVirtualMotionBasedPrevData(
     float3 currentWorldPos,
     float3 currentNormal,
     float currentLinearZ,
-    float hitDistFocused,
-    float hitDistOriginal,
-    float3 currentViewVector,
-    float3 prevWorldPos,
+    float3 virtualWorldPos,
     bool surfaceBicubicValid,
     float currentMaterialID,
     float2 prevUVSMB,
-    float smbParallaxInPixelsMax,
-    float NoV,
     float disocclusionThreshold,
     out float4 prevSpecularIllumAnd2ndMoment,
     out float4 prevSpecularResponsiveIllum,
@@ -248,19 +250,13 @@ float loadVirtualMotionBasedPrevData(
     out float prevReflectionHitT,
     out float2 prevUVVMB
     #if( NRD_MODE == SH )
-        , out float4 prevSpecularSH
-        , out float4 prevSpecularResponsiveSH
+        , out RELAX_SH_TYPE prevSpecularSH
+        , out RELAX_SH_TYPE prevSpecularResponsiveSH
     #endif
     )
 {
     // Calculating previous worldspace virtual position based on reflection hitT
-    float3 virtualViewVector = normalize(currentViewVector) * hitDistFocused;
-    float3 prevVirtualWorldPos = prevWorldPos + virtualViewVector;
-
-    float currentViewVectorLength = length(currentViewVector);
-    float accumulatedSpecularVMBZ = currentViewVectorLength + hitDistFocused;
-
-    float4 prevVirtualClipPos = mul(gWorldToClipPrev, float4(prevVirtualWorldPos, 1.0));
+    float4 prevVirtualClipPos = mul(gWorldToClipPrev, float4(virtualWorldPos, 1.0));
     prevVirtualClipPos.xy /= prevVirtualClipPos.w;
     prevUVVMB = prevVirtualClipPos.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
     prevUVVMB = currentMaterialID == gCameraAttachedReflectionMaterialID ? prevUVSMB : prevUVVMB;
@@ -336,8 +332,8 @@ float loadVirtualMotionBasedPrevData(
 
         // Fitering previous SH data
         #if( NRD_MODE == SH )
-            prevSpecularSH = BilinearWithCustomWeightsFloat4(gHistory_SpecSh, bilinearOrigin, bilinearCustomWeights);
-            prevSpecularResponsiveSH = BilinearWithCustomWeightsFloat4(gHistory_SpecShFast, bilinearOrigin, bilinearCustomWeights);
+            prevSpecularSH = BilinearWithCustomWeightsSH(gHistory_SpecSh, bilinearOrigin, bilinearCustomWeights);
+            prevSpecularResponsiveSH = BilinearWithCustomWeightsSH(gHistory_SpecShFast, bilinearOrigin, bilinearCustomWeights).xyz;
         #endif
 
         // Fitering previous data that does not need bicubic
@@ -386,10 +382,10 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
 
     // Early out if linearZ is beyond denoising range
     float currentLinearZ = UnpackViewZ(gIn_ViewZ[WithRectOrigin(pixelPos)]);
-    if (currentLinearZ > gDenoisingRange)
+    if (!IsInDenoisingRange(currentLinearZ))
         return;
 
-    int2 sharedMemoryIndex = threadPos.xy + int2(BORDER, BORDER);
+    int2 sharedMemoryIndex = threadPos.xy + int2(NRD_BORDER, NRD_BORDER);
 
     // Reading current GBuffer data
     float currentMaterialID;
@@ -426,14 +422,14 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
 #if( NRD_DIFF )
     float3 diffuseIllumination = gIn_Diff[pixelPos].rgb;
     #if( NRD_MODE == SH )
-        float4 diffuseSH = gIn_DiffSh[pixelPos];
+        RELAX_SH_TYPE diffuseSH = gIn_DiffSh[pixelPos];
     #endif
 #endif
 
 #if( NRD_SPEC )
     float4 specularIllumination = gIn_Spec[pixelPos];
     #if( NRD_MODE == SH )
-        float4 specularSH = gIn_SpecSh[pixelPos];
+        RELAX_SH_TYPE specularSH = gIn_SpecSh[pixelPos];
     #endif
 #endif
 
@@ -489,7 +485,7 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     if(currentMaterialID == gStrandMaterialID)
         disocclusionThresholdMix = NRD_GetNormalizedStrandThickness(gStrandThickness, pixelSize);
     if(gHasDisocclusionThresholdMix && NRD_SUPPORTS_DISOCCLUSION_THRESHOLD_MIX)
-        disocclusionThresholdMix = gIn_DisocclusionThresholdMix[WithRectOrigin(pixelPos)];
+        disocclusionThresholdMix = gIn_DisocclusionThresholdMix[pixelPos];
 
     float disocclusionThreshold = lerp(gDisocclusionThreshold, gDisocclusionThresholdAlternate, disocclusionThresholdMix);
     if(currentMaterialID == gStrandMaterialID)
@@ -505,8 +501,8 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     float4 prevDiffuseIlluminationAnd2ndMomentSMB;
     float3 prevDiffuseIlluminationAnd2ndMomentSMBResponsive;
     #if( NRD_MODE == SH )
-        float4 prevDiffuseSH;
-        float4 prevDiffuseResponsiveSH;
+        RELAX_SH_TYPE prevDiffuseSH;
+        RELAX_SH_TYPE prevDiffuseResponsiveSH;
     #endif
 #endif
 
@@ -515,8 +511,8 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     float3 prevSpecularIlluminationAnd2ndMomentSMBResponsive;
     float  prevReflectionHitTSMB;
     #if( NRD_MODE == SH )
-        float4 prevSpecularSMBSH;
-        float4 prevSpecularSMBResponsiveSH;
+        RELAX_SH_TYPE prevSpecularSMBSH;
+        RELAX_SH_TYPE prevSpecularSMBResponsiveSH;
     #endif
 #endif
 
@@ -598,7 +594,7 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
 
     if (gHasHistoryConfidence && NRD_SUPPORTS_HISTORY_CONFIDENCE)
     {
-        float inDiffConfidence = gIn_DiffConfidence[WithRectOrigin(pixelPos)];
+        float inDiffConfidence = saturate(gIn_DiffConfidence.SampleLevel(gLinearClamp, prevUVSMB, 0));
         diffMaxAccumulatedFrameNum *= inDiffConfidence;
         diffMaxFastAccumulatedFrameNum *= inDiffConfidence;
     }
@@ -627,10 +623,10 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     gOut_DiffFast[pixelPos] = float4(accumulatedDiffuseIlluminationResponsive, 0);
 
     #if( NRD_MODE == SH )
-        float4 accumulatedDiffuseSH = lerp(prevDiffuseSH, diffuseSH, diffuseAlpha);
-        float4 accumulatedDiffuseResponsiveSH = lerp(prevDiffuseResponsiveSH, diffuseSH, diffuseAlphaResponsive);
+        RELAX_SH_TYPE accumulatedDiffuseSH = lerp(prevDiffuseSH, diffuseSH, diffuseAlpha);
+        RELAX_SH_TYPE accumulatedDiffuseResponsiveSH = lerp(prevDiffuseResponsiveSH, diffuseSH, diffuseAlphaResponsive);
         gOut_DiffSh[pixelPos] = accumulatedDiffuseSH;
-        gOut_DiffShFast[pixelPos] = float4(accumulatedDiffuseResponsiveSH);
+        gOut_DiffShFast[pixelPos] = accumulatedDiffuseResponsiveSH;
     #endif
 #endif
 
@@ -641,7 +637,7 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     float specMaxFastAccumulatedFrameNum = gSpecMaxFastAccumulatedFrameNum;
     if (gHasHistoryConfidence && NRD_SUPPORTS_HISTORY_CONFIDENCE)
     {
-        float inSpecConfidence = gIn_SpecConfidence[WithRectOrigin(pixelPos)];
+        float inSpecConfidence = saturate(gIn_SpecConfidence.SampleLevel(gLinearClamp, prevUVSMB, 0));
         specMaxAccumulatedFrameNum *= inSpecConfidence;
         specMaxFastAccumulatedFrameNum *= inSpecConfidence;
     }
@@ -671,7 +667,7 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
             float3 o = gOrthoMode == 0.0 ? 0 : x;
 
             x10 = o + v * dot( currentWorldPos - o, currentNormal ) / dot( currentNormal, v ); // line-plane intersection
-            n10 = sharedNormalSpecHitT[ threadPos.y + BORDER ][ threadPos.x + BORDER + 1 ].xyz;
+            n10 = sharedNormalSpecHitT[ threadPos.y + NRD_BORDER ][ threadPos.x + NRD_BORDER + 1 ].xyz;
         }
 
         // 01 edge
@@ -682,26 +678,28 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
             float3 o = gOrthoMode == 0.0 ? 0 : x;
 
             x01 = o + v * dot( currentWorldPos - o, currentNormal ) / dot( currentNormal, v ); // line-plane intersection
-            n01 = sharedNormalSpecHitT[ threadPos.y + BORDER + 1 ][ threadPos.x + BORDER ].xyz;
+            n01 = sharedNormalSpecHitT[ threadPos.y + NRD_BORDER + 1 ][ threadPos.x + NRD_BORDER ].xyz;
         }
 
         // Mix
         float2 w = abs( deltaUv ) + 1.0 / 256.0;
-        w /= w.x + w.y;
+        w /= w.x + w.y; // TODO: perspective correction?
 
         float3 x = x10 * w.x + x01 * w.y;
         float3 n = normalize( n10 * w.x + n01 * w.y );
 
         // High parallax - flattens surface on high motion ( test 132, 172, 173, 174, 190, 201, 202, 203, e9 )
         // IMPORTANT: a must for 8-bit and 10-bit normals ( tests b7, b10, b33, 202 )
+        float dither = Sequence::Bayer4x4( pixelPos, gFrameIndex ); // dithering is needed to avoid a hard-border
+        float edgeFix = 1.0 - BRDF::Pow5( NoV );
+
         float deltaUvLenFixed = smbParallaxInPixelsMin; // "min" because not needed for objects attached to the camera!
-        deltaUvLenFixed *= NRD_USE_HIGH_PARALLAX_CURVATURE_SILHOUETTE_FIX ? NoV : 1.0; // it fixes silhouettes, but leads to less flattening
-        deltaUvLenFixed *= 1.0 + gFramerateScale * Sequence::Bayer4x4( pixelPos, gFrameIndex ); // improves behavior if FPS is high, dithering is needed to avoid artefacts in test 1
+        deltaUvLenFixed *= 1.0 + edgeFix * ( 1.0 + gFramerateScale * dither );
 
         float2 motionUvHigh = pixelUv + deltaUvLenFixed * deltaUv * gRectSizeInv;
         motionUvHigh = ( floor( motionUvHigh * gRectSize ) + 0.5 ) * gRectSizeInv; // Snap to the pixel center!
 
-        if( NRD_USE_HIGH_PARALLAX_CURVATURE && deltaUvLenFixed > 1.0 && IsInScreenNearest( motionUvHigh ) )
+        if( deltaUvLenFixed > 1.0 && IsInScreenNearest( motionUvHigh ) )
         {
             float2 uvScaled = WithRectOffset( ClampUvToViewport( motionUvHigh ) );
 
@@ -711,33 +709,33 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
             float3 nHigh = NRD_FrontEnd_UnpackNormalAndRoughness( gIn_Normal_Roughness.SampleLevel( gNearestClamp, uvScaled, 0 ) ).xyz;
 
             // Replace if same surface
-            float zError = abs( zHigh - currentLinearZ ) * rcp( max( zHigh, currentLinearZ ) );
-            bool cmp = zError < NRD_CURVATURE_Z_THRESHOLD; // TODO: use common disocclusion logic?
+            float frustumSize = min( gRectSize.x, gRectSize.y ) * pixelSize;
+            float2 geometryWeightParams = GetGeometryWeightParams( NRD_CURVATURE_HIGH_PARALLAX_DISOCCLUSION_THRESHOLD, frustumSize, currentWorldPos, currentNormal );
+            float NoX = dot( currentNormal, xHigh );
+
+            float w = ApplyGeometryWeightLast( 1.0, zHigh, NoX, geometryWeightParams );
+            bool cmp = w > 0.5;
 
             n = cmp ? nHigh : n;
             x = cmp ? xHigh : x;
         }
 
-        // Estimate curvature for the edge { x; currentWorldPos }
+        // Estimate curvature for the edge { x; X }
         float3 edge = x - currentWorldPos;
         float edgeLenSq = Math::LengthSquared( edge );
-        curvature = dot( n - currentNormal, edge ) * Math::PositiveRcp( edgeLenSq );
+        curvature = dot( n - currentNormal, edge ) / edgeLenSq;
 
-    #if( NRD_USE_SPECULAR_MOTION_V2 == 0 ) // needed only for the old version
-        // Correction #1 - this is needed if camera is "inside" a concave mirror ( tests 133, 164, 171 - 176 )
-        if( length( currentWorldPos ) < -1.0 / curvature ) // TODO: test 78
-            curvature *= NoV;
-
-        // Correction #2 - very negative inconsistent with previous frame curvature blows up reprojection ( tests 164, 171 - 176 )
-        float2 uv1 = Geometry::GetScreenUv( gWorldToClipPrev, currentWorldPos - V * ApplyThinLensEquation( hitDist, curvature ) );
-        float2 uv2 = Geometry::GetScreenUv( gWorldToClipPrev, currentWorldPos );
-        float a = length( ( uv1 - uv2 ) * gRectSize );
-        curvature *= float( a < NRD_MAX_ALLOWED_VIRTUAL_MOTION_ACCELERATION * smbParallaxInPixelsMax + gRectSizeInv.x );
-    #endif
+        // Correction - very negative inconsistent with previous frame curvature blows up reprojection ( tests 164, 171 - 176 )
+        if( curvature < 0 ) // it's needed if negative curvature is allowed
+        {
+            float2 uv1 = Geometry::GetScreenUv( gWorldToClipPrev, GetXvirtual( hitDist, curvature, currentWorldPos, currentWorldPos, currentNormal, V, currentRoughness ) );
+            float2 uv2 = Geometry::GetScreenUv( gWorldToClipPrev, currentWorldPos );
+            float a = length( ( uv1 - uv2 ) * gRectSize );
+            curvature *= float( a < NRD_MAX_ALLOWED_VIRTUAL_MOTION_ACCELERATION * smbParallaxInPixelsMax + gRectSizeInv.x );
+        }
     }
 
-    // Thin lens equation for adjusting reflection HitT
-    float hitDistFocused = ApplyThinLensEquation(hitDist, curvature);
+    float3 virtualWorldPos = GetXvirtual( hitDist, curvature, currentWorldPos, prevWorldPos, currentNormal, V, currentRoughness );
 
     // Loading specular data based on virtual motion
     float4 prevSpecularIlluminationAnd2ndMomentVMB;
@@ -747,23 +745,18 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     float prevRoughnessVMB;
     float prevReflectionHitTVMB;
     #if( NRD_MODE == SH )
-        float4 prevSpecularVMBSH;
-        float4 prevSpecularVMBResponsiveSH;
+        RELAX_SH_TYPE prevSpecularVMBSH;
+        RELAX_SH_TYPE prevSpecularVMBResponsiveSH;
     #endif
 
     float VMBReprojectionFound = loadVirtualMotionBasedPrevData(
         currentWorldPos,
         currentNormal,
         currentLinearZ,
-        hitDistFocused,
-        hitDist,
-        currentViewVector,
-        prevWorldPos,
+        virtualWorldPos,
         SMBReprojectionFound == 2.0 ? true : false,
         currentMaterialID,
         prevUVSMB,
-        smbParallaxInPixelsMax,
-        NoV,
         disocclusionThreshold,
         prevSpecularIlluminationAnd2ndMomentVMB,
         prevSpecularIlluminationAnd2ndMomentVMBResponsive,
@@ -838,7 +831,6 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     virtualHistoryHitDistConfidence = lerp(virtualHistoryHitDistConfidence, 1.0, SMC);
 
     // Virtual history confidence - virtual UV discrepancy
-    float3 virtualWorldPos = GetXvirtual(hitDist, curvature, currentWorldPos, prevWorldPos, currentNormal, V, currentRoughness);
     float virtualWorldPosLength = length(virtualWorldPos);
     float hitDistForTrackingPrev = prevSpecularIlluminationAnd2ndMomentVMBResponsive.a;
     float3 prevVirtualWorldPos = GetXvirtual(hitDistForTrackingPrev, curvature, currentWorldPos, prevWorldPos, currentNormal, V, currentRoughness);
@@ -918,15 +910,15 @@ NRD_EXPORT void NRD_CS_MAIN( NRD_CS_MAIN_ARGS )
     float accumulatedSpecular2ndMoment = lerp(accumulatedSpecularM2SMB, accumulatedSpecularM2VMB, virtualHistoryAmount);
 
     #if( NRD_MODE == SH )
-        float4 accumulatedSpecularSMBSH = lerp(prevSpecularSMBSH, specularSH, specSMBAlpha);
-        float4 accumulatedSpecularSMBResponsiveSH = lerp(prevSpecularSMBResponsiveSH, specularSH, specSMBResponsiveAlpha);
+        RELAX_SH_TYPE accumulatedSpecularSMBSH = lerp(prevSpecularSMBSH, specularSH, specSMBAlpha);
+        RELAX_SH_TYPE accumulatedSpecularSMBResponsiveSH = lerp(prevSpecularSMBResponsiveSH, specularSH, specSMBResponsiveAlpha);
 
-        float4 accumulatedSpecularVMBSH = lerp(prevSpecularVMBSH, specularSH, specVMBAlpha);
-        float4 accumulatedSpecularVMBResponsiveSH = lerp(prevSpecularVMBResponsiveSH, specularSH, specVMBResponsiveAlpha);
+        RELAX_SH_TYPE accumulatedSpecularVMBSH = lerp(prevSpecularVMBSH, specularSH, specVMBAlpha);
+        RELAX_SH_TYPE accumulatedSpecularVMBResponsiveSH = lerp(prevSpecularVMBResponsiveSH, specularSH, specVMBResponsiveAlpha);
 
-        float4 accumulatedSpecularSH = lerp(accumulatedSpecularSMBSH, accumulatedSpecularVMBSH, virtualHistoryAmount);
-        float4 accumulatedSpecularResponsiveSH = lerp(accumulatedSpecularSMBResponsiveSH, accumulatedSpecularVMBResponsiveSH, virtualHistoryAmount);
-        gOut_SpecSh[pixelPos] = float4(accumulatedSpecularSH.rgb, currentRoughnessModified);
+        RELAX_SH_TYPE accumulatedSpecularSH = lerp(accumulatedSpecularSMBSH, accumulatedSpecularVMBSH, virtualHistoryAmount);
+        RELAX_SH_TYPE accumulatedSpecularResponsiveSH = lerp(accumulatedSpecularSMBResponsiveSH, accumulatedSpecularVMBResponsiveSH, virtualHistoryAmount);
+        gOut_SpecSh[pixelPos] = accumulatedSpecularSH;
         gOut_SpecShFast[pixelPos] = accumulatedSpecularResponsiveSH;
     #endif
 

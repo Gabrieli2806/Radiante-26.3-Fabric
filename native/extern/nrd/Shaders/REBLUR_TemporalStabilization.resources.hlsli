@@ -24,15 +24,14 @@ NRD_INPUTS_START
     NRD_INPUT( Texture2D, REBLUR_DATA1_TYPE, gIn_Data1, t, 3 )
     NRD_INPUT( Texture2D, uint, gIn_Data2, t, 4 )
     #if( NRD_DIFF && NRD_SPEC )
-        NRD_INPUT( Texture2D, float4, gIn_BaseColor_Metalness, t, 5 )
-        NRD_INPUT( Texture2D, float, gIn_SpecHitDistForTracking, t, 6 )
-        NRD_INPUT( Texture2D, REBLUR_TYPE, gIn_Diff, t, 7 )
-        NRD_INPUT( Texture2D, REBLUR_TYPE, gIn_Spec, t, 8 )
-        NRD_INPUT( Texture2D, float, gHistory_DiffLumaStabilized, t, 9 )
-        NRD_INPUT( Texture2D, float, gHistory_SpecLumaStabilized, t, 10 )
+        NRD_INPUT( Texture2D, float, gIn_SpecHitDistForTracking, t, 5 )
+        NRD_INPUT( Texture2D, REBLUR_TYPE, gIn_Diff, t, 6 )
+        NRD_INPUT( Texture2D, REBLUR_TYPE, gIn_Spec, t, 7 )
+        NRD_INPUT( Texture2D, float, gHistory_DiffLumaStabilized, t, 8 )
+        NRD_INPUT( Texture2D, float, gHistory_SpecLumaStabilized, t, 9 )
         #if( NRD_MODE == SH )
-            NRD_INPUT( Texture2D, REBLUR_SH_TYPE, gIn_DiffSh, t, 11 )
-            NRD_INPUT( Texture2D, REBLUR_SH_TYPE, gIn_SpecSh, t, 12 )
+            NRD_INPUT( Texture2D, REBLUR_SH_TYPE, gIn_DiffSh, t, 10 )
+            NRD_INPUT( Texture2D, REBLUR_SH_TYPE, gIn_SpecSh, t, 11 )
         #endif
     #elif( NRD_DIFF )
         NRD_INPUT( Texture2D, REBLUR_TYPE, gIn_Diff, t, 5 )
@@ -41,12 +40,11 @@ NRD_INPUTS_START
             NRD_INPUT( Texture2D, REBLUR_SH_TYPE, gIn_DiffSh, t, 7 )
         #endif
     #else
-        NRD_INPUT( Texture2D, float4, gIn_BaseColor_Metalness, t, 5 )
-        NRD_INPUT( Texture2D, float, gIn_SpecHitDistForTracking, t, 6 )
-        NRD_INPUT( Texture2D, REBLUR_TYPE, gIn_Spec, t, 7 )
-        NRD_INPUT( Texture2D, float, gHistory_SpecLumaStabilized, t, 8 )
+        NRD_INPUT( Texture2D, float, gIn_SpecHitDistForTracking, t, 5 )
+        NRD_INPUT( Texture2D, REBLUR_TYPE, gIn_Spec, t, 6 )
+        NRD_INPUT( Texture2D, float, gHistory_SpecLumaStabilized, t, 7 )
         #if( NRD_MODE == SH )
-            NRD_INPUT( Texture2D, REBLUR_SH_TYPE, gIn_SpecSh, t, 9 )
+            NRD_INPUT( Texture2D, REBLUR_SH_TYPE, gIn_SpecSh, t, 8 )
         #endif
     #endif
 NRD_INPUTS_END
@@ -82,8 +80,12 @@ NRD_OUTPUTS_END
 #define REBLUR_TemporalStabilizationGroupX 8
 #define REBLUR_TemporalStabilizationGroupY 16
 
-// Redirection
-#undef GROUP_X
-#undef GROUP_Y
+// Shader only
+#ifndef __cplusplus
+
+#define NRD_BORDER 1
+
 #define GROUP_X REBLUR_TemporalStabilizationGroupX
 #define GROUP_Y REBLUR_TemporalStabilizationGroupY
+
+#endif

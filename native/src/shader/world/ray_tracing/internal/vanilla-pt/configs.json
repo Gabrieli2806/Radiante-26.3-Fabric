@@ -38,6 +38,12 @@
             }
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.restir",
+            "type": "bool",
+            "default_value": "render_pipeline.true",
+            "define": "VPT_RESTIR"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.capture_volumetric_cloud_indirect",
             "type": "bool",
             "default_value": "render_pipeline.true",
@@ -638,6 +644,17 @@
             "storage_binding": 34
         },
         {
+            "name": "restir_reservoir",
+            "type": "intermediate",
+            "shared": true,
+            "dimension": "2d_array",
+            "format": "R32G32B32A32_SFLOAT",
+            "width": "RENDER_WIDTH",
+            "height": "RENDER_HEIGHT",
+            "depth": 4,
+            "storage_binding": 39
+        },
+        {
             "name": "volumetric_cloud_history",
             "type": "intermediate",
             "shared": true,
@@ -902,7 +919,8 @@
                     "out:fog_image",
                     "out:first_hit_refraction",
                     "post_star_cloud_transmittance",
-                    "material_state"
+                    "material_state",
+                    "restir_reservoir"
                 ]
             },
             "definitions": {

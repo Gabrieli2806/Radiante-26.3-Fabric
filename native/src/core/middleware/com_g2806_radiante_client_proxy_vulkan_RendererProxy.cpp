@@ -6,6 +6,7 @@
 #include "core/render/pipeline.hpp"
 #include "core/render/render_framework.hpp"
 #include "core/render/framegen/frame_generation.hpp"
+#include "core/render/framegen/native_frame_generation.hpp"
 #include "core/render/framegen/streamline.hpp"
 #include "core/render/renderer.hpp"
 #include "core/render/textures.hpp"
@@ -193,13 +194,13 @@ JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererP
 }
 
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_maxGeneratedFrames(JNIEnv *, jclass) {
-    return static_cast<jint>(framegen::Streamline::maxGeneratedFrames());
+    return static_cast<jint>(framegen::NativeFrameGeneration::instance().maxGeneratedFrames());
 }
 
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setGeneratedFrames(JNIEnv *,
                                                                                                    jclass,
                                                                                                    jint frames) {
-    framegen::Streamline::setGeneratedFrames(static_cast<uint32_t>(frames < 0 ? 0 : frames));
+    framegen::NativeFrameGeneration::instance().setGeneratedFrames(static_cast<uint32_t>(frames < 0 ? 0 : frames));
 }
 
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setReflexEnabled(JNIEnv *,
@@ -209,7 +210,7 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 }
 
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_presentedFrameRate(JNIEnv *, jclass) {
-    return static_cast<jint>(framegen::FrameGeneration::presentedFrameRate());
+    return static_cast<jint>(framegen::NativeFrameGeneration::instance().presentedFrameRate());
 }
 
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setFrameGenerationImages(

@@ -6,9 +6,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Frame generation has to be in place before Minecraft creates its Vulkan instance: NVIDIA Streamline intercepts
- * swapchain and present calls, so Minecraft has to load Streamline's loader instead of the system one. Each loader
- * calls {@link #run()} as early as it can, before the game window exists.
+ * Reflex has to be in place before Minecraft creates its Vulkan instance: NVIDIA Streamline intercepts swapchain and
+ * present calls, so Minecraft has to load Streamline's loader instead of the system one. Each loader calls
+ * {@link #run()} as early as it can, before the game window exists. (Frame generation no longer needs it.)
  */
 public final class StreamlineBootstrap {
 
@@ -37,9 +37,8 @@ public final class StreamlineBootstrap {
             return;
         }
 
-        // Streamline carries both frame generation and Reflex, so either one is a reason to load it.
-        if (!com.g2806.radiante.client.option.Options.frameGeneration
-            && !com.g2806.radiante.client.option.Options.reflex) {
+        // Streamline is only loaded for Reflex: frame generation runs in the renderer without it.
+        if (!com.g2806.radiante.client.option.Options.reflex) {
             return;
         }
 

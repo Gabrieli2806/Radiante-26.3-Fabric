@@ -13,6 +13,13 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     #define REBLUR_PERFORMANCE_MODE                             0
 #endif
 
+// TODO: better add a generic CMake option, like:
+//      option(NRD_OWNS_PREV_GBUFFER "NRD copies and stores 'IN_VIEWZ' and 'IN_NORMAL_ROUGHNESS' for the next frame, otherwise previous data must be fed via 'IN_PREV_VIEWZ' and 'IN_PREV_NORMAL_ROUGHNESS' inputs" ON)
+// but currently the implementation would require a lot of changes in RELAX, so keep this one hidden and undocumented
+#ifndef REBLUR_COPY_GBUFFER
+    #define REBLUR_COPY_GBUFFER                                 1 // doesn't affect C++ code
+#endif
+
 // Switches ( default 1 )
 #define REBLUR_USE_CATROM_FOR_SURFACE_MOTION_IN_TA              1
 #define REBLUR_USE_CATROM_FOR_VIRTUAL_MOTION_IN_TA              1
@@ -27,15 +34,11 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 // Switches ( default 0 )
 #define REBLUR_USE_SCREEN_SPACE_SAMPLING_FOR_SPECULAR           0 // specular is more complicated
 #define REBLUR_USE_DECOMPRESSED_HIT_DIST_IN_RECONSTRUCTION      0 // compression helps to preserve "lobe important" values
-#define REBLUR_USE_OLD_SMB_FALLBACK_LOGIC                       0 // TODO: here to avoid regressions
 
 #if( NRD_MODE == OCCLUSION || NRD_MODE == DO )
     #undef NRD_SUPPORTS_ANTIFIREFLY
     #define NRD_SUPPORTS_ANTIFIREFLY                            0 // not needed in occlusion mode
 #endif
-
-// Switches ( default 2 )
-#define REBLUR_VIRTUAL_HISTORY_AMOUNT                           2 // 0 - debug surface motion, 1 - debug virtual motion
 
 // Show
 #define REBLUR_SHOW_FAST_HISTORY                                1 // requires "blurRadius" = 0
@@ -43,17 +46,17 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #define REBLUR_SHOW_CURVATURE_SIGN                              3
 #define REBLUR_SHOW_SURFACE_HISTORY_CONFIDENCE                  4
 #define REBLUR_SHOW_VIRTUAL_HISTORY_CONFIDENCE                  5
-#define REBLUR_SHOW_VIRTUAL_HISTORY_NORMAL_CONFIDENCE           6
-#define REBLUR_SHOW_VIRTUAL_HISTORY_ROUGHNESS_CONFIDENCE        7
-#define REBLUR_SHOW_VIRTUAL_HISTORY_PARALLAX_CONFIDENCE         8
-#define REBLUR_SHOW_HIT_DIST_FOR_TRACKING                       9
+#define REBLUR_SHOW_HIT_DIST_FOR_TRACKING                       6
 
 #define REBLUR_SHOW                                             0 // 0 or REBLUR_SHOW_X
 
 // Constants
-#define REBLUR_PRE_BLUR                                         0
+#define REBLUR_PRE_PASS                                         0
 #define REBLUR_BLUR                                             1
 #define REBLUR_POST_BLUR                                        2
+
+#define REBLUR_DIFF                                             0
+#define REBLUR_SPEC                                             1
 
 // Storage
 #define REBLUR_ACCUMSPEED_BITS                                  6
@@ -62,22 +65,24 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #define REBLUR_MAX_MATERIALID_NUM                               ( ( 1 << REBLUR_MATERIALID_BITS ) - 1 )
 
 // Settings
-#define REBLUR_PRE_BLUR_POISSON_SAMPLE_NUM                      8
-#define REBLUR_PRE_BLUR_POISSON_SAMPLES( i )                    g_Special8[ i ]
+#define REBLUR_PRE_PASS_POISSON_SAMPLE_NUM                      8
+#define REBLUR_PRE_PASS_POISSON_SAMPLES( i )                    g_Special8[ i ]
 
 #define REBLUR_POISSON_SAMPLE_NUM                               8
 #define REBLUR_POISSON_SAMPLES( i )                             g_Special8[ i ]
 
-#define REBLUR_PRE_BLUR_ROTATOR_MODE                            NRD_FRAME
-#define REBLUR_PRE_BLUR_FRACTION_SCALE                          2.0
-#define REBLUR_PRE_BLUR_NON_LINEAR_ACCUM_SPEED                  ( 1.0 / ( 1.0 + 10.0 ) )
+#define REBLUR_PRE_PASS_ROTATOR_MODE                            NRD_FRAME
+#define REBLUR_PRE_PASS_FRACTION_SCALE                          2.0
+#define REBLUR_PRE_PASS_RADIUS_SCALE                            1.0
+#define REBLUR_PRE_PASS_NON_LINEAR_ACCUM_SPEED                  ( 1.0 / ( 1.0 + 10.0 ) )
 
 #define REBLUR_BLUR_ROTATOR_MODE                                NRD_FRAME
 #define REBLUR_BLUR_FRACTION_SCALE                              1.0
+#define REBLUR_BLUR_RADIUS_SCALE                                1.0
 
 #define REBLUR_POST_BLUR_ROTATOR_MODE                           NRD_FRAME
-#define REBLUR_POST_BLUR_FRACTION_SCALE                         0.5 // TODO: adjust based on sum of non-noisy data based weights...
-#define REBLUR_POST_BLUR_RADIUS_SCALE                           2.0 // ... ( normalized to number of taps ) from the blur pass?
+#define REBLUR_POST_BLUR_FRACTION_SCALE                         0.5
+#define REBLUR_POST_BLUR_RADIUS_SCALE                           2.0
 
 #define REBLUR_NORMAL_ULP                                       0.0 // was "NRD_NORMAL_ENCODING_ERROR"
 #define REBLUR_ALMOST_ZERO_ANGLE                                cos( Math::DegToRad( 89.0 ) )
@@ -85,13 +90,14 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #define REBLUR_FIREFLY_SUPPRESSOR_MAX_RELATIVE_INTENSITY        38.0
 #define REBLUR_FIREFLY_SUPPRESSOR_RADIUS_SCALE                  0.1
 #define REBLUR_FIREFLY_SUPPRESSOR_FAST_RELATIVE_INTENSITY       4.0 // TODO: needed only for high FPS. Why?
-#define REBLUR_ANTI_FIREFLY_FILTER_RADIUS                       4 // pixels
+#define REBLUR_ANTI_FIREFLY_FILTER_RADIUS                       4 // pixels, must be >= REBLUR_FAST_HISTORY_CLAMPING_RADIUS
+#define REBLUR_FAST_HISTORY_CLAMPING_RADIUS                     2 // pixels, must be >= 1
 #define REBLUR_ANTI_FIREFLY_SIGMA_SCALE                         2.0
 #define REBLUR_HISTORY_FIX_FILTER_RADIUS                        2 // pixels
 #define REBLUR_ROUGHNESS_SENSITIVITY_IN_TA                      ( NRD_ROUGHNESS_SENSITIVITY * 0.3 )
 #define REBLUR_ANTILAG_MODE                                     2 // 0 - modernized old, 1 - overly reactive @ low FPS, 2 - best?
-#define REBLUR_SAMPLES_PER_FRAME                                1.0 // TODO: expose in settings, it will become useful with very clean signals, when max number of accumulated frames is low
 #define REBLUR_MAX_PERCENT_OF_LOBE_VOLUME_FOR_PRE_PASS          0.3 // specially tuned for "hitDistForTracking"
+#define REBLUR_INVALID                                          -32768.0 // marks INF pixels, which must be ignored in SMEM involved calculations
 
 // Data types
 #if( NRD_MODE == OCCLUSION )
@@ -100,7 +106,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     #define REBLUR_TYPE                                         float4
 #endif
 
-#define REBLUR_SH_TYPE                                          float4
+#define REBLUR_SH_TYPE                                          float3
 #define REBLUR_FAST_TYPE                                        float
 #define REBLUR_DATA1_TYPE                                       float2
 #define REBLUR_TILE_TYPE                                        float
@@ -119,11 +125,12 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     NRD_CONSTANT( float4, gFrustum ) \
     NRD_CONSTANT( float4, gFrustumPrev ) \
     NRD_CONSTANT( float4, gCameraDelta ) \
-    NRD_CONSTANT( float4, gHitDistParams ) \
+    NRD_CONSTANT( float4, gHitDistSettings ) \
     NRD_CONSTANT( float4, gViewVectorWorld ) \
     NRD_CONSTANT( float4, gViewVectorWorldPrev ) \
     NRD_CONSTANT( float4, gMvScale ) \
-    NRD_CONSTANT( float2, gAntilagParams ) \
+    NRD_CONSTANT( float4, gConvergenceSettings ) \
+    NRD_CONSTANT( float2, gAntilagSettings ) \
     NRD_CONSTANT( float2, gResourceSize ) \
     NRD_CONSTANT( float2, gResourceSizeInv ) \
     NRD_CONSTANT( float2, gResourceSizeInvPrev ) \
@@ -133,7 +140,6 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     NRD_CONSTANT( float2, gResolutionScale ) \
     NRD_CONSTANT( float2, gResolutionScalePrev ) \
     NRD_CONSTANT( float2, gRectOffset ) \
-    NRD_CONSTANT( float2, gSpecProbabilityThresholdsForMvModification ) \
     NRD_CONSTANT( float2, gJitter ) \
     NRD_CONSTANT( uint2, gPrintfAt ) \
     NRD_CONSTANT( uint2, gRectOrigin ) \
@@ -222,14 +228,14 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     #undef REBLUR_POISSON_SAMPLES
     #define REBLUR_POISSON_SAMPLES( i )                         g_Special6[ i ]
 
-    #undef REBLUR_PRE_BLUR_POISSON_SAMPLE_NUM
-    #define REBLUR_PRE_BLUR_POISSON_SAMPLE_NUM                  6
+    #undef REBLUR_PRE_PASS_POISSON_SAMPLE_NUM
+    #define REBLUR_PRE_PASS_POISSON_SAMPLE_NUM                  6
 
-    #undef REBLUR_PRE_BLUR_POISSON_SAMPLES
-    #define REBLUR_PRE_BLUR_POISSON_SAMPLES( i )                g_Special6[ i ]
+    #undef REBLUR_PRE_PASS_POISSON_SAMPLES
+    #define REBLUR_PRE_PASS_POISSON_SAMPLES( i )                g_Special6[ i ]
 
-    #undef REBLUR_PRE_BLUR_ROTATOR_MODE
-    #define REBLUR_PRE_BLUR_ROTATOR_MODE                        NRD_FRAME
+    #undef REBLUR_PRE_PASS_ROTATOR_MODE
+    #define REBLUR_PRE_PASS_ROTATOR_MODE                        NRD_FRAME
 
     #undef REBLUR_BLUR_ROTATOR_MODE
     #define REBLUR_BLUR_ROTATOR_MODE                            NRD_FRAME

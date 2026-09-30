@@ -31,6 +31,7 @@ enum OptionImpact {
         Map.entry("options.radiante.volumetric_fog_samples", MEDIUM),
         Map.entry("options.radiante.cloud_mode", MEDIUM),
         Map.entry("options.radiante.block_light_sampling", MEDIUM),
+        Map.entry("options.radiante.restir", MEDIUM),
         Map.entry("options.radiante.parallax", LOW),
         Map.entry("options.radiante.motion_blur", LOW),
         Map.entry("options.radiante.depth_of_field", LOW),

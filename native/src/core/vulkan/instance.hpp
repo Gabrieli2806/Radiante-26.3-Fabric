@@ -14,6 +14,7 @@ class Instance : public SharedObject<Instance> {
     uint32_t apiVersion() const;
     bool isDlssInstanceExtensionsCompatible() const;
     bool isXessInstanceExtensionsCompatible() const;
+    bool isDlssFrameGenerationInstanceExtensionsCompatible() const;
 
     static VkResult createMerged(const VkInstanceCreateInfo *baseInfo,
                                  const VkAllocationCallbacks *allocator,

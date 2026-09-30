@@ -2,28 +2,27 @@
 
 ROOT=$(pwd)
 SELF=$(dirname "$0")
+SDK=_NRD_SDK
 
-rm -rf "_NRD_SDK"
-mkdir -p "_NRD_SDK"
-cd "_NRD_SDK"
+echo ${SDK}: ROOT=${ROOT}, SELF=${SELF}
 
-mkdir -p "Include"
-mkdir -p "Integration"
-mkdir -p "Lib/Debug"
-mkdir -p "Lib/Release"
-mkdir -p "Shaders"
+rm -rf "${SDK}"
 
-cp -r "$(SELF)/Include/" "Include"
-cp -r "$(SELF)/Integration/" "Integration"
-cp -r "$(SELF)/Shaders/Include/NRD.hlsli" "Shaders"
-cp -r "$(SELF)/Shaders/Include/NRDConfig.hlsli" "Shaders"
-cp "$(SELF)/LICENSE.txt" "."
-cp "$(SELF)/README.md" "."
-cp "$(SELF)/UPDATE.md" "."
+mkdir -p "${SDK}/Include"
+mkdir -p "${SDK}/Integration"
+mkdir -p "${SDK}/Lib"
+mkdir -p "${SDK}/Shaders"
 
-cp -H "$(ROOT)/_Bin/Debug/libNRD.so" "Lib/Debug"
-cp -H "$(ROOT)/_Bin/Release/libNRD.so" "Lib/Release"
+cp -r "${SELF}/Include/." "${SDK}/Include"
+cp -r "${SELF}/Integration/." "${SDK}/Integration"
+cp "${SELF}/Shaders/NRD.hlsli" "${SDK}/Shaders"
+cp "${SELF}/Shaders/NRDConfig.hlsli" "${SDK}/Shaders"
+cp "${SELF}/LICENSE.txt" "${SDK}"
+cp "${SELF}/README.md" "${SDK}"
+cp "${SELF}/UPDATE.md" "${SDK}"
 
-cd ..
+cp -H "${ROOT}/_Bin/libNRD.so" "${SDK}/Lib"
 
-source "_Build\_deps\nri-src\3-PrepareSDK.sh"
+if [ -f "_Build/_deps/nri-src/3-PrepareSDK.sh" ]; then
+    bash "_Build/_deps/nri-src/3-PrepareSDK.sh"
+fi

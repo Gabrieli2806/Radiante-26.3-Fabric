@@ -12,8 +12,13 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 
 uint PackInternalData( float diffAccumSpeed, float specAccumSpeed, float materialID )
 {
+    // Increment history length for the nxt frame and clamp to the maximum
+    diffAccumSpeed = min( diffAccumSpeed + 1.0, gMaxAccumulatedFrameNum );
+    specAccumSpeed = min( specAccumSpeed + 1.0, gMaxAccumulatedFrameNum );
+
     float3 t;
-    t.xy = float2( diffAccumSpeed, specAccumSpeed ) / REBLUR_MAX_ACCUM_FRAME_NUM;
+    t.x = round( diffAccumSpeed ) / REBLUR_MAX_ACCUM_FRAME_NUM;
+    t.y = round( specAccumSpeed ) / REBLUR_MAX_ACCUM_FRAME_NUM;
     t.z = materialID / REBLUR_MAX_MATERIALID_NUM;
 
     uint p = Packing::RgbaToUint( t.xyzz, REBLUR_ACCUMSPEED_BITS, REBLUR_ACCUMSPEED_BITS, REBLUR_MATERIALID_BITS, 0 );
@@ -27,6 +32,8 @@ float3 UnpackInternalData( uint p )
     t.xy *= REBLUR_MAX_ACCUM_FRAME_NUM;
     t.z *= REBLUR_MAX_MATERIALID_NUM;
 
+    t.xy = round( t.xy );
+
     return t;
 }
 
@@ -35,27 +42,28 @@ float3 UnpackInternalData( uint p )
 float2 PackData1( float diffAccumSpeed, float specAccumSpeed )
 {
     float2 r;
-    r.x = saturate( diffAccumSpeed / REBLUR_MAX_ACCUM_FRAME_NUM );
-    r.y = saturate( specAccumSpeed / REBLUR_MAX_ACCUM_FRAME_NUM );
+    r.x = saturate( round( diffAccumSpeed ) / REBLUR_MAX_ACCUM_FRAME_NUM );
+    r.y = saturate( round( specAccumSpeed ) / REBLUR_MAX_ACCUM_FRAME_NUM );
 
     // Allow R8_UNORM for specular only denoiser
     #if( NRD_DIFF == 0 )
         r.x = r.y;
     #endif
 
-    // Proper rounding, otherwise for "accumSpeed = 3":
-    //  3 / REBLUR_MAX_ACCUM_FRAME_NUM => "255 * 3 / 63" = 12.142857 => 12 / 255 * 63 = 2.964 frames => invoke HistoryFix
-    return r + 0.5 / 255.0;
+    return r;
 }
 
-float2 UnpackData1( float2 p )
+REBLUR_DATA1_TYPE UnpackData1( float2 p )
 {
     // Allow R8_UNORM for specular only denoiser
     #if( NRD_DIFF == 0 )
         p.y = p.x;
     #endif
 
-    return p * REBLUR_MAX_ACCUM_FRAME_NUM;
+    // "round" is needed, otherwise for "accumSpeed = 3" and "gHistoryFixFrameNum = 3":
+    //  floor( (3.0 / 63.0) * 255 + 0.5 ) = 12.642857  =>  (12 / 255) * 63 = 2.964 frames => "HistoryFix" gets unexpectedly invoked
+
+    return round( p * REBLUR_MAX_ACCUM_FRAME_NUM );
 }
 
 #if( NRD_SPEC == 0 )
@@ -112,20 +120,6 @@ float GetMinAllowedLimitForHitDistNonLinearAccumSpeed( float roughness )
     float frameNum = 0.5 * GetSpecMagicCurve( roughness ) * gMaxAccumulatedFrameNum;
 
     return 1.0 / ( 1.0 + frameNum );
-}
-
-float GetNonLinearAccumSpeed( float accumSpeed, float maxAccumSpeed, float confidence, bool hasData )
-{
-    #if( REBLUR_USE_CONFIDENCE_NON_LINEARLY == 1 )
-        float nonLinearAccumSpeed = max( 1.0 - confidence, 1.0 / ( 1.0 + min( accumSpeed, maxAccumSpeed ) ) );
-    #else
-        float nonLinearAccumSpeed = 1.0 / ( 1.0 + min( accumSpeed, maxAccumSpeed * confidence ) );
-    #endif
-
-    if( !hasData )
-        nonLinearAccumSpeed *= lerp( 1.0 - gCheckerboardResolveAccumSpeed, 1.0, nonLinearAccumSpeed );
-
-    return nonLinearAccumSpeed;
 }
 
 float RemapRoughnessToResponsiveFactor( float roughness )
@@ -246,13 +240,11 @@ float GetLumaScale( float currLuma, float newLuma )
 
 #endif
 
-float ComputeAntilag( float history, float avg, float sigma, float accumSpeed )
+float ComputeAntilag( float h, float a, float sigma, float accumSpeed )
 {
     // Tests 4, 36, 44, 47, 95 ( no SHARC, stop animation )
-    float h = history;
-    float a = avg;
-    float s = sigma * gAntilagParams.x;
-    float magic = gAntilagParams.y * gFramerateScale * gFramerateScale;
+    float s = sigma * gAntilagSettings.x;
+    float magic = gAntilagSettings.y * gFramerateScale * gFramerateScale;
 
     #if( REBLUR_ANTILAG_MODE == 0 )
         // Old mode, but uses better threshold ( not bad )
@@ -299,13 +291,35 @@ float2x3 GetKernelBasis( float3 D, float3 N )
 
 // Weight parameters
 
-float2 GetTemporalAccumulationParams( float isInScreenMulFootprintQuality, float accumSpeed )
+float GetNonLinearAccumSpeed( float accumSpeed, float maxAccumSpeed, float confidence, bool hasData )
 {
-    accumSpeed *= REBLUR_SAMPLES_PER_FRAME;
+    #if( REBLUR_USE_CONFIDENCE_NON_LINEARLY == 1 )
+        float nonLinearAccumSpeed = max( 1.0 - confidence, 1.0 / ( 1.0 + min( accumSpeed, maxAccumSpeed ) ) );
+    #else
+        float nonLinearAccumSpeed = 1.0 / ( 1.0 + min( accumSpeed, maxAccumSpeed * confidence ) );
+    #endif
 
+    if( !hasData )
+        nonLinearAccumSpeed *= lerp( 1.0 - gCheckerboardResolveAccumSpeed, 1.0, nonLinearAccumSpeed );
+
+    return nonLinearAccumSpeed;
+}
+
+float GetAdvancedNonLinearAccumSpeed( float accumSpeed )
+{
+    // Interactive sandbox: https://www.desmos.com/calculator/6h9ydbvm1y
+    float f = saturate( accumSpeed / ( 1.0 + gMaxAccumulatedFrameNum * gConvergenceSettings.z ) );
+    float e = gConvergenceSettings.x * lerp( gConvergenceSettings.y, 1.0, f );
+
+    return 1.0 / ( 1.0 + e * accumSpeed );
+}
+
+float2 GetTemporalAccumulationParams( float isInScreenMulFootprintQuality, float accumSpeed, float antilag )
+{
     float w = isInScreenMulFootprintQuality;
-    w *= accumSpeed / ( 1.0 + accumSpeed );
+    w *= 1.0 - GetAdvancedNonLinearAccumSpeed( accumSpeed );
     w *= float( REBLUR_SHOW == 0 );
+    w *= antilag;
 
     return float2( w, 1.0 + 3.0 * gFramerateScale * w );
 }

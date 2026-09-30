@@ -17,7 +17,6 @@ option(NRD_SUPPORTS_VIEWPORT_OFFSET "Enable 'CommonSettings::rectOrigin' support
 option(NRD_SUPPORTS_CHECKERBOARD "Enable 'checkerboardMode' support" ON)
 option(NRD_SUPPORTS_HISTORY_CONFIDENCE "Enable 'IN_DIFF_CONFIDENCE' and 'IN_SPEC_CONFIDENCE' support" ON)
 option(NRD_SUPPORTS_DISOCCLUSION_THRESHOLD_MIX "Enable 'IN_DISOCCLUSION_THRESHOLD_MIX' support" ON)
-option(NRD_SUPPORTS_BASECOLOR_METALNESS "Enable 'IN_BASECOLOR_METALNESS' support" ON)
 option(NRD_SUPPORTS_ANTIFIREFLY "Enable 'enableAntiFirefly' support" ON)
 option(NRD_EMBEDS_SPIRV_SHADERS "NRD embeds SPIRV shaders" ON)
 option(REBLUR_PERFORMANCE_MODE "Better performance and worse image quality, can be useful for consoles" OFF)
@@ -26,8 +25,8 @@ cmake_dependent_option(NRD_EMBEDS_DXIL_SHADERS "NRD embeds DXIL shaders" ON "WIN
 cmake_dependent_option(NRD_EMBEDS_DXBC_SHADERS "NRD embeds DXBC shaders" ON "WIN32" OFF)
 
 set(NRD_SHADERS_PATH "" CACHE STRING "Shader output path override")
-set(NRD_NORMAL_ENCODING "2" CACHE STRING "Normal encoding variant (0-4, matches nrd::NormalEncoding)")
-set(NRD_ROUGHNESS_ENCODING "1" CACHE STRING "Roughness encoding variant (0-2, matches nrd::RoughnessEncoding)")
+set(NRD_NORMAL_ENCODING "2" CACHE STRING "Normal encoding variant (0-4, matches 'nrd::NormalEncoding')")
+set(NRD_ROUGHNESS_ENCODING "1" CACHE STRING "Roughness encoding variant (0-2, matches 'nrd::RoughnessEncoding')")
 
 # Self-build?
 if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}) # if not submodule
@@ -37,7 +36,8 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}) # if not submodule
         set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "")
     endif()
 
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/_Bin" CACHE STRING "")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/_Bin" CACHE STRING "") # .dll
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/_Bin" CACHE STRING "") # .so
 endif()
 
 # Create project
@@ -69,11 +69,10 @@ to_int_bool(VIEWPORT_OFFSET_INT NRD_SUPPORTS_VIEWPORT_OFFSET)
 to_int_bool(CHECKERBOARD_INT NRD_SUPPORTS_CHECKERBOARD)
 to_int_bool(HISTORY_CONFIDENCE_INT NRD_SUPPORTS_HISTORY_CONFIDENCE)
 to_int_bool(DISOCCLUSION_THRESHOLD_MIX_INT NRD_SUPPORTS_DISOCCLUSION_THRESHOLD_MIX)
-to_int_bool(BASECOLOR_METALNESS_INT NRD_SUPPORTS_BASECOLOR_METALNESS)
 to_int_bool(ANTIFIREFLY_INT NRD_SUPPORTS_ANTIFIREFLY)
 to_int_bool(REBLUR_PERFORMANCE_MODE_INT REBLUR_PERFORMANCE_MODE)
 
-file(WRITE "Shaders/Include/NRDConfig.hlsli"
+file(WRITE "Shaders/NRDConfig.hlsli"
     "// This file is auto-generated during project deployment. Do not modify!\n"
     "#define NRD_NORMAL_ENCODING ${NRD_NORMAL_ENCODING}\n"
     "#define NRD_ROUGHNESS_ENCODING ${NRD_ROUGHNESS_ENCODING}\n"
@@ -81,7 +80,6 @@ file(WRITE "Shaders/Include/NRDConfig.hlsli"
     "#define NRD_SUPPORTS_CHECKERBOARD ${CHECKERBOARD_INT}\n"
     "#define NRD_SUPPORTS_HISTORY_CONFIDENCE ${HISTORY_CONFIDENCE_INT}\n"
     "#define NRD_SUPPORTS_DISOCCLUSION_THRESHOLD_MIX ${DISOCCLUSION_THRESHOLD_MIX_INT}\n"
-    "#define NRD_SUPPORTS_BASECOLOR_METALNESS ${BASECOLOR_METALNESS_INT}\n"
     "#define NRD_SUPPORTS_ANTIFIREFLY ${ANTIFIREFLY_INT}\n"
     "#define REBLUR_PERFORMANCE_MODE ${REBLUR_PERFORMANCE_MODE_INT}\n"
 )
@@ -99,7 +97,6 @@ foreach(opt IN ITEMS
     NRD_SUPPORTS_CHECKERBOARD
     NRD_SUPPORTS_HISTORY_CONFIDENCE
     NRD_SUPPORTS_DISOCCLUSION_THRESHOLD_MIX
-    NRD_SUPPORTS_BASECOLOR_METALNESS
     NRD_SUPPORTS_ANTIFIREFLY
     REBLUR_PERFORMANCE_MODE
 )
@@ -121,22 +118,22 @@ if(NOT TARGET ShaderMake)
     # ShaderMake
     option(SHADERMAKE_TOOL "" ON)
 
-    FetchContent_Declare(
+    fetchcontent_declare(
         shadermake
-        GIT_REPOSITORY https://github.com/NVIDIA-RTX/ShaderMake.git
-        GIT_TAG main
-        GIT_SHALLOW 1
+        DOWNLOAD_EXTRACT_TIMESTAMP 1
+        DOWNLOAD_NO_PROGRESS 1
+        URL https://github.com/NVIDIA-RTX/ShaderMake/archive/18f5a344e7ca8fa65daaf079d07bc8ce38453e05.zip
     )
     list(APPEND DEPS shadermake)
 endif()
 
 if(NOT TARGET MathLib)
     # MathLib
-    FetchContent_Declare(
+    fetchcontent_declare(
         mathlib
-        GIT_REPOSITORY https://github.com/NVIDIA-RTX/MathLib.git
-        GIT_TAG v9
-        GIT_SHALLOW 1
+        DOWNLOAD_EXTRACT_TIMESTAMP 1
+        DOWNLOAD_NO_PROGRESS 1
+        URL https://github.com/NVIDIA-RTX/MathLib/archive/refs/tags/v11.zip
     )
     list(APPEND DEPS mathlib)
 endif()
@@ -151,11 +148,11 @@ if(NOT TARGET NRI AND NRD_NRI)
     cmake_dependent_option(NRI_ENABLE_D3D12_SUPPORT "" ON "NRD_EMBEDS_DXIL_SHADERS" OFF)
     cmake_dependent_option(NRI_ENABLE_D3D11_SUPPORT "" ON "NRD_EMBEDS_DXBC_SHADERS" OFF)
 
-    FetchContent_Declare(
+    fetchcontent_declare(
         nri
-        GIT_REPOSITORY https://github.com/NVIDIA-RTX/NRI.git
-        GIT_TAG v176
-        GIT_SHALLOW 1
+        DOWNLOAD_EXTRACT_TIMESTAMP 1
+        DOWNLOAD_NO_PROGRESS 1
+        URL https://github.com/NVIDIA-RTX/NRI/archive/refs/tags/v179.zip
     )
     list(APPEND DEPS nri)
 endif()
@@ -164,7 +161,7 @@ if(DEPS)
     message("NRD: downloading dependencies:")
     message(STATUS "${DEPS} ...")
 
-    FetchContent_MakeAvailable(${DEPS})
+    fetchcontent_makeavailable(${DEPS})
 endif()
 
 # NRD
@@ -346,7 +343,6 @@ set(SHADERMAKE_GENERAL_ARGS
     -c "Shaders/Shaders.cfg"
     -o "${NRD_SHADERS_PATH}"
     -I "${ML_SOURCE_DIR}"
-    -I "Shaders/Include"
     -D NRD_INTERNAL
 )
 

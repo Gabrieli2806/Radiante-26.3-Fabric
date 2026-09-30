@@ -3,6 +3,7 @@
 #include "core/render/textures.hpp"
 
 #include <array>
+#include <bitset>
 #include <memory>
 #include <shared_mutex>
 #include <unordered_map>
@@ -105,12 +106,25 @@ class EmissionCellRTree {
 class Emission : public SharedObject<Emission> {
   public:
     static constexpr int kMaxTextures = 4096;
+    // A coarse map of where in each texture emissive cells lie (ported from MCVR 0.1.6). Chunk builds copy it once
+    // per texture and skip, without locking or searching, every quad whose UVs miss it - almost all of them.
+    static constexpr int kOccupancyGridSize = 64;
+    static constexpr int kOccupancyCellCount = kOccupancyGridSize * kOccupancyGridSize;
+
+    struct TextureOccupancy {
+        bool hasEmissionCells = false;
+        std::bitset<kOccupancyCellCount> occupiedCells;
+    };
 
     explicit Emission(std::weak_ptr<Textures> textures);
 
     void reset();
     void resetTexture(uint32_t textureID);
     void updateTile(uint32_t textureID, uint64_t tileKey, const EmissionCellUpload *cells, int cellCount);
+
+    bool copyTextureOccupancy(uint32_t textureID, TextureOccupancy &occupancy) const;
+    static bool
+    textureOccupancyOverlaps(const TextureOccupancy &occupancy, const glm::vec2 &uvMin, const glm::vec2 &uvMax);
 
     void collectCells(uint32_t textureID,
                       const glm::vec2 &uvMin,
@@ -121,6 +135,7 @@ class Emission : public SharedObject<Emission> {
     struct TextureState {
         std::unordered_map<uint64_t, std::vector<std::shared_ptr<EmissionCell>>> tiles;
         std::unique_ptr<EmissionCellRTree> tree;
+        TextureOccupancy occupancy;
         uint32_t version = 0;
     };
 
@@ -128,6 +143,9 @@ class Emission : public SharedObject<Emission> {
     static EmissionCellRTree::Rect buildRect(const EmissionCell &cell);
     static EmissionCellRTree::Rect buildRect(const glm::vec2 &uvMin, const glm::vec2 &uvMax);
     void clearTextureState(TextureState &state);
+    static int occupancyCoord(float uv);
+    static void markTextureOccupancy(TextureOccupancy &occupancy, const EmissionCell &cell);
+    static void rebuildTextureOccupancy(TextureState &state);
 
   private:
     std::weak_ptr<Textures> textures_;

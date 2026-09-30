@@ -90,10 +90,11 @@ if(MCVR_ENABLE_FFX_UPSCALER)
     set(FFX_DENOISER OFF CACHE BOOL "Build FFX Denoiser" FORCE)
     set(FFX_ALL OFF CACHE BOOL "Build all FFX components" FORCE)
     set(FFX_SSSR OFF CACHE BOOL "Build FFX SSSR" FORCE)
-    set(FFX_FSR3 OFF CACHE BOOL "Build FFX FSR3" FORCE) # Full FSR3 (FrameGen) disabled
+    # FSR3 frame generation (frame interpolation + optical flow) as well, for frame generation on any GPU.
+    set(FFX_FSR3 ON CACHE BOOL "Build FFX FSR3" FORCE)
     set(FFX_FSR3UPSCALER ON CACHE BOOL "Build FFX FSR3 Upscaler" FORCE)
-    set(FFX_FI OFF CACHE BOOL "Build FFX Frame Interpolation" FORCE)
-    set(FFX_OF OFF CACHE BOOL "Build FFX Optical Flow" FORCE)
+    set(FFX_FI ON CACHE BOOL "Build FFX Frame Interpolation" FORCE)
+    set(FFX_OF ON CACHE BOOL "Build FFX Optical Flow" FORCE)
 
     set(FFX_AUTO_COMPILE_SHADERS ON CACHE BOOL "Compile shaders automatically as a prebuild step." FORCE)
 

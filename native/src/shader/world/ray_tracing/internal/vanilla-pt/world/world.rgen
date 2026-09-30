@@ -1032,8 +1032,23 @@ bool glowOutline(vec2 pixelCenter, vec2 resolution, vec3 origin, out vec3 color)
     return false;
 }
 
+#ifndef VPT_RESTIR
+#    define VPT_RESTIR 0
+#endif
+#if VPT_RESTIR != 0
+#    ifndef VPT_RESTIR_BINDING
+#        define VPT_RESTIR_BINDING 39
+#    endif
+layout(set = 5, binding = VPT_RESTIR_BINDING, rgba32f) uniform image2DArray vptRestirImage;
+#endif
+
 void main() {
     ivec2 pixel = ivec2(gl_LaunchIDEXT.xy);
+#if VPT_RESTIR != 0
+    // This frame's reservoir starts empty: pixels that see the sky, water or glass first write none of their own,
+    // and must not hand an old one on to the next frame.
+    imageStore(vptRestirImage, ivec3(pixel, int((worldUBO.frameCounter & 1u) * 2u + 1u)), vec4(0.0, 0.0, -1.0, 0.0));
+#endif
     vec2 resolution = vec2(gl_LaunchSizeEXT.xy);
 #if SHARC_UPDATE && USE_SHARC
     vec2 fullResolution = vec2(imageSize(outputImage));

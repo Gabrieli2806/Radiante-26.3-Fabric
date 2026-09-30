@@ -2,7 +2,9 @@ package com.g2806.radiante.mixin.backend;
 
 import com.g2806.radiante.client.hdr.HdrDisplay;
 import com.g2806.radiante.client.option.Options;
+import com.g2806.radiante.client.proxy.vulkan.FrameGenerationProxy;
 import com.g2806.radiante.client.proxy.vulkan.HdrProxy;
+import com.g2806.radiante.client.render.FrameGeneration;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.renderpearl.backend.api.CommandEncoderBackend;
 import com.mojang.renderpearl.backend.vulkan.VulkanConst;
@@ -58,6 +60,17 @@ public abstract class HdrPresentMixin {
         int dstLayout, VkImageBlit.Buffer regions, int filter) {
         GpuTextureView view = this.radiante$presented;
         this.radiante$presented = null;
+        if (!HdrDisplay.isActive() && FrameGeneration.isActive() && view != null
+            && view.texture() instanceof VulkanGpuTexture texture) {
+            // Frame generation: the generated frames are evaluated here, and the first of them replaces the blit.
+            boolean flipY = regions.srcOffsets(0).y() > regions.srcOffsets(1).y()
+                != regions.dstOffsets(0).y() > regions.dstOffsets(1).y();
+            if (FrameGenerationProxy.evaluateAndBlit(commandBuffer.address(), srcImage,
+                VulkanConst.toVk(texture.getFormat()), view.getWidth(0), view.getHeight(0), dstImage,
+                this.swapchainWidth, this.swapchainHeight, flipY)) {
+                return;
+            }
+        }
         if (HdrDisplay.isActive() && view != null && view.texture() instanceof VulkanGpuTexture texture) {
             int width = view.getWidth(0);
             int height = view.getHeight(0);

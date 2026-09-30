@@ -8,7 +8,7 @@ distribution of this software and related documentation without an express
 license agreement from NVIDIA CORPORATION is strictly prohibited.
 */
 
-// NRD v4.16
+// NRD v4.17
 
 // IMPORTANT: DO NOT MODIFY THIS FILE WITHOUT FULL RECOMPILATION OF NRD LIBRARY!
 
@@ -77,16 +77,33 @@ NOISY INPUTS:
 
 #include "NRDConfig.hlsli"
 
-// ( Optional ) Bindings
+// Bindings
 #define NRD_CONSTANT_BUFFER_REGISTER_INDEX                                              0
 
-// ( Optional ) Spaces ( NRD integration expects unique values )
+// Spaces ( NRD integration expects unique values )
 #define NRD_RESOURCES_SPACE_INDEX                                                       0 // SRVs and UAVs
 #define NRD_CONSTANT_BUFFER_AND_SAMPLERS_SPACE_INDEX                                    1 // constant buffer and samplers
 
-// ( Optional ) Entry point
+// Entry point
 #ifndef NRD_CS_MAIN
     #define NRD_CS_MAIN                                                                 main
+#endif
+
+// Other
+#ifndef NRD_REJITTER_VIEWZ_THRESHOLD
+    #define NRD_REJITTER_VIEWZ_THRESHOLD                                                0.01 // normalized %
+#endif
+
+#ifndef NRD_REJITTER_AMPLITUDE
+    #define NRD_REJITTER_AMPLITUDE                                                      2.0 // [1 / x; x]
+#endif
+
+#ifndef NRD_MATERIAL_FACTOR_MIN_SCALE
+    #define NRD_MATERIAL_FACTOR_MIN_SCALE                                               0.02 // smaller values may lead to instabilities
+#endif
+
+#ifndef NRD_ROUGHNESS_FACTOR_MIN_SCALE
+    #define NRD_ROUGHNESS_FACTOR_MIN_SCALE                                              0.1 // smaller values may lead to instabilities and bias
 #endif
 
 //=================================================================================================================================
@@ -245,6 +262,8 @@ NOISY INPUTS:
 
     #define NRD_EXPORT
 
+    #pragma warning( disable: 3577 ) // value cannot be NaN, isnan() may not be necessary. /Gis may force isnan() to be performed
+
 #endif
 
 //=================================================================================================================================
@@ -321,14 +340,11 @@ NOISY INPUTS:
 #define NRD_ROUGHNESS_ENCODING_LINEAR                                                   1 // linearRoughness
 #define NRD_ROUGHNESS_ENCODING_SQRT_LINEAR                                              2 // sqrt( linearRoughness )
 
+// Constants
 #define NRD_FP16_MAX                                                                    65504.0
 #define NRD_PI                                                                          3.14159265358979323846
-#define NRD_EPS                                                                         1e-6
-#define NRD_REJITTER_VIEWZ_THRESHOLD                                                    0.01 // normalized %
-#define NRD_ROUGHNESS_EPS                                                               sqrt( sqrt( NRD_EPS ) ) // "m2" fitting in FP32 to "linear roughness"
+#define NRD_EPS                                                                         1e-6 // must fit into FP16
 #define NRD_INF                                                                         1e6
-#define NRD_MATERIAL_FACTOR_MIN_SCALE                                                   0.02 // very small scales can lead to instabilities
-#define NRD_ROUGHNESS_FACTOR_MIN_SCALE                                                  0.1 // very small scales can lead to instabilities and bias
 
 // Misc
 float3 _NRD_SafeNormalize( float3 v )
@@ -425,24 +441,15 @@ float3 _NRD_GetSpecularDominantDirection( float3 N, float3 V, float dominantFact
     return normalize( D );
 }
 
-float _NRD_GetSpecMagicCurve( float roughness )
-{
-    return 1.0 - exp2( -30.0 * roughness * roughness );
-}
-
 // BRDF
 float _NRD_Pow5( float x )
 {
     return pow( saturate( 1.0 - x ), 5.0 );
 }
 
-float _NRD_FresnelTerm( float Rf0, float VoNH )
-{
-    return Rf0 + ( 1.0 - Rf0 ) * _NRD_Pow5( VoNH );
-}
-
 float _NRD_DistributionTerm( float roughness, float NoH )
 {
+    // Trowbridge-Reitz ( GGX )
     float m = roughness * roughness;
     float m2 = m * m;
 
@@ -455,20 +462,20 @@ float _NRD_DistributionTerm( float roughness, float NoH )
 
 float _NRD_GeometryTerm( float roughness, float NoL, float NoV )
 {
+    // Height-correlated
     float m = roughness * roughness;
     float m2 = m * m;
 
-    float a = NoL + sqrt( saturate( ( NoL - m2 * NoL ) * NoL + m2 ) );
-    float b = NoV + sqrt( saturate( ( NoV - m2 * NoV ) * NoV + m2 ) );
+    float a = NoV * sqrt( ( NoL - m2 * NoL ) * NoL + m2 );
+    float b = NoL * sqrt( ( NoV - m2 * NoV ) * NoV + m2 );
 
-    return 1.0 / max( a * b, NRD_EPS );
+    return 0.5 / ( a + b );
 }
 
 float _NRD_DiffuseTerm( float roughness, float NoL, float NoV, float VoH )
 {
-    float m = roughness * roughness;
-
-    float f = 2.0 * VoH * VoH * m - 0.5;
+    // Burley
+    float f = 2.0 * VoH * VoH * roughness - 0.5; // yes, linear roughness
     float FdV = f * _NRD_Pow5( NoV ) + 1.0;
     float FdL = f * _NRD_Pow5( NoL ) + 1.0;
     float d = FdV * FdL;
@@ -476,41 +483,36 @@ float _NRD_DiffuseTerm( float roughness, float NoL, float NoV, float VoH )
     return d / NRD_PI;
 }
 
-float2 _NRD_ComputeBrdfs( float3 Ld, float3 Ls, float3 N, float3 V, float Rf0, float roughness )
+float2 _NRD_ComputeBrdfs( float3 Ld, float3 Ls, float3 N, float3 V, float roughness )
 {
     float2 result;
     float NoV = abs( dot( N, V ) );
 
-    // Diffuse
-    {
+    { // Diffuse
         float3 H = normalize( Ld + V );
 
         float NoL = saturate( dot( N, Ld ) );
-        float VoH = saturate( dot( V, H ) );
+        float VoH = abs( dot( V, H ) );
 
-        float F = _NRD_FresnelTerm( Rf0, VoH );
         float Kdiff = _NRD_DiffuseTerm( roughness, NoL, NoV, VoH );
 
-        result.x = ( 1.0 - F ) * Kdiff * NoL;
+        result.x = Kdiff * NoL;
     }
 
-    // Specular
-    {
+    { // Specular
         float3 H = normalize( Ls + V );
-        H = normalize( lerp( N, H, roughness ) ); // Fixed H // TODO: roughness => smc?
 
         float NoL = saturate( dot( N, Ls ) );
         float NoH = saturate( dot( N, H ) );
-        float VoH = saturate( dot( V, H ) );
 
-        float F = _NRD_FresnelTerm( Rf0, VoH );
         float D = _NRD_DistributionTerm( roughness, NoH );
-        float G = _NRD_GeometryTerm( roughness, NoL, NoV );
+        float Gmod = _NRD_GeometryTerm( roughness, NoL, NoV );
+        float Kspec = D * Gmod;
 
-        result.y = F * D * G * NoL;
+        result.y = Kspec * NoL;
     }
 
-    return result;
+    return result; // no F, because it's already demodulated
 }
 
 float3 _NRD_EnvironmentTerm_Rtg( float3 Rf0, float NoV, float roughness )
@@ -543,21 +545,24 @@ float3 _NRD_EnvironmentTerm_Rtg( float3 Rf0, float NoV, float roughness )
 }
 
 // Hit distance normalization
-float _REBLUR_GetHitDistanceNormalization( float viewZ, float4 hitDistParams, float roughness )
+float _NRD_GetSpecMagicCurve( float roughness, float power )
 {
-    return ( hitDistParams.x + abs( viewZ ) * hitDistParams.y ) * lerp( 1.0, hitDistParams.z, saturate( exp2( hitDistParams.w * roughness * roughness ) ) );
+    // https://www.desmos.com/calculator/fb1h5kiouj
+    float f = 1.0 - exp2( -200.0 * roughness * roughness );
+    f *= pow( saturate( roughness ), power );
+
+    return f;
 }
 
-// Is valid?
-bool _NRD_IsInvalid( float3 x )
+float _REBLUR_GetHitDistanceNormalization( float viewZ, float3 hitDistParams, float roughness )
 {
-    return any( isnan( x ) ) || any( isinf( x ) );
+    float smc = _NRD_GetSpecMagicCurve( roughness, 0.5 );
+
+    return ( hitDistParams.x + abs( viewZ ) * hitDistParams.y ) * lerp( hitDistParams.z, 1.0, smc );
 }
 
-bool _NRD_IsInvalid( float x )
-{
-    return isnan( x ) || isinf( x );
-}
+// Is invalid?
+#define _NRD_IsInvalid( x ) ( any( isnan( x ) ) || any( isinf( x ) ) )
 
 //==============================================================================================================================================
 // SPHERICAL HARMONICS: https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/gdc2018-precomputedgiobalilluminationinfrostbite.pdf
@@ -583,7 +588,7 @@ NRD_SG _NRD_SG_Create( float3 radiance, float3 direction, float normHitDist )
     sg.chroma = YCoCg.yz;
     sg.c1 = direction * YCoCg.x;
     sg.normHitDist = normHitDist;
-    sg.sharpness = 0.0; // TODO: currently not used
+    sg.sharpness = 0.0; // computed in resolve
 
     return sg;
 }
@@ -608,13 +613,14 @@ float _NRD_SG_Integral( NRD_SG sg )
 float _NRD_SG_InnerProduct( NRD_SG a, NRD_SG b )
 {
     // Integral of the product of two SGs
-    float d = length( a.sharpness * _NRD_SG_ExtractDirection( a ) + b.sharpness * _NRD_SG_ExtractDirection( b ) );
+    float3 dir = a.sharpness * a.c1 + b.sharpness * b.c1;
+    float d = length( dir );
+
     float c = exp( d - a.sharpness - b.sharpness );
     c *= 1.0 - exp( -2.0 * d );
     c /= max( d, NRD_EPS );
 
-    // Original version is without "saturate" ( needed to avoid rare fireflies in our case, energy is already preserved )
-    return NRD_PI * saturate( 2.0 * c * a.c0 ) * b.c0;
+    return 2.0 * NRD_PI * c * a.c0 * b.c0;
 }
 
 //=================================================================================================================================
@@ -709,13 +715,15 @@ float4 NRD_FrontEnd_PackNormalAndRoughness( float3 N, float roughness, float mat
     return p;
 }
 
-// Material de-modulation
+// MATERIAL DEMODULATION
+
 //   Front-end usage ( before NRD, convert irradiance into radiance ):
 //      diffIrradiance /= diffFactor
 //      specIrradiance /= specFactor
 //   Back-end usage ( after NRD, convert radiance back into irradiance ):
 //      diffRadiance *= diffFactor
 //      specRadiance *= specFactor
+// IMPORTANT: use same "roughness" for both "de-modulation" and "modulation", i.e. not "roughnessAA" extracted from NRD data
 void NRD_MaterialFactors( float3 N, float3 V, float3 albedo, float3 Rf0, float roughness, out float3 diffFactor, out float3 specFactor )
 {
     float NoV = abs( dot( N, V ) );
@@ -729,9 +737,7 @@ void NRD_MaterialFactors( float3 N, float3 V, float3 albedo, float3 Rf0, float r
     specFactor = lerp( NRD_MATERIAL_FACTOR_MIN_SCALE.xxx, float3( 1.0, 1.0, 1.0 ), specFactor );
 }
 
-//=================================================================================================================================
-// FRONT-END - SPECULAR HIT DISTANCE AVERAGING ( in case of rpp > 1 )
-//=================================================================================================================================
+// SPECULAR HIT DISTANCE AVERAGING ( in case of rpp > 1 )
 
 float NRD_FrontEnd_SpecHitDistAveraging_Begin( )
 {
@@ -758,15 +764,21 @@ void NRD_FrontEnd_SpecHitDistAveraging_End( inout float accumulatedSpecHitDist )
 }
 
 //=================================================================================================================================
-// FRONT-END - REBLUR
+// REBLUR
 //=================================================================================================================================
 
-// This function returns AO / SO which REBLUR can decode back to "hit distance" internally
-float REBLUR_FrontEnd_GetNormHitDist( float hitDist, float viewZ, float4 hitDistParams, float roughness )
+// FRONT-END
+
+// This function returns AO / SO which REBLUR can decode back to "hit distance" internally.
+// Use this function only if a diffuse or specular lobe was not skipped due to probabilistic selection
+float REBLUR_FrontEnd_GetNormHitDist( float hitDist, float viewZ, float3 hitDistParams, float roughness )
 {
     float f = _REBLUR_GetHitDistanceNormalization( viewZ, hitDistParams, roughness );
+    hitDist = saturate( hitDist / f );
 
-    return saturate( hitDist / f );
+    // "hitDist = 0" means "no data", i.e. the lobe is skipped due to probabilistic selection of diffuse or specular.
+    // But if this function is called, we assume that the lobe was not skipped, thus we need to avoid 0
+    return max( hitDist, NRD_EPS );
 }
 
 // X => IN_DIFF_RADIANCE_HITDIST
@@ -777,7 +789,7 @@ float4 REBLUR_FrontEnd_PackRadianceAndNormHitDist( float3 radiance, float normHi
     if( sanitize )
     {
         radiance = _NRD_IsInvalid( radiance ) ? float3( 0, 0, 0 ) : clamp( radiance, 0, NRD_FP16_MAX );
-        normHitDist = _NRD_IsInvalid( normHitDist ) ? 0 : saturate( normHitDist );
+        normHitDist = ( isnan( normHitDist ) || isinf( normHitDist ) ) ? 0 : saturate( normHitDist ); // Radiante: GLSL has no scalar any()
     }
 
     radiance = _NRD_LinearToYCoCg( radiance );
@@ -793,7 +805,7 @@ float4 REBLUR_FrontEnd_PackSh( float3 radiance, float normHitDist, float3 direct
     if( sanitize )
     {
         radiance = _NRD_IsInvalid( radiance ) ? float3( 0, 0, 0 ) : clamp( radiance, 0, NRD_FP16_MAX );
-        normHitDist = _NRD_IsInvalid( normHitDist ) ? 0 : saturate( normHitDist );
+        normHitDist = ( isnan( normHitDist ) || isinf( normHitDist ) ) ? 0 : saturate( normHitDist ); // Radiante: GLSL has no scalar any()
         direction = _NRD_IsInvalid( direction ) ? float3( 0, 0, 0 ) : clamp( direction, -1.0, 1.0 );
     }
 
@@ -815,7 +827,7 @@ float4 REBLUR_FrontEnd_PackDirectionalOcclusion( float3 direction, float normHit
     if( sanitize )
     {
         direction = _NRD_IsInvalid( direction ) ? float3( 0, 0, 0 ) : clamp( direction, -1.0, 1.0 );
-        normHitDist = _NRD_IsInvalid( normHitDist ) ? 0 : saturate( normHitDist );
+        normHitDist = ( isnan( normHitDist ) || isinf( normHitDist ) ) ? 0 : saturate( normHitDist ); // Radiante: GLSL has no scalar any()
     }
 
     NRD_SG sg = _NRD_SG_Create( normHitDist.xxx, direction, normHitDist );
@@ -823,9 +835,49 @@ float4 REBLUR_FrontEnd_PackDirectionalOcclusion( float3 direction, float normHit
     return float4( sg.c1, sg.c0 );
 }
 
+// BACK-END
+
+// OUT_DIFF_RADIANCE_HITDIST => X
+// OUT_SPEC_RADIANCE_HITDIST => X
+float4 REBLUR_BackEnd_UnpackRadianceAndNormHitDist( float4 data )
+{
+    data.xyz = _NRD_YCoCgToLinear( data.xyz );
+
+    return data;
+}
+
+// OUT_DIFF_SH0 and OUT_DIFF_SH1 => X
+// OUT_SPEC_SH0 and OUT_SPEC_SH1 => X
+NRD_SG REBLUR_BackEnd_UnpackSh( float4 sh0, float3 sh1 )
+{
+    NRD_SG sg;
+    sg.c0 = sh0.x;
+    sg.chroma = sh0.yz;
+    sg.normHitDist = sh0.w;
+    sg.c1 = sh1;
+    sg.sharpness = 0.0; // computed in resolve
+
+    return sg;
+}
+
+// OUT_DIFF_DIRECTION_HITDIST => X
+NRD_SG REBLUR_BackEnd_UnpackDirectionalOcclusion( float4 data )
+{
+    NRD_SG sg;
+    sg.c0 = data.w;
+    sg.chroma = float2( 0, 0 );
+    sg.normHitDist = data.w;
+    sg.c1 = data.xyz;
+    sg.sharpness = 0.0; // computed in resolve
+
+    return sg;
+}
+
 //=================================================================================================================================
-// FRONT-END - RELAX
+// RELAX
 //=================================================================================================================================
+
+// FRONT-END
 
 // X => IN_DIFF_RADIANCE_HITDIST
 // X => IN_SPEC_RADIANCE_HITDIST
@@ -834,7 +886,7 @@ float4 RELAX_FrontEnd_PackRadianceAndHitDist( float3 radiance, float hitDist, bo
     if( sanitize )
     {
         radiance = _NRD_IsInvalid( radiance ) ? float3( 0, 0, 0 ) : clamp( radiance, 0, NRD_FP16_MAX );
-        hitDist = _NRD_IsInvalid( hitDist ) ? 0 : clamp( hitDist, 0, NRD_FP16_MAX );
+        hitDist = ( isnan( hitDist ) || isinf( hitDist ) ) ? 0 : clamp( hitDist, 0, NRD_FP16_MAX ); // Radiante: GLSL has no scalar any()
     }
 
     return float4( radiance, hitDist );
@@ -847,7 +899,7 @@ float4 RELAX_FrontEnd_PackSh( float3 radiance, float hitDist, float3 direction, 
     if( sanitize )
     {
         radiance = _NRD_IsInvalid( radiance ) ? float3( 0, 0, 0 ) : clamp( radiance, 0, NRD_FP16_MAX );
-        hitDist = _NRD_IsInvalid( hitDist ) ? 0 : clamp( hitDist, 0, NRD_FP16_MAX );
+        hitDist = ( isnan( hitDist ) || isinf( hitDist ) ) ? 0 : clamp( hitDist, 0, NRD_FP16_MAX ); // Radiante: GLSL has no scalar any()
         direction = _NRD_IsInvalid( direction ) ? float3( 0, 0, 0 ) : clamp( direction, -1.0, 1.0 );
     }
 
@@ -860,11 +912,34 @@ float4 RELAX_FrontEnd_PackSh( float3 radiance, float hitDist, float3 direction, 
     return out0;
 }
 
+// BACK-END
+
+// OUT_DIFF_RADIANCE_HITDIST => X
+// OUT_SPEC_RADIANCE_HITDIST => X
+float4 RELAX_BackEnd_UnpackRadiance( float4 color )
+{
+    return color;
+}
+
+// OUT_DIFF_SH0 and OUT_DIFF_SH1 => X
+// OUT_SPEC_SH0 and OUT_SPEC_SH1 => X
+NRD_SG RELAX_BackEnd_UnpackSh( float4 sh0, float3 sh1 )
+{
+    NRD_SG sg;
+    sg.c0 = sh0.x;
+    sg.chroma = sh0.yz;
+    sg.normHitDist = sh0.w;
+    sg.c1 = sh1;
+    sg.sharpness = 0.0;
+
+    return sg;
+}
+
 //=================================================================================================================================
-// FRONT-END - SIGMA
+// SIGMA
 //=================================================================================================================================
 
-// SIGMA single light
+// FRONT-END
 
 // Infinite ( directional ) light source
 // X => IN_PENUMBRA
@@ -897,74 +972,7 @@ float4 SIGMA_FrontEnd_PackTranslucency( float distanceToOccluder, float3 translu
     return r;
 }
 
-//=================================================================================================================================
-// BACK-END - REBLUR
-//=================================================================================================================================
-
-// OUT_DIFF_RADIANCE_HITDIST => X
-// OUT_SPEC_RADIANCE_HITDIST => X
-float4 REBLUR_BackEnd_UnpackRadianceAndNormHitDist( float4 data )
-{
-    data.xyz = _NRD_YCoCgToLinear( data.xyz );
-
-    return data;
-}
-
-// OUT_DIFF_SH0 and OUT_DIFF_SH1 => X
-// OUT_SPEC_SH0 and OUT_SPEC_SH1 => X
-NRD_SG REBLUR_BackEnd_UnpackSh( float4 sh0, float4 sh1 )
-{
-    NRD_SG sg;
-    sg.c0 = sh0.x;
-    sg.chroma = sh0.yz;
-    sg.normHitDist = sh0.w;
-    sg.c1 = sh1.xyz;
-    sg.sharpness = sh1.w;
-
-    return sg;
-}
-
-// OUT_DIFF_DIRECTION_HITDIST => X
-NRD_SG REBLUR_BackEnd_UnpackDirectionalOcclusion( float4 data )
-{
-    NRD_SG sg;
-    sg.c0 = data.w;
-    sg.chroma = float2( 0, 0 );
-    sg.normHitDist = data.w;
-    sg.c1 = data.xyz;
-    sg.sharpness = 0.0;
-
-    return sg;
-}
-
-//=================================================================================================================================
-// BACK-END - RELAX
-//=================================================================================================================================
-
-// OUT_DIFF_RADIANCE_HITDIST => X
-// OUT_SPEC_RADIANCE_HITDIST => X
-float4 RELAX_BackEnd_UnpackRadiance( float4 color )
-{
-    return color;
-}
-
-// OUT_DIFF_SH0 and OUT_DIFF_SH1 => X
-// OUT_SPEC_SH0 and OUT_SPEC_SH1 => X
-NRD_SG RELAX_BackEnd_UnpackSh( float4 sh0, float4 sh1 )
-{
-    NRD_SG sg;
-    sg.c0 = sh0.x;
-    sg.chroma = sh0.yz;
-    sg.normHitDist = sh0.w;
-    sg.c1 = sh1.xyz;
-    sg.sharpness = sh1.w;
-
-    return sg;
-}
-
-//=================================================================================================================================
-// BACK-END - SIGMA
-//=================================================================================================================================
+// BACK-END
 
 // OUT_SHADOW_TRANSLUCENCY => X
 //   SIGMA_SHADOW / SIGMA_SHADOW_TRANSLUCENCY:
@@ -974,7 +982,7 @@ NRD_SG RELAX_BackEnd_UnpackSh( float4 sh0, float4 sh1 )
 #define SIGMA_BackEnd_UnpackShadow( shadow ) ( shadow * shadow )
 
 //=================================================================================================================================
-// BACK-END - HIGH QUALITY RESOLVE
+// HIGH QUALITY RESOLVE ( SPHERICAL GAUSSIAN )
 //=================================================================================================================================
 
 float3 NRD_SG_ExtractColor( NRD_SG sg )
@@ -987,112 +995,100 @@ float3 NRD_SG_ExtractDirection( NRD_SG sg )
     return _NRD_SG_ExtractDirection( sg );
 }
 
-float NRD_SG_ExtractRoughnessAA( NRD_SG sg )
-{
-    return sg.sharpness;
-}
-
 void NRD_SG_Rotate( inout NRD_SG sg, float3x3 rotation )
 {
     sg.c1 = mul( rotation, sg.c1 );
 }
 
-float3 NRD_SG_ResolveDiffuse( NRD_SG sg, float3 N )
+// https://therealmjp.github.io/posts/sg-series-part-3-diffuse-lighting-from-an-sg-light-source/
+float3 NRD_SG_ResolveDiffuse( NRD_SG sg, float3 N, float3 V, float roughness )
 {
-    // https://therealmjp.github.io/posts/sg-series-part-3-diffuse-lighting-from-an-sg-light-source/
+    float3 L = _NRD_SG_ExtractDirection( sg );
+    float NoL = saturate( dot( N, L ) );
 
-#if 1
-    // Numerical integration of the resulting irradiance from an SG diffuse light source ( with sharpness of 4.0 )
-    sg.sharpness = 4.0;
-
-    float c0 = 0.36;
-    float c1 = 1.0 / ( 4.0 * c0 );
-
-    float e = exp( -sg.sharpness );
-    float e2 = e * e;
-    float r = 1.0 / sg.sharpness;
-
-    float scale = 1.0 + 2.0 * e2 - r;
-    float bias = ( e - e2 ) * r - e2;
-
-    float NoL = dot( N, _NRD_SG_ExtractDirection( sg ) );
-    float x = sqrt( saturate( 1.0 - scale ) );
-    float x0 = c0 * NoL;
-    float x1 = c1 * x;
-    float n = x0 + x1;
-
-    float y = saturate( NoL );
-    if( abs( x0 ) <= x1 )
-        y = n * n / x;
-
-    float Y = scale * y + bias;
-    Y *= _NRD_SG_IntegralApprox( sg );
-#else
-    // "SG light" sharpness
-    sg.sharpness = 2.0; // TODO: another sharpness = another normalization needed...
+    // SG light
+    NRD_SG light;
+    light.sharpness = 2.0;
+    light.c0 = sg.c0 * light.sharpness; // with normalization
+    light.c1 = L;
 
     // Approximate NDF
     NRD_SG ndf;
     ndf.c0 = 1.0;
     ndf.c1 = N;
     ndf.sharpness = 2.0;
-    ndf.chroma = float2( 0, 0 );
-    ndf.normHitDist = 0;
-
-    // Non-magic scale
-    ndf.c0 *= 0.75;
 
     // Multiply two SGs and integrate the result
-    float Y = _NRD_SG_InnerProduct( ndf, sg );
+    float Y = _NRD_SG_InnerProduct( ndf, light );
+
+#if 1
+    // Fancier, a bit biased
+    float3 H = normalize( L + V );
+    float NoV = abs( dot( N, V ) );
+    float VoH = abs( dot( V, H ) );
+    float Kdiff = _NRD_DiffuseTerm( roughness, NoL, NoV, VoH );
+
+    Y *= Kdiff;
+
+    // Fitting the unfittable
+    Y *= lerp( 1.0, lerp( 1.5, 0.6, roughness ), _NRD_Pow5( NoV ) );
+#else
+    Y /= NRD_PI;
 #endif
+
+    // Fix the bare minimum
+    Y = max( Y, sg.c0 / NRD_PI );
 
     return _NRD_YCoCgToLinear_Corrected( Y, sg.c0, sg.chroma );
 }
 
+// https://therealmjp.github.io/posts/sg-series-part-4-specular-lighting-from-an-sg-light-source/
 float3 NRD_SG_ResolveSpecular( NRD_SG sg, float3 N, float3 V, float roughness )
 {
-    // https://therealmjp.github.io/posts/sg-series-part-4-specular-lighting-from-an-sg-light-source/
-
-    // Clamp roughness to avoid numerical imprecision
-    roughness = max( roughness, NRD_ROUGHNESS_EPS );
-
-    // "SG light" sharpness
-    sg.sharpness = 2.0; // TODO: another sharpness = another normalization needed...
-
-    // Approximate NDF
-    float3 H = normalize( _NRD_SG_ExtractDirection( sg ) + V );
-    H = normalize( lerp( N, H, roughness ) ); // Fixed H // TODO: roughness => smc?
+    // Clamp roughness to avoid numerical imprecisions
+    roughness = max( roughness, 0.05 );
 
     float m = roughness * roughness;
     float m2 = m * m;
 
-    NRD_SG ndf;
-    ndf.c0 = 1.0 / ( NRD_PI * m2 );
-    ndf.c1 = H;
-    ndf.sharpness = 2.0 / max( m2, NRD_EPS );
-    ndf.chroma = float2( 0, 0 );
-    ndf.normHitDist = 0;
+    float3 L = _NRD_SG_ExtractDirection( sg );
+    float NoL = saturate( dot( N, L ) );
 
-    // Non-magic scale
-    ndf.c0 *= lerp( 1.0, 0.75 * 2.0 * NRD_PI, m2 );
+    float3 H = normalize( L + V );
+    //H = normalize( lerp( N, H, roughness ) ); // this helps in re-jittering but not here
 
-    // Warp NDF
-    NRD_SG ndfWarped;
-    ndfWarped.c0 = ndf.c0;
-    ndfWarped.c1 = reflect( -V, ndf.c1 );
-    ndfWarped.sharpness = ndf.sharpness / max( 4.0 * abs( dot( ndf.c1, V ) ), NRD_EPS );
-    ndfWarped.chroma = float2( 0, 0 );
-    ndfWarped.normHitDist = 0;
-
-    // Cosine term & visibility term evaluated at the center of the warped BRDF lobe
+    // Use "abs" because normal mapping is a lie
     float NoV = abs( dot( N, V ) );
-    float NoL = saturate( dot( N, ndfWarped.c1 ) );
+    float VoH = abs( dot( V, H ) );
 
-    ndfWarped.c0 *= NoL;
-    ndfWarped.c0 *= _NRD_GeometryTerm( roughness, NoL, NoV );
+    NoV = lerp( 0.02, 1.0, NoV ); // fix energy increase on the horizon / silhouette
+
+    // SG light
+    NRD_SG light;
+    light.sharpness = 2.0 / m2; // extract directionality? but no IQ gains, only instabilities for low roughness
+    light.c0 = sg.c0 * light.sharpness; // with normalization
+    light.c1 = L;
+
+    // Warped NDF
+    float ndfSharpness = 0.5 / max( m2 * VoH, 1e-8 ); // "1e-8" needed to not add energy for very low roughness ( "1e-6" is not enough )
+
+    NRD_SG warpedNdf;
+    warpedNdf.c0 = 1.0;
+    warpedNdf.c1 = L; // same as "reflect( -V, H )"
+    warpedNdf.sharpness = ndfSharpness; // = ( 2 / m2 ) / ( 4 * VoH )
 
     // Multiply two SGs and integrate the result
-    float Y = _NRD_SG_InnerProduct( ndfWarped, sg );
+    float Y = _NRD_SG_InnerProduct( warpedNdf, light );
+
+    // Apply BRDF terms
+    float Gmod = _NRD_GeometryTerm( roughness, NoL, NoV );
+    Y *= Gmod * NoL; // F applied in demodulation
+
+    // Fitting the unfittable
+    Y *= lerp( lerp( 0.1, 0.4, m2 ), 0.8, NoV );
+
+    // Fix the bare minimum
+    Y = max( Y, sg.c0 / NRD_PI );
 
     return _NRD_YCoCgToLinear_Corrected( Y, sg.c0, sg.chroma );
 }
@@ -1106,71 +1102,65 @@ s = int2( 0, -1 )
 */
 float2 NRD_SG_ReJitter(
     NRD_SG diffSg, NRD_SG specSg,
-    float3 Rf0, float3 V, float roughness,
+    float3 V, float roughness,
     float Z, float Ze, float Zw, float Zn, float Zs,
     float3 N, float3 Ne, float3 Nw, float3 Nn, float3 Ns
 )
 {
-    // Clamp roughness to avoid numerical imprecision
-    roughness = max( roughness, NRD_ROUGHNESS_EPS );
-
-    // Extract Rf0 and diff & spec dominant light directions
-    float rf0 = _NRD_Luminance( Rf0 );
+    // Extract dominant light directions
     float3 Ld = _NRD_SG_ExtractDirection( diffSg );
     float3 Ls = _NRD_SG_ExtractDirection( specSg );
 
-    // Ls is accumulated, ideally it shouldn't for low roughness, but it's not a bug on the NRD side.
-    // The hack below is not needed if stochastic per-pixel jittering is used. Otherwise, the best approach
-    // is to resolve against jittered "view" vector. Despite that this approach looks very biased, it doesn't
-    // changes the energy of the output signal
-    float smc = _NRD_GetSpecMagicCurve( roughness );
-    Ls = normalize( lerp( V, Ls, smc ) );
+    // Fix instabilities
+    Ls = normalize( lerp( V, Ls, roughness ) );
 
     // BRDF at center
-    float2 brdfCenter = _NRD_ComputeBrdfs( Ld, Ls, N, V, rf0, roughness );
+    float2 brdfCenter = _NRD_ComputeBrdfs( Ld, Ls, N, V, roughness );
 
     // BRDFs at neighbors
-    float2 brdfAverage = _NRD_ComputeBrdfs( Ld, Ls, Ne, V, rf0, roughness );
-    brdfAverage += _NRD_ComputeBrdfs( Ld, Ls, Nn, V, rf0, roughness );
-    brdfAverage += _NRD_ComputeBrdfs( Ld, Ls, Nw, V, rf0, roughness );
-    brdfAverage += _NRD_ComputeBrdfs( Ld, Ls, Ns, V, rf0, roughness );
-
-    // Viewing angle corrected Z threshold
-    float NoV = abs( dot( N, V ) );
-    float zThreshold = NRD_REJITTER_VIEWZ_THRESHOLD * abs( Z ) / ( NoV * 0.95 + 0.05 );
-
-    // Sum of all weights
-    // Exploit: out of screen fetches return "0", which auto-disables resolve on screen edges
-    uint sum = abs( Ze - Z ) < zThreshold && dot( Ne, N ) > 0.0 ? 1 : 0;
-    sum += abs( Zn - Z ) < zThreshold && dot( Nn, N ) > 0.0 ? 1 : 0;
-    sum += abs( Zw - Z ) < zThreshold && dot( Nw, N ) > 0.0 ? 1 : 0;
-    sum += abs( Zs - Z ) < zThreshold && dot( Ns, N ) > 0.0 ? 1 : 0;
+    float2 brdfAverage = _NRD_ComputeBrdfs( Ld, Ls, Ne, V, roughness );
+    brdfAverage += _NRD_ComputeBrdfs( Ld, Ls, Nn, V, roughness );
+    brdfAverage += _NRD_ComputeBrdfs( Ld, Ls, Nw, V, roughness );
+    brdfAverage += _NRD_ComputeBrdfs( Ld, Ls, Ns, V, roughness );
+    brdfAverage *= 0.25;
 
     // Jacobian
-    float2 f = ( brdfCenter * 4.0 + NRD_EPS ) / ( brdfAverage + NRD_EPS );
+    float2 j = ( brdfCenter + NRD_EPS ) / ( brdfAverage + NRD_EPS );
+    j = clamp( j, 1.0 / NRD_REJITTER_AMPLITUDE, NRD_REJITTER_AMPLITUDE );
 
-    // Use re-jitter only if all samples are valid to minimize ringing
-    return sum != 4 ? float2( 1, 1 ) : clamp( f, 1.0 / NRD_PI, NRD_PI );
+    // Z weights
+    float NoV = abs( dot( N, V ) );
+    float zThreshold = NRD_REJITTER_VIEWZ_THRESHOLD * abs( Z ) / ( NoV * 0.95 + 0.05 );
+    float4 w = step( abs( float4( Ze, Zw, Zn, Zs ) - Z ), float4( zThreshold, zThreshold, zThreshold, zThreshold ) ); // Radiante: GLSL
+    bool isSymmetrical = dot( w, float4( 1.0, 1.0, 1.0, 1.0 ) ) > 3.5; // Radiante: GLSL
+
+    return isSymmetrical ? j : float2( 1.0, 1.0 ); // Radiante: GLSL
 }
 
 //=================================================================================================================================
-// SPHERICAL HARMONICS ( MEDIUM QUALITY )
+// MEDIUM QUALITY RESOLVE ( SPHERICAL HARMONICS )
 //=================================================================================================================================
 
 float3 NRD_SH_ResolveDiffuse( NRD_SG sh, float3 N )
 {
-    float Y = dot( N, sh.c1 ) + 0.5 * sh.c0;
+    const float k0 = 1.0 / NRD_PI;
+    const float k1 = 3.0 / NRD_PI;
+
+    float Y = sh.c0 * k0 + dot( sh.c1, N ) * k1;
 
     return _NRD_YCoCgToLinear_Corrected( Y, sh.c0, sh.chroma );
 }
 
 float3 NRD_SH_ResolveSpecular( NRD_SG sh, float3 N, float3 V, float roughness )
 {
+    const float k0 = 1.0 / NRD_PI;
+    const float k1 = 3.0 / NRD_PI;
+
     float NoV = abs( dot( N, V ) );
     float f = _NRD_GetSpecularDominantFactor( NoV, roughness );
     float3 D = _NRD_GetSpecularDominantDirection( N, V, f );
 
-    float Y = dot( D, sh.c1 ) + 0.5 * sh.c0;
+    float Y = sh.c0 * k0 + dot( sh.c1, D ) * k1; // suboptimal, use SG resolve instead
 
     return _NRD_YCoCgToLinear_Corrected( Y, sh.c0, sh.chroma );
 }
@@ -1186,7 +1176,7 @@ bool NRD_IsValidRadiance( float3 radiance )
 }
 
 // Scales normalized hit distance back to real length
-float REBLUR_GetHitDist( float normHitDist, float viewZ, float4 hitDistParams, float roughness )
+float REBLUR_GetHitDist( float normHitDist, float viewZ, float3 hitDistParams, float roughness )
 {
     float scale = _REBLUR_GetHitDistanceNormalization( viewZ, hitDistParams, roughness );
 

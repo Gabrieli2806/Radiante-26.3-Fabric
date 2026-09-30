@@ -25,6 +25,7 @@
     "debug.DebugScreenEntriesInvoker",
     "debug.DebugScreenEntryListMixin",
     "framegen.FrameGenerationMarkerMixins$PresentMixin",
+    "framegen.FrameGenerationPresentMixin",
     "framegen.FrameGenerationMarkerMixins$RenderMixin",
     "framegen.FrameGenerationMarkerMixins$TickMixin",
     "gui.OptionInstanceAccessor",
