@@ -222,7 +222,7 @@ void main() {
 
     // A soft halo around the sun and moon, as Bedrock RTX draws: faint, and only where the camera looks, so it
     // adds nothing to the light bounced around the world.
-    if (worldUBO.skyType == 1 && rayBounce(mainRay) == 0u) {
+    if (worldUBO.skyType == 1 && (rayBounce(mainRay) == 0u || rayCameraPath(mainRay))) {
         backgroundRadiance += celestialHalo(rayDir, celestialSunDirection(), VPT_SUN_GLOW_WIDTH, VPT_SUN_GLOW) *
                               (VPT_SUN_RADIANCE * worldUBO.sunBrightness) * (1.0 - progress);
         backgroundRadiance += celestialHalo(rayDir, celestialMoonDirection(), 0.10, 0.10) *
@@ -231,7 +231,7 @@ void main() {
 
     // Sky seen off water, glass or any bounce sits behind the same biome fog as the sky the camera sees; without it
     // reflections showed the clear, dark blue sky above the fog.
-    if (worldUBO.skyType == 1 && rayBounce(mainRay) > 0u && biomeHazeActive()) {
+    if (worldUBO.skyType == 1 && rayBounce(mainRay) > 0u && !rayCameraPath(mainRay) && biomeHazeActive()) {
         float hazeTransmittance;
         vec3 hazeAdditive;
         biomeHaze(rayDir, true, 0.0, hazeTransmittance, hazeAdditive);
@@ -260,7 +260,8 @@ void main() {
 
     // The sky lighting the world (every bounce after the first): Bedrock RTX's shade under a building is lit well
     // by the open sky around it, not left in deep shadow.
-    if (rayBounce(mainRay) > 0u && worldUBO.skyType == 1) { backgroundRadiance *= max(VPT_SKY_LIGHT_BOOST, 0.0); }
+    // The camera's own ray, seen through glass or a sheet of water, is still the sky the camera sees, not light.
+    if (rayBounce(mainRay) > 0u && !rayCameraPath(mainRay) && worldUBO.skyType == 1) { backgroundRadiance *= max(VPT_SKY_LIGHT_BOOST, 0.0); }
     mainRay.radiance += backgroundRadiance * mainRay.throughput;
     raySetStop(mainRay, true);
     mainRay.hitT = INF_DISTANCE;

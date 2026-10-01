@@ -81,11 +81,19 @@ void main() {
     if (hasTexture(packedData)) {
         textureUV = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
         if (isGlassSurface(packedData)) {
-            textureUV = seamlessGlassUV(textureUV, min(m0.textureUV, min(m1.textureUV, m2.textureUV)),
-                                        max(m0.textureUV, max(m1.textureUV, m2.textureUV)),
-                                        textureSize(textures[nonuniformEXT(textureID)], 0));
+            vec2 glassUvMin = min(m0.textureUV, min(m1.textureUV, m2.textureUV));
+            vec2 glassUvMax = max(m0.textureUV, max(m1.textureUV, m2.textureUV));
+            ivec2 atlasSize = textureSize(textures[nonuniformEXT(textureID)], 0);
+            if (seamlessGlassHidesFace(glassUvMin, glassUvMax, atlasSize, cross(p1.pos - p0.pos, p2.pos - p0.pos))) {
+                ignoreIntersectionEXT;
+                return;
+            }
+            vec3 glassDposdu, glassDposdv;
+            computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, glassDposdu, glassDposdv);
+            textureUV = seamlessGlassUV(textureUV, baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos,
+                                        glassDposdu, glassDposdv);
         }
-        albedo =sampleTexture(textures[nonuniformEXT(textureID)], textureUV, false);
+        albedo = sampleTexture(textures[nonuniformEXT(textureID)], textureUV, false);
     }
     ivec4 flags = ivec4(0);
     bool isWaterMaterial = isWaterSurface(packedData);

@@ -26,9 +26,21 @@ vec3 CalculateF0(vec3 n, vec3 k) {
 // The colour light takes through a see-through block, as Bedrock RTX filters it: the texture's hue at full
 // brightness, as strongly as its alpha says it is coloured. A stained pane's texture is a dark colour; filtering by
 // it as it stands let almost no light through, where Bedrock's tinted glass throws its colour bright and clear.
+// How much a glass colour reads as dull, dark glass (tinted glass) rather than coloured glass: 0 to 1.
+float glassDarkness(vec3 colour) {
+    float peak = max(colour.r, max(colour.g, colour.b));
+    float low = min(colour.r, min(colour.g, colour.b));
+    float saturation = peak > 1e-3 ? (peak - low) / peak : 0.0;
+    return (1.0 - smoothstep(0.4, 0.65, saturation)) * (1.0 - smoothstep(0.35, 0.6, peak));
+}
+
 vec3 glassTint(vec3 colour, float alpha) {
     float peak = max(colour.r, max(colour.g, colour.b));
     vec3 hue = peak > 1e-3 ? colour / peak : vec3(1.0);
+    // A dull, dark glass (tinted glass) is dark on purpose: it keeps some of its darkness, so it shows the world
+    // dimly instead of as clear as stained glass. Coloured glass filters by its hue alone.
+    // Light crosses two faces of a block, each squaring this: about a quarter gets through tinted glass.
+    hue *= mix(1.0, pow(max(peak, 0.0), 0.2), glassDarkness(colour));
     return mix(vec3(1.0), hue, smoothstep(0.0, 0.3, alpha));
 }
 

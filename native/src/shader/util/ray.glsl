@@ -34,6 +34,18 @@ const uint rayPassThroughBit = 1u << 21u;
 // The ray travels through water: the next surface it reaches is seen through the water in between. Kept across
 // bounces, and switched by the water surface the ray refracts through.
 const uint rayInWaterBit = 1u << 22u;
+// Still the camera's own ray: so far it has only passed through see-through surfaces (clear glass, sheets of water).
+// The back face of a glass block or the second side of a pane is then seen through as the first one was, not shaded
+// as a mirror that reflected the outside back into the view.
+const uint rayCameraPathBit = 1u << 23u;
+
+void raySetCameraPath(inout MainRay ray, bool enabled) {
+    ray.stateBits = enabled ? (ray.stateBits | rayCameraPathBit) : (ray.stateBits & ~rayCameraPathBit);
+}
+
+bool rayCameraPath(MainRay ray) {
+    return (ray.stateBits & rayCameraPathBit) != 0u;
+}
 
 ivec3 rayMaterialStateCoord(int layer) {
     return ivec3(ivec2(gl_LaunchIDEXT.xy), layer);

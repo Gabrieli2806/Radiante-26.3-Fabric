@@ -943,13 +943,13 @@ void main() {
         textureUV = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
         atlasUvMin = min(m0.textureUV, min(m1.textureUV, m2.textureUV));
         atlasUvMax = max(m0.textureUV, max(m1.textureUV, m2.textureUV));
-        if (isGlassSurface(packedData)) {
-            textureUV = seamlessGlassUV(textureUV, atlasUvMin, atlasUvMax,
-                                        textureSize(textures[nonuniformEXT(textureID)], 0));
-        }
 
         float coneRadiusWorld = mainRay.coneWidth + gl_HitTEXT * mainRay.coneSpread;
         computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, dposdu, dposdv);
+        if (isGlassSurface(packedData)) {
+            textureUV = seamlessGlassUV(textureUV, baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos,
+                                        dposdu, dposdv);
+        }
         lod = lodWithCone(textures[nonuniformEXT(textureID)], textureUV, coneRadiusWorld, dposdu, dposdv);
 
         dPduWorld = objectToWorld * dposdu;
@@ -970,7 +970,7 @@ void main() {
         // windows) is seen straight through, as in Bedrock RTX: the view carries on into the water, clear and sharp,
         // with what is behind it as the surface the denoiser sees. Refracting and shading it as a surface turned it
         // a milky smear. The medium still colours the stretch beyond.
-        if (isWaterMaterial && abs(planeGeoNormal.y) <= 0.75 && bounce == 0u) {
+        if (isWaterMaterial && abs(planeGeoNormal.y) <= 0.75 && (bounce == 0u || rayCameraPath(mainRay))) {
             mainRay.hitT = gl_HitTEXT;
             mainRay.coneWidth += mainRay.hitT * mainRay.coneSpread;
             mainRay.origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * (gl_HitTEXT + 0.002);
@@ -999,10 +999,13 @@ void main() {
         // the view carries on, filtered by the glass's colour, with a faint Fresnel reflection of the sky on top.
         // Refracted as a surface, what lay behind was denoised as if it were on the glass and came out noisy and
         // soft. The frame (opaque texels) stays a surface.
-        if (g_hitIsGlass && bounce == 0u) {
+        if (g_hitIsGlass && (bounce == 0u || rayCameraPath(mainRay))) {
             vec4 glassTexel = sampleTexture(textures[nonuniformEXT(textureID)], textureUV, 0.0, false);
-            float glassAlpha = resolveSurfaceAlpha(glassTexel.a * colorLayerValue.a, alphaMode);
-            if (glassAlpha < 0.9) {
+            // The texture's own alpha, not the alpha mode's: stained glass is drawn as a stochastic surface, which rounds
+            // every texel to fully opaque, and it then never let the view through.
+            float glassAlpha = clamp(glassTexel.a * colorLayerValue.a, 0.0, 1.0);
+            // Tinted glass is nearly opaque in its texture but still a window: seen through, darkened.
+            if (glassAlpha < 0.9 || glassDarkness(glassTexel.rgb * colorLayer) > 0.5) {
                 vec3 incident = normalize(gl_WorldRayDirectionEXT);
                 float cosTheta = clamp(abs(dot(incident, baseGeoNormal)), 0.0, 1.0);
                 float fresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);

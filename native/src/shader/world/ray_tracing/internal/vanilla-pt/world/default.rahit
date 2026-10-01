@@ -65,17 +65,25 @@ void main() {
     float lod = 0.0;
     if (hasTexture(packedData)) {
         uv = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
+        PositionVertex p0, p1, p2;
+        loadTrianglePositions(geometryBufferIndex, i0, i1, i2, p0, p1, p2);
         if (isGlassSurface(packedData)) {
-            uv = seamlessGlassUV(uv, min(m0.textureUV, min(m1.textureUV, m2.textureUV)),
-                                 max(m0.textureUV, max(m1.textureUV, m2.textureUV)),
-                                 textureSize(textures[nonuniformEXT(textureID)], 0));
+            vec2 glassUvMin = min(m0.textureUV, min(m1.textureUV, m2.textureUV));
+            vec2 glassUvMax = max(m0.textureUV, max(m1.textureUV, m2.textureUV));
+            ivec2 atlasSize = textureSize(textures[nonuniformEXT(textureID)], 0);
+            if (seamlessGlassHidesFace(glassUvMin, glassUvMax, atlasSize, cross(p1.pos - p0.pos, p2.pos - p0.pos))) {
+                ignoreIntersectionEXT;
+                return;
+            }
         }
 
         float coneRadiusWorld = mainRay.coneWidth + gl_HitTEXT * mainRay.coneSpread;
-        PositionVertex p0, p1, p2;
-        loadTrianglePositions(geometryBufferIndex, i0, i1, i2, p0, p1, p2);
         vec3 dposdu, dposdv;
         computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, dposdu, dposdv);
+        if (isGlassSurface(packedData)) {
+            vec3 objectPos = baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos;
+            uv = seamlessGlassUV(uv, objectPos, dposdu, dposdv);
+        }
         lod = lodWithCone(textures[nonuniformEXT(textureID)], uv, coneRadiusWorld, dposdu, dposdv);
 
         // Glass at its full-resolution alpha: mip levels blend a pane's frame into its clear middle.
@@ -89,9 +97,10 @@ void main() {
         }
     }
 
-    // The clear part of a glass block or pane is still glass: kept as a hit, and shaded as fully see-through glass
-    // (its alpha is 0), so it reflects the sky and bends the view instead of being skipped. Shadow rays still pass.
-    if (isGlassSurface(packedData) && alpha < 0.05) {
+    // Glass is always kept as a hit, clear parts included (shaded as fully see-through glass, alpha 0): the hit shader
+    // sees through it and tints the view by the glass's colour. Skipped at random by its alpha instead, as other
+    // see-through surfaces are, most rays missed tinted or stained glass and it looked nearly clear.
+    if (isGlassSurface(packedData)) {
         return;
     }
 
