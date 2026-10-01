@@ -379,8 +379,9 @@ public final class EntityManager {
                 int textureId = TextureTracker.idOf(layer.textureAtlasLocation());
                 PBRVertexWriter writer = PARTICLE_WRITER.textureId(textureId)
                     .glintTextureId(0)
-                    .alphaMode(layer.translucent() ? PBRVertexWriter.ALPHA_MODE_TRANSPARENT
-                        : PBRVertexWriter.ALPHA_MODE_CUTOUT)
+                    // Translucent ones (smoke, campfire, dust) are kept by their alpha at random, as solid surfaces: traced as
+                    // see-through geometry they looked like glass, the world showing through them clearer than in vanilla.
+                    .alphaMode(layer.translucent() ? PBRVertexWriter.ALPHA_MODE_STOCHASTIC : PBRVertexWriter.ALPHA_MODE_CUTOUT)
                     .coordinate(NativeGeometry.COORDINATE_WORLD)
                     .albedoEmission(0.0f)
                     .overlayEnabled(false)
