@@ -36,7 +36,7 @@ mismo frame.
 
 ## Requisitos
 
-- Windows x64 (única plataforma soportada por ahora).
+- Windows x64, o Linux x86-64 con glibc 2.35+ (Ubuntu 22.04, Debian 12, Fedora 36 o más recientes).
 - Una GPU con soporte de ray tracing en Vulkan (`VK_KHR_ray_tracing_pipeline` y
   `VK_KHR_acceleration_structure`).
 - Minecraft 26.3 con uno de:
@@ -45,6 +45,17 @@ mismo frame.
   - Forge 26.3-66.0.3+.
 - Frame generation y NVIDIA Reflex están disponibles solo en Fabric por ahora (ver [ROADMAP.md](ROADMAP.md)).
 - Java 25.
+
+### Notas para Linux
+
+- El juego debe usar el driver real de la GPU. Si el log muestra `Using graphics device: llvmpipe`, Vulkan cayó al
+  renderizador por software de Mesa: el mundo se ve negro y no aparece DLSS.
+- **Launchers en Flatpak** (Modrinth, Prism, etc.) necesitan el runtime GL de Flatpak que coincida exactamente con
+  el driver NVIDIA del sistema. Mira la versión con `cat /sys/module/nvidia/version` (p. ej. `595.91.07`) e instala
+  `flatpak install flathub org.freedesktop.Platform.GL.nvidia-595-91-07` (los puntos pasan a guiones). Repítelo
+  tras cada actualización del driver. Los launchers que no son Flatpak usan el driver del sistema directamente.
+- En Wayland con NVIDIA el backend OpenGL de Minecraft suele fallar (`EGL_BAD_DISPLAY`); Radiante siempre deja
+  Vulkan como respaldo.
 
 ## Compilación
 
@@ -62,6 +73,17 @@ cmake --build build/native --config Release -j 16
 El paso de instalación de CMake copia los shaders y módulos a `common/src/main/resources/radiante-native/`;
 el `core.dll` compilado va a la misma carpeta. `./gradlew.bat :fabric:runClient`, `:neoforge:runClient` o
 `:forge:runClient` lanza un cliente de desarrollo; los tres comparten la carpeta `run/`.
+
+En Linux el renderizador nativo es `libcore.so` y se instala en `radiante-native/linux-x64/`:
+
+```sh
+# requiere cmake, ninja, g++ 13+, git y el Vulkan SDK (VULKAN_SDK definido, glslangValidator en el PATH)
+native/build-linux.sh            # añade -DVulkan_LIBRARY=/usr/lib/x86_64-linux-gnu/libvulkan.so.1 si CMake no lo encuentra
+./gradlew :fabric:build
+```
+
+Un jar compilado en Linux solo trae el renderizador de Linux (y uno compilado en Windows solo `core.dll`); para una
+versión que funcione en ambos, compila la parte nativa en los dos sistemas antes de empaquetar.
 
 ### Estructura del proyecto
 

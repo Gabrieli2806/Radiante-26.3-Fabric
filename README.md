@@ -32,7 +32,7 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
 
 ## Requirements
 
-- Windows x64 (only platform supported for now).
+- Windows x64, or Linux x86-64 with glibc 2.35+ (Ubuntu 22.04, Debian 12, Fedora 36 or newer).
 - A GPU with Vulkan ray tracing support (`VK_KHR_ray_tracing_pipeline` and
   `VK_KHR_acceleration_structure`).
 - Minecraft 26.3 with one of:
@@ -41,6 +41,17 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
   - Forge 26.3-66.0.3+.
 - Frame generation and NVIDIA Reflex are Fabric only for now (see [ROADMAP.md](ROADMAP.md)).
 - Java 25.
+
+### Linux notes
+
+- The game must run on the real GPU driver. If the log shows `Using graphics device: llvmpipe`, Vulkan fell back
+  to Mesa's software renderer: the world renders black and DLSS is not offered.
+- **Flatpak launchers** (Modrinth, Prism, etc.) need the Flatpak GL runtime that matches the host NVIDIA driver
+  exactly. Check the driver with `cat /sys/module/nvidia/version` (e.g. `595.91.07`) and install
+  `flatpak install flathub org.freedesktop.Platform.GL.nvidia-595-91-07` (dots become dashes). Repeat after every
+  driver update. Non-Flatpak launchers use the host driver directly and need nothing extra.
+- Under Wayland with NVIDIA, Minecraft's OpenGL backend usually fails (`EGL_BAD_DISPLAY`); Radiante always keeps
+  Vulkan available as a fallback.
 
 ## Building
 
@@ -58,6 +69,17 @@ cmake --build build/native --config Release -j 16
 The CMake install step copies the shaders and modules into `common/src/main/resources/radiante-native/`; the
 built `core.dll` goes into the same folder. `./gradlew.bat :fabric:runClient`, `:neoforge:runClient` or
 `:forge:runClient` launches a development client; all three share the `run/` folder.
+
+On Linux the native renderer is `libcore.so`, installed into `radiante-native/linux-x64/`:
+
+```sh
+# needs cmake, ninja, g++ 13+, git and the Vulkan SDK (VULKAN_SDK set, glslangValidator on PATH)
+native/build-linux.sh            # add -DVulkan_LIBRARY=/usr/lib/x86_64-linux-gnu/libvulkan.so.1 if CMake cannot find it
+./gradlew :fabric:build
+```
+
+A jar built on Linux only contains the Linux renderer (and one built on Windows only `core.dll`); for a release
+that runs on both, build the native part on both systems before packaging.
 
 ### Project layout
 

@@ -1,6 +1,9 @@
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS "*.cpp")
 
 add_library(core SHARED ${SOURCE_FILES})
+if(NOT WIN32)
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/glibc_shims.cpp PROPERTIES COMPILE_DEFINITIONS RADIANTE_GLIBC_SHIM)
+endif()
 target_link_libraries(core PUBLIC ngx ${JNI_LIBRARIES} VulkanMemoryAllocator volk::volk minizip tinyexpr
                                    nlohmann_json::nlohmann_json)
 

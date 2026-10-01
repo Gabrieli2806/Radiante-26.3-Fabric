@@ -21,6 +21,12 @@ else()
     endif()
 endif()
 
+if(UNIX AND NOT APPLE)
+    # Keep libcore.so loadable on older glibc than the build machine's (see glibc_compat.h).
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -include ${PROJECT_SOURCE_DIR}/glibc_compat.h")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include ${PROJECT_SOURCE_DIR}/glibc_compat.h")
+endif()
+
 set(MCVR_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src)
 message(STATUS "Include dir: ${MCVR_INCLUDE_DIR}")
 
@@ -163,6 +169,9 @@ set(MZ_LZMA OFF CACHE BOOL "Disable lzma" FORCE)
 set(MZ_OPENSSL OFF CACHE BOOL "Disable OpenSSL" FORCE)
 set(MZ_LIBBSD OFF CACHE BOOL "Disable libbsd" FORCE)
 set(MZ_ICONV OFF CACHE BOOL "Disable iconv" FORCE)
+# arc4random only exists in glibc 2.36+; minizip falls back to getrandom (glibc 2.25) without it.
+set(HAVE_ARC4RANDOM_BUF OFF CACHE INTERNAL "")
+set(HAVE_ARC4RANDOM OFF CACHE INTERNAL "")
 set(ZLIB_COMPAT ON CACHE BOOL "Build zlib-ng with the zlib API" FORCE)
 if(NOT WIN32)
     # Everything static ends up inside libcore.so.
