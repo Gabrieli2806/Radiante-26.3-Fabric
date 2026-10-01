@@ -90,4 +90,10 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_set
                                     static_cast<size_t>(count));
     env->ReleaseIntArrayElements(words, data, JNI_ABORT);
 }
+
+JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_isSlotCurrent(JNIEnv *, jclass, jlong index) {
+    auto world = Renderer::instance().world();
+    if (world == nullptr || world->chunks() == nullptr) return JNI_FALSE;
+    return world->chunks()->isChunkCurrent(index) ? JNI_TRUE : JNI_FALSE;
+}
 }

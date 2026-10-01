@@ -272,6 +272,8 @@ class Chunks : public SharedObject<Chunks> {
     void setCollectChunkEmission(bool collect);
 
     bool isChunkReady(int64_t id);
+    // No build of this slot still pending: what it draws is the latest geometry handed to it.
+    bool isChunkCurrent(int64_t id);
 
     void close();
 

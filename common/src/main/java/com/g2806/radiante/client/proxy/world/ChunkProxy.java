@@ -24,6 +24,9 @@ public class ChunkProxy {
 
     public static native void invalidateSingle(long index);
 
+    /** True when the renderer has built the latest geometry handed to this slot. */
+    public static native boolean isSlotCurrent(long index);
+
     /**
      * Chunk columns, in a square window of {@code size} x {@code size} from {@code originX, originZ}, whose terrain
      * is built: one bit each, row by row along x. Distant Horizons terrain is hidden in them. A size of 0 clears it.

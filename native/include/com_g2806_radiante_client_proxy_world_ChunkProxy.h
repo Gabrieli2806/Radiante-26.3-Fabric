@@ -49,6 +49,14 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_inv
 
 /*
  * Class:     com_g2806_radiante_client_proxy_world_ChunkProxy
+ * Method:    isSlotCurrent
+ * Signature: (J)Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_isSlotCurrent
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_world_ChunkProxy
  * Method:    setLodCoverage
  * Signature: (III[I)V
  */

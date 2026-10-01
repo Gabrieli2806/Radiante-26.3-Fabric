@@ -136,6 +136,7 @@ final class LodTerrain {
         if (!refreshLooks(minecraft)) {
             return;
         }
+        confirmBuilt();
 
         long now = System.nanoTime();
         int distance = DhData.renderDistanceBlocks();
@@ -259,6 +260,23 @@ final class LodTerrain {
     }
 
     private int slotsExhausted;
+
+    /** Tiles whose geometry the renderer now draws count as built from here on; see Tile.submittedHide. */
+    private void confirmBuilt() {
+        for (Tile tile : this.tiles.values()) {
+            if (!tile.submitted) {
+                continue;
+            }
+            synchronized (tile) {
+                if (tile.submitted && !tile.removed && ChunkManager.isExtraSlotCurrent(this.generation, tile.slot)) {
+                    tile.builtHide = tile.submittedHide;
+                    tile.builtOnce = true;
+                    tile.submitted = false;
+                    this.lastSelect = 0L;
+                }
+            }
+        }
+    }
 
     /**
      * Debug: whether the dropped tile's area is still drawn, sampled on an 8 x 8 grid: by another built tile, by the
@@ -598,7 +616,7 @@ final class LodTerrain {
         boolean cached = job.kind == KIND_BUILD && tile.section != null;
         Long stamp = cached ? tile.dataStamp : DhData.timestamp(job.dhLevel, tile.detail, tile.x, tile.z);
         Hide hide = tile.hide;
-        if (job.kind == KIND_REFRESH && Objects.equals(stamp, tile.dataStamp) && hide.equals(tile.builtHide)
+        if (job.kind == KIND_REFRESH && Objects.equals(stamp, tile.dataStamp) && hide.equals(tile.submitted ? tile.submittedHide : tile.builtHide)
             && (stamp != null || tile.builtComplete && System.nanoTime() - tile.builtAt < UNDATED_REFRESH_NS)) {
             return;
         }
@@ -674,8 +692,8 @@ final class LodTerrain {
                         new BlockPos(originX, this.minY, originZ), types, names, atlas, vertexCounts, vertices);
                 }
                 tile.dataStamp = stamp;
-                tile.builtHide = hide;
-                tile.builtOnce = true;
+                tile.submittedHide = hide;
+                tile.submitted = true;
                 tile.builtComplete = section.complete();
                 tile.builtAt = System.nanoTime();
             }
@@ -773,6 +791,13 @@ final class LodTerrain {
         volatile boolean builtOnce;
         volatile @Nullable Long dataStamp;
         volatile @Nullable Hide builtHide;
+        /**
+         * Geometry handed to the renderer but not in its acceleration structures yet: what it leaves out. The tile only
+         * counts as built (builtOnce, builtHide) once the renderer draws it; counted from the hand-over, sections
+         * merging or splitting dropped the old geometry frames before the new one was there, the far terrain blinking.
+         */
+        volatile @Nullable Hide submittedHide;
+        volatile boolean submitted;
         volatile boolean builtComplete;
         volatile long builtAt;
 

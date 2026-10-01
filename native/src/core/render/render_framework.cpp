@@ -7,7 +7,6 @@
 
 #include "core/render/framegen/frame_generation.hpp"
 #include "core/render/framegen/native_frame_generation.hpp"
-#include "core/render/framegen/streamline.hpp"
 
 #include "common/shared.hpp"
 #include "core/render/buffers.hpp"
@@ -134,9 +133,6 @@ void Framework::init(const SharedDeviceHandles &handles) {
     asyncCommandPool_ = vk::CommandPool::create(physicalDevice_, device_, physicalDevice_->secondaryQueueIndex());
     frameResourceRetainer_ = FrameResourceRetainer::create(shared_from_this());
     worldAsyncCommandBuffer_ = vk::CommandBuffer::create(device_, asyncCommandPool_);
-
-    framegen::Streamline::setVulkanInfo(handles.instance, handles.physicalDevice, handles.device,
-                                        handles.mainQueueFamily, 0, handles.secondaryQueueFamily, 0);
 
     createContexts();
     pipeline_ = Pipeline::create(shared_from_this());

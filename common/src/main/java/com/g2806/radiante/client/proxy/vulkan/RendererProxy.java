@@ -40,8 +40,6 @@ public class RendererProxy {
     public static native void shouldRenderWorld(boolean renderWorld);
 
     /** Loads NVIDIA Streamline from `folder`; must run before Minecraft creates its Vulkan instance. */
-    public static native boolean initFrameGeneration(String folder);
-
     /** Frames DLSS can generate per rendered frame, 0 when frame generation is unavailable. */
     public static native int maxGeneratedFrames();
 
@@ -61,5 +59,17 @@ public class RendererProxy {
 
     /** NVIDIA Reflex low latency; only has an effect where Streamline is loaded and the GPU supports it. */
     public static native void setReflexEnabled(boolean enabled);
+
+    /** True once the device has NVIDIA Reflex (VK_NV_low_latency2). */
+    public static native boolean isReflexSupported();
+
+    /** Chains the Reflex swapchain structure into a VkSwapchainCreateInfoKHR, by address. */
+    public static native void reflexChainSwapchainCreate(long createInfo);
+
+    /** The swapchain Minecraft presents to; 0 while it is rebuilt. */
+    public static native void reflexSetSwapchain(long swapchain);
+
+    /** Chains this frame's present id into a VkPresentInfoKHR, by address. */
+    public static native void reflexChainPresent(long presentInfo);
 
 }

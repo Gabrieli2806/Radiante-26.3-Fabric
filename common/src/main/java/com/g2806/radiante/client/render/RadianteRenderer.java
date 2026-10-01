@@ -116,6 +116,17 @@ public final class RadianteRenderer {
         long secondaryQueue = device.computeQueue().vkQueue().address();
         int secondaryQueueFamily = device.computeQueue().queueFamilyIndex();
 
+        // Minecraft falls back to any device when none passes the ray tracing check (a software driver such as
+        // llvmpipe, when the GPU driver is not reachable, e.g. a Flatpak launcher without the NVIDIA runtime). The
+        // renderer would draw nothing there; Minecraft's own rendering stays on instead.
+        if (!RendererProxy.isRayTracingCapable(physicalDevice)) {
+            LOGGER.error("Radiante: the Vulkan device has no hardware ray tracing; ray tracing stays off. On "
+                + "Linux this usually means the GPU driver is not visible to the game (Flatpak launchers need the "
+                + "matching org.freedesktop.Platform.GL.nvidia runtime).");
+            unsupportedReason = "options.radiante.unsupported.reason";
+            return;
+        }
+
         // The native renderer compiles shaders recursively, so give the initialisation a large stack.
         boolean[] ok = new boolean[1];
         Thread initThread = new Thread(null, () -> {

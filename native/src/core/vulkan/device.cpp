@@ -1,6 +1,6 @@
 #include "core/vulkan/device.hpp"
 
-#include "core/render/framegen/streamline.hpp"
+#include "core/render/framegen/reflex.hpp"
 
 #include "core/render/modules/world/dlss/dlss_wrapper.hpp"
 #include "core/render/modules/world/xess_upscaler/xess_wrapper.hpp"
@@ -112,9 +112,11 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
         requested.emplace_back(ext);
     }
 
-    // Reflex (through Streamline) asks for its own extensions.
-    for (const std::string &ext : framegen::Streamline::requiredDeviceExtensions()) {
-        requested.emplace_back(ext);
+    // NVIDIA Reflex (VK_NV_low_latency2; the present ids tie its markers to presented frames).
+    const bool reflexExtensions = framegen::Reflex::deviceSupports(physicalDeviceHandle);
+    if (reflexExtensions) {
+        requested.emplace_back(VK_NV_LOW_LATENCY_2_EXTENSION_NAME);
+        requested.emplace_back(VK_KHR_PRESENT_ID_EXTENSION_NAME);
     }
 
     // DLSS Frame Generation, driven through NGX directly.
@@ -413,8 +415,21 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
     }
 #endif
 
-    // DLSS Frame Generation does its work on queues of its own. Unless the device is created with them Streamline
-    // accepts every call, reports no error, and silently never generates a frame.
+    // Reflex ties its latency markers to presented frames by present id.
+    VkPhysicalDevicePresentIdFeaturesKHR supportedPresentId{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR};
+    VkPhysicalDevicePresentIdFeaturesKHR presentId{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR};
+    bool reflexEnabled = false;
+    if (hasExtension(VK_NV_LOW_LATENCY_2_EXTENSION_NAME) && hasExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME)) {
+        VkPhysicalDeviceFeatures2 query{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &supportedPresentId};
+        vkGetPhysicalDeviceFeatures2(physicalDeviceHandle, &query);
+        if (supportedPresentId.presentId == VK_TRUE) {
+            presentId.presentId = VK_TRUE;
+            presentId.pNext = features2.pNext;
+            features2.pNext = &presentId;
+            reflexEnabled = true;
+        }
+    }
+
     std::vector<VkDeviceQueueCreateInfo> queueInfos(baseInfo->pQueueCreateInfos,
                                                     baseInfo->pQueueCreateInfos + baseInfo->queueCreateInfoCount);
     std::vector<std::vector<float>> queuePriorities;
@@ -435,16 +450,14 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
     createInfo.enabledExtensionCount = static_cast<uint32_t>(selected.size());
     createInfo.ppEnabledExtensionNames = selected.data();
 
-    PFN_vkCreateDevice createDevice = framegen::Streamline::createDeviceProxy(instance->vkInstance());
-    VkResult result = createDevice != nullptr
-                          ? createDevice(physicalDeviceHandle, &createInfo, allocator, outDevice)
-                          : vkCreateDevice(physicalDeviceHandle, &createInfo, allocator, outDevice);
+    VkResult result = vkCreateDevice(physicalDeviceHandle, &createInfo, allocator, outDevice);
     if (result != VK_SUCCESS) {
         deviceCerr() << "vkCreateDevice failed: " << result << std::endl;
         return result;
     }
 
     volkLoadDevice(*outDevice);
+    framegen::Reflex::setDevice(*outDevice, reflexEnabled);
     installQueueLockHooks();
 
     g_created.device = *outDevice;

@@ -134,14 +134,19 @@ public final class FrameGeneration {
         }
     }
 
-    /** Reflex paces frames from the markers above; it comes with Streamline. */
+    /** Reflex paces frames from the markers above (VK_NV_low_latency2, on NVIDIA GPUs). */
     private static boolean reflexActive() {
-        return Options.reflex && RadianteClient.streamlineLoaded();
+        return Options.reflex && RadianteRenderer.isActive() && RendererProxy.isReflexSupported();
     }
 
-    /** Hands the player's Reflex choice to the renderer; harmless before Streamline or the device exist. */
+    /** Whether this GPU has NVIDIA Reflex; false before the renderer is up. */
+    public static boolean isReflexSupported() {
+        return RadianteRenderer.isActive() && RendererProxy.isReflexSupported();
+    }
+
+    /** Hands the player's Reflex choice to the renderer; it takes effect on the next frame. */
     public static void applyReflex() {
-        if (RadianteClient.streamlineLoaded()) {
+        if (RadianteRenderer.isActive()) {
             RendererProxy.setReflexEnabled(Options.reflex);
         }
     }

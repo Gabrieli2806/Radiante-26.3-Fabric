@@ -44,12 +44,10 @@ public final class RadianteDebugEntries {
             @Override
             void lines(DebugScreenDisplayer displayer) {
                 String reflex;
-                if (!RadiantePlatform.INSTANCE.supportsStreamline()) {
+                if (!com.g2806.radiante.client.render.FrameGeneration.isReflexSupported()) {
                     reflex = "unavailable";
-                } else if (!Options.reflex) {
-                    reflex = "Off";
                 } else {
-                    reflex = RadianteClient.streamlineLoaded() ? "On" : "On (restart to apply)";
+                    reflex = Options.reflex ? "On" : "Off";
                 }
                 displayer.addLine("NVIDIA Reflex: " + reflex);
             }

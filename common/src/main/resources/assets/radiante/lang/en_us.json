@@ -324,6 +324,5 @@
   "options.radiante.fog_style.tooltip": "How the volumetric fog is made. Radiance: the air is cut into a 3D grid lit once per cell and kept over frames, as in the original Radiance; sharper light shafts, block lights glow in the fog, and cheaper. Radiante: every pixel marches the air itself; follows each surface exactly but costs more.",
   "options.radiante.volumetric_fog.tooltip": "Ray marches the air like Bedrock RTX: sunlight and moonlight scatter in the biome fog and trees and terrain cast light shafts through it. Costs noticeably more GPU time than the plain haze.",
   "options.radiante.reflex": "NVIDIA Reflex",
-  "options.radiante.reflex.tooltip": "Low latency mode: holds the CPU back so each frame starts as late as the GPU allows, cutting input lag. NVIDIA GPUs only.",
-  "options.radiante.reflex.tooltip_restart": "Low latency mode for NVIDIA GPUs, cutting input lag. Takes effect after restarting the game."
+  "options.radiante.reflex.tooltip": "Low latency mode: holds the CPU back so each frame starts as late as the GPU allows, cutting input lag. NVIDIA GPUs only."
 }

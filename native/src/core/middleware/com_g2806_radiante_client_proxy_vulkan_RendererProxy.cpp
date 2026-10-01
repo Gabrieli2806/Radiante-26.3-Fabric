@@ -7,7 +7,7 @@
 #include "core/render/render_framework.hpp"
 #include "core/render/framegen/frame_generation.hpp"
 #include "core/render/framegen/native_frame_generation.hpp"
-#include "core/render/framegen/streamline.hpp"
+#include "core/render/framegen/reflex.hpp"
 #include "core/render/renderer.hpp"
 #include "core/render/textures.hpp"
 #include "core/render/world.hpp"
@@ -183,16 +183,6 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
     world->shouldRender() = shouldRenderWorld;
 }
 
-JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_initFrameGeneration(
-    JNIEnv *env, jclass, jstring folder) {
-    if (folder == nullptr) return JNI_FALSE;
-    const char *chars = env->GetStringUTFChars(folder, nullptr);
-    if (chars == nullptr) return JNI_FALSE;
-    bool loaded = framegen::Streamline::init(chars);
-    env->ReleaseStringUTFChars(folder, chars);
-    return loaded ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_maxGeneratedFrames(JNIEnv *, jclass) {
     return static_cast<jint>(framegen::NativeFrameGeneration::instance().maxGeneratedFrames());
 }
@@ -206,7 +196,28 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setReflexEnabled(JNIEnv *,
                                                                                                  jclass,
                                                                                                  jboolean enabled) {
-    framegen::Streamline::setReflexEnabled(enabled == JNI_TRUE);
+    framegen::Reflex::setEnabled(enabled == JNI_TRUE);
+}
+
+JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_isReflexSupported(JNIEnv *, jclass) {
+    return framegen::Reflex::isSupported() ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_reflexChainSwapchainCreate(
+    JNIEnv *, jclass, jlong createInfo) {
+    framegen::Reflex::chainSwapchainCreate(reinterpret_cast<void *>(createInfo));
+}
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_reflexSetSwapchain(JNIEnv *,
+                                                                                                  jclass,
+                                                                                                  jlong swapchain) {
+    framegen::Reflex::setSwapchain(reinterpret_cast<VkSwapchainKHR>(swapchain));
+}
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_reflexChainPresent(JNIEnv *,
+                                                                                                  jclass,
+                                                                                                  jlong presentInfo) {
+    framegen::Reflex::chainPresent(reinterpret_cast<void *>(presentInfo));
 }
 
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_presentedFrameRate(JNIEnv *, jclass) {

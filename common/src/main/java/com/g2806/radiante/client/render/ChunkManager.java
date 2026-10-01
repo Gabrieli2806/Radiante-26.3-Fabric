@@ -200,6 +200,17 @@ public final class ChunkManager {
         }
     }
 
+    /** Whether the renderer draws the latest geometry handed to this extra slot (no build of it still pending). */
+    public static boolean isExtraSlotCurrent(int expectedGeneration, int extraIndex) {
+        GRID_LOCK.readLock().lock();
+        try {
+            return expectedGeneration == generation && executor != null
+                && ChunkProxy.isSlotCurrent(extraSlotBase() + extraIndex);
+        } finally {
+            GRID_LOCK.readLock().unlock();
+        }
+    }
+
     /** Empties one of the {@link #EXTRA_SLOTS}. */
     public static void clearExtraSlot(int expectedGeneration, int extraIndex) {
         GRID_LOCK.readLock().lock();

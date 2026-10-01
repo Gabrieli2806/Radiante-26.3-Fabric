@@ -23,9 +23,6 @@
   "entrypoints": {
     "client": [
       "com.g2806.radiante.fabric.RadianteFabric"
-    ],
-    "preLaunch": [
-      "com.g2806.radiante.fabric.RadianteFabricPreLaunch"
     ]
   },
   "mixins": [

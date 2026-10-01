@@ -1,6 +1,5 @@
 #include "core/vulkan/instance.hpp"
 
-#include "core/render/framegen/streamline.hpp"
 
 #include "core/render/modules/world/dlss/dlss_wrapper.hpp"
 #include "core/render/modules/world/xess_upscaler/xess_wrapper.hpp"
@@ -81,11 +80,6 @@ VkResult vk::Instance::createMerged(const VkInstanceCreateInfo *baseInfo,
     }
 #endif
 
-    // Reflex (through Streamline) asks for its own instance extensions.
-    for (const std::string &ext : framegen::Streamline::requiredInstanceExtensions()) {
-        extStorage.insert(ext);
-    }
-
     // DLSS Frame Generation, driven through NGX directly.
     std::vector<std::string> dlssgRequired;
     bool dlssgQueried = false;
@@ -134,10 +128,7 @@ VkResult vk::Instance::createMerged(const VkInstanceCreateInfo *baseInfo,
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
-    // With frame generation loaded, Streamline has to create the instance so it can follow the Vulkan objects.
-    PFN_vkCreateInstance create = framegen::Streamline::createInstanceProxy();
-    VkResult result = create != nullptr ? create(&createInfo, allocator, outInstance)
-                                        : vkCreateInstance(&createInfo, allocator, outInstance);
+    VkResult result = vkCreateInstance(&createInfo, allocator, outInstance);
     if (result != VK_SUCCESS) {
         instanceCerr() << "vkCreateInstance failed: " << result << std::endl;
         return result;

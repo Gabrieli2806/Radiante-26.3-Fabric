@@ -19,14 +19,6 @@ public interface RadiantePlatform {
     Path gameDir();
 
     /**
-     * Whether NVIDIA Streamline (frame generation and Reflex) can be loaded. It has to hook the Vulkan library before
-     * LWJGL loads it; on Forge and NeoForge that has not worked yet and device creation crashes, so they opt out.
-     */
-    default boolean supportsStreamline() {
-        return true;
-    }
-
-    /**
      * The collector entity and block submissions are expanded into. A loader that adds submission methods of its
      * own (Fabric's rendering API submits meshes) returns a subclass that handles them.
      */

@@ -324,6 +324,5 @@
   "options.radiante.fog_style.tooltip": "Cómo se hace la niebla volumétrica. Radiance: el aire se divide en una rejilla 3D que se ilumina una vez por celda y se conserva entre frames, como en el Radiance original; haces de luz más nítidos, las luces de bloques brillan en la niebla y cuesta menos. Radiante: cada píxel recorre el aire por su cuenta; sigue cada superficie exacto pero cuesta más.",
   "options.radiante.volumetric_fog.tooltip": "Marcha por el aire con rayos como en Bedrock RTX: la luz del sol y la luna se dispersan en la neblina de bioma, y los árboles y el terreno proyectan haces de luz a través de ella. Cuesta notablemente más tiempo de GPU que la neblina simple.",
   "options.radiante.reflex": "NVIDIA Reflex",
-  "options.radiante.reflex.tooltip": "Modo de baja latencia: retiene la CPU para que cada fotograma comience lo más tarde que la GPU permita, reduciendo el retraso de entrada. Solo GPUs NVIDIA.",
-  "options.radiante.reflex.tooltip_restart": "Modo de baja latencia para GPUs NVIDIA, reduciendo el retraso de entrada. Se aplica tras reiniciar el juego."
+  "options.radiante.reflex.tooltip": "Modo de baja latencia: retiene la CPU para que cada fotograma comience lo más tarde que la GPU permita, reduciendo el retraso de entrada. Solo GPUs NVIDIA."
 }

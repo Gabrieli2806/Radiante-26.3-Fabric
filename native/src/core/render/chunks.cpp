@@ -1842,3 +1842,9 @@ glm::ivec4 Chunks::chunkStorageSectionPos() {
     std::unique_lock<std::recursive_mutex> lock(mutex_);
     return glm::ivec4(chunkStorageSectionPos_, 0);
 }
+
+bool Chunks::isChunkCurrent(int64_t id) {
+    std::unique_lock<std::recursive_mutex> lock(mutex_);
+    if (id < 0 || static_cast<size_t>(id) >= chunks_.size() || chunks_[id] == nullptr) return false;
+    return chunks_[id]->blasVersion == chunks_[id]->latestVersion - 1;
+}

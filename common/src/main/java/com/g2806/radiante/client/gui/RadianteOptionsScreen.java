@@ -342,19 +342,11 @@ public class RadianteOptionsScreen extends Screen {
         return Options.hdrOutput != com.g2806.radiante.client.hdr.HdrDisplay.isActive();
     }
 
-    /** Reflex chosen while Streamline is not loaded: it is loaded only at start. */
-    private boolean streamlinePending() {
-        return this.pendingReflex && !RadianteClient.streamlineLoaded();
-    }
-
     /** What the player changed that needs the game started again, for the notice after leaving. */
     private List<Component> restartChanges() {
         List<Component> changes = new ArrayList<>();
         if (hdrPending()) {
             changes.add(Component.translatable("options.radiante.hdr_output"));
-        }
-        if (this.pendingReflex && !RadianteClient.streamlineLoaded()) {
-            changes.add(Component.translatable("options.radiante.reflex"));
         }
         return changes;
     }
@@ -623,13 +615,10 @@ public class RadianteOptionsScreen extends Screen {
     private void addQualityOptions(OptionInstance<Presets> preset, OptionInstance<String> dlssMode,
         OptionInstance<Integer> frameGeneration) {
         OptionInstance<Boolean> reflex = null;
-        // Reflex comes with Streamline, which has to be loaded before Minecraft creates its Vulkan device: the
-        // first time it is turned on it takes effect after a restart, the same as frame generation.
-        if (com.g2806.radiante.platform.RadiantePlatform.INSTANCE.supportsStreamline()) {
+        // Reflex (VK_NV_low_latency2) is only there on NVIDIA GPUs; it applies at once.
+        if (FrameGeneration.isReflexSupported()) {
             reflex = OptionInstance.createBoolean("options.radiante.reflex",
-                OptionInstance.cachedConstantTooltip(Component.translatable(
-                    RadianteClient.streamlineLoaded() ? "options.radiante.reflex.tooltip"
-                        : "options.radiante.reflex.tooltip_restart")),
+                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.reflex.tooltip")),
                 this.pendingReflex, value -> {
                     this.pendingReflex = value;
                     refreshQualityLater();
@@ -938,16 +927,13 @@ public class RadianteOptionsScreen extends Screen {
         this.layout.restartInfo(new SettingsLayout.RestartInfo() {
             @Override
             public boolean needsRestart(OptionInstance<?> option) {
-                return option == hdrToggle || option == reflexToggle;
+                return option == hdrToggle;
             }
 
             @Override
             public boolean pending(OptionInstance<?> option) {
                 if (option == hdrToggle) {
                     return hdrPending();
-                }
-                if (option == reflexToggle) {
-                    return streamlinePending();
                 }
                 return false;
             }

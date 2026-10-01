@@ -113,14 +113,6 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
- * Method:    initFrameGeneration
- * Signature: (Ljava/lang/String;)Z
- */
-JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_initFrameGeneration
-  (JNIEnv *, jclass, jstring);
-
-/*
- * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
  * Method:    maxGeneratedFrames
  * Signature: ()I
  */
@@ -174,6 +166,38 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
  */
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setReflexEnabled
   (JNIEnv *, jclass, jboolean);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    isReflexSupported
+ * Signature: ()Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_isReflexSupported
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    reflexChainSwapchainCreate
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_reflexChainSwapchainCreate
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    reflexSetSwapchain
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_reflexSetSwapchain
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    reflexChainPresent
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_reflexChainPresent
+  (JNIEnv *, jclass, jlong);
 
 #ifdef __cplusplus
 }

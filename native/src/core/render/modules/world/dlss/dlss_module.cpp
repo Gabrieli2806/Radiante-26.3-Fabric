@@ -3,7 +3,6 @@
 #include "core/render/buffers.hpp"
 #include "core/render/pipeline.hpp"
 #include "core/render/render_framework.hpp"
-#include "core/render/framegen/streamline.hpp"
 #include "core/render/renderer.hpp"
 
 #include <algorithm>
@@ -29,9 +28,6 @@ bool DLSSModule::initNGXContext() {
     ngxInitInfo.physicalDevice = framework->physicalDevice();
     ngxInitInfo.device = framework->device();
     ngxInitInfo.applicationPath = dlssPath.string();
-    if (framegen::Streamline::isLoaded()) {
-        ngxInitInfo.extraSearchPaths.push_back(framegen::Streamline::folder());
-    }
     if (ngxContext_->init(ngxInitInfo) != NVSDK_NGX_Result_Success) {
         ngxContext_ = nullptr;
         return false;
