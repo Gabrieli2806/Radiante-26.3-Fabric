@@ -192,6 +192,12 @@
             "define": "VPT_VOLUMETRIC_LIGHT_MODE"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.cache_deep_bounces",
+            "type": "bool",
+            "default_value": "render_pipeline.true",
+            "define": "VPT_CACHE_DEEP_BOUNCES"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.seamless_glass",
             "type": "bool",
             "default_value": "render_pipeline.true",
@@ -755,6 +761,8 @@
             },
             {
                 "pass": "sky_cube"
+            },
+            {
             },
             {
                 "if_else": {

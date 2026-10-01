@@ -25,7 +25,6 @@ import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.gizmos.DrawableGizmoPrimitives;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.Minecraft;
-import java.util.function.Function;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -253,7 +252,6 @@ public class EntityCollector implements SubmitNodeCollector {
 
 
         PBRVertexWriter buffer = this.writer(renderType);
-        int before = buffer.vertexCount();
         this.quadInstance.setLightCoords(lightCoords);
         this.quadInstance.setOverlayCoords(overlayCoords);
         for (BlockStateModelPart part : parts) {

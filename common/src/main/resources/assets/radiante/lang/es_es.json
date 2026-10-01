@@ -295,6 +295,8 @@
   "options.radiante.rain_wetness.tooltip": "Las superficies a cielo abierto se oscurecen y brillan mientras llueve, y se secan poco a poco cuando para.",
   "options.radiante.entity_light_reach": "Distancia de Luz de Objetos",
   "options.radiante.entity_light_reach.tooltip": "Hasta cuántos bloques de ti los objetos brillantes tirados en el suelo o en marcos (piedra luminosa, linternas de mar...) siguen iluminando su alrededor. Más lejos cuesta un poco más cuando hay muchos.",
+  "options.radiante.cache_deep_bounces": "Caché en Rebotes Profundos",
+  "options.radiante.cache_deep_bounces.tooltip": "Después del primer rebote, la luz se toma de la caché de radiancia en vez de seguir trazando, y las superficies rebotadas dejan de buscar luces de bloque, como Bedrock RTX. Mucho más rápido en lugares llenos de luces; la luz rebotada puede verse un poco más suave.",
   "options.radiante.seamless_glass": "Vidrio sin Bordes",
   "options.radiante.seamless_glass.tooltip": "Quita el marco que vanilla dibuja alrededor de cada bloque de vidrio, para que una pared de vidrio se vea como una sola lámina en vez de una cuadrícula de bloques.",
   "options.radiante.rain_refraction": "Refracción de Lluvia",

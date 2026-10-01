@@ -1008,10 +1008,20 @@ void main() {
             if (glassAlpha < 0.9 || glassDarkness(glassTexel.rgb * colorLayer) > 0.5) {
                 vec3 incident = normalize(gl_WorldRayDirectionEXT);
                 float cosTheta = clamp(abs(dot(incident, baseGeoNormal)), 0.0, 1.0);
-                float fresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
-                vec3 skyReflection = texture(skyFull, reflect(incident, baseGeoNormal)).rgb;
+                // Capped: at a grazing angle the full Fresnel term turned the edges of every window into bright rims of
+                // sky, glowing at night as if the glass gave off light.
+                float fresnel = min(0.04 + 0.96 * pow(1.0 - cosTheta, 5.0), 0.25);
+                // Only the sky above reflects: what the glass reflects below the horizon is the ground, not the bright
+                // haze at the bottom of the sky.
+                vec3 reflected = reflect(incident, baseGeoNormal);
+                vec3 skyReflection = texture(skyFull, normalize(vec3(reflected.x, max(reflected.y, 0.05), reflected.z))).rgb *
+                                     smoothstep(-0.3, 0.1, reflected.y);
                 mainRay.radiance += mainRay.throughput * fresnel * skyReflection;
                 vec3 filterColour = glassTint(glassTexel.rgb * colorLayer, glassAlpha);
+                // Dark (tinted) glass shows its own texture lit by the sky, as a dark pane does, not only a dimmed view.
+                float tintedness = glassDarkness(glassTexel.rgb * colorLayer);
+                mainRay.radiance += mainRay.throughput * (1.0 - fresnel) * tintedness * 0.35 * glassTexel.rgb *
+                                    texture(skyFull, vec3(0.0, 1.0, 0.0)).rgb;
                 // Squared: light crossing a stained pane is coloured as deeply as the pane looks, not washed out.
                 mainRay.throughput *= pow(clamp(filterColour, 0.0, 1.0), vec3(2.0)) * (1.0 - fresnel);
                 mainRay.hitT = gl_HitTEXT;
@@ -1165,8 +1175,15 @@ void main() {
             sampleSurfaceDirectLight(litSurface, currentViewDir, textureUV, planeHitWorldPos, atlasUvMin, atlasUvMax,
                                      dPduWorld, dPdvWorld, baseGeoNormal, traceLocalHeight,
                                      textureMap.normal, maxDepthWorld, hasFftWaterSurface);
-        vec3 blockLight = sampleBlockLightAt(litSurface.worldPos, litSurface.geometricNormal,
-                                             litSurface.shadingNormal, litSurface.mat, rayBounce(mainRay) == 0u);
+        // The surface the camera sees first, straight or through glass: full block light sampling (and ReSTIR).
+        bool blockLightPrimary = rayBounce(mainRay) == 0u || rayCameraPath(mainRay);
+        // From the second bounce on, block lights are left to be found by the bounces themselves: what they add there is
+        // small and averaged away, and sampling them on every bounce cost as much as the rest of the light together.
+        // With Cache Deep Bounces (Bedrock-like), bounced surfaces leave block lights to the bounces and the cache too.
+        bool blockLightSkipped = !blockLightPrimary && (VPT_CACHE_DEEP_BOUNCES != 0 || rayBounce(mainRay) >= 2u);
+        vec3 blockLight = blockLightSkipped ? vec3(0.0) :
+                              sampleBlockLightAt(litSurface.worldPos, litSurface.geometricNormal,
+                                                 litSurface.shadingNormal, litSurface.mat, blockLightPrimary);
         directLight += blockLight;
         directLight += sampleHeldLight(litSurface.worldPos, litSurface.geometricNormal,
                                        litSurface.shadingNormal, litSurface.mat);
@@ -1228,8 +1245,9 @@ void main() {
             }
         }
 
-        raySetBlockLightSampled(mainRay, worldUBO.blockLightSampling != 0u && lobeType == 0u &&
+        raySetBlockLightSampled(mainRay, worldUBO.blockLightSampling != 0u && !blockLightSkipped && lobeType == 0u &&
                                              vptBlockLightDiffuseWeight(currentSurface.mat) > 1e-4);
+        raySetBlockLightLean(mainRay, !blockLightPrimary);
 
         if (!storedLobeType) {
             raySetLobeType(mainRay, lobeType);

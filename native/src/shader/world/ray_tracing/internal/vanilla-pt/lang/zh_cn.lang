@@ -88,3 +88,4 @@ render_pipeline.module.ray_tracing.attribute.post_dof_samples=景深采样数
 render_pipeline.module.ray_tracing.attribute.pixelated_lighting=像素化光照
 render_pipeline.module.ray_tracing.attribute.far_bounce_distance=远处反弹距离
 render_pipeline.module.ray_tracing.attribute.far_bounces=远处光线反弹次数
+render_pipeline.module.ray_tracing.attribute.cache_deep_bounces=深层反弹使用缓存

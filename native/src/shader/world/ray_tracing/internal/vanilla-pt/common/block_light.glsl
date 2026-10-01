@@ -15,6 +15,12 @@
 #ifndef VPT_BLOCK_LIGHT_CANDIDATES
 #    define VPT_BLOCK_LIGHT_CANDIDATES 4
 #endif
+#ifndef VPT_CACHE_DEEP_BOUNCES
+#    define VPT_CACHE_DEEP_BOUNCES 0
+#endif
+#ifndef VPT_BLOCK_LIGHT_LEAN_CANDIDATES
+#    define VPT_BLOCK_LIGHT_LEAN_CANDIDATES 2
+#endif
 
 #include "common/block_light_data.glsl"
 
@@ -23,7 +29,9 @@
  * or the light would be counted twice.
  */
 bool vptBlockLightAlreadyCounted(vec3 originPos, vec3 hitPos) {
-    return worldUBO.blockLightSampling != 0u && rayBlockLightSampled(mainRay) && vptInBlockLightReach(originPos, hitPos);
+    return worldUBO.blockLightSampling != 0u && rayBlockLightSampled(mainRay) &&
+           (rayBlockLightLean(mainRay) ? vptInNearBlockLightReach(originPos, hitPos) :
+                                         vptInBlockLightReach(originPos, hitPos));
 }
 
 /** The diffuse share of a surface's reflection; the only part lit by the sampled lights. */
@@ -36,14 +44,18 @@ float vptBlockLightDiffuseWeight(LabPBRMat mat) {
  * candidate lights by how much each would contribute unshadowed (resampled importance sampling), then traces one
  * shadow ray to the winner.
  */
-vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, LabPBRMat mat) {
+vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, LabPBRMat mat, bool lean) {
     if (worldUBO.blockLightSampling == 0u) { return vec3(0.0); }
     float diffuseWeight = vptBlockLightDiffuseWeight(mat);
     if (diffuseWeight <= 1e-4) { return vec3(0.0); }
 
+    // Bounced light (lean) looks at the eight sections nearest the point and fewer candidates: it only feeds the
+    // indirect light, which averages a great deal anyway, and with hundreds of lights around (a city of neon) the
+    // full search on every bounce was the largest single cost of a frame.
     int slots[28];
-    int slotCount = vptGatherLightSlots(worldPos, slots);
+    int slotCount = lean ? vptGatherNearLightSlots(worldPos, slots) : vptGatherLightSlots(worldPos, slots);
     if (slotCount == 0) { return vec3(0.0); }
+    int candidates = lean ? VPT_BLOCK_LIGHT_LEAN_CANDIDATES : VPT_BLOCK_LIGHT_CANDIDATES;
 
     vec3 diffuse = mat.albedo * (diffuseWeight / PI);
     vec3 cameraPos = vec3(worldUBO.cameraPos.xyz);
@@ -53,10 +65,13 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
     vec3 chosenDir = vec3(0.0);
     float chosenDistance = 0.0;
 
-    for (int i = 0; i < VPT_BLOCK_LIGHT_CANDIDATES; i++) {
-        int slot = slots[min(int(rand(mainRay.seed) * float(slotCount)), slotCount - 1)];
-        uint slotLightCount = vptSlotLightCount(slot);
-        uint lightIndex = min(uint(rand(mainRay.seed) * float(slotLightCount)), slotLightCount - 1u);
+    for (int i = 0; i < candidates; i++) {
+        int slot;
+        uint lightIndex;
+        float choices;
+        bool picked;
+        VPT_PICK_LIGHT(slots, slotCount, mainRay.seed, slot, lightIndex, choices, picked)
+        if (!picked) { continue; }
         VptPackedLight light = VptPackedLightBuffer(vptSlotLightAddress(slot)).lights[lightIndex];
 
         float area = light.p0Area.w;
@@ -76,7 +91,7 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
         vec3 contribution = light.radiance.rgb * diffuse * (cosSurface * cosLight / distance2);
         float target = dot(contribution, vec3(0.2126, 0.7152, 0.0722));
         if (target <= 1e-10) { continue; }
-        float sourcePdf = 1.0 / (float(slotCount) * float(slotLightCount) * area);
+        float sourcePdf = 1.0 / (choices * area);
         float weight = target / sourcePdf;
         weightSum += weight;
         if (rand(mainRay.seed) * weightSum < weight) {
@@ -99,7 +114,7 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
     shadowRay.pad0 = 0u;
     vec3 visibility = shadowRay.radiance * shadowRay.throughput;
 
-    vec3 estimate = chosenContribution / chosenTarget * (weightSum / float(VPT_BLOCK_LIGHT_CANDIDATES));
+    vec3 estimate = chosenContribution / chosenTarget * (weightSum / float(candidates));
     return VPT_INDIRECT_LIGHT_STRENGTH * worldUBO.emissionBrightness * estimate * visibility * mainRay.throughput;
 }
 
@@ -268,11 +283,14 @@ vec3 sampleBlockLightRestir(vec3 worldPos, vec3 geometricNormal, vec3 shadingNor
     int slotCount = vptGatherLightSlots(worldPos, slots);
     if (slotCount > 0) {
         for (int i = 0; i < VPT_RESTIR_CANDIDATES; i++) {
-            int slot = slots[min(int(rand(mainRay.seed) * float(slotCount)), slotCount - 1)];
-            uint slotLightCount = vptSlotLightCount(slot);
-            uint lightIndex = min(uint(rand(mainRay.seed) * float(slotLightCount)), slotLightCount - 1u);
+            int slot;
+            uint lightIndex;
+            float choices;
+            bool picked;
+            VPT_PICK_LIGHT(slots, slotCount, mainRay.seed, slot, lightIndex, choices, picked)
             vec2 xi = vec2(rand(mainRay.seed), rand(mainRay.seed));
             r.M += 1.0;
+            if (!picked) { continue; }
             vec3 point, lightNormal, radiance, contribution, dir;
             float distance;
             if (!vptRestirLight(slot, lightIndex, xi, point, lightNormal, radiance)) { continue; }
@@ -280,7 +298,7 @@ vec3 sampleBlockLightRestir(vec3 worldPos, vec3 geometricNormal, vec3 shadingNor
             float target = vptRestirTarget(worldPos, geometricNormal, shadingNormal, diffuse, point, lightNormal,
                                            radiance, contribution, dir, distance);
             if (target <= 1e-10) { continue; }
-            float sourcePdf = 1.0 / (float(slotCount) * float(slotLightCount) * area);
+            float sourcePdf = 1.0 / (choices * area);
             float weight = target / sourcePdf;
             r.wSum += weight;
             if (rand(mainRay.seed) * r.wSum < weight) {
@@ -367,7 +385,7 @@ vec3 sampleBlockLightAt(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal,
 #if VPT_RESTIR != 0
     if (primary && mat.transmission <= 0.0) { return sampleBlockLightRestir(worldPos, geometricNormal, shadingNormal, mat); }
 #endif
-    return sampleBlockLight(worldPos, geometricNormal, shadingNormal, mat);
+    return sampleBlockLight(worldPos, geometricNormal, shadingNormal, mat, !primary);
 }
 
 /**

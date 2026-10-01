@@ -7,8 +7,9 @@
 
 namespace framegen {
 
-// NVIDIA Streamline, loaded at runtime from the folder the mod extracts it into. Everything stays optional: when
-// the DLLs are missing or the GPU does not support frame generation, every call here is a no-op.
+// NVIDIA Streamline, loaded at runtime from the folder the mod extracts it into, for NVIDIA Reflex only: frame
+// generation runs through NGX / FidelityFX directly (NativeFrameGeneration). Everything stays optional: when the
+// DLLs are missing every call here is a no-op.
 class Streamline {
   public:
     // Loads sl.interposer.dll from `folder` and initialises Streamline. Must run before Vulkan is created.
@@ -18,14 +19,9 @@ class Streamline {
     static bool isLoaded();
     // Folder the interposer and its plugins were loaded from, empty when Streamline is not loaded.
     static const std::string &folder();
-    // True once the device is known and DLSS Frame Generation reports support for it.
-    static bool isSupported();
-    // Highest number of generated frames the driver reports, 0 when frame generation is unavailable.
-    static uint32_t maxGeneratedFrames();
 
     // NVIDIA Reflex low latency mode. Supported is decided once the device is known; enabled is the player's choice
     // and only takes effect where it is supported.
-    static bool isReflexSupported();
     static void setReflexEnabled(bool enabled);
     static bool reflexEnabled();
 
@@ -38,11 +34,9 @@ class Streamline {
                               uint32_t computeQueueFamily,
                               uint32_t computeQueueIndex);
 
-    // Extensions and queues DLSS Frame Generation needs, to merge into Minecraft's instance and device.
+    // Extensions Reflex needs, to merge into Minecraft's instance and device.
     static std::vector<std::string> requiredInstanceExtensions();
     static std::vector<std::string> requiredDeviceExtensions();
-    static uint32_t requiredExtraComputeQueues();
-    static uint32_t requiredExtraGraphicsQueues();
 
     // Vulkan entry points from Streamline's loader. Creating Minecraft's instance and device through these is what
     // lets Streamline follow the swapchain and presentation it later drives.
@@ -54,9 +48,6 @@ class Streamline {
     static void *procAddress(const char *name);
     static void *featureFunction(uint32_t feature, const char *name);
 
-    // Number of frames the renderer generates per rendered frame: 0 turns frame generation off.
-    static void setGeneratedFrames(uint32_t generatedFrames);
-    static uint32_t generatedFrames();
 };
 
 } // namespace framegen

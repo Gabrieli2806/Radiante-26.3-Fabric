@@ -89,6 +89,36 @@ int vptGatherLightSlots(vec3 scenePos, out int slots[28]) {
     return slotCount;
 }
 
+/** The eight sections nearest scenePos (the 2x2x2 block around its closest section corner), then the entities'. */
+int vptGatherNearLightSlots(vec3 scenePos, out int slots[28]) {
+    int slotCount = 0;
+    ivec3 base = ivec3(floor((scenePos + vec3(worldUBO.cameraPos.xyz) - 8.0) / 16.0));
+    for (int corner = 0; corner < 8; corner++) {
+        int slot = vptSectionLightSlot(base + ivec3(corner & 1, (corner >> 1) & 1, corner >> 2));
+        if (slot >= 0) { slots[slotCount++] = slot; }
+    }
+    if (vptHasEntityLights()) { slots[slotCount++] = VPT_ENTITY_LIGHT_SLOT; }
+    return slotCount;
+}
+
+// One candidate light from the gathered slots: a slot at random, then a light in it. choices is how many lights it
+// was drawn among, so a point on it has the probability 1 / (choices * area). A macro, not a function: a function
+// copies the slot array in on every candidate, and that costs more than the pick itself.
+#define VPT_PICK_LIGHT(slots, slotCount, seed, slot, index, choices, picked)                                         \
+    {                                                                                                                 \
+        slot = slots[min(int(rand(seed) * float(slotCount)), slotCount - 1)];                                         \
+        uint pickSlotLights = vptSlotLightCount(slot);                                                                \
+        index = min(uint(rand(seed) * float(pickSlotLights)), pickSlotLights - 1u);                                    \
+        choices = float(slotCount) * float(pickSlotLights);                                                           \
+        picked = pickSlotLights > 0u;                                                                                 \
+    }
+/** Whether a light hit at hitPos lies in the eight sections vptGatherNearLightSlots picks for originPos. */
+bool vptInNearBlockLightReach(vec3 originPos, vec3 hitPos) {
+    ivec3 base = ivec3(floor((originPos + vec3(worldUBO.cameraPos.xyz) - 8.0) / 16.0));
+    ivec3 d = vptSectionOf(hitPos) - base;
+    return all(greaterThanEqual(d, ivec3(0))) && all(lessThanEqual(d, ivec3(1)));
+}
+
 /** Whether a light hit at hitPos from a surface at originPos lies in the sections that surface samples. */
 bool vptInBlockLightReach(vec3 originPos, vec3 hitPos) {
     ivec3 d = abs(vptSectionOf(hitPos) - vptSectionOf(originPos));

@@ -6,7 +6,6 @@
 #include <sl.h>
 #include <sl_consts.h>
 #include <sl_core_api.h>
-#include <sl_dlss_g.h>
 #include <sl_helpers_vk.h>
 
 #include <cstdlib>
@@ -35,11 +34,8 @@ struct Api {
 
 Api g_api;
 bool g_initialised = false;
-bool g_supported = false;
 bool g_reflexSupported = false;
 bool g_reflexEnabled = false;
-uint32_t g_maxGeneratedFrames = 0;
-uint32_t g_generatedFrames = 0;
 VkDevice g_device = VK_NULL_HANDLE;
 bool g_createdThroughProxies = false;
 std::string g_folder;
@@ -118,22 +114,7 @@ bool framegen::Streamline::init(const std::string &folder) {
 
     g_initialised = true;
     g_folder = folder;
-    bool loaded = false;
-    if (g_api.isFeatureLoaded != nullptr) {
-        g_api.isFeatureLoaded(sl::kFeatureDLSS_G, loaded);
-    }
-    sl::FeatureRequirements requirements{};
-    bool haveRequirements = g_api.getFeatureRequirements != nullptr &&
-                            g_api.getFeatureRequirements(sl::kFeatureDLSS_G, requirements) == sl::Result::eOk;
-    slCout() << "loaded from " << folder << " (dlss_g plugin loaded=" << loaded
-             << ", requirements=" << haveRequirements << ", instance extensions="
-             << (haveRequirements ? requirements.vkNumInstanceExtensions : 0) << ", device extensions="
-             << (haveRequirements ? requirements.vkNumDeviceExtensions : 0) << ", extra compute queues="
-             << (haveRequirements ? requirements.vkNumComputeQueuesRequired : 0) << ", driver "
-             << (haveRequirements ? requirements.driverVersionDetected.major : 0) << "."
-             << (haveRequirements ? requirements.driverVersionDetected.minor : 0) << ", required "
-             << (haveRequirements ? requirements.driverVersionRequired.major : 0) << "."
-             << (haveRequirements ? requirements.driverVersionRequired.minor : 0) << ")" << std::endl;
+    slCout() << "loaded from " << folder << std::endl;
     return true;
 }
 
@@ -141,8 +122,6 @@ void framegen::Streamline::shutdown() {
     if (!g_initialised) return;
     g_api.shutdown();
     g_initialised = false;
-    g_supported = false;
-    g_generatedFrames = 0;
     if (g_api.module != nullptr) {
         FreeLibrary(g_api.module);
         g_api.module = nullptr;
@@ -155,14 +134,6 @@ bool framegen::Streamline::isLoaded() {
 
 const std::string &framegen::Streamline::folder() {
     return g_folder;
-}
-
-bool framegen::Streamline::isSupported() {
-    return g_supported;
-}
-
-uint32_t framegen::Streamline::maxGeneratedFrames() {
-    return g_supported ? g_maxGeneratedFrames : 0;
 }
 
 void framegen::Streamline::setVulkanInfo(VkInstance instance,
@@ -194,38 +165,14 @@ void framegen::Streamline::setVulkanInfo(VkInstance instance,
     }
     g_device = device;
 
-    sl::Result result;
     sl::AdapterInfo adapter{};
     adapter.vkPhysicalDevice = physicalDevice;
-    // Reflex runs on far more GPUs than frame generation, so it is checked on its own.
     g_reflexSupported = g_api.isFeatureSupported(sl::kFeatureReflex, adapter) == sl::Result::eOk;
     slCout() << "Reflex " << (g_reflexSupported ? "available" : "not supported here") << std::endl;
-    result = g_api.isFeatureSupported(sl::kFeatureDLSS_G, adapter);
-    g_supported = result == sl::Result::eOk;
-    if (!g_supported) {
-        slCout() << "frame generation is not supported here: " << static_cast<int>(result) << std::endl;
-        return;
-    }
-
-    // Multi frame generation reports how many frames it can add; older GPUs only do one.
-    g_maxGeneratedFrames = 1;
-    if (g_api.getFeatureFunction != nullptr) {
-        void *fn = nullptr;
-        if (g_api.getFeatureFunction(sl::kFeatureDLSS_G, "slDLSSGGetState", fn) == sl::Result::eOk && fn != nullptr) {
-            auto getState = reinterpret_cast<PFun_slDLSSGGetState *>(fn);
-            sl::DLSSGState state{};
-            sl::DLSSGOptions options{};
-            if (getState(sl::ViewportHandle(0), state, &options) == sl::Result::eOk &&
-                state.numFramesToGenerateMax > 0) {
-                g_maxGeneratedFrames = state.numFramesToGenerateMax;
-            }
-        }
-    }
-    slCout() << "frame generation available, up to " << (g_maxGeneratedFrames + 1) << "x" << std::endl;
 }
 
 namespace {
-bool featureRequirements(sl::FeatureRequirements &requirements, sl::Feature feature = sl::kFeatureDLSS_G) {
+bool featureRequirements(sl::FeatureRequirements &requirements, sl::Feature feature) {
     if (!g_initialised || g_api.getFeatureRequirements == nullptr) return false;
     return g_api.getFeatureRequirements(feature, requirements) == sl::Result::eOk;
 }
@@ -239,10 +186,9 @@ void appendUnique(std::vector<std::string> &into, const char *const *names, uint
 }
 } // namespace
 
-// Frame generation and Reflex each list what they need; a GPU without frame generation still needs Reflex's.
 std::vector<std::string> framegen::Streamline::requiredInstanceExtensions() {
     std::vector<std::string> extensions;
-    for (sl::Feature feature : {sl::kFeatureDLSS_G, sl::kFeatureReflex}) {
+    for (sl::Feature feature : {sl::kFeatureReflex, sl::kFeaturePCL}) {
         sl::FeatureRequirements requirements{};
         if (featureRequirements(requirements, feature)) {
             appendUnique(extensions, requirements.vkInstanceExtensions, requirements.vkNumInstanceExtensions);
@@ -253,17 +199,13 @@ std::vector<std::string> framegen::Streamline::requiredInstanceExtensions() {
 
 std::vector<std::string> framegen::Streamline::requiredDeviceExtensions() {
     std::vector<std::string> extensions;
-    for (sl::Feature feature : {sl::kFeatureDLSS_G, sl::kFeatureReflex}) {
+    for (sl::Feature feature : {sl::kFeatureReflex, sl::kFeaturePCL}) {
         sl::FeatureRequirements requirements{};
         if (featureRequirements(requirements, feature)) {
             appendUnique(extensions, requirements.vkDeviceExtensions, requirements.vkNumDeviceExtensions);
         }
     }
     return extensions;
-}
-
-bool framegen::Streamline::isReflexSupported() {
-    return g_reflexSupported;
 }
 
 void framegen::Streamline::setReflexEnabled(bool enabled) {
@@ -274,21 +216,11 @@ bool framegen::Streamline::reflexEnabled() {
     return g_reflexEnabled && g_reflexSupported;
 }
 
-uint32_t framegen::Streamline::requiredExtraComputeQueues() {
-    sl::FeatureRequirements requirements{};
-    return featureRequirements(requirements) ? requirements.vkNumComputeQueuesRequired : 0;
-}
-
-uint32_t framegen::Streamline::requiredExtraGraphicsQueues() {
-    sl::FeatureRequirements requirements{};
-    return featureRequirements(requirements) ? requirements.vkNumGraphicsQueuesRequired : 0;
-}
-
 PFN_vkCreateInstance framegen::Streamline::createInstanceProxy() {
     if (!g_initialised || g_api.getInstanceProcAddr == nullptr) return nullptr;
     auto create = reinterpret_cast<PFN_vkCreateInstance>(g_api.getInstanceProcAddr(VK_NULL_HANDLE, "vkCreateInstance"));
     if (create == nullptr) {
-        slCout() << "loader has no vkCreateInstance; frame generation will stay off" << std::endl;
+        slCout() << "loader has no vkCreateInstance; Reflex will stay off" << std::endl;
     }
     return create;
 }
@@ -298,7 +230,7 @@ PFN_vkCreateDevice framegen::Streamline::createDeviceProxy(VkInstance instance) 
     auto create = reinterpret_cast<PFN_vkCreateDevice>(g_api.getInstanceProcAddr(instance, "vkCreateDevice"));
     g_createdThroughProxies = create != nullptr;
     if (create == nullptr) {
-        slCout() << "loader has no vkCreateDevice; frame generation will stay off" << std::endl;
+        slCout() << "loader has no vkCreateDevice; Reflex will stay off" << std::endl;
     }
     return create;
 }
@@ -317,14 +249,6 @@ void *framegen::Streamline::featureFunction(uint32_t feature, const char *name) 
     return function;
 }
 
-void framegen::Streamline::setGeneratedFrames(uint32_t generatedFrames) {
-    g_generatedFrames = g_supported ? generatedFrames : 0;
-}
-
-uint32_t framegen::Streamline::generatedFrames() {
-    return g_generatedFrames;
-}
-
 #else
 
 bool framegen::Streamline::init(const std::string &) {
@@ -340,18 +264,6 @@ bool framegen::Streamline::isLoaded() {
 const std::string &framegen::Streamline::folder() {
     static const std::string empty;
     return empty;
-}
-
-bool framegen::Streamline::isSupported() {
-    return false;
-}
-
-uint32_t framegen::Streamline::maxGeneratedFrames() {
-    return 0;
-}
-
-bool framegen::Streamline::isReflexSupported() {
-    return false;
 }
 
 void framegen::Streamline::setReflexEnabled(bool) {}
@@ -379,26 +291,12 @@ std::vector<std::string> framegen::Streamline::requiredDeviceExtensions() {
     return {};
 }
 
-uint32_t framegen::Streamline::requiredExtraComputeQueues() {
-    return 0;
-}
-
-uint32_t framegen::Streamline::requiredExtraGraphicsQueues() {
-    return 0;
-}
-
 void *framegen::Streamline::procAddress(const char *) {
     return nullptr;
 }
 
 void *framegen::Streamline::featureFunction(uint32_t, const char *) {
     return nullptr;
-}
-
-void framegen::Streamline::setGeneratedFrames(uint32_t) {}
-
-uint32_t framegen::Streamline::generatedFrames() {
-    return 0;
 }
 
 #endif

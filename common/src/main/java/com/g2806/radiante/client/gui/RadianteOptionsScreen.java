@@ -2,7 +2,6 @@ package com.g2806.radiante.client.gui;
 
 import com.g2806.radiante.client.RadianteClient;
 import com.g2806.radiante.client.option.Options;
-import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
 import com.g2806.radiante.client.render.FrameGeneration;
 import com.g2806.radiante.client.pipeline.Pipeline;
 import com.g2806.radiante.client.pipeline.Presets;
@@ -49,6 +48,8 @@ public class RadianteOptionsScreen extends Screen {
     private Boolean pendingFroxelFog;
     private Boolean pendingRainRefraction;
     private Boolean pendingSeamlessGlass;
+    // Plain on/off shader pack settings (light grid, cached deep bounces), by attribute; absent until read.
+    private java.util.Map<String, Boolean> pendingPackToggles = new java.util.HashMap<>();
     // Shader pack settings that cost frame time; null until read from the pipeline, or when the pack lacks them.
     private Integer pendingBounces;
     private Boolean pendingParallax;
@@ -116,6 +117,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingFroxelFog = previous.pendingFroxelFog;
         this.pendingRainRefraction = previous.pendingRainRefraction;
         this.pendingSeamlessGlass = previous.pendingSeamlessGlass;
+        this.pendingPackToggles = new java.util.HashMap<>(previous.pendingPackToggles);
         this.pendingFrameGenerationBackend = previous.pendingFrameGenerationBackend;
         this.pendingBounces = previous.pendingBounces;
         this.pendingParallax = previous.pendingParallax;
@@ -333,7 +335,6 @@ public class RadianteOptionsScreen extends Screen {
 
     // The options that only take effect after a restart; kept to mark them on the list.
     private OptionInstance<?> hdrToggle;
-    private OptionInstance<?> frameGenerationToggle;
     private OptionInstance<?> reflexToggle;
 
     /** HDR output chosen differently from what the window was created with. */
@@ -481,6 +482,12 @@ public class RadianteOptionsScreen extends Screen {
             Pipeline.supportsShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE) ? Boolean.TRUE : null;
         this.pendingSeamlessGlass =
             Pipeline.supportsShaderPackToggle(Pipeline.SEAMLESS_GLASS_ATTRIBUTE) ? Boolean.TRUE : null;
+        this.pendingPackToggles.clear();
+        for (String attribute : List.of(Pipeline.CACHE_DEEP_BOUNCES_ATTRIBUTE)) {
+            if (Pipeline.supportsShaderPackToggle(attribute)) {
+                this.pendingPackToggles.put(attribute, Boolean.TRUE);
+            }
+        }
         this.pendingDepthOfField = Boolean.FALSE;
         this.pendingReflex = false;
         // The shader pack's own defaults.
@@ -628,7 +635,6 @@ public class RadianteOptionsScreen extends Screen {
                     refreshQualityLater();
                 });
         }
-        this.frameGenerationToggle = frameGeneration;
         this.reflexToggle = reflex;
         addRows(preset, dlssMode, upscalerModeOption(), frameGenerationBackendOption(), frameGeneration, reflex);
     }
@@ -790,6 +796,16 @@ public class RadianteOptionsScreen extends Screen {
             tunable(Tunable.WATER_GOD_RAYS, false));
     }
 
+    /** An on/off shader pack setting applied with the rest; null where the pack lacks it. */
+    private OptionInstance<Boolean> packToggle(String attribute, String key) {
+        if (!Pipeline.supportsShaderPackToggle(attribute)) {
+            return null;
+        }
+        boolean value = this.pendingPackToggles.computeIfAbsent(attribute, Pipeline::isShaderPackToggleOn);
+        return OptionInstance.createBoolean(key, tooltip(key), value,
+            newValue -> this.pendingPackToggles.put(attribute, newValue));
+    }
+
     private void addPerformanceOptions() {
         OptionInstance<Integer> bounces = this.pendingBounces == null ? null
             : slider("options.radiante.ray_bounces", 1, 8, this.pendingBounces, value -> {
@@ -823,7 +839,8 @@ public class RadianteOptionsScreen extends Screen {
         OptionInstance<Integer> farBounces = this.pendingFarBounces == null ? null
             : slider("options.radiante.far_bounces", 1, 4, this.pendingFarBounces,
                 value -> this.pendingFarBounces = value);
-        addRows(bounces, parallax, farDistance, farBounces, fogSamples,
+        addRows(bounces, packToggle(Pipeline.CACHE_DEEP_BOUNCES_ATTRIBUTE, "options.radiante.cache_deep_bounces"),
+            parallax, farDistance, farBounces, fogSamples,
             slider("options.radiante.chunk_building_threads", 1, Options.getMaxChunkBuildingThreads(),
                 this.pendingChunkThreads, value -> this.pendingChunkThreads = value),
             slider("options.radiante.chunk_building_batch_size", 1, 64, this.pendingChunkBatchSize,
@@ -1080,6 +1097,9 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (this.pendingRainRefraction != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE, this.pendingRainRefraction);
+        }
+        for (java.util.Map.Entry<String, Boolean> toggle : this.pendingPackToggles.entrySet()) {
+            rebuild |= Pipeline.setShaderPackToggle(toggle.getKey(), toggle.getValue());
         }
         if (this.pendingSeamlessGlass != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.SEAMLESS_GLASS_ATTRIBUTE, this.pendingSeamlessGlass);

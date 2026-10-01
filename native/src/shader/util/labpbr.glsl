@@ -39,8 +39,8 @@ vec3 glassTint(vec3 colour, float alpha) {
     vec3 hue = peak > 1e-3 ? colour / peak : vec3(1.0);
     // A dull, dark glass (tinted glass) is dark on purpose: it keeps some of its darkness, so it shows the world
     // dimly instead of as clear as stained glass. Coloured glass filters by its hue alone.
-    // Light crosses two faces of a block, each squaring this: about a quarter gets through tinted glass.
-    hue *= mix(1.0, pow(max(peak, 0.0), 0.2), glassDarkness(colour));
+    // Light crosses two faces of a block, each squaring this: only a few percent get through tinted glass.
+    hue *= mix(1.0, pow(max(peak, 0.0), 0.45), glassDarkness(colour));
     return mix(vec3(1.0), hue, smoothstep(0.0, 0.3, alpha));
 }
 

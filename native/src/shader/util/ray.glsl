@@ -39,6 +39,18 @@ const uint rayInWaterBit = 1u << 22u;
 // as a mirror that reflected the outside back into the view.
 const uint rayCameraPathBit = 1u << 23u;
 
+// The surface this ray left sampled block lights only in the eight sections nearest it (bounced light), not all 27
+// around it: a light it now hits outside those was not counted there. See block_light.glsl.
+const uint rayBlockLightLeanBit = 1u << 24u;
+
+void raySetBlockLightLean(inout MainRay ray, bool enabled) {
+    ray.stateBits = enabled ? (ray.stateBits | rayBlockLightLeanBit) : (ray.stateBits & ~rayBlockLightLeanBit);
+}
+
+bool rayBlockLightLean(MainRay ray) {
+    return (ray.stateBits & rayBlockLightLeanBit) != 0u;
+}
+
 void raySetCameraPath(inout MainRay ray, bool enabled) {
     ray.stateBits = enabled ? (ray.stateBits | rayCameraPathBit) : (ray.stateBits & ~rayCameraPathBit);
 }

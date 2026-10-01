@@ -69,6 +69,9 @@
 #ifndef VPT_VOLUMETRIC_LIGHT_LUMINANCE_LIMIT
 #    define VPT_VOLUMETRIC_LIGHT_LUMINANCE_LIMIT 4.0
 #endif
+#ifndef VPT_CACHE_DEEP_BOUNCES
+#    define VPT_CACHE_DEEP_BOUNCES 0
+#endif
 #define VPT_VOLUMETRIC_LIGHT_MODE_VANILLA 0u
 #define VPT_VOLUMETRIC_LIGHT_MODE_VOLUMETRIC 1u
 // Froxel fog (common/froxel_fog.glsl) in place of the per-pixel march, with volumetric fog on.
@@ -521,7 +524,7 @@ void integrateVolumetricFog(vec3 origin,
 layout(set = 5, binding = 40, rgba16f) uniform image3D froxelLightImage;
 const float FROXEL_BLOCK_LIGHT_REACH = 32.0;
 // How much of the block lights the air scatters: a soft glow, not a lit wall of haze across a street of signs.
-const float FROXEL_BLOCK_LIGHT_GLOW = 0.3;
+const float FROXEL_BLOCK_LIGHT_GLOW = 0.12;
 layout(set = 5, binding = 42) uniform sampler3D froxelIntegralTexture;
 
 // Light reaching a point in the air from the block lights around it (torches, lanterns, glowstone...), picked as the
@@ -741,12 +744,17 @@ SharcParameters makeSharcParameters() {
 }
 
 bool sharcAllowQuery(bool isPrimaryCameraPath,
+                     bool deepBounce,
                      float hitT,
                      float roughness,
                      uint lobeType,
                      SharcParameters sharcParameters,
                      vec3 positionWorld) {
     if (isPrimaryCameraPath) return false;
+    // Cache for deep bounces: past the first bounce a diffuse hit takes the cached light however close it is, as
+    // Bedrock RTX's irradiance cache does, instead of tracing on. Cheaper on every bounce, and the cost of a frame stops
+    // growing with how much light bounces around.
+    if (deepBounce && lobeType == 0u) return true;
     uint level = HashGridGetLevel(positionWorld, sharcParameters.gridParameters);
     float voxelSize = HashGridGetVoxelSize(level, sharcParameters.gridParameters);
     if (hitT <= voxelSize) return false;
@@ -1096,7 +1104,7 @@ void traceSecondary(inout MainRay rayState,
             vec3 hitWorldPos = tracedOrigin + tracedDirection * rayState.hitT;
 #if SHARC_QUERY && USE_SHARC
             vec3 positionWorld = hitWorldPos + vec3(worldUBO.cameraPos.xyz);
-            if (sharcAllowQuery(isPrimaryCameraPath, rayState.hitT, hitMat.roughness, rayLobeType(rayState), sharcParameters,
+            if (sharcAllowQuery(isPrimaryCameraPath, VPT_CACHE_DEEP_BOUNCES != 0 && b > startBounce, rayState.hitT, hitMat.roughness, rayLobeType(rayState), sharcParameters,
                                 positionWorld)) {
                 SharcHitData sharcHitData;
                 sharcHitData.positionWorld = positionWorld;

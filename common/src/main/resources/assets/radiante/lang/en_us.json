@@ -295,6 +295,8 @@
   "options.radiante.rain_wetness.tooltip": "Surfaces under open sky turn darker and glossy while it rains, and dry slowly after it stops.",
   "options.radiante.entity_light_reach": "Glowing Item Light Distance",
   "options.radiante.entity_light_reach.tooltip": "How far from you, in blocks, glowing dropped items and items in frames (glowstone, sea lanterns...) still light their surroundings. Further costs a little more when many are around.",
+  "options.radiante.cache_deep_bounces": "Cache Deep Bounces",
+  "options.radiante.cache_deep_bounces.tooltip": "Past the first bounce, light is taken from the radiance cache instead of traced further, and bounced surfaces stop searching for block lights, as Bedrock RTX does. Much faster in places full of lights; bounced light can look slightly softer.",
   "options.radiante.seamless_glass": "Seamless Glass",
   "options.radiante.seamless_glass.tooltip": "Hides the frame vanilla draws around every glass block, so a wall of glass looks like one big sheet instead of a grid of blocks.",
   "options.radiante.rain_refraction": "Rain Refraction",

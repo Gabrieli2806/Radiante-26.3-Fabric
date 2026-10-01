@@ -393,11 +393,13 @@ public class Pipeline {
         "render_pipeline.module.ray_tracing.attribute.post_enable_motion_blur";
     public static final String DEPTH_OF_FIELD_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.post_enable_dof";
-    /** Volumetric clouds shade the ground under them (only with Volumetric clouds). */
-    /** ReSTIR reuse of block light samples across frames and pixels (needs block light sampling). */
     /** Shader Execution Reordering for the path rays (NVIDIA RTX 40 and newer; ignored elsewhere). */
     public static final String SER_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.ser";
+    /** ReSTIR reuse of block light samples across frames and pixels (needs block light sampling). */
     public static final String RESTIR_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.restir";
+    /** Past the first bounce, diffuse light taken from the radiance cache instead of traced further. */
+    public static final String CACHE_DEEP_BOUNCES_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.cache_deep_bounces";
     /** Glass blocks without the frame vanilla draws around each one, so neighbours join into one sheet. */
     public static final String SEAMLESS_GLASS_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.seamless_glass";
@@ -406,6 +408,7 @@ public class Pipeline {
         "render_pipeline.module.ray_tracing.attribute.rain_refraction";
     /** Volumetric fog made the way Radiance does it (a lit 3D grid) instead of a march per pixel. */
     public static final String FROXEL_FOG_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.froxel_fog";
+    /** Volumetric clouds shade the ground under them (only with Volumetric clouds). */
     public static final String CLOUD_SHADOWS_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_cast_shadow";
 
