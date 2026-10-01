@@ -26,6 +26,7 @@ class Device : public SharedObject<Device> {
     bool isXessDeviceExtensionsCompatible() const;
     bool isDlssFrameGenerationDeviceExtensionsCompatible() const;
     bool isFsrFrameGenerationDeviceExtensionsCompatible() const;
+    bool isShaderExecutionReorderingEnabled() const;
 
     static VkResult createMerged(VkPhysicalDevice physicalDevice,
                                  const VkDeviceCreateInfo *baseInfo,

@@ -160,16 +160,23 @@ void WorldPrepareContext::render() {
     auto cameraPos = Renderer::instance().world()->getCameraPos();
 
     auto chunkBuildScheduler = chunks->chunkBuildScheduler();
+    auto scheduleStart = std::chrono::steady_clock::now();
+    double checkMs = 0.0, buildMs = 0.0;
     if (chunkBuildScheduler != nullptr) {
         chunkBuildScheduler->tryCheckBatchesFinish();
+        checkMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - scheduleStart).count();
         chunkBuildScheduler->tryScheduleBatches(chunkBuildScheduler->chunkBuildingBatchSize());
+        buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - scheduleStart).count() -
+                  checkMs;
     }
 
     std::unique_lock<std::recursive_mutex> lock(chunks->mutex());
     if (g_prep.enabled) {
         double stepMs = prepMs(prepT);
         g_prep.schedule += stepMs;
-        if (stepMs > 8.0) std::cout << "[native profile] spike prepare schedule=" << stepMs << "ms" << std::endl;
+        if (stepMs > 8.0)
+            std::cout << "[native profile] spike prepare schedule=" << stepMs << "ms (check " << checkMs
+                      << ", build " << buildMs << ", lock " << (stepMs - checkMs - buildMs) << ")" << std::endl;
     }
 
     // Freshly built chunks trade their acceleration structures for compacted copies, typically half the size.

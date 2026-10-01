@@ -50,5 +50,17 @@ public class VulkanQueueLockMixins {
                 RadianteRenderer.unlockQueue();
             }
         }
+
+        // Frame generation presents from a thread of its own under the same lock, and the swapchain allows one
+        // user at a time.
+        @WrapMethod(method = "acquireNextTexture")
+        private void radiante$lockedAcquire(Operation<Void> original) {
+            RadianteRenderer.lockQueue();
+            try {
+                original.call();
+            } finally {
+                RadianteRenderer.unlockQueue();
+            }
+        }
     }
 }

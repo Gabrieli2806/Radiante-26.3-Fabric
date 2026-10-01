@@ -45,6 +45,9 @@ public class RadianteOptionsScreen extends Screen {
     private Boolean pendingMotionBlur;
     private Boolean pendingCloudShadows;
     private Boolean pendingRestir;
+    private Boolean pendingSer;
+    private Boolean pendingFroxelFog;
+    private Boolean pendingRainRefraction;
     // Shader pack settings that cost frame time; null until read from the pipeline, or when the pack lacks them.
     private Integer pendingBounces;
     private Boolean pendingParallax;
@@ -108,6 +111,9 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingMotionBlur = previous.pendingMotionBlur;
         this.pendingCloudShadows = previous.pendingCloudShadows;
         this.pendingRestir = previous.pendingRestir;
+        this.pendingSer = previous.pendingSer;
+        this.pendingFroxelFog = previous.pendingFroxelFog;
+        this.pendingRainRefraction = previous.pendingRainRefraction;
         this.pendingFrameGenerationBackend = previous.pendingFrameGenerationBackend;
         this.pendingBounces = previous.pendingBounces;
         this.pendingParallax = previous.pendingParallax;
@@ -277,6 +283,18 @@ public class RadianteOptionsScreen extends Screen {
                 this.pendingGeneratedFrames = value;
                 refreshQualityLater();
             });
+    }
+
+    /** Shader Execution Reordering, where the shader pack has it. */
+    private OptionInstance<Boolean> serOption() {
+        if (!Pipeline.supportsShaderPackToggle(Pipeline.SER_ATTRIBUTE)) {
+            return null;
+        }
+        if (this.pendingSer == null) {
+            this.pendingSer = Pipeline.isShaderPackToggleOn(Pipeline.SER_ATTRIBUTE);
+        }
+        return OptionInstance.createBoolean("options.radiante.ser", tooltip("options.radiante.ser"),
+            this.pendingSer, value -> this.pendingSer = value);
     }
 
     /** ReSTIR for block lights, where the shader pack has it. */
@@ -455,6 +473,10 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingMotionBlur = Boolean.FALSE;
         this.pendingCloudShadows = Boolean.FALSE;
         this.pendingRestir = Boolean.TRUE;
+        this.pendingSer = Boolean.FALSE;
+        this.pendingFroxelFog = Pipeline.supportsShaderPackToggle(Pipeline.FROXEL_FOG_ATTRIBUTE) ? Boolean.TRUE : null;
+        this.pendingRainRefraction =
+            Pipeline.supportsShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE) ? Boolean.TRUE : null;
         this.pendingDepthOfField = Boolean.FALSE;
         this.pendingReflex = false;
         // The shader pack's own defaults.
@@ -670,10 +692,12 @@ public class RadianteOptionsScreen extends Screen {
                     Options.blockLightSampling = value;
                     refreshQualityLater();
                 }),
-            restirOption(),
+            restirOption(), serOption(),
             OptionInstance.createBoolean("options.radiante.held_item_light",
                 tooltip("options.radiante.held_item_light"), Options.heldItemLight,
                 value -> Options.heldItemLight = value),
+            slider("options.radiante.entity_light_reach", 8, 256, Options.entityLightReach,
+                value -> Options.setEntityLightReach(value, true)),
             OptionInstance.createBoolean("options.radiante.pixel_lighting",
                 tooltip("options.radiante.pixel_lighting"), Options.pixelLighting, value -> Options.pixelLighting = value),
             OptionInstance.createBoolean("options.radiante.first_person_shadow",
@@ -690,6 +714,7 @@ public class RadianteOptionsScreen extends Screen {
                 this.pendingBedrockAtmosphere, value -> this.pendingBedrockAtmosphere = value);
         OptionInstance<Boolean> volumetricFog = null;
         OptionInstance<Integer> volumetricStrength = null;
+        OptionInstance<Boolean> fogStyle = null;
         if (Pipeline.supportsVolumetricFog()) {
             volumetricFog = OptionInstance.createBoolean("options.radiante.volumetric_fog",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.volumetric_fog.tooltip")),
@@ -697,6 +722,15 @@ public class RadianteOptionsScreen extends Screen {
                     this.pendingVolumetricFog = value;
                     refreshQualityLater();
                 });
+            if (Pipeline.supportsShaderPackToggle(Pipeline.FROXEL_FOG_ATTRIBUTE)) {
+                if (this.pendingFroxelFog == null) {
+                    this.pendingFroxelFog = Pipeline.isShaderPackToggleOn(Pipeline.FROXEL_FOG_ATTRIBUTE);
+                }
+                fogStyle = OptionInstance.createBoolean("options.radiante.fog_style", tooltip("options.radiante.fog_style"),
+                    (caption, value) -> Component.translatable(value ? "options.radiante.fog_style.froxel"
+                        : "options.radiante.fog_style.march"),
+                    this.pendingFroxelFog, value -> this.pendingFroxelFog = value);
+            }
             volumetricStrength = brightnessSlider("options.radiante.volumetric_fog_strength",
                 Options.volumetricFogStrength, value -> Options.volumetricFogStrength = value);
         }
@@ -708,6 +742,15 @@ public class RadianteOptionsScreen extends Screen {
             cloudShadows = OptionInstance.createBoolean("options.radiante.cloud_shadows",
                 tooltip("options.radiante.cloud_shadows"), this.pendingCloudShadows,
                 value -> this.pendingCloudShadows = value);
+        }
+        OptionInstance<Boolean> rainRefraction = null;
+        if (Pipeline.supportsShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE)) {
+            if (this.pendingRainRefraction == null) {
+                this.pendingRainRefraction = Pipeline.isShaderPackToggleOn(Pipeline.RAIN_REFRACTION_ATTRIBUTE);
+            }
+            rainRefraction = OptionInstance.createBoolean("options.radiante.rain_refraction",
+                tooltip("options.radiante.rain_refraction"), this.pendingRainRefraction,
+                value -> this.pendingRainRefraction = value);
         }
         addRows(atmosphere, clouds, cloudShadows, tunable(Tunable.SUN_GLOW, false),
             tunable(Tunable.LIGHT_SHAFTS, false),
@@ -721,6 +764,7 @@ public class RadianteOptionsScreen extends Screen {
             OptionInstance.createBoolean("options.radiante.rain_wetness",
                 tooltip("options.radiante.rain_wetness"), Options.rainWetness,
                 value -> Options.rainWetness = value),
+            rainRefraction,
             OptionInstance.createBoolean("options.radiante.biome_fog",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
                 this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
@@ -728,7 +772,7 @@ public class RadianteOptionsScreen extends Screen {
                 (caption, value) -> Component.translatable("options.percent_value", caption, value),
                 new OptionInstance.IntRange(0, 400, false), this.pendingBiomeFogStrength,
                 value -> this.pendingBiomeFogStrength = value),
-            volumetricFog, volumetricStrength,
+            volumetricFog, fogStyle, volumetricStrength,
             tunable(Tunable.WATER_WAVES, false), tunable(Tunable.WATER_DENSITY, false),
             tunable(Tunable.WATER_GOD_RAYS, false));
     }
@@ -1014,6 +1058,15 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (this.pendingMotionBlur != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE, this.pendingMotionBlur);
+        }
+        if (this.pendingSer != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.SER_ATTRIBUTE, this.pendingSer);
+        }
+        if (this.pendingFroxelFog != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.FROXEL_FOG_ATTRIBUTE, this.pendingFroxelFog);
+        }
+        if (this.pendingRainRefraction != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE, this.pendingRainRefraction);
         }
         if (this.pendingRestir != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.RESTIR_ATTRIBUTE, this.pendingRestir);

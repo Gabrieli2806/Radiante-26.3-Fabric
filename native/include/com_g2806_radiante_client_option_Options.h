@@ -49,6 +49,14 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_option_Options_nativeSetCh
 
 /*
  * Class:     com_g2806_radiante_client_option_Options
+ * Method:    nativeSetEntityLightReach
+ * Signature: (IZ)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_option_Options_nativeSetEntityLightReach
+  (JNIEnv *, jclass, jint, jboolean);
+
+/*
+ * Class:     com_g2806_radiante_client_option_Options
  * Method:    nativeSetCollectChunkEmission
  * Signature: (ZZ)V
  */

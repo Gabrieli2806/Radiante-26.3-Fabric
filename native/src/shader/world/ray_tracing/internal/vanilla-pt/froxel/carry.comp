@@ -1,0 +1,41 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Runs before the world pass: every froxel cell not lit afresh this frame (see froxelIsFresh) takes its light from
+// where it sat in last frame's grid, and its extinction from where it is now. The world pass lights the rest.
+
+#include "common/shared.hpp"
+
+layout(set = 2, binding = 0) uniform WorldUniform {
+    WorldUBO worldUBO;
+};
+layout(set = 2, binding = 1) uniform LastWorldUniform {
+    WorldUBO lastWorldUBO;
+};
+layout(set = 2, binding = 2) uniform SkyUniform {
+    SkyUBO skyUBO;
+};
+
+#include "common/froxel_fog.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 5, binding = 40, rgba16f) uniform image3D froxelLightImage;
+
+void main() {
+    ivec3 cell = ivec3(gl_GlobalInvocationID.xyz);
+    if (any(greaterThanEqual(cell, FROXEL_EXTENT)) || froxelIsFresh(cell)) { return; }
+    vec3 rayDir;
+    vec3 position = froxelCellCenter(cell, rayDir);
+    // Without history (just off last frame's view, or after a jump) the same cell of last frame stands in until the
+    // world pass reaches it.
+    ivec3 texel = cell;
+    vec3 previousUvw;
+    if (froxelHistoryUsable() && froxelReproject(position, previousUvw)) {
+        texel = clamp(ivec3(previousUvw * vec3(FROXEL_EXTENT)), ivec3(0), FROXEL_EXTENT - 1);
+    }
+    vec3 light = imageLoad(froxelLightImage, texel + ivec3(0, 0, froxelReadOffset())).rgb;
+    if (any(isnan(light)) || any(isinf(light))) { light = vec3(0.0); }
+    float extinction = froxelExtinction(position.y + float(worldUBO.cameraPos.y));
+    imageStore(froxelLightImage, cell + ivec3(0, 0, froxelWriteOffset()), vec4(max(light, vec3(0.0)), extinction));
+}

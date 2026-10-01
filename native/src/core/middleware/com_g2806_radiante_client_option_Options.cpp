@@ -43,6 +43,13 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_option_Options_nativeSetCh
     if (write) Renderer::instance().world()->chunks()->resetScheduler();
 }
 
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_option_Options_nativeSetEntityLightReach(JNIEnv *,
+                                                                                         jclass,
+                                                                                         jint reach,
+                                                                                         jboolean) {
+    Renderer::options.entityLightReach = std::clamp(static_cast<double>(reach), 8.0, 256.0);
+}
+
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_option_Options_nativeSetCollectChunkEmission(
     JNIEnv *, jclass, jboolean collectChunkEmission, jboolean write) {
     (void)write;

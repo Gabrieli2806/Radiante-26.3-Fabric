@@ -32,9 +32,15 @@ public final class FrameGenerationProxy {
         int height, long swapchainImage, int swapchainWidth, int swapchainHeight, boolean flipY);
 
     /**
-     * After Minecraft's present: presents the remaining generated frames and then the real one, each on a
-     * swapchain image of its own. 0 when fine, 1 suboptimal, -1 out of date.
+     * After Minecraft's present: hands the remaining generated frames and then the real one to the present
+     * thread, which shows them spread over the time one rendered frame takes. 0 when fine, 1 suboptimal, -1 out of date.
      */
     public static native int presentPending(long swapchain, long[] swapchainImages, long queue, int swapchainWidth,
         int swapchainHeight);
+
+    /**
+     * Waits until the present thread has shown every frame it was handed. Minecraft calls this before it blits or
+     * reconfigures, so its own present never overtakes the previous frame's generated ones.
+     */
+    public static native void waitPresentIdle();
 }

@@ -61,6 +61,14 @@ JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_FrameGene
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_FrameGenerationProxy_presentPending
   (JNIEnv *, jclass, jlong, jlongArray, jlong, jint, jint);
 
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_FrameGenerationProxy
+ * Method:    waitPresentIdle
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_FrameGenerationProxy_waitPresentIdle
+  (JNIEnv *, jclass);
+
 #ifdef __cplusplus
 }
 #endif

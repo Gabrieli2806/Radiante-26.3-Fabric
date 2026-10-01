@@ -30,6 +30,7 @@ struct CreatedDeviceInfo {
     bool dlssCompatible = false;
     bool dlssgCompatible = false;
     bool fsrgCompatible = false;
+    bool serEnabled = false;
     bool xessCompatible = false;
 };
 
@@ -174,6 +175,11 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
     if (supported.contains(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME)) {
         requested.emplace_back(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME);
     }
+    // Shader Execution Reordering: the GPU regroups rays by what they hit before shading them (RTX 40 and newer).
+    const bool serExtension = supported.contains(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
+    if (serExtension) {
+        requested.emplace_back(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
+    }
 
     auto allSupported = [&](const std::vector<std::string> &required) {
         for (const auto &ext : required) {
@@ -230,7 +236,11 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &supportedVulkan12};
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR supportedRayTracing{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &supportedAccelerationStructure};
-    VkPhysicalDeviceFeatures2 supportedFeatures2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &supportedRayTracing};
+    VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV supportedReorder{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV, &supportedRayTracing};
+    VkPhysicalDeviceFeatures2 supportedFeatures2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                                                 serExtension ? static_cast<void *>(&supportedReorder)
+                                                              : static_cast<void *>(&supportedRayTracing)};
     vkGetPhysicalDeviceFeatures2(physicalDeviceHandle, &supportedFeatures2);
 
     // enabled features
@@ -308,7 +318,13 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &accelerationStructure};
     rayTracing.rayTracingPipeline = supportedRayTracing.rayTracingPipeline;
 
-    VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &rayTracing};
+    VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV reorder{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV, &rayTracing};
+    const bool serEnabled = serExtension && hasExtension(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME) &&
+                            supportedReorder.rayTracingInvocationReorder == VK_TRUE;
+    reorder.rayTracingInvocationReorder = serEnabled ? VK_TRUE : VK_FALSE;
+    VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                                        serEnabled ? static_cast<void *>(&reorder) : static_cast<void *>(&rayTracing)};
     auto &features = features2.features;
     const auto &sf = supportedFeatures2.features;
     features.independentBlend = sf.independentBlend;
@@ -480,10 +496,11 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
     g_created.dlssCompatible = dlssCompatible;
     g_created.dlssgCompatible = dlssgCompatible;
     g_created.fsrgCompatible = fsrgCompatible;
+    g_created.serEnabled = serEnabled;
     g_created.xessCompatible = xessCompatible;
     deviceCout() << "created shared device with " << selected.size() << " extensions (dlss=" << dlssCompatible
                  << ", dlss frame generation=" << dlssgCompatible << ", fsr frame generation=" << fsrgCompatible
-                 << ", xess=" << xessCompatible << ")" << std::endl;
+                 << ", ser=" << serEnabled << ", xess=" << xessCompatible << ")" << std::endl;
     return VK_SUCCESS;
 }
 
@@ -531,6 +548,10 @@ bool vk::Device::isXessDeviceExtensionsCompatible() const {
 
 bool vk::Device::isDlssFrameGenerationDeviceExtensionsCompatible() const {
     return g_created.device == device_ && g_created.dlssgCompatible;
+}
+
+bool vk::Device::isShaderExecutionReorderingEnabled() const {
+    return g_created.device == device_ && g_created.serEnabled;
 }
 
 bool vk::Device::isFsrFrameGenerationDeviceExtensionsCompatible() const {

@@ -3,6 +3,7 @@
 
 #include "common/shared.hpp"
 #include "core/render/chunks.hpp"
+#include "core/render/entities.hpp"
 #include "core/render/pipeline.hpp"
 #include "core/render/render_framework.hpp"
 #include "core/render/renderer.hpp"
@@ -384,6 +385,9 @@ void Buffers::buildAndUploadOverlayUniformBuffer() {
     }
 }
 
+// BufferProxy.WORLD_UBO_SIZE on the Java side allocates this much; the two must move together.
+static_assert(sizeof(vk::Data::WorldUBO) == 680);
+
 static size_t sequenceIndex = 0;
 
 // halton low discrepancy sequence, from https://www.shadertoy.com/view/wdXSW8
@@ -440,6 +444,18 @@ void Buffers::setAndUploadWorldUniformBuffer(vk::Data::WorldUBO &ubo) {
     {
         static uint32_t frameCounter = 0;
         ubo.frameCounter = frameCounter++;
+    }
+    ubo.entityLightCount = 0;
+    ubo.entityLightAddressLo = 0;
+    ubo.entityLightAddressHi = 0;
+    ubo.entityLightPad = 0;
+    if (auto entities = Renderer::instance().world()->entities(); entities != nullptr) {
+        VkDeviceAddress address = entities->lightBufferAddress();
+        if (address != 0 && entities->lightCount() > 0) {
+            ubo.entityLightCount = entities->lightCount();
+            ubo.entityLightAddressLo = static_cast<uint32_t>(address & 0xffffffffull);
+            ubo.entityLightAddressHi = static_cast<uint32_t>(address >> 32u);
+        }
     }
 
     ubo.cameraJitter = useJitter_ ? halton(sequenceIndex++) - glm::vec2(0.5) : glm::vec2(0.0);

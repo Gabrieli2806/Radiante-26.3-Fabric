@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
+#include <iostream>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -16,15 +18,7 @@
 #include <limits>
 #include <stdexcept>
 
-struct LightData {
-    glm::vec4 p0Area;
-    glm::vec4 p1;
-    glm::vec4 p2;
-    glm::vec4 p3;
-    glm::vec4 normal;
-    glm::vec4 radiance;
-    glm::vec4 sourceIDData;
-};
+using LightData = PackedLightData;
 static_assert(sizeof(LightData) == sizeof(glm::vec4) * 7);
 
 static void buildChunkPackedVertices(const std::vector<std::vector<vk::VertexFormat::PBRVertex>> &vertices,
@@ -242,6 +236,10 @@ static LightData packLight(const LightInfo &light, const glm::vec3 &chunkOrigin)
     return gpuLight;
 }
 
+PackedLightData packLightAt(const LightInfo &light, const glm::vec3 &origin) {
+    return packLight(light, origin);
+}
+
 void ChunkBuildData::buildLightBuffer(const std::shared_ptr<vk::VMA> &vma,
                                       const std::shared_ptr<vk::Device> &device,
                                       bool persistStaging) {
@@ -339,9 +337,21 @@ void ChunkBuildData::buildLightInfos(const Emission &emission) {
 
     std::unordered_map<uint32_t, Emission::TextureOccupancy> textureOccupancyCache;
     for (uint32_t geometryIndex = 0; geometryIndex < vertices.size(); geometryIndex++) {
-        auto &geometryVertices = vertices[geometryIndex];
+        collectEmissiveQuadLights(emission, vertices[geometryIndex], id, geometryIndex, textureOccupancyCache,
+                                  lightInfos);
+    }
+}
+
+void collectEmissiveQuadLights(const Emission &emission,
+                               const std::vector<vk::VertexFormat::PBRVertex> &geometryVertices,
+                               int64_t ownerId,
+                               uint32_t geometryIndex,
+                               std::unordered_map<uint32_t, Emission::TextureOccupancy> &textureOccupancyCache,
+                               std::vector<LightInfo> &lightInfos) {
+    const int64_t id = ownerId;
+    {
         if (geometryVertices.size() < 4) {
-            continue;
+            return;
         }
 
         uint32_t quadIndex = 0;
@@ -605,18 +615,28 @@ void ChunkBuildData::packGeometry(const std::shared_ptr<vk::VMA> &vma,
                                   const std::shared_ptr<vk::Device> &device,
                                   bool persistStaging,
                                   const std::shared_ptr<vk::BLASBuilder> &builder) {
-    PackedChunkGeometry packed = packChunkGeometry(vertices, indices);
+    // Packing converts every vertex (half floats, 16-bit indices): several milliseconds for a detailed chunk, which
+    // on the render thread made loading new chunks stutter. The chunk builder threads do it ahead (prepackGeometry).
+    PackedChunkGeometry packed = prepacked != nullptr ? std::move(*std::static_pointer_cast<PackedChunkGeometry>(prepacked))
+                                                      : packChunkGeometry(vertices, indices);
+    prepacked = nullptr;
 
     // One buffer per chunk holds all of its geometry. Chunks used to share buffers with the rest of their build
     // batch, so rebuilding one chunk left the whole batch's memory alive until every chunk in it was rebuilt too,
     // and video memory crept up over a long session.
-    auto buffer = vk::DeviceLocalBuffer::create(vma, device, persistStaging, packed.bytes.size(),
-                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                                    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    buffer->uploadToStagingBuffer(packed.bytes.data(), packed.bytes.size(), 0);
-    buffer->flushStagingBuffer();
-    Chunks::devBytes[0] += packed.bytes.size();
+    std::shared_ptr<vk::DeviceLocalBuffer> buffer;
+    if (prebuiltGeometryBuffer != nullptr) {
+        buffer = std::move(prebuiltGeometryBuffer);
+    } else {
+        buffer = vk::DeviceLocalBuffer::create(vma, device, persistStaging, packed.bytes.size(),
+                                               VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        buffer->uploadToStagingBuffer(packed.bytes.data(), packed.bytes.size(), 0);
+        buffer->flushStagingBuffer();
+        Chunks::devBytes[0] += packed.bytes.size();
+    }
+    prebuiltGeometryBuffer = nullptr;
 
     indexBuffer = buffer;
     positionBuffer = buffer;
@@ -646,6 +666,24 @@ void ChunkBuildData::packGeometry(const std::shared_ptr<vk::VMA> &vma,
                                                    geometryTypes[i] == World::WORLD_SOLID);
     }
     geometryBuilder->endGeometries();
+}
+
+void ChunkBuildData::prepackGeometry() {
+    if (geometryCount == 0) return;
+    auto packed = std::make_shared<PackedChunkGeometry>(packChunkGeometry(vertices, indices));
+    auto framework = Renderer::instance().framework();
+    if (framework != nullptr && !packed->bytes.empty()) {
+        // VMA is thread safe; the upload to the GPU itself is still recorded on the render thread.
+        prebuiltGeometryBuffer = vk::DeviceLocalBuffer::create(
+            framework->vma(), framework->device(), true, packed->bytes.size(),
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        prebuiltGeometryBuffer->uploadToStagingBuffer(packed->bytes.data(), packed->bytes.size(), 0);
+        prebuiltGeometryBuffer->flushStagingBuffer();
+        Chunks::devBytes[0] += packed->bytes.size();
+        std::vector<uint8_t>().swap(packed->bytes); // the offsets are all packGeometry still needs
+    }
+    prepacked = std::static_pointer_cast<void>(packed);
 }
 
 void ChunkBuildData::build(bool persistStaging) {
@@ -716,6 +754,8 @@ ChunkBuildDataBatch::ChunkBuildDataBatch(uint32_t maxBatchSize,
 }
 
 void ChunkBuildDataBatch::build() {
+    auto t0 = std::chrono::steady_clock::now();
+    double lightMs = 0.0, packMs = 0.0;
     auto framework = Renderer::instance().framework();
     auto vma = framework->vma();
     auto device = framework->device();
@@ -726,7 +766,9 @@ void ChunkBuildDataBatch::build() {
     for (size_t i = 0; i < batchData.size(); i++) {
         auto &data = batchData[i];
         if (data == nullptr) continue;
+        auto tl = std::chrono::steady_clock::now();
         data->buildLightBuffer(vma, device, true);
+        lightMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tl).count();
         if (data->geometryCount == 0) {
             data->indexBufferAddresses.clear();
             data->positionBufferAddresses.clear();
@@ -740,7 +782,9 @@ void ChunkBuildDataBatch::build() {
         }
 
         auto builder = blasBatchBuilder->defineBLASBuilder();
+        auto tp = std::chrono::steady_clock::now();
         data->packGeometry(vma, device, true, builder);
+        packMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tp).count();
         data->blasBuilder = builder
                                 ->defineBuildProperty(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR |
                                                       VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
@@ -753,7 +797,18 @@ void ChunkBuildDataBatch::build() {
         return;
     }
 
+    auto ta = std::chrono::steady_clock::now();
     auto blases = blasBatchBuilder->allocateBuffers(physicalDevice, device, vma)->build(device);
+    {
+        static const bool profile = std::getenv("RADIANTE_DEV_PROFILE") != nullptr;
+        auto now = std::chrono::steady_clock::now();
+        double totalMs = std::chrono::duration<double, std::milli>(now - t0).count();
+        if (profile && totalMs > 8.0) {
+            std::cout << "[native profile] batch build: lights " << lightMs << " ms, pack " << packMs
+                      << " ms, blas alloc+build " << std::chrono::duration<double, std::milli>(now - ta).count()
+                      << " ms" << std::endl;
+        }
+    }
     Chunks::devBytes[3] += blasBatchBuilder->totalBlasBytes();
     for (size_t i = 0; i < builtIndices.size(); i++) {
         batchData[builtIndices[i]]->blas = blases[i];
@@ -911,11 +966,17 @@ void ChunkBuildScheduler::waitAllBatchesFinish() {
 
 void ChunkBuildScheduler::tryScheduleBatches(uint32_t maxBatchSize) {
     if (!Renderer::instance().framework()->isRunning()) return;
+    // A full batch of chunks packed at once took 10 to 25 ms on the render thread when crossing into new chunks in a
+    // detailed area, a visible hitch every time chunks loaded. Batches are sized to what the budget below allows, by
+    // the measured cost per chunk (at least one chunk, so loading always moves on).
     // Building a batch (packing its geometry, sizing and recording its acceleration structures) happens right here
     // on the render thread, and its builds then run on the GPU alongside the frame. Scheduling every batch there was
     // room for at once stalled a single frame for tens of milliseconds - and the GPU for hundreds - whenever a burst
     // of chunks arrived, walking into a dense city or teleporting. A small time budget per frame spreads them out.
     constexpr double kScheduleBudgetMs = 3.0;
+    const uint32_t budgetedBatchSize = std::clamp<uint32_t>(
+        static_cast<uint32_t>(kScheduleBudgetMs / std::max(msPerChunk_, 0.05)), 1u, std::max(maxBatchSize, 1u));
+    maxBatchSize = budgetedBatchSize;
     auto budgetStart = std::chrono::steady_clock::now();
     bool scheduledOne = false;
     while (true) {
@@ -927,6 +988,7 @@ void ChunkBuildScheduler::tryScheduleBatches(uint32_t maxBatchSize) {
         std::shared_ptr<vk::Fence> fence;
         std::shared_ptr<vk::CommandBuffer> commandBuffer;
         std::shared_ptr<ChunkBuildDataBatch> chunkBuildDataBatch;
+        auto phaseStart = std::chrono::steady_clock::now();
 
         {
             std::unique_lock<std::recursive_mutex> lock(mutex_);
@@ -961,8 +1023,16 @@ void ChunkBuildScheduler::tryScheduleBatches(uint32_t maxBatchSize) {
             pendingBatchFrames_ = 0;
         }
 
+        auto batchStart = std::chrono::steady_clock::now();
+        double selectMs = std::chrono::duration<double, std::milli>(batchStart - phaseStart).count();
         chunkBuildDataBatch->build();
         scheduledOne = true;
+        if (!chunkBuildDataBatch->batchData.empty()) {
+            double perChunk = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - batchStart)
+                                  .count() /
+                              static_cast<double>(chunkBuildDataBatch->batchData.size());
+            msPerChunk_ = msPerChunk_ * 0.8 + perChunk * 0.2;
+        }
 
         bool hasLightUploads = false;
         for (const auto &chunkBuildData : chunkBuildDataBatch->batchData) {
@@ -1050,6 +1120,16 @@ void ChunkBuildScheduler::tryScheduleBatches(uint32_t maxBatchSize) {
             vkQueueSubmit(device->mainVkQueue(), 1, &vkSubmitInfo, fence->vkFence());
         }
 
+        {
+            static const bool profile = std::getenv("RADIANTE_DEV_PROFILE") != nullptr;
+            auto end = std::chrono::steady_clock::now();
+            double totalMs = std::chrono::duration<double, std::milli>(end - phaseStart).count();
+            if (profile && totalMs > 8.0) {
+                double buildMs = std::chrono::duration<double, std::milli>(end - batchStart).count();
+                std::cout << "[native profile] chunk batch " << chunkBuildDataBatch->batchData.size()
+                          << " chunks: select " << selectMs << " ms, build+submit " << buildMs << " ms" << std::endl;
+            }
+        }
         std::unique_lock<std::recursive_mutex> lock(mutex_);
         buildingFences_.push_back(fence);
         buildingCommandBuffers_.push_back(commandBuffer);
@@ -1504,6 +1584,7 @@ void Chunks::queueChunkBuild(ChunkBuildTask task) {
             chunkBuildData->buildLightInfos(*emission);
         }
     }
+    chunkBuildData->prepackGeometry();
 
     std::unique_lock<std::recursive_mutex> lock(mutex_);
 

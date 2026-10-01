@@ -27,6 +27,9 @@ struct Options {
     uint32_t chunkBuildingBatchSize = 2;
     uint32_t chunkBuildingTotalBatches = 4;
     bool collectChunkEmission = false;
+    // How far from the camera glowing entities (dropped items, item frames) still light their surroundings, in
+    // blocks.
+    double entityLightReach = 64.0;
 };
 
 class Renderer : public Singleton<Renderer> {

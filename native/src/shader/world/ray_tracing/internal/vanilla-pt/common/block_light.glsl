@@ -16,62 +16,7 @@
 #    define VPT_BLOCK_LIGHT_CANDIDATES 4
 #endif
 
-struct VptChunkLightData {
-    int x;
-    int y;
-    int z;
-    uint geometryCount;
-    uint lightCount;
-    uint64_t lightBufferAddress;
-};
-
-struct VptPackedLight {
-    vec4 p0Area;
-    vec4 p1;
-    vec4 p2;
-    vec4 p3;
-    vec4 normal;
-    vec4 radiance;
-    vec4 sourceIDData;
-};
-
-layout(std430, set = 1, binding = 9) readonly buffer VptChunkPackedDataBuffer {
-    VptChunkLightData vptChunkLights[];
-};
-
-layout(std430, buffer_reference, buffer_reference_align = 16) readonly buffer VptPackedLightBuffer {
-    VptPackedLight lights[];
-};
-
-ivec3 vptSectionOf(vec3 scenePos) {
-    return ivec3(floor((scenePos + vec3(worldUBO.cameraPos.xyz)) / 16.0));
-}
-
-int vptFloorMod(int value, int divisor) {
-    return value - divisor * int(floor(float(value) / float(divisor)));
-}
-
-/** The loaded section's slot in the light list, or -1 when it is outside the grid or holds no lights. */
-int vptSectionLightSlot(ivec3 section) {
-    int sizeX = worldUBO.chunkGridInfo.x;
-    int sizeY = worldUBO.chunkGridInfo.y;
-    int sizeZ = worldUBO.chunkGridInfo.z;
-    int bottom = worldUBO.chunkGridInfo.w;
-    if (sizeX <= 0 || sizeY <= 0 || sizeZ <= 0) { return -1; }
-    if (section.y < bottom || section.y >= bottom + sizeY) { return -1; }
-    int slot = (vptFloorMod(section.z, sizeZ) * sizeY + (section.y - bottom)) * sizeX + vptFloorMod(section.x, sizeX);
-    VptChunkLightData data = vptChunkLights[slot];
-    // A slot is reused as the grid scrolls; one still holding another section is no use here.
-    if (data.x != section.x * 16 || data.y != section.y * 16 || data.z != section.z * 16) { return -1; }
-    if (data.lightCount == 0u || data.lightBufferAddress == 0ul) { return -1; }
-    return slot;
-}
-
-/** Whether a light hit at hitPos from a surface at originPos lies in the sections that surface samples. */
-bool vptInBlockLightReach(vec3 originPos, vec3 hitPos) {
-    ivec3 d = abs(vptSectionOf(hitPos) - vptSectionOf(originPos));
-    return max(d.x, max(d.y, d.z)) <= 1;
-}
+#include "common/block_light_data.glsl"
 
 /**
  * A light the ray just hit that the surface it came from already sampled directly. Its emission is left out here,
@@ -86,11 +31,6 @@ float vptBlockLightDiffuseWeight(LabPBRMat mat) {
     return (1.0 - mat.metallic) * (1.0 - mat.transmission);
 }
 
-vec3 vptSampleTrianglePoint(vec3 a, vec3 b, vec3 c, vec2 xi) {
-    float s = sqrt(xi.x);
-    return a * (1.0 - s) + b * (s * (1.0 - xi.y)) + c * (s * xi.y);
-}
-
 /**
  * Light from the block lights around the surface, already multiplied by the path throughput. Picks among a few
  * candidate lights by how much each would contribute unshadowed (resampled importance sampling), then traces one
@@ -101,17 +41,8 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
     float diffuseWeight = vptBlockLightDiffuseWeight(mat);
     if (diffuseWeight <= 1e-4) { return vec3(0.0); }
 
-    int slots[27];
-    int slotCount = 0;
-    ivec3 center = vptSectionOf(worldPos);
-    for (int dz = -1; dz <= 1; dz++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                int slot = vptSectionLightSlot(center + ivec3(dx, dy, dz));
-                if (slot >= 0) { slots[slotCount++] = slot; }
-            }
-        }
-    }
+    int slots[28];
+    int slotCount = vptGatherLightSlots(worldPos, slots);
     if (slotCount == 0) { return vec3(0.0); }
 
     vec3 diffuse = mat.albedo * (diffuseWeight / PI);
@@ -124,9 +55,9 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
 
     for (int i = 0; i < VPT_BLOCK_LIGHT_CANDIDATES; i++) {
         int slot = slots[min(int(rand(mainRay.seed) * float(slotCount)), slotCount - 1)];
-        VptChunkLightData section = vptChunkLights[slot];
-        uint lightIndex = min(uint(rand(mainRay.seed) * float(section.lightCount)), section.lightCount - 1u);
-        VptPackedLight light = VptPackedLightBuffer(section.lightBufferAddress).lights[lightIndex];
+        uint slotLightCount = vptSlotLightCount(slot);
+        uint lightIndex = min(uint(rand(mainRay.seed) * float(slotLightCount)), slotLightCount - 1u);
+        VptPackedLight light = VptPackedLightBuffer(vptSlotLightAddress(slot)).lights[lightIndex];
 
         float area = light.p0Area.w;
         if (area <= 1e-8) { continue; }
@@ -145,7 +76,7 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
         vec3 contribution = light.radiance.rgb * diffuse * (cosSurface * cosLight / distance2);
         float target = dot(contribution, vec3(0.2126, 0.7152, 0.0722));
         if (target <= 1e-10) { continue; }
-        float sourcePdf = 1.0 / (float(slotCount) * float(section.lightCount) * area);
+        float sourcePdf = 1.0 / (float(slotCount) * float(slotLightCount) * area);
         float weight = target / sourcePdf;
         weightSum += weight;
         if (rand(mainRay.seed) * weightSum < weight) {
@@ -234,9 +165,10 @@ bool vptRestirLight(int slot, uint index, vec2 xi, out vec3 point, out vec3 norm
     normal = vec3(0.0, 1.0, 0.0);
     radiance = vec3(0.0);
     if (slot < 0) { return false; }
-    VptChunkLightData section = vptChunkLights[slot];
-    if (section.lightBufferAddress == 0ul || index >= section.lightCount) { return false; }
-    VptPackedLight light = VptPackedLightBuffer(section.lightBufferAddress).lights[index];
+    if (slot == VPT_ENTITY_LIGHT_SLOT && !vptHasEntityLights()) { return false; }
+    uint64_t address = vptSlotLightAddress(slot);
+    if (address == 0ul || index >= vptSlotLightCount(slot)) { return false; }
+    VptPackedLight light = VptPackedLightBuffer(address).lights[index];
     if (light.p0Area.w <= 1e-8) { return false; }
     point = vptSampleTrianglePoint(light.p0Area.xyz, light.p1.xyz, light.p2.xyz, xi) - vec3(worldUBO.cameraPos.xyz);
     normal = light.normal.xyz;
@@ -332,32 +264,23 @@ vec3 sampleBlockLightRestir(vec3 worldPos, vec3 geometricNormal, vec3 shadingNor
 
     // 1. New candidates, as the plain sampler picks them.
     VptReservoir r = vptEmptyReservoir();
-    int slots[27];
-    int slotCount = 0;
-    ivec3 center = vptSectionOf(worldPos);
-    for (int dz = -1; dz <= 1; dz++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                int slot = vptSectionLightSlot(center + ivec3(dx, dy, dz));
-                if (slot >= 0) { slots[slotCount++] = slot; }
-            }
-        }
-    }
+    int slots[28];
+    int slotCount = vptGatherLightSlots(worldPos, slots);
     if (slotCount > 0) {
         for (int i = 0; i < VPT_RESTIR_CANDIDATES; i++) {
             int slot = slots[min(int(rand(mainRay.seed) * float(slotCount)), slotCount - 1)];
-            VptChunkLightData section = vptChunkLights[slot];
-            uint lightIndex = min(uint(rand(mainRay.seed) * float(section.lightCount)), section.lightCount - 1u);
+            uint slotLightCount = vptSlotLightCount(slot);
+            uint lightIndex = min(uint(rand(mainRay.seed) * float(slotLightCount)), slotLightCount - 1u);
             vec2 xi = vec2(rand(mainRay.seed), rand(mainRay.seed));
             r.M += 1.0;
             vec3 point, lightNormal, radiance, contribution, dir;
             float distance;
             if (!vptRestirLight(slot, lightIndex, xi, point, lightNormal, radiance)) { continue; }
-            float area = VptPackedLightBuffer(section.lightBufferAddress).lights[lightIndex].p0Area.w;
+            float area = VptPackedLightBuffer(vptSlotLightAddress(slot)).lights[lightIndex].p0Area.w;
             float target = vptRestirTarget(worldPos, geometricNormal, shadingNormal, diffuse, point, lightNormal,
                                            radiance, contribution, dir, distance);
             if (target <= 1e-10) { continue; }
-            float sourcePdf = 1.0 / (float(slotCount) * float(section.lightCount) * area);
+            float sourcePdf = 1.0 / (float(slotCount) * float(slotLightCount) * area);
             float weight = target / sourcePdf;
             r.wSum += weight;
             if (rand(mainRay.seed) * r.wSum < weight) {

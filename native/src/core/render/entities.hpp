@@ -5,6 +5,7 @@
 #include "core/all_extern.hpp"
 #include "core/vulkan/all_core_vulkan.hpp"
 
+#include "core/render/emission.hpp"
 #include "core/render/world.hpp"
 
 #include <chrono>
@@ -62,6 +63,9 @@ struct EntityBuildData : public SharedObject<EntityBuildData> {
     std::vector<VkDeviceAddress> positionBufferAddresses;
     std::vector<VkDeviceAddress> materialBufferAddresses;
     std::shared_ptr<vk::BLAS> blas;
+    // Lights in this entity's emissive quads (a dropped glowstone, an item frame holding a sea lantern), relative to
+    // x, y, z. Null when it has none.
+    std::shared_ptr<std::vector<LightInfo>> lightInfos;
 
     EntityBuildData(int hashCode,
                     double x,
@@ -122,6 +126,7 @@ struct Entity : public SharedObject<Entity> {
     std::shared_ptr<std::vector<std::string>> geometryContentNames;
     std::shared_ptr<std::vector<uint32_t>> vertexCounts;
     std::shared_ptr<std::vector<uint32_t>> indexCounts;
+    std::shared_ptr<std::vector<LightInfo>> lightInfos;
 
     Entity(std::shared_ptr<EntityBuildData> entityBuildData);
 };
@@ -183,6 +188,15 @@ class Entities : public SharedObject<Entities> {
     // Called once the static builders are recorded into a frame; until then they are kept.
     void staticBuildersSubmitted();
 
+    // This frame's lights from emissive entities, nearest the camera first: where block_light.glsl reads them
+    // (WorldUBO.entityLightAddress*), and how many there are. 0 and 0 without any.
+    VkDeviceAddress lightBufferAddress() const { return lightBufferAddress_; }
+    uint32_t lightCount() const { return lightCount_; }
+
+    // Lights further from the camera than Renderer::options.entityLightReach are left out, and of the rest at most
+    // this many, the nearest.
+    static constexpr uint32_t MAX_ENTITY_LIGHTS = 1024;
+
     // Value the Java side puts in prebuiltBLAS for geometry that may be cached (see EntityManager).
     static constexpr int CACHEABLE_BLAS = -2;
     // Like CACHEABLE_BLAS, but the Java side names the content (in the geometry content names) and moves it by
@@ -205,4 +219,9 @@ class Entities : public SharedObject<Entities> {
     std::shared_ptr<EntityPostBuildDataBatch> entityPostBuildDataBatch_;
 
     std::shared_ptr<vk::BLASBatchBuilder> blasBatchBuilder_;
+
+    void buildLightBuffer();
+    std::shared_ptr<vk::DeviceLocalBuffer> lightBuffer_;
+    VkDeviceAddress lightBufferAddress_ = 0;
+    uint32_t lightCount_ = 0;
 };

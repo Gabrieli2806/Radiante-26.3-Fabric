@@ -395,7 +395,14 @@ public class Pipeline {
         "render_pipeline.module.ray_tracing.attribute.post_enable_dof";
     /** Volumetric clouds shade the ground under them (only with Volumetric clouds). */
     /** ReSTIR reuse of block light samples across frames and pixels (needs block light sampling). */
+    /** Shader Execution Reordering for the path rays (NVIDIA RTX 40 and newer; ignored elsewhere). */
+    public static final String SER_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.ser";
     public static final String RESTIR_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.restir";
+    /** Rain streaks that bend the view behind them like little lenses. */
+    public static final String RAIN_REFRACTION_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.rain_refraction";
+    /** Volumetric fog made the way Radiance does it (a lit 3D grid) instead of a march per pixel. */
+    public static final String FROXEL_FOG_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.froxel_fog";
     public static final String CLOUD_SHADOWS_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_cast_shadow";
 

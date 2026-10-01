@@ -2,9 +2,7 @@ package com.g2806.radiante.mixin.framegen;
 
 import com.g2806.radiante.client.proxy.vulkan.FrameGenerationProxy;
 import com.g2806.radiante.client.render.FrameGeneration;
-import com.mojang.renderpearl.api.device.GpuSurface;
 import com.mojang.renderpearl.api.device.SurfaceException;
-import com.mojang.renderpearl.backend.vulkan.VulkanConst;
 import com.mojang.renderpearl.backend.vulkan.VulkanGpuSurface;
 import it.unimi.dsi.fastutil.longs.LongList;
 import org.jspecify.annotations.Nullable;
@@ -14,13 +12,13 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Frame generation owns the rest of the present: after Minecraft presents the first generated frame (swapped in at
  * the blit, see HdrPresentMixin), the remaining generated frames and then the real one are presented on swapchain
- * images of their own. They are paced by the display, so while frame generation is on the swapchain uses FIFO.
+ * images of their own. A native present thread shows them spread over the time one rendered frame takes, so pacing
+ * does not depend on the present mode and vsync stays the player's choice.
  */
 @Mixin(VulkanGpuSurface.class)
 public abstract class FrameGenerationPresentMixin {
@@ -44,18 +42,23 @@ public abstract class FrameGenerationPresentMixin {
     @Shadow
     private @Nullable SurfaceException eatenException;
 
-    @Redirect(method = "configure", at = @At(value = "INVOKE",
-        target = "Lcom/mojang/renderpearl/backend/vulkan/VulkanConst;toVk(Lcom/mojang/renderpearl/api/device/GpuSurface$PresentMode;)I"))
-    private int radiante$pacedPresentMode(GpuSurface.PresentMode mode) {
+    @Inject(method = "configure", at = @At("HEAD"))
+    private void radiante$configureAfterGenerated(CallbackInfo ci) {
+        // The present thread still holds images of the old swapchain until it is done with them.
+        FrameGeneration.waitPresentIdle();
         FrameGeneration.noteSwapchainConfigured();
-        // Generated frames presented back to back only show for a refresh each when the display paces them.
-        return FrameGeneration.isActive() ? VulkanConst.toVk(GpuSurface.PresentMode.FIFO) : VulkanConst.toVk(mode);
+    }
+
+    @Inject(method = "blitFromTexture", at = @At("HEAD"))
+    private void radiante$blitAfterGenerated(CallbackInfo ci) {
+        // Minecraft's present that follows must not overtake the previous frame's generated ones.
+        FrameGeneration.waitPresentIdle();
     }
 
     @Inject(method = "present", at = @At("TAIL"))
     private void radiante$presentGenerated(CallbackInfo ci) {
         if (FrameGeneration.needsReconfigure()) {
-            // Switched on or off: have Minecraft rebuild the swapchain with the matching present mode.
+            // Switched on or off: have Minecraft rebuild the swapchain.
             this.swapchainSuboptimal = true;
         }
         if (!FrameGeneration.isActive() || this.swapchain == 0L || this.swapchainOutOfDate) {

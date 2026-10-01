@@ -5,6 +5,9 @@
 #include <glm/glm.hpp>
 
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include <memory>
 #include <vector>
 
@@ -76,6 +79,9 @@ class NativeFrameGeneration {
     void reset();
     void release();
 
+    /** Waits until the frames handed to the present thread are all shown. */
+    void waitPresentIdle();
+
   private:
     struct Provider;
     struct DlssProvider;
@@ -116,6 +122,29 @@ class NativeFrameGeneration {
                    uint32_t swapchainHeight,
                    bool flipY);
     void countPresented(uint32_t frames);
+    void presentWorker();
+    void stopPresentWorker();
+
+    struct PresentJob {
+        std::vector<VkImage> images;
+        VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+        std::vector<VkImage> swapchainImages;
+        VkQueue queue = VK_NULL_HANDLE;
+        uint32_t width = 0, height = 0, swapchainWidth = 0, swapchainHeight = 0;
+        bool flipY = true;
+        std::chrono::steady_clock::time_point start{};
+        std::chrono::duration<double> spacing{0.0};
+    };
+    std::thread worker_;
+    std::mutex jobMutex_;
+    std::condition_variable jobCv_;
+    PresentJob job_;
+    bool jobPending_ = false;
+    bool stopWorker_ = false;
+    int lastStatus_ = 0;
+    uint32_t presentedByWorker_ = 0;
+    std::chrono::steady_clock::time_point lastMinecraftPresent_{};
+    double frameInterval_ = 0.0;
 
     std::weak_ptr<Framework> framework_;
     std::shared_ptr<Provider> provider_;
@@ -139,6 +168,9 @@ class NativeFrameGeneration {
 
     // Evaluation resources.
     std::vector<std::shared_ptr<vk::DeviceLocalImage>> generated_;
+    std::vector<std::shared_ptr<vk::DeviceLocalImage>> generatedSpare_;
+    std::shared_ptr<vk::DeviceLocalImage> realCopy_;
+    std::shared_ptr<vk::DeviceLocalImage> realCopySpare_;
     std::shared_ptr<vk::DeviceLocalImage> hudlessCopy_;
     std::shared_ptr<vk::DeviceLocalImage> deviceDepth_;
     std::shared_ptr<vk::DeviceLocalImage> motionVectors_;

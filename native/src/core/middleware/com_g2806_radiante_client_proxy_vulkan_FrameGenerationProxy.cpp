@@ -93,4 +93,11 @@ JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_FrameGenerati
     return 0;
 }
 
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_FrameGenerationProxy_waitPresentIdle(JNIEnv *,
+                                                                                                  jclass) {
+    try {
+        framegen::NativeFrameGeneration::instance().waitPresentIdle();
+    } catch (...) {}
+}
+
 } // extern "C"

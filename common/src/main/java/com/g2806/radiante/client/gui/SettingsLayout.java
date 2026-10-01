@@ -262,29 +262,35 @@ final class SettingsLayout {
         g.enableScissor(this.listX, this.top, this.listX + this.listW, this.bottom);
         OptionInstance<?> hovered = null;
         int base = this.top - (int) this.scroll;
-        int groupStart = -1;
         for (int i = 0; i < this.lines.size(); i++) {
             Line line = this.lines.get(i);
             int y = base + line.y();
             if (line.option() == null) {
-                g.fill(this.listX, y, this.listX + this.listW, y + HEADER, PANEL_DARK);
+                if (y + HEADER > this.top && y < this.bottom) {
+                    g.fill(this.listX, Math.max(y, this.top), this.listX + this.listW, Math.min(y + HEADER, this.bottom),
+                        PANEL_DARK);
+                }
                 g.text(this.font, Component.literal("◆ ").append(Component.translatable(line.section().category().key())),
                     this.listX + PAD, y + 7, ACCENT);
-                groupStart = y + HEADER + 2;
                 continue;
             }
-            boolean lastOfSection = i + 1 >= this.lines.size() || this.lines.get(i + 1).option() == null;
-            if (lastOfSection && groupStart >= 0) {
-                g.fill(this.listX + 4, groupStart, this.listX + this.listW - 4, y + ROW, GROUP);
-            }
         }
-        for (Line line : this.lines) {
+        for (int i = 0; i < this.lines.size(); i++) {
+            Line line = this.lines.get(i);
             if (line.option() == null) {
                 continue;
             }
             int y = base + line.y();
             if (y + ROW < this.top || y > this.bottom) {
                 continue;
+            }
+            // The group's dark box, a slice per row (the first one reaching up to the header): one tall box for the
+            // whole group went missing once its header scrolled out of view.
+            boolean firstOfSection = i > 0 && this.lines.get(i - 1).option() == null;
+            int sliceTop = Math.max(firstOfSection ? y - 2 : y, this.top);
+            int sliceBottom = Math.min(y + ROW, this.bottom);
+            if (sliceBottom > sliceTop) {
+                g.fill(this.listX + 4, sliceTop, this.listX + this.listW - 4, sliceBottom, GROUP);
             }
             boolean hover = inside(mouseX, mouseY, this.listX + 4, y, this.listW - 8, ROW)
                 && mouseY >= this.top && mouseY < this.bottom;
@@ -413,9 +419,16 @@ final class SettingsLayout {
 
     // ---- input ----
 
+    /** The click vanilla buttons make, for this screen's own drawn buttons and rows. */
+    private static void clickSound() {
+        net.minecraft.client.gui.components.AbstractWidget.playButtonClickSound(
+            net.minecraft.client.Minecraft.getInstance().getSoundManager());
+    }
+
     boolean mouseClicked(double mouseX, double mouseY, int button) {
         for (FlatButton flat : this.buttons) {
             if (flat.enabled() && inside(mouseX, mouseY, flat.x(), flat.y(), flat.w(), 16)) {
+                clickSound();
                 flat.action().run();
                 return true;
             }
@@ -425,6 +438,7 @@ final class SettingsLayout {
         for (Section section : this.sections) {
             if (inside(mouseX, mouseY, this.sidebarX, entryY, this.sidebarW, 18)) {
                 if (selected != section.category()) {
+                    clickSound();
                     selected = section.category();
                     this.scroll = 0.0;
                     this.onScroll.accept(this.scroll);
@@ -447,6 +461,9 @@ final class SettingsLayout {
             }
             int y = base + line.y();
             if (mouseY >= y && mouseY < y + ROW) {
+                if (!(line.option().values() instanceof OptionInstance.IntRange)) {
+                    clickSound();
+                }
                 activate(line.option(), mouseX, button);
                 return true;
             }

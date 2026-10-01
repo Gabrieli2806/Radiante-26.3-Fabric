@@ -1,6 +1,8 @@
 #include "core/render/entities.hpp"
 
 #include "core/render/buffers.hpp"
+#include "core/render/chunks.hpp"
+#include "core/render/textures.hpp"
 #include "core/render/render_framework.hpp"
 #include "core/vulkan/vertex.hpp"
 #include "core/render/renderer.hpp"
@@ -269,6 +271,7 @@ Entity::Entity(std::shared_ptr<EntityBuildData> chunkBuildData) {
     rayTracingFlag = chunkBuildData->rayTracingFlag;
     prebuiltBLAS = chunkBuildData->prebuiltBLAS;
     coordinate = chunkBuildData->coordinate;
+    lightInfos = chunkBuildData->lightInfos;
 
     blas = chunkBuildData->blas;
     indexBufferAddresses =
@@ -388,6 +391,7 @@ void Entities::queueBuild(EntitiesBuildTask task) {
     auto physicalDevice = framework->physicalDevice();
 
     std::set<int> textureIDs;
+    std::unordered_map<uint32_t, Emission::TextureOccupancy> entityOccupancyCache;
 
     uint32_t geometryAccu = 0;
     for (int e = 0; e < task.entityCount; e++) {
@@ -1022,6 +1026,21 @@ void Entities::queueBuild(EntitiesBuildTask task) {
 
         if (geometryCountWithoutGlint == 0) { continue; }
 
+        // Emissive quads become light sources, as a chunk's do: only for entities placed in the world (not the
+        // first person hand or anything drawn after the frame).
+        std::shared_ptr<std::vector<LightInfo>> entityLights;
+        if (Renderer::options.collectChunkEmission && !post && coordinate == World::Coordinates::WORLD) {
+            if (auto textures = Renderer::instance().textures(); textures != nullptr) {
+                if (auto emission = textures->emission(); emission != nullptr) {
+                    std::vector<LightInfo> lights;
+                    for (uint32_t g = 0; g < vertices.size(); g++) {
+                        collectEmissiveQuadLights(*emission, vertices[g], hashCode, g, entityOccupancyCache, lights);
+                    }
+                    if (!lights.empty()) { entityLights = std::make_shared<std::vector<LightInfo>>(std::move(lights)); }
+                }
+            }
+        }
+
         if ((prebuiltBLAS == CACHEABLE_BLAS || prebuiltBLAS == KEYED_BLAS) && !post) {
             // Reused while the content is unchanged. Cached only once it has stayed the same for two frames in a
             // row, so geometry that animates every frame (a waving banner, a chest while it opens) never pays for
@@ -1050,6 +1069,7 @@ void Entities::queueBuild(EntitiesBuildTask task) {
                                                     coordinate, geometryCountWithoutGlint, std::move(geometryTypes),
                                                     std::move(geometryGroupNames), std::move(geometryContentNames),
                                                     std::move(vertices), std::move(indices));
+                data->lightInfos = entityLights;
                 auto single = EntityBuildDataBatch::create();
                 single->addData(data);
                 single->build();
@@ -1070,6 +1090,7 @@ void Entities::queueBuild(EntitiesBuildTask task) {
                                     geometryCountWithoutGlint,
                                     std::move(geometryTypes), std::move(geometryGroupNames),
                                     std::move(geometryContentNames), std::move(vertices), std::move(indices));
+        chunkBuildData->lightInfos = entityLights;
 
         if (post) {
             entityPostBuildDataBatch_->addData(chunkBuildData);
@@ -1110,6 +1131,7 @@ void Entities::build() {
     }
     newStaticBuilds_.clear();
     for (auto &entity : reusedEntities_) { entityBatch_->entities.push_back(entity); }
+    buildLightBuffer();
 
     for (auto entity : entityPostBatch_->entities) {
         for (int i = 0; i < entity->geometryCount; i++) {
@@ -1119,7 +1141,70 @@ void Entities::build() {
     }
 }
 
+void Entities::buildLightBuffer() {
+    auto framework = Renderer::instance().framework();
+    auto &frr = framework->frameResourceRetainer();
+    // The buffer of the frame before stays alive until that frame is done with it.
+    if (lightBuffer_ != nullptr) { frr.retain(lightBuffer_); }
+    lightBuffer_ = nullptr;
+    lightBufferAddress_ = 0;
+    lightCount_ = 0;
+    if (entityBatch_ == nullptr || !Renderer::options.collectChunkEmission) { return; }
+
+    glm::dvec3 cameraPos = Renderer::instance().world()->getCameraPos();
+    struct Candidate {
+        double distance2;
+        const LightInfo *light;
+        glm::vec3 origin;
+    };
+    std::vector<Candidate> candidates;
+    const double reach = Renderer::options.entityLightReach;
+    const double reach2 = reach * reach;
+    for (const auto &entity : entityBatch_->entities) {
+        if (entity == nullptr || entity->lightInfos == nullptr || entity->coordinate != World::Coordinates::WORLD) {
+            continue;
+        }
+        glm::dvec3 origin(entity->x, entity->y, entity->z);
+        for (const LightInfo &light : *entity->lightInfos) {
+            glm::dvec3 center = origin + glm::dvec3((light.p0 + light.p1 + light.p2) / 3.0f);
+            glm::dvec3 delta = center - cameraPos;
+            double distance2 = glm::dot(delta, delta);
+            if (distance2 > reach2) { continue; }
+            candidates.push_back({distance2, &light, glm::vec3(origin)});
+        }
+    }
+    if (candidates.empty()) { return; }
+    if (candidates.size() > MAX_ENTITY_LIGHTS) {
+        std::nth_element(candidates.begin(), candidates.begin() + MAX_ENTITY_LIGHTS, candidates.end(),
+                         [](const Candidate &a, const Candidate &b) { return a.distance2 < b.distance2; });
+        candidates.resize(MAX_ENTITY_LIGHTS);
+    }
+
+    std::vector<PackedLightData> packed;
+    packed.reserve(candidates.size());
+    for (const auto &candidate : candidates) {
+        float maxRadiance =
+            std::max({candidate.light->radiance.r, candidate.light->radiance.g, candidate.light->radiance.b});
+        if (candidate.light->area <= 1e-6f || maxRadiance <= 1e-6f) { continue; }
+        packed.push_back(packLightAt(*candidate.light, candidate.origin));
+    }
+    if (packed.empty()) { return; }
+
+    size_t bytes = packed.size() * sizeof(PackedLightData);
+    lightBuffer_ = vk::DeviceLocalBuffer::create(framework->vma(), framework->device(), false, bytes,
+                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                                 0, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 16);
+    lightBuffer_->uploadToStagingBuffer(packed.data(), bytes, 0);
+    Renderer::instance().buffers()->queueImportantWorldUpload(lightBuffer_);
+    lightBufferAddress_ = lightBuffer_->bufferAddress();
+    lightCount_ = static_cast<uint32_t>(packed.size());
+}
+
 void Entities::close() {
+    lightBuffer_ = nullptr;
+    lightBufferAddress_ = 0;
+    lightCount_ = 0;
     entityBatch_ = nullptr;
     entityPostBatch_ = nullptr;
     entityBuildDataBatch_ = nullptr;

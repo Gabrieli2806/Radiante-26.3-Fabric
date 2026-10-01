@@ -35,6 +35,27 @@ struct ChunkPackedData {
 };
 static_assert(sizeof(ChunkPackedData) == 32);
 
+// The light sources in one geometry's quads: a light per emissive cell of the texture each quad shows, positioned
+// in the geometry's own space. Chunks call it per section; entities per entity (a dropped glowstone, an item frame).
+void collectEmissiveQuadLights(const Emission &emission,
+                               const std::vector<vk::VertexFormat::PBRVertex> &geometryVertices,
+                               int64_t ownerId,
+                               uint32_t geometryIndex,
+                               std::unordered_map<uint32_t, Emission::TextureOccupancy> &textureOccupancyCache,
+                               std::vector<LightInfo> &lightInfos);
+
+// One light as the shaders read it (block_light_data.glsl's VptPackedLight), at an absolute world position.
+struct PackedLightData {
+    glm::vec4 p0Area;
+    glm::vec4 p1;
+    glm::vec4 p2;
+    glm::vec4 p3;
+    glm::vec4 normal;
+    glm::vec4 radiance;
+    glm::vec4 sourceIDData;
+};
+PackedLightData packLightAt(const LightInfo &light, const glm::vec3 &origin);
+
 struct ChunkBuildTask {
     int x = 0, y = 0, z = 0;
     int64_t id;
@@ -71,6 +92,12 @@ struct ChunkBuildData : public SharedObject<ChunkBuildData> {
     std::vector<LightInfo> lightInfos;
     std::shared_ptr<vk::DeviceLocalBuffer> lightBuffer;
     uint32_t lightCount = 0;
+    // The compact geometry, packed ahead on the chunk builder thread (prepackGeometry) so the render thread only
+    // copies it into a buffer; null when it was not.
+    std::shared_ptr<void> prepacked; // a PackedChunkGeometry (chunks.cpp)
+    // Its buffer, created and filled on the chunk builder thread as well: allocating it on the render thread was
+    // what was left of the hitch when new chunks arrived.
+    std::shared_ptr<vk::DeviceLocalBuffer> prebuiltGeometryBuffer;
 
     ChunkBuildData(int64_t id,
                    int x,
@@ -91,6 +118,8 @@ struct ChunkBuildData : public SharedObject<ChunkBuildData> {
                           const std::shared_ptr<vk::Device> &device,
                           bool persistStaging = true);
     void build(bool persistStaging = true);
+    // Packs the geometry into the compact layout off the render thread; packGeometry then only uploads it.
+    void prepackGeometry();
     // Packs this chunk's geometry into one buffer in the compact chunk layout and defines its triangles on
     // `builder`. See the notes above packChunkGeometry in chunks.cpp.
     void packGeometry(const std::shared_ptr<vk::VMA> &vma,
@@ -164,6 +193,9 @@ class ChunkBuildScheduler : public SharedObject<ChunkBuildScheduler> {
     std::list<std::shared_ptr<ChunkBuildDataBatch>> buildingBatches_;
     std::vector<std::shared_ptr<ChunkBuildData>> pendingBatchData_;
     uint32_t pendingBatchFrames_ = 0;
+    // Measured render thread time to prepare one chunk of a batch (packing, buffers, acceleration structure sizes),
+    // so batches are cut down to what fits the frame budget.
+    double msPerChunk_ = 1.0;
     bool useSecondaryQueue_ = false;
     static constexpr uint32_t maxPendingBatchFrames_ = 3;
 

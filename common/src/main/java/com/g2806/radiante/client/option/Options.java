@@ -28,6 +28,8 @@ public class Options {
     public static int chunkBuildingTotalBatches = 12;
     public static int chunkBuildingThreads = getDefaultChunkBuildingThreads();
     public static boolean collectChunkEmission = true;
+    /** How far from the camera glowing dropped items and item frames still cast light, in blocks. */
+    public static int entityLightReach = 64;
     /**
      * Everything Radiante writes to the log is diagnostic. Off by default so a player's log stays theirs; turned
      * on when someone is reporting a problem and the detail is worth having.
@@ -115,6 +117,7 @@ public class Options {
         nightBrightness = 35;
         emissionBrightness = 12;
         heldLightBrightness = 12;
+        setEntityLightReach(64, true);
         volumetricFogStrength = 100;
         vanillaSunPath = true;
         vanillaCelestialOrientation = true;
@@ -173,6 +176,7 @@ public class Options {
             v -> setChunkBuildingTotalBatches(v, false)),
         number("chunkBuildingThreads", () -> chunkBuildingThreads, v -> setChunkBuildingThreads(v, false)),
         bool("collectChunkEmission", () -> collectChunkEmission, v -> setCollectChunkEmission(v, false)),
+        number("entityLightReach", () -> entityLightReach, v -> setEntityLightReach(v, false)),
         bool("debugLogging", () -> debugLogging, v -> setDebugLogging(v, false)),
         bool("biomeFog", () -> biomeFog, v -> biomeFog = v),
         number("volumetricFogStrength", () -> volumetricFogStrength,
@@ -326,6 +330,17 @@ public class Options {
         }
         if (write) {
             overwriteConfig();
+        }
+    }
+
+    public native static void nativeSetEntityLightReach(int reach, boolean write);
+
+    public static void setEntityLightReach(int reach, boolean write) {
+        Options.entityLightReach = Math.max(8, Math.min(256, reach));
+        try {
+            nativeSetEntityLightReach(Options.entityLightReach, write);
+        } catch (UnsatisfiedLinkError ignored) {
+            // No renderer yet; applied when it loads.
         }
     }
 

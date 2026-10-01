@@ -13,7 +13,8 @@ import org.lwjgl.system.MemoryStack;
 /** Uploads the uniform blocks the ray tracing shaders read (see native common/shared.hpp). */
 public class BufferProxy {
 
-    private static final int WORLD_UBO_SIZE = 672; // the last field (frameCounter) is written natively
+    // The last fields (frameCounter and the entity lights) are written natively.
+    private static final int WORLD_UBO_SIZE = 688; // at least sizeof(WorldUBO) natively (680), rounded up to 16
     private static final int SKY_UBO_SIZE = 240;
     private static final int TEXTURE_MAPPING_ENTRIES = 4096;
 

@@ -38,6 +38,12 @@
             }
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.ser",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_SER"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.restir",
             "type": "bool",
             "default_value": "render_pipeline.true",
@@ -184,6 +190,18 @@
             "type": "enum:render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.vanilla-render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.volumetric",
             "default_value": "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.volumetric",
             "define": "VPT_VOLUMETRIC_LIGHT_MODE"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.rain_refraction",
+            "type": "bool",
+            "default_value": "render_pipeline.true",
+            "define": "VPT_RAIN_REFRACTION"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.froxel_fog",
+            "type": "bool",
+            "default_value": "render_pipeline.true",
+            "define": "VPT_FROXEL_FOG"
         },
         {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_light_samples",
@@ -519,6 +537,15 @@
             "address_mode": "clamp_to_edge"
         },
         {
+            "name": "post_scene_color",
+            "type": "intermediate",
+            "format": "R16G16B16A16_SFLOAT",
+            "scale": 1,
+            "sampled_binding": 43,
+            "filter": "nearest",
+            "address_mode": "clamp_to_edge"
+        },
+        {
             "name": "volumetric_cloud_basic_noise",
             "type": "file",
             "path": "textures/volumetric_cloud_basic_noise.raw",
@@ -664,6 +691,31 @@
             "height": "RENDER_HEIGHT",
             "depth": 2,
             "storage_binding": 35
+        },
+        {
+            "name": "froxel_light",
+            "type": "intermediate",
+            "shared": true,
+            "dimension": "3d",
+            "format": "R16G16B16A16_SFLOAT",
+            "width": 160,
+            "height": 90,
+            "depth": 128,
+            "storage_binding": 40
+        },
+        {
+            "name": "froxel_integral",
+            "type": "intermediate",
+            "shared": true,
+            "dimension": "3d",
+            "format": "R16G16B16A16_SFLOAT",
+            "width": 160,
+            "height": 90,
+            "depth": 64,
+            "storage_binding": 41,
+            "sampled_binding": 42,
+            "filter": "linear",
+            "address_mode": "clamp_to_edge"
         }
     ],
     "execution": {
@@ -699,7 +751,45 @@
                 "pass": "sky_cube"
             },
             {
+                "if_else": {
+                    "condition": "VPT_FROXEL_FOG",
+                    "then": [
+                        {
+                            "if_else": {
+                                "condition": "VPT_VOLUMETRIC_LIGHT_MODE == 1",
+                                "then": [
+                                    {
+                                        "pass": "froxel_carry"
+                                    }
+                                ],
+                                "else": []
+                            }
+                        }
+                    ],
+                    "else": []
+                }
+            },
+            {
                 "pass": "world"
+            },
+            {
+                "if_else": {
+                    "condition": "VPT_FROXEL_FOG",
+                    "then": [
+                        {
+                            "if_else": {
+                                "condition": "VPT_VOLUMETRIC_LIGHT_MODE == 1",
+                                "then": [
+                                    {
+                                        "pass": "froxel_integrate"
+                                    }
+                                ],
+                                "else": []
+                            }
+                        }
+                    ],
+                    "else": []
+                }
             },
             {
                 "if_else": {
@@ -759,6 +849,16 @@
         "commands": [
             {
                 "pass": "post_render_particle"
+            },
+            {
+                "if_else": {
+                    "condition": "VPT_RAIN_REFRACTION != 0",
+                    "then": [
+                        {
+                            "pass": "post_copy_ldr_to_scene_color"
+                        }
+                    ]
+                }
             },
             {
                 "pass": "post_render_weather"
@@ -887,6 +987,24 @@
             "target": "sky_cube"
         },
         {
+            "type": "compute",
+            "name": "froxel_carry",
+            "inputs": {
+                "images": [
+                    "froxel_light"
+                ]
+            },
+            "outputs": {
+                "images": [
+                    "froxel_light"
+                ]
+            },
+            "compute": "froxel/carry.comp",
+            "gx": "20",
+            "gy": "12",
+            "gz": "64"
+        },
+        {
             "type": "ray_tracing",
             "name": "world",
             "query_sharc": true,
@@ -898,7 +1016,8 @@
                     "volumetric_cloud_detail_noise",
                     "volumetric_cloud_weather",
                     "volumetric_cloud_curl",
-                    "volumetric_cloud_coverage_noise"
+                    "volumetric_cloud_coverage_noise",
+                    "froxel_integral"
                 ]
             },
             "outputs": {
@@ -920,7 +1039,8 @@
                     "out:first_hit_refraction",
                     "post_star_cloud_transmittance",
                     "material_state",
-                    "restir_reservoir"
+                    "restir_reservoir",
+                    "froxel_light"
                 ]
             },
             "definitions": {
@@ -1049,6 +1169,24 @@
         },
         {
             "type": "compute",
+            "name": "froxel_integrate",
+            "inputs": {
+                "images": [
+                    "froxel_light"
+                ]
+            },
+            "outputs": {
+                "images": [
+                    "froxel_integral"
+                ]
+            },
+            "compute": "froxel/integrate.comp",
+            "gx": "20",
+            "gy": "12",
+            "gz": "1"
+        },
+        {
+            "type": "compute",
             "name": "volumetric_cloud_temporal",
             "inputs": {
                 "images": [
@@ -1110,7 +1248,12 @@
             "name": "post_render_weather",
             "content": "weather",
             "vertex": "post_render/render_world_post.vert",
-            "fragment": "post_render/render_world_post.frag",
+            "fragment": "post_render/weather_refraction.frag",
+            "inputs": {
+                "images": [
+                    "post_scene_color"
+                ]
+            },
             "outputs": {
                 "images": [
                     "out:ldr"
@@ -1169,6 +1312,18 @@
             },
             "depth_write": true,
             "depth_compare": "less"
+        },
+        {
+            "type": "full_screen",
+            "stage": "post_render",
+            "name": "post_copy_ldr_to_scene_color",
+            "fragment": "post_render/post_copy.frag",
+            "inputs": {
+                "images": [
+                    "out:ldr"
+                ]
+            },
+            "target": "post_scene_color"
         },
         {
             "type": "full_screen",

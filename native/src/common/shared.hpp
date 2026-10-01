@@ -307,6 +307,12 @@ namespace Data {
         // Frames rendered so far, set natively: which half of a ping-pong history (ReSTIR reservoirs) is read and
         // which written this frame.
         T_UINT frameCounter;
+        // Lights in emissive entities (dropped items, item frames...), set natively each frame: how many, and the
+        // buffer they are in as two halves of its device address. Sampled with the block lights.
+        T_UINT entityLightCount;
+        T_UINT entityLightAddressLo;
+        T_UINT entityLightAddressHi;
+        T_UINT entityLightPad;
     };
 
     struct SkyUBO {

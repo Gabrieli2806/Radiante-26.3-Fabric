@@ -10,6 +10,7 @@
 #include "core/render/renderer.hpp"
 #include "core/util/logging.hpp"
 #include "core/vulkan/all_core_vulkan.hpp"
+#include "core/vulkan/queue_lock.hpp"
 
 #ifdef MCVR_ENABLE_FFX_UPSCALER
 #include "core/render/modules/world/fsr_upscaler/fsr_setup.hpp"
@@ -22,6 +23,9 @@
 #include <nvsdk_ngx_helpers_vk.h>
 
 #include <algorithm>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include <string>
 #include <cmath>
 #include <cstdlib>
@@ -692,6 +696,10 @@ bool NativeFrameGeneration::ensureResources(
         image = vk::DeviceLocalImage::create(device, vma, false, width, height, 1, format, colorUsage);
         historyValid_ = false;
     }
+    if (!sized(realCopy_, width, height, format)) {
+        retain(realCopy_);
+        realCopy_ = vk::DeviceLocalImage::create(device, vma, false, width, height, 1, format, colorUsage);
+    }
     if (!sized(hudlessCopy_, width, height, format)) {
         retain(hudlessCopy_);
         hudlessCopy_ = vk::DeviceLocalImage::create(device, vma, false, width, height, 1, format, colorUsage);
@@ -770,6 +778,9 @@ bool NativeFrameGeneration::evaluateAndBlit(VkCommandBuffer cmd,
     try {
         const Capture &capture = capture_;
         uint32_t frames = std::min(generatedFrames_, maxGeneratedFrames_);
+        // Two sets of output images, used in turns: the present thread may still be showing last frame's.
+        std::swap(generated_, generatedSpare_);
+        std::swap(realCopy_, realCopySpare_);
         uint32_t depthWidth = capture.linearDepth->width();
         uint32_t depthHeight = capture.linearDepth->height();
         if (!ensureResources(width, height, finalFormat, depthWidth, depthHeight)) return false;
@@ -867,6 +878,19 @@ bool NativeFrameGeneration::evaluateAndBlit(VkCommandBuffer cmd,
 
         bool presentGenerated = evaluated && historyValid_;
         historyValid_ = evaluated;
+        if (presentGenerated) {
+            // The real frame is shown last, after Minecraft has already moved on to drawing the next one into its
+            // image, so it is kept aside.
+            imageBarrier(cmd, realCopy_->vkImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            VkImageCopy region{};
+            region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            region.extent = {width, height, 1};
+            vkCmdCopyImage(cmd, finalImage, VK_IMAGE_LAYOUT_GENERAL, realCopy_->vkImage(),
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+            imageBarrier(cmd, realCopy_->vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+            realCopy_->imageLayout() = VK_IMAGE_LAYOUT_GENERAL;
+        }
         VkImage first = presentGenerated ? generated_[0]->vkImage() : finalImage;
         VkImageBlit blit = presentBlit(width, height, swapchainWidth, swapchainHeight, flipY);
         vkCmdBlitImage(cmd, first, VK_IMAGE_LAYOUT_GENERAL, swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
@@ -876,7 +900,7 @@ bool NativeFrameGeneration::evaluateAndBlit(VkCommandBuffer cmd,
             for (uint32_t i = 1; i < frames; i++) pendingImages_.push_back(generated_[i]->vkImage());
             // Development: show only generated frames, to judge them on screen.
             static const bool onlyGenerated = std::getenv("RADIANTE_FG_SHOW_GENERATED") != nullptr;
-            pendingImages_.push_back(onlyGenerated ? generated_[frames - 1]->vkImage() : finalImage);
+            pendingImages_.push_back(onlyGenerated ? generated_[frames - 1]->vkImage() : realCopy_->vkImage());
             pendingWidth_ = width;
             pendingHeight_ = height;
             pendingFlip_ = flipY;
@@ -1002,44 +1026,142 @@ void NativeFrameGeneration::countPresented(uint32_t frames) {
     }
 }
 
+void NativeFrameGeneration::waitPresentIdle() {
+    std::unique_lock<std::mutex> lock(jobMutex_);
+    jobCv_.wait(lock, [this] { return !jobPending_; });
+}
+
+void NativeFrameGeneration::presentWorker() {
+    while (true) {
+        PresentJob job;
+        {
+            std::unique_lock<std::mutex> lock(jobMutex_);
+            jobCv_.wait(lock, [this] { return jobPending_ || stopWorker_; });
+            if (stopWorker_) return;
+            job = job_;
+        }
+
+        int status = 0;
+        uint32_t presented = 0;
+        for (size_t k = 0; k < job.images.size(); k++) {
+            // Spread over the time one rendered frame takes: the generated frames sit between the real ones instead
+            // of reaching the display all at once. A coarse sleep, then a short spin for the last stretch.
+            auto target = job.start + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                          job.spacing * static_cast<double>(k + 1));
+            auto coarse = target - std::chrono::microseconds(1500);
+            if (std::chrono::steady_clock::now() < coarse) std::this_thread::sleep_until(coarse);
+            while (std::chrono::steady_clock::now() < target) std::this_thread::yield();
+
+            int result;
+            {
+                // The queue lock also guards the swapchain: Minecraft acquires under it (VulkanQueueLockMixins).
+                std::lock_guard<std::recursive_mutex> queueLock(vk::queueMutex());
+                result = presentOne(job.swapchain, job.swapchainImages, job.queue, job.images[k], job.width,
+                                    job.height, job.swapchainWidth, job.swapchainHeight, job.flipY);
+            }
+            if (result < 0) {
+                static int reported = 0;
+                if (reported++ < 5) {
+                    fgOut() << "a generated frame could not be presented; the swapchain is rebuilt" << std::endl;
+                }
+                status = -1;
+                break;
+            }
+            status = std::max(status, result);
+            presented++;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(jobMutex_);
+            lastStatus_ = status;
+            presentedByWorker_ += presented;
+            jobPending_ = false;
+        }
+        jobCv_.notify_all();
+    }
+}
+
 int NativeFrameGeneration::presentPending(VkSwapchainKHR swapchain,
                                           const std::vector<VkImage> &swapchainImages,
                                           VkQueue queue,
                                           uint32_t swapchainWidth,
                                           uint32_t swapchainHeight) {
+    // The previous frame's generated frames are all shown by now (or this waits for the last of them), so the next
+    // set of images is free and the order on screen stays generated..., real, then the next frame.
+    waitPresentIdle();
+    int status;
+    uint32_t presentedByWorker;
+    {
+        std::lock_guard<std::mutex> lock(jobMutex_);
+        status = lastStatus_;
+        lastStatus_ = 0;
+        presentedByWorker = presentedByWorker_;
+        presentedByWorker_ = 0;
+    }
+    if (status < 0) historyValid_ = false;
+
+    auto now = std::chrono::steady_clock::now();
+    if (lastMinecraftPresent_.time_since_epoch().count() != 0) {
+        double interval = std::chrono::duration<double>(now - lastMinecraftPresent_).count();
+        // Stalls (loading, menus) are left out, so one long frame does not stretch the spacing of the next ones.
+        if (interval > 0.0 && interval < 0.25) {
+            frameInterval_ = frameInterval_ <= 0.0 ? interval : frameInterval_ * 0.85 + interval * 0.15;
+        }
+    }
+    lastMinecraftPresent_ = now;
+
     if (!active()) {
         pendingImages_.clear();
         presentedPerSecond_ = 0;
-        return 0;
+        return status;
     }
-    if (pendingImages_.empty()) {
-        countPresented(1);
-        return 0;
+    countPresented(1 + presentedByWorker);
+    if (pendingImages_.empty()) return status;
+    if (!ensurePresentResources(swapchain, swapchainImages.size())) {
+        pendingImages_.clear();
+        return status;
     }
-    std::vector<VkImage> pending;
-    pending.swap(pendingImages_);
-    if (!ensurePresentResources(swapchain, swapchainImages.size())) return 0;
 
-    int status = 0;
-    uint32_t presented = 1;
-    for (VkImage image : pending) {
-        int result = presentOne(swapchain, swapchainImages, queue, image, pendingWidth_, pendingHeight_,
-                                swapchainWidth, swapchainHeight, pendingFlip_);
-        if (result < 0) {
-            static int reported = 0;
-            if (reported++ < 5) fgOut() << "a generated frame could not be presented; the swapchain is rebuilt" << std::endl;
-            historyValid_ = false;
-            status = -1;
-            break;
-        }
-        status = std::max(status, result);
-        presented++;
+    if (!worker_.joinable()) {
+        stopWorker_ = false;
+        worker_ = std::thread([this] { presentWorker(); });
     }
-    countPresented(presented);
+    {
+        std::lock_guard<std::mutex> lock(jobMutex_);
+        job_.images.swap(pendingImages_);
+        pendingImages_.clear();
+        job_.swapchain = swapchain;
+        job_.swapchainImages = swapchainImages;
+        job_.queue = queue;
+        job_.width = pendingWidth_;
+        job_.height = pendingHeight_;
+        job_.swapchainWidth = swapchainWidth;
+        job_.swapchainHeight = swapchainHeight;
+        job_.flipY = pendingFlip_;
+        job_.start = now;
+        double spacing = frameInterval_ > 0.0 ? frameInterval_ : 1.0 / 60.0;
+        job_.spacing = std::chrono::duration<double>(spacing / static_cast<double>(job_.images.size() + 1));
+        jobPending_ = true;
+    }
+    jobCv_.notify_all();
     return status;
 }
 
+void NativeFrameGeneration::stopPresentWorker() {
+    if (!worker_.joinable()) return;
+    {
+        std::lock_guard<std::mutex> lock(jobMutex_);
+        stopWorker_ = true;
+    }
+    jobCv_.notify_all();
+    worker_.join();
+    std::lock_guard<std::mutex> lock(jobMutex_);
+    jobPending_ = false;
+    stopWorker_ = false;
+}
+
 void NativeFrameGeneration::release() {
+    stopPresentWorker();
     auto framework = framework_.lock();
     if (framework != nullptr) {
         framework->waitRenderQueueIdle();
@@ -1065,6 +1187,9 @@ void NativeFrameGeneration::release() {
     finalView_ = nullptr;
     finalViewImage_ = VK_NULL_HANDLE;
     generated_.clear();
+    generatedSpare_.clear();
+    realCopy_ = nullptr;
+    realCopySpare_ = nullptr;
     hudlessCopy_ = nullptr;
     deviceDepth_ = nullptr;
     motionVectors_ = nullptr;

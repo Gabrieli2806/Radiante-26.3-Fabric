@@ -63,6 +63,15 @@ public final class FrameGeneration {
         }
     }
 
+    /** Waits for the present thread to show the frames it still holds; nothing to wait for without a renderer. */
+    public static void waitPresentIdle() {
+        try {
+            FrameGenerationProxy.waitPresentIdle();
+        } catch (UnsatisfiedLinkError ignored) {
+            // No renderer.
+        }
+    }
+
     /** DLSS frame generation's limit on this GPU (it may not be the backend in use); 0 without it. */
     public static int dlssMaxGeneratedFrames() {
         try {

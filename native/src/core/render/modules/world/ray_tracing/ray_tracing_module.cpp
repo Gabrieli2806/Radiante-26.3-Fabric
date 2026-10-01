@@ -1029,13 +1029,20 @@ RayTracingModule::collectRayTracingPassShaderRequests(
     pass.hitRequestCount_ = hitAssignments.size();
     pass.hitAssignments_ = std::move(hitAssignments);
 
-    std::unordered_map<std::string, std::string> queryDefinitions = definitions;
+    // Shader Execution Reordering is only compiled in where the device was created with it.
+    std::unordered_map<std::string, std::string> definitionsWithDevice = definitions;
+    {
+        auto fw = framework_.lock();
+        definitionsWithDevice["VPT_SER_SUPPORTED"] =
+            fw != nullptr && fw->device()->isShaderExecutionReorderingEnabled() ? "1" : "0";
+    }
+    std::unordered_map<std::string, std::string> queryDefinitions = definitionsWithDevice;
     if (pass.querySharcEnabled) {
         queryDefinitions["USE_SHARC"] = "1";
         queryDefinitions["SHARC_QUERY"] = "1";
     }
 
-    std::unordered_map<std::string, std::string> updateDefinitions = definitions;
+    std::unordered_map<std::string, std::string> updateDefinitions = definitionsWithDevice;
     if (pass.isSharcUpdatePass) {
         updateDefinitions["USE_SHARC"] = "1";
         updateDefinitions["SHARC_UPDATE"] = "1";

@@ -51,11 +51,12 @@ Ported from Radiance/MCVR 0.1.6 (`dlss_frame_generation.cpp`, `fsr_frame_generat
 FSR 3 frame generation on every other GPU (2x). Minecraft owns the swapchain here, so the generated frames are
 evaluated in its present command buffer (HdrPresentMixin), the first replaces the real frame in Minecraft's blit and
 the rest, then the real frame, are presented on further swapchain images after Minecraft's present
-(FrameGenerationPresentMixin). While it is on the swapchain uses FIFO, which is what paces the frames (so real
-frames run at refresh / multiplier). Works on Fabric and NeoForge alike (no Streamline, no restart); verified
+(FrameGenerationPresentMixin). A native present thread shows them spread evenly over the time one rendered frame
+takes, so pacing no longer needs FIFO and V-Sync stays the player's choice (4x without V-Sync: 130 real, 520
+presented on a 144 Hz display). The generated and real-frame copies are double buffered so the thread can present
+while the next frame renders. Works on Fabric and NeoForge alike (no Streamline, no restart); verified
 2x/4x DLSS and 2x FSR (`RADIANTE_FRAME_GENERATION=fsr`, `RADIANTE_FG_SHOW_GENERATED` shows only generated
-frames). Still to do: create the DLSS feature ahead of time (its first frame holds the game ~2 s), measure latency,
-and a present thread for pacing without V-Sync.
+frames). Still to do: create the DLSS feature ahead of time (its first frame holds the game ~2 s) and measure latency.
 
 ### Faster settings changes (pipeline cache) — planned
 
@@ -122,6 +123,18 @@ early loading window) has already loaded the system Vulkan library, so Minecraft
 come from different loaders. Next: load Streamline before anything touches Vulkan on NeoForge/Forge (an early FML
 hook), then drop the opt-out (`RadiantePlatform.supportsStreamline`). A dev run can force it with
 RADIANTE_DEV_STREAMLINE. Also still to check: the Forge jar installed in a real Forge client.
+
+### Froxel fog (Radiance style) — done, keep tuning
+
+Volumetric fog can now be made the way Radiance/MCVR 0.1.6 makes it (advanced/volume), chosen with Fog Style
+(Radiance / Radiante) under Volumetric Fog; Radiance is the default. The air in front of the camera is a 160x90x64
+frustum grid (`common/froxel_fog.glsl`): each frame a quarter of the cells are lit in the world pass (sun or moon
+through a shadow ray, the sky through a look up, and the nearest block lights, so lights glow in the fog) and blended
+into their reprojected history; `froxel/carry.comp` carries the rest over before the world pass and
+`froxel/integrate.comp` integrates the grid afterwards. Pixels read last frame's integral at their surface, and past
+the grid the medium carries on lit as its last slice. Same medium as the per-pixel march (air, light shafts, biome
+fog); about the same cost here (237 vs 234 fps). Still to do: a far-visibility pass as Radiance has, so distant
+valleys in shadow do not glow, and tuning the block light glow (FROXEL_BLOCK_LIGHT_GLOW).
 
 ### ReSTIR for block lights — done, keep tuning
 
