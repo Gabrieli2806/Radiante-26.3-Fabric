@@ -763,8 +763,6 @@
                 "pass": "sky_cube"
             },
             {
-            },
-            {
                 "if_else": {
                     "condition": "VPT_FROXEL_FOG",
                     "then": [

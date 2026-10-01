@@ -298,6 +298,20 @@ class Chunks : public SharedObject<Chunks> {
     void setChunkStorageSectionPos(glm::ivec3 sectionPos);
     glm::ivec4 chunkStorageSectionPos();
 
+    // Distant Horizons coverage: the chunk columns, in a square window round the camera, whose terrain is built.
+    // Far terrain is hidden there per ray (util lod_coverage.glsl) instead of being remeshed, so it never needs to
+    // catch up with chunks loading. Java sends what it has built; a column only counts once nothing in it is still
+    // waiting for the renderer, so the far terrain never leaves a hole before the near terrain is there.
+    static constexpr uint32_t kLodCoverageHeader = 8;
+    static constexpr int32_t kLodCoverageMaxSize = 256;
+    void setLodCoverage(int32_t originX, int32_t originZ, int32_t size, const uint32_t *words, size_t count);
+    // Rewrites `out` (header then one bit per column) when anything it depends on changed; false when unchanged.
+    bool updateLodCoverage(std::vector<uint32_t> &out);
+    std::shared_ptr<vk::DeviceLocalBuffer> lodCoverageBuffer();
+    // 0 until the buffer exists, which is after its first upload: shaders never read it uninitialised.
+    VkDeviceAddress lodCoverageAddress();
+    static void bumpQueueVersion();
+
   private:
     void allocateChunkPackedDataBuffers();
     void releaseEmissionResources();
@@ -318,4 +332,12 @@ class Chunks : public SharedObject<Chunks> {
     int32_t sizeZ_ = 0;
     int32_t bottomSectionCoord_ = 0;
     glm::ivec3 chunkStorageSectionPos_ = glm::ivec3(0);
+
+    std::vector<uint32_t> lodJavaWords_;
+    int32_t lodOriginX_ = 0;
+    int32_t lodOriginZ_ = 0;
+    int32_t lodSize_ = 0;
+    uint64_t lodJavaVersion_ = 0;
+    uint64_t lodBuiltKey_[3] = {~0ull, ~0ull, ~0ull};
+    std::shared_ptr<vk::DeviceLocalBuffer> lodCoverageBuffer_;
 };

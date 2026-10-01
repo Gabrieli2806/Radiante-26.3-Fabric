@@ -243,11 +243,15 @@ void WorldPrepareContext::render() {
             uint32_t accu = 0, groupAccu = 0;
             const auto &occupied = chunks->occupied();
             const bool useOccupied = occupied.size() == chunk1s.size();
+            const glm::ivec4 grid = chunks->chunkGridInfo();
+            const size_t gridCount = static_cast<size_t>(grid.x) * grid.y * grid.z;
+            cache.lodStart = ~size_t(0);
             for (size_t i = 0; i < chunk1s.size(); i++) {
                 if (useOccupied && occupied[i] == 0) continue;
                 auto &chunk1 = chunk1s[i];
                 if (chunk1->blas == nullptr) continue;
 
+                if (i >= gridCount && cache.lodStart == ~size_t(0)) cache.lodStart = cache.entries.size();
                 cache.entries.push_back({chunk1->blas, chunk1->x, chunk1->y, chunk1->z, groupAccu});
                 cache.hitGroupNames.push_back(&kShadowGroup);
                 for (uint32_t j = 0; j < chunk1->geometryCount; j++) {
@@ -263,6 +267,7 @@ void WorldPrepareContext::render() {
                 accu += chunk1->geometryCount;
                 groupAccu += chunk1->geometryCount + 1;
             }
+            if (cache.lodStart == ~size_t(0)) cache.lodStart = cache.entries.size();
             cache.blasAccu = accu;
             cache.groupAccu = groupAccu;
             cache.version = version;
@@ -279,6 +284,43 @@ void WorldPrepareContext::render() {
         lastIndexBufferAddrs.assign(cache.indexBufferAddrs.size(), 0);
         lastPositionBufferAddrs.assign(cache.indexBufferAddrs.size(), 0);
 
+        // Distant Horizons terrain is hidden per ray in the columns the near terrain covers (lod_coverage.glsl),
+        // which needs its any-hit shader: the far terrain that may reach into the covered window is made non-opaque.
+        auto &coverage = worldPrepare1->lodCoverage_;
+        bool coverageChanged = chunks->updateLodCoverage(coverage);
+        const size_t lodEnd = cache.entries.size();
+        if (worldPrepare1->lodCoverageLodStart_ != cache.lodStart || worldPrepare1->lodCoverageLodEnd_ != lodEnd) {
+            worldPrepare1->lodCoverageLodStart_ = cache.lodStart;
+            worldPrepare1->lodCoverageLodEnd_ = lodEnd;
+            coverageChanged = true;
+        }
+        const int32_t coverageSize = static_cast<int32_t>(coverage[2]);
+        constexpr int32_t kCoverageReach = 1024; // widest far section that can still reach into the window
+        const int32_t coverageMinX = static_cast<int32_t>(coverage[0]) * 16 - kCoverageReach;
+        const int32_t coverageMinZ = static_cast<int32_t>(coverage[1]) * 16 - kCoverageReach;
+        const int32_t coverageMaxX = (static_cast<int32_t>(coverage[0]) + coverageSize) * 16;
+        const int32_t coverageMaxZ = (static_cast<int32_t>(coverage[1]) + coverageSize) * 16;
+        if (coverageChanged) {
+            coverage[3] = static_cast<uint32_t>(cache.lodStart);
+            coverage[4] = static_cast<uint32_t>(lodEnd);
+            auto buffer = chunks->lodCoverageBuffer();
+            VkCommandBuffer cmd = worldCommandBuffer->vkCommandBuffer();
+            worldCommandBuffer->barriersMemory({vk::CommandBuffer::MemoryBarrier{
+                .srcStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
+                .srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+            }});
+            vkCmdUpdateBuffer(cmd, buffer->vkBuffer(), 0, coverage.size() * sizeof(uint32_t), coverage.data());
+            worldCommandBuffer->barriersMemory({vk::CommandBuffer::MemoryBarrier{
+                .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
+                .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+            }});
+        }
+
+        size_t entryIndex = 0;
         for (const auto &entry : cache.entries) {
             float tx = static_cast<float>(static_cast<double>(entry.x) - cameraPos.x);
             float ty = static_cast<float>(static_cast<double>(entry.y) - cameraPos.y);
@@ -288,7 +330,13 @@ void WorldPrepareContext::render() {
                 0, 1, 0, ty, //
                 0, 0, 1, tz, //
             };
-            instanceBuilder.defineInstance(transform, blasIndex, 0x01, entry.groupOffset, 0, entry.blas);
+            VkGeometryInstanceFlagsKHR flags = 0;
+            if (coverageSize > 0 && entryIndex >= cache.lodStart && entry.x >= coverageMinX && entry.x < coverageMaxX &&
+                entry.z >= coverageMinZ && entry.z < coverageMaxZ) {
+                flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
+            }
+            entryIndex++;
+            instanceBuilder.defineInstance(transform, blasIndex, 0x01, entry.groupOffset, flags, entry.blas);
             glm::mat4 objToWorld(1.0f);
             objToWorld[3] = glm::vec4(tx, ty, tz, 1.0f);
             lastObjToWorldMats.push_back(objToWorld);

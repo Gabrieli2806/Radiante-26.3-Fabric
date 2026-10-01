@@ -68,7 +68,6 @@ final class LodTerrain {
      */
     private static final int SQUARE_MARGIN_CHUNKS = 4;
     private static final int ALL_QUADRANTS = 0xF;
-    private static final int ALL_CHUNKS = 0xFFFF;
 
     private final Map<Long, Tile> tiles = new HashMap<>();
     /** Sections split into their children at the last selection; see SPLIT_HYSTERESIS. */
@@ -132,6 +131,8 @@ final class LodTerrain {
                 this.freeSlots.add(i);
             }
         }
+        ChunkManager.updateLodCoverage(Math.floorDiv((int) Math.floor(camera.x), 16),
+            Math.floorDiv((int) Math.floor(camera.z), 16));
         if (!refreshLooks(minecraft)) {
             return;
         }
@@ -328,15 +329,11 @@ final class LodTerrain {
             int minX = x * width;
             int minZ = z * width;
             boolean nearLoaded = overlapsLoaded(minX, minZ, width);
-            int loadedChunks = 0;
-            int rangeChunks = 0;
-            if (nearLoaded && detail == DhData.BLOCK_SECTION_DETAIL) {
-                loadedChunks = loadedChunks(minX, minZ, width);
-                rangeChunks = rangeChunks(minX, minZ, width);
-                if (loadedChunks == ALL_CHUNKS) {
-                    return true;
-                }
-            }
+            // The world's own chunks are not left out of the geometry any more: the renderer hides far terrain in
+            // each built column as it is drawn (ChunkManager.updateLodCoverage, util/lod_coverage.glsl), the frame
+            // the column is built and again the frame it unloads. Leaving them out here meant meshing the far terrain
+            // again every time chunks came in or went, and flying fast it lagged behind: coarse blocks over new
+            // chunks, or holes where chunks had unloaded.
 
             int covered = 0;
             double splitAt = SPLIT_DISTANCE * width * (LodTerrain.this.splitLast.contains(key) ? SPLIT_HYSTERESIS : 1.0);
@@ -375,13 +372,7 @@ final class LodTerrain {
                 // Sections merging back into this one keep drawing until it covers their area itself.
                 keepBuiltInside(detail, x, z);
             }
-            // The loaded square only matters to the coarser sections; left out of the others so they are not built
-            // again each time the player crosses into another chunk.
-            boolean square = nearLoaded && detail > DhData.BLOCK_SECTION_DETAIL;
-            Hide hide = square
-                ? new Hide(covered, 0, 0, true, this.minLoadedChunkX, this.maxLoadedChunkX, this.minLoadedChunkZ,
-                    this.maxLoadedChunkZ, builtSquare())
-                : new Hide(covered, loadedChunks, rangeChunks, false, 0, 0, 0, 0, 0);
+            Hide hide = new Hide(covered, 0, 0, false, 0, 0, 0, 0, 0);
             this.chosen.put(key, new Wanted(detail, x, z, hide));
             return built;
         }
@@ -429,27 +420,6 @@ final class LodTerrain {
             return Math.max(dx, dz);
         }
 
-        private int builtSquare = -1;
-
-        /**
-         * How many of the loaded chunks are built: part of what a coarse section near them leaves out, so it is
-         * meshed again as they come in (see hiddenColumns).
-         */
-        private int builtSquare() {
-            if (this.builtSquare < 0) {
-                int count = 0;
-                for (int cx = this.minLoadedChunkX; cx <= this.maxLoadedChunkX; cx++) {
-                    for (int cz = this.minLoadedChunkZ; cz <= this.maxLoadedChunkZ; cz++) {
-                        if (ChunkManager.isColumnBuilt(cx, cz)) {
-                            count++;
-                        }
-                    }
-                }
-                this.builtSquare = count;
-            }
-            return this.builtSquare;
-        }
-
         private boolean overlapsLoaded(int minX, int minZ, int width) {
             int minChunkX = minX >> 4;
             int maxChunkX = (minX + width - 1) >> 4;
@@ -461,46 +431,6 @@ final class LodTerrain {
                 && minChunkZ <= this.maxLoadedChunkZ + SQUARE_MARGIN_CHUNKS;
         }
 
-        /** Of the 4 x 4 chunks of a finest section, the ones inside the render distance, one bit each. */
-        private int rangeChunks(int minX, int minZ, int width) {
-            int chunks = width >> 4;
-            int mask = 0;
-            for (int cx = 0; cx < chunks; cx++) {
-                for (int cz = 0; cz < chunks; cz++) {
-                    int chunkX = (minX >> 4) + cx;
-                    int chunkZ = (minZ >> 4) + cz;
-                    // Only chunks the client already has, about to be built: for one not even sent yet, leaving the
-                    // coarse surface out opened a dark pit ringing the loaded area for seconds after a teleport.
-                    if (chunkX >= this.minLoadedChunkX && chunkX <= this.maxLoadedChunkX
-                        && chunkZ >= this.minLoadedChunkZ && chunkZ <= this.maxLoadedChunkZ
-                        && this.level.getChunkSource().hasChunk(chunkX, chunkZ)) {
-                        mask |= 1 << (cx * 4 + cz);
-                    }
-                }
-            }
-            return mask;
-        }
-
-        /** Of the 4 x 4 chunks of a finest section, the ones built by the renderer, one bit each ({@code x * 4 + z}). */
-        private int loadedChunks(int minX, int minZ, int width) {
-            int chunks = width >> 4;
-            int mask = 0;
-            for (int cx = 0; cx < chunks; cx++) {
-                for (int cz = 0; cz < chunks; cz++) {
-                    int chunkX = (minX >> 4) + cx;
-                    int chunkZ = (minZ >> 4) + cz;
-                    boolean inRange = chunkX >= this.minLoadedChunkX && chunkX <= this.maxLoadedChunkX
-                        && chunkZ >= this.minLoadedChunkZ && chunkZ <= this.maxLoadedChunkZ;
-                    // Left to the far terrain until the renderer has built it, or the chunk would blink out
-                    // between arriving and being built.
-                    if (inRange && this.level.getChunkSource().hasChunk(chunkX, chunkZ)
-                        && ChunkManager.isColumnBuilt(chunkX, chunkZ)) {
-                        mask |= 1 << (cx * 4 + cz);
-                    }
-                }
-            }
-            return mask;
-        }
     }
 
     /**

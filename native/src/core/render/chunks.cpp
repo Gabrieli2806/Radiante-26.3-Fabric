@@ -1386,6 +1386,9 @@ void Chunks::reset(uint32_t numChunks,
     sizeZ_ = static_cast<int32_t>(sizeZ);
     bottomSectionCoord_ = bottomSectionCoord;
     chunkStorageSectionPos_ = glm::ivec3(0, bottomSectionCoord, 0);
+    lodJavaWords_.clear();
+    lodSize_ = 0;
+    lodJavaVersion_++;
 
     importantBLASBuilders_ = std::make_shared<std::vector<std::shared_ptr<vk::BLASBuilder>>>();
 
@@ -1504,6 +1507,7 @@ void Chunks::invalidateChunk(int id) {
 
 void Chunks::relocateChunk(int id, int x, int y, int z) {
     std::unique_lock<std::recursive_mutex> lock(mutex_);
+    bumpQueueVersion();
     auto framework = Renderer::instance().framework();
     auto &frr = framework->frameResourceRetainer();
 
@@ -1568,6 +1572,7 @@ void Chunks::queueChunkBuild(ChunkBuildTask task) {
         std::unique_lock<std::recursive_mutex> versionLock(mutex_);
         version = chunks_[task.id]->latestVersion++;
     }
+    bumpQueueVersion();
 
     const bool collectChunkEmission = Renderer::options.collectChunkEmission;
     std::shared_ptr<ChunkBuildData> chunkBuildData =
@@ -1642,6 +1647,9 @@ void Chunks::close() {
     sizeZ_ = 0;
     bottomSectionCoord_ = 0;
     chunkStorageSectionPos_ = glm::ivec3(0);
+    lodJavaWords_.clear();
+    lodSize_ = 0;
+    lodJavaVersion_++;
 }
 
 std::recursive_mutex &Chunks::mutex() {
@@ -1659,6 +1667,79 @@ uint64_t Chunks::contentVersion() {
 
 void Chunks::bumpContentVersion() {
     g_chunkContentVersion.fetch_add(1, std::memory_order_acq_rel);
+}
+
+namespace {
+std::atomic<uint64_t> g_chunkQueueVersion{0};
+} // namespace
+
+void Chunks::bumpQueueVersion() {
+    g_chunkQueueVersion.fetch_add(1, std::memory_order_acq_rel);
+}
+
+void Chunks::setLodCoverage(int32_t originX, int32_t originZ, int32_t size, const uint32_t *words, size_t count) {
+    std::unique_lock<std::recursive_mutex> lock(mutex_);
+    size = std::clamp(size, 0, kLodCoverageMaxSize);
+    size_t needed = (static_cast<size_t>(size) * size + 31) / 32;
+    lodOriginX_ = originX;
+    lodOriginZ_ = originZ;
+    lodSize_ = words != nullptr && count >= needed ? size : 0;
+    lodJavaWords_.assign(words != nullptr ? words : nullptr, words != nullptr ? words + std::min(count, needed) : nullptr);
+    lodJavaVersion_++;
+}
+
+bool Chunks::updateLodCoverage(std::vector<uint32_t> &out) {
+    std::unique_lock<std::recursive_mutex> lock(mutex_);
+    uint64_t key[3] = {lodJavaVersion_, contentVersion(), g_chunkQueueVersion.load(std::memory_order_acquire)};
+    if (key[0] == lodBuiltKey_[0] && key[1] == lodBuiltKey_[1] && key[2] == lodBuiltKey_[2] && !out.empty()) {
+        return false;
+    }
+    lodBuiltKey_[0] = key[0];
+    lodBuiltKey_[1] = key[1];
+    lodBuiltKey_[2] = key[2];
+
+    out.assign(kLodCoverageHeader + lodJavaWords_.size(), 0u);
+    out[0] = static_cast<uint32_t>(lodOriginX_);
+    out[1] = static_cast<uint32_t>(lodOriginZ_);
+    out[2] = static_cast<uint32_t>(lodSize_);
+    if (lodSize_ == 0) return true;
+    std::copy(lodJavaWords_.begin(), lodJavaWords_.end(), out.begin() + kLodCoverageHeader);
+
+    // A section queued for a rebuild (or moved and not rebuilt yet) leaves its column to the far terrain until the
+    // renderer has caught up: Java counts a section built as soon as it hands it over.
+    size_t gridCount = static_cast<size_t>(sizeX_) * sizeY_ * sizeZ_;
+    gridCount = std::min(gridCount, chunks_.size());
+    const bool useOccupied = occupied_.size() == chunks_.size();
+    for (size_t i = 0; i < gridCount; i++) {
+        if (useOccupied && occupied_[i] == 0) continue;
+        const auto &chunk1 = chunks_[i];
+        if (chunk1 == nullptr || chunk1->blasVersion == chunk1->latestVersion - 1) continue;
+        int32_t cx = (chunk1->x >> 4) - lodOriginX_;
+        int32_t cz = (chunk1->z >> 4) - lodOriginZ_;
+        if (cx < 0 || cz < 0 || cx >= lodSize_ || cz >= lodSize_) continue;
+        uint32_t bit = static_cast<uint32_t>(cz * lodSize_ + cx);
+        out[kLodCoverageHeader + (bit >> 5)] &= ~(1u << (bit & 31u));
+    }
+    return true;
+}
+
+std::shared_ptr<vk::DeviceLocalBuffer> Chunks::lodCoverageBuffer() {
+    std::unique_lock<std::recursive_mutex> lock(mutex_);
+    if (lodCoverageBuffer_ == nullptr) {
+        auto framework = Renderer::instance().framework();
+        size_t words = kLodCoverageHeader + (static_cast<size_t>(kLodCoverageMaxSize) * kLodCoverageMaxSize) / 32;
+        lodCoverageBuffer_ = vk::DeviceLocalBuffer::create(
+            framework->vma(), framework->device(), false, words * sizeof(uint32_t),
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            0, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 16);
+    }
+    return lodCoverageBuffer_;
+}
+
+VkDeviceAddress Chunks::lodCoverageAddress() {
+    std::unique_lock<std::recursive_mutex> lock(mutex_);
+    return lodCoverageBuffer_ != nullptr ? lodCoverageBuffer_->bufferAddress() : 0;
 }
 
 void Chunks::addPendingCompactions(std::vector<PendingCompaction> &&compactions) {

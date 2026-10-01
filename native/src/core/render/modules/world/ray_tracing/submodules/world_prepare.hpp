@@ -48,6 +48,8 @@ class WorldPrepare : public SharedObject<WorldPrepare> {
         size_t slotCount = 0;
         uint64_t namesVersion = 0;
         std::vector<ChunkInstance> entries;
+        // Entries from here on are Distant Horizons terrain (the slots past the chunk grid).
+        size_t lodStart = 0;
         std::vector<const std::string *> hitGroupNames;
         std::vector<uint32_t> blasOffsets;
         std::vector<uint64_t> indexBufferAddrs;
@@ -64,6 +66,10 @@ class WorldPrepare : public SharedObject<WorldPrepare> {
         uint32_t resolvedShadow = 0;
     };
     ChunkInstanceCache chunkCache_;
+    // The Distant Horizons coverage last uploaded (Chunks::updateLodCoverage).
+    std::vector<uint32_t> lodCoverage_;
+    size_t lodCoverageLodStart_ = ~size_t(0);
+    size_t lodCoverageLodEnd_ = ~size_t(0);
     size_t chunkNameCount_ = 0;
 
     std::queue<EntityRenderDataBatch> previousEntityRenderDataBatches_;

@@ -24,6 +24,12 @@ public class ChunkProxy {
 
     public static native void invalidateSingle(long index);
 
+    /**
+     * Chunk columns, in a square window of {@code size} x {@code size} from {@code originX, originZ}, whose terrain
+     * is built: one bit each, row by row along x. Distant Horizons terrain is hidden in them. A size of 0 clears it.
+     */
+    public static native void setLodCoverage(int originX, int originZ, int size, int[] words);
+
     public static void init(int numChunks, int sizeX, int sizeY, int sizeZ, int bottomSectionCoord) {
         initNative(numChunks, sizeX, sizeY, sizeZ, bottomSectionCoord);
     }

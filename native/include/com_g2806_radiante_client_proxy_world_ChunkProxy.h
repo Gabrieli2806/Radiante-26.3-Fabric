@@ -47,6 +47,14 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_rel
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_invalidateSingle
   (JNIEnv *, jclass, jlong);
 
+/*
+ * Class:     com_g2806_radiante_client_proxy_world_ChunkProxy
+ * Method:    setLodCoverage
+ * Signature: (III[I)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_setLodCoverage
+  (JNIEnv *, jclass, jint, jint, jint, jintArray);
+
 #ifdef __cplusplus
 }
 #endif

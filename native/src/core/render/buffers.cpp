@@ -386,7 +386,7 @@ void Buffers::buildAndUploadOverlayUniformBuffer() {
 }
 
 // BufferProxy.WORLD_UBO_SIZE on the Java side allocates this much; the two must move together.
-static_assert(sizeof(vk::Data::WorldUBO) == 680);
+static_assert(sizeof(vk::Data::WorldUBO) == 696);
 
 static size_t sequenceIndex = 0;
 
@@ -449,6 +449,15 @@ void Buffers::setAndUploadWorldUniformBuffer(vk::Data::WorldUBO &ubo) {
     ubo.entityLightAddressLo = 0;
     ubo.entityLightAddressHi = 0;
     ubo.entityLightPad = 0;
+    ubo.lodCoverageAddressLo = 0;
+    ubo.lodCoverageAddressHi = 0;
+    ubo.lodCoveragePad0 = 0;
+    ubo.lodCoveragePad1 = 0;
+    if (auto chunks = Renderer::instance().world()->chunks(); chunks != nullptr) {
+        VkDeviceAddress address = chunks->lodCoverageAddress();
+        ubo.lodCoverageAddressLo = static_cast<uint32_t>(address & 0xffffffffull);
+        ubo.lodCoverageAddressHi = static_cast<uint32_t>(address >> 32u);
+    }
     if (auto entities = Renderer::instance().world()->entities(); entities != nullptr) {
         VkDeviceAddress address = entities->lightBufferAddress();
         if (address != 0 && entities->lightCount() > 0) {

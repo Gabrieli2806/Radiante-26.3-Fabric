@@ -85,6 +85,14 @@ public final class ChunkManager {
     private static int gridSizeY;
     private static int minSectionY;
     private static final LongOpenHashSet compiledSections = new LongOpenHashSet();
+    /** Columns whose sections changed since {@link #updateLodCoverage} last looked; guarded by compiledSections. */
+    private static final LongOpenHashSet dirtyColumns = new LongOpenHashSet();
+    /** Columns {@link #isColumnBuilt} held for when last looked at; guarded by compiledSections. */
+    private static final LongOpenHashSet builtColumns = new LongOpenHashSet();
+    private static boolean coverageDirty = true;
+    private static int coverageOriginX = Integer.MIN_VALUE;
+    private static int coverageOriginZ = Integer.MIN_VALUE;
+    private static int coverageSize;
     private static boolean forceAllDirty;
     /**
      * Newest build handed out for each section. A synchronous rebuild can overtake an older one still running in
@@ -127,6 +135,9 @@ public final class ChunkManager {
         }
         synchronized (compiledSections) {
             compiledSections.clear();
+            dirtyColumns.clear();
+            builtColumns.clear();
+            coverageDirty = true;
         }
         latestBuild.clear();
         slotOwner = new java.util.concurrent.atomic.AtomicLongArray(gridSizeXZ * gridSizeXZ * gridSizeY);
@@ -432,8 +443,10 @@ public final class ChunkManager {
         long evicted = slotOwner.getAndSet(slot, node);
         synchronized (compiledSections) {
             compiledSections.remove(node);
+            dirtyColumns.add(columnOf(node));
             if (evicted != NO_OWNER) {
                 compiledSections.remove(evicted);
+                dirtyColumns.add(columnOf(evicted));
             }
         }
         if (evicted != NO_OWNER) {
@@ -545,6 +558,7 @@ public final class ChunkManager {
         if (uploaded) {
             synchronized (compiledSections) {
                 compiledSections.add(sectionNode);
+                dirtyColumns.add(columnOf(sectionNode));
             }
         }
     }
@@ -607,6 +621,58 @@ public final class ChunkManager {
             }
             return true;
         }
+    }
+
+    private static long columnKey(int chunkX, int chunkZ) {
+        return ((long) chunkX << 32) | (chunkZ & 0xFFFFFFFFL);
+    }
+
+    private static long columnOf(long sectionNode) {
+        return columnKey(SectionPos.x(sectionNode), SectionPos.z(sectionNode));
+    }
+
+    /**
+     * Sends the renderer the chunk columns round the camera whose terrain is built (see {@link #isColumnBuilt}), so
+     * it hides Distant Horizons terrain there per ray. Like Radiance's Vista the far terrain is never remeshed for
+     * chunks loading in and out, which is what left it lagging behind (holes, or both drawn) when moving fast. Only
+     * the columns whose sections changed are looked at again.
+     */
+    public static void updateLodCoverage(int cameraChunkX, int cameraChunkZ) {
+        int size = Math.min(gridSizeXZ + 2, 256);
+        if (size <= 2) {
+            return;
+        }
+        int originX = cameraChunkX - size / 2;
+        int originZ = cameraChunkZ - size / 2;
+        int[] words;
+        synchronized (compiledSections) {
+            if (!dirtyColumns.isEmpty()) {
+                LongIterator iterator = dirtyColumns.iterator();
+                while (iterator.hasNext()) {
+                    long column = iterator.nextLong();
+                    boolean built = isColumnBuilt((int) (column >> 32), (int) column);
+                    coverageDirty |= built ? builtColumns.add(column) : builtColumns.remove(column);
+                }
+                dirtyColumns.clear();
+            }
+            if (!coverageDirty && originX == coverageOriginX && originZ == coverageOriginZ && size == coverageSize) {
+                return;
+            }
+            coverageDirty = false;
+            coverageOriginX = originX;
+            coverageOriginZ = originZ;
+            coverageSize = size;
+            words = new int[(size * size + 31) / 32];
+            for (int z = 0; z < size; z++) {
+                for (int x = 0; x < size; x++) {
+                    if (builtColumns.contains(columnKey(originX + x, originZ + z))) {
+                        int bit = z * size + x;
+                        words[bit >>> 5] |= 1 << (bit & 31);
+                    }
+                }
+            }
+        }
+        ChunkProxy.setLodCoverage(originX, originZ, size, words);
     }
 
     private static boolean isSectionReady(long node) {

@@ -51,12 +51,17 @@ layout(std430, buffer_reference, buffer_reference_align = 8) readonly buffer Ind
 indexBuffer;
 
 #include "util/vertex.glsl"
+#include "common/lod_coverage.glsl"
 #include "common/seamless_glass.glsl"
 
 layout(location = 1) rayPayloadInEXT ShadowRay shadowRay;
 hitAttributeEXT vec2 attribs;
 
 void main() {
+    if (VPT_LOD_COVERED(ubo)) {
+        ignoreIntersectionEXT;
+        return;
+    }
     uint instanceID = gl_InstanceCustomIndexEXT;
     uint geometryID = gl_GeometryIndexEXT;
     uint geometryBufferIndex = getGeometryBufferIndex(instanceID, geometryID);

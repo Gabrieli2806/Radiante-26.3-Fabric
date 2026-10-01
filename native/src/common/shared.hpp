@@ -313,6 +313,12 @@ namespace Data {
         T_UINT entityLightAddressLo;
         T_UINT entityLightAddressHi;
         T_UINT entityLightPad;
+        // Distant Horizons coverage (Chunks::updateLodCoverage), set natively: the buffer as two halves of its device
+        // address, 0 without far terrain. Far terrain is hidden per ray where the near terrain is built.
+        T_UINT lodCoverageAddressLo;
+        T_UINT lodCoverageAddressHi;
+        T_UINT lodCoveragePad0;
+        T_UINT lodCoveragePad1;
     };
 
     struct SkyUBO {

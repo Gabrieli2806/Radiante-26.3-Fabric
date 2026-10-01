@@ -74,4 +74,20 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_inv
     if (world == nullptr) return;
     world->chunks()->invalidateChunk(index);
 }
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_world_ChunkProxy_setLodCoverage(
+    JNIEnv *env, jclass, jint originX, jint originZ, jint size, jintArray words) {
+    auto world = Renderer::instance().world();
+    if (world == nullptr || world->chunks() == nullptr) return;
+    if (words == nullptr || size <= 0) {
+        world->chunks()->setLodCoverage(originX, originZ, 0, nullptr, 0);
+        return;
+    }
+    jsize count = env->GetArrayLength(words);
+    jint *data = env->GetIntArrayElements(words, nullptr);
+    if (data == nullptr) return;
+    world->chunks()->setLodCoverage(originX, originZ, size, reinterpret_cast<const uint32_t *>(data),
+                                    static_cast<size_t>(count));
+    env->ReleaseIntArrayElements(words, data, JNI_ABORT);
+}
 }
