@@ -398,6 +398,9 @@ public class Pipeline {
     /** Shader Execution Reordering for the path rays (NVIDIA RTX 40 and newer; ignored elsewhere). */
     public static final String SER_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.ser";
     public static final String RESTIR_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.restir";
+    /** Glass blocks without the frame vanilla draws around each one, so neighbours join into one sheet. */
+    public static final String SEAMLESS_GLASS_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.seamless_glass";
     /** Rain streaks that bend the view behind them like little lenses. */
     public static final String RAIN_REFRACTION_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.rain_refraction";

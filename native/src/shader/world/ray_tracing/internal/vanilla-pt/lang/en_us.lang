@@ -8,6 +8,7 @@ render_pipeline.module.ray_tracing.attribute.cloud_mode.volumetric=Volumetric
 render_pipeline.module.ray_tracing.attribute.ser=Shader Execution Reordering
 render_pipeline.module.ray_tracing.attribute.restir=ReSTIR Block Lights
 render_pipeline.module.ray_tracing.attribute.rain_refraction=Rain Refraction
+render_pipeline.module.ray_tracing.attribute.seamless_glass=Seamless Glass
 render_pipeline.module.ray_tracing.attribute.froxel_fog=Froxel Fog (Radiance style)
 render_pipeline.module.ray_tracing.attribute.capture_volumetric_cloud_indirect=Capture Volumetric Clouds In Indirect Rays
 render_pipeline.module.ray_tracing.attribute.volumetric_cloud_temporal_accumulation=Volumetric Cloud Temporal Accumulation

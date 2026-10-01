@@ -51,6 +51,7 @@ layout(std430, buffer_reference, buffer_reference_align = 8) readonly buffer Ind
 indexBuffer;
 
 #include "util/vertex.glsl"
+#include "common/seamless_glass.glsl"
 
 layout(location = 1) rayPayloadInEXT ShadowRay shadowRay;
 hitAttributeEXT vec2 attribs;
@@ -79,7 +80,12 @@ void main() {
 
     if (hasTexture(packedData)) {
         textureUV = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
-        albedo = sampleTexture(textures[nonuniformEXT(textureID)], textureUV, false);
+        if (isGlassSurface(packedData)) {
+            textureUV = seamlessGlassUV(textureUV, min(m0.textureUV, min(m1.textureUV, m2.textureUV)),
+                                        max(m0.textureUV, max(m1.textureUV, m2.textureUV)),
+                                        textureSize(textures[nonuniformEXT(textureID)], 0));
+        }
+        albedo =sampleTexture(textures[nonuniformEXT(textureID)], textureUV, false);
     }
     ivec4 flags = ivec4(0);
     bool isWaterMaterial = isWaterSurface(packedData);

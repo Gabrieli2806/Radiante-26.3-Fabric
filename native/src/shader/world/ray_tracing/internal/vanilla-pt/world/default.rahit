@@ -38,6 +38,7 @@ layout(std430, buffer_reference, buffer_reference_align = 8) readonly buffer Ind
 indexBuffer;
 
 #include "util/vertex.glsl"
+#include "common/seamless_glass.glsl"
 
 layout(location = 0) rayPayloadInEXT MainRay mainRay;
 hitAttributeEXT vec2 attribs;
@@ -64,6 +65,11 @@ void main() {
     float lod = 0.0;
     if (hasTexture(packedData)) {
         uv = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
+        if (isGlassSurface(packedData)) {
+            uv = seamlessGlassUV(uv, min(m0.textureUV, min(m1.textureUV, m2.textureUV)),
+                                 max(m0.textureUV, max(m1.textureUV, m2.textureUV)),
+                                 textureSize(textures[nonuniformEXT(textureID)], 0));
+        }
 
         float coneRadiusWorld = mainRay.coneWidth + gl_HitTEXT * mainRay.coneSpread;
         PositionVertex p0, p1, p2;

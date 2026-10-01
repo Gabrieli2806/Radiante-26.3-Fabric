@@ -48,6 +48,7 @@ public class RadianteOptionsScreen extends Screen {
     private Boolean pendingSer;
     private Boolean pendingFroxelFog;
     private Boolean pendingRainRefraction;
+    private Boolean pendingSeamlessGlass;
     // Shader pack settings that cost frame time; null until read from the pipeline, or when the pack lacks them.
     private Integer pendingBounces;
     private Boolean pendingParallax;
@@ -114,6 +115,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingSer = previous.pendingSer;
         this.pendingFroxelFog = previous.pendingFroxelFog;
         this.pendingRainRefraction = previous.pendingRainRefraction;
+        this.pendingSeamlessGlass = previous.pendingSeamlessGlass;
         this.pendingFrameGenerationBackend = previous.pendingFrameGenerationBackend;
         this.pendingBounces = previous.pendingBounces;
         this.pendingParallax = previous.pendingParallax;
@@ -477,6 +479,8 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingFroxelFog = Pipeline.supportsShaderPackToggle(Pipeline.FROXEL_FOG_ATTRIBUTE) ? Boolean.TRUE : null;
         this.pendingRainRefraction =
             Pipeline.supportsShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE) ? Boolean.TRUE : null;
+        this.pendingSeamlessGlass =
+            Pipeline.supportsShaderPackToggle(Pipeline.SEAMLESS_GLASS_ATTRIBUTE) ? Boolean.TRUE : null;
         this.pendingDepthOfField = Boolean.FALSE;
         this.pendingReflex = false;
         // The shader pack's own defaults.
@@ -752,6 +756,15 @@ public class RadianteOptionsScreen extends Screen {
                 tooltip("options.radiante.rain_refraction"), this.pendingRainRefraction,
                 value -> this.pendingRainRefraction = value);
         }
+        OptionInstance<Boolean> seamlessGlass = null;
+        if (Pipeline.supportsShaderPackToggle(Pipeline.SEAMLESS_GLASS_ATTRIBUTE)) {
+            if (this.pendingSeamlessGlass == null) {
+                this.pendingSeamlessGlass = Pipeline.isShaderPackToggleOn(Pipeline.SEAMLESS_GLASS_ATTRIBUTE);
+            }
+            seamlessGlass = OptionInstance.createBoolean("options.radiante.seamless_glass",
+                tooltip("options.radiante.seamless_glass"), this.pendingSeamlessGlass,
+                value -> this.pendingSeamlessGlass = value);
+        }
         addRows(atmosphere, clouds, cloudShadows, tunable(Tunable.SUN_GLOW, false),
             tunable(Tunable.LIGHT_SHAFTS, false),
             OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
@@ -764,7 +777,7 @@ public class RadianteOptionsScreen extends Screen {
             OptionInstance.createBoolean("options.radiante.rain_wetness",
                 tooltip("options.radiante.rain_wetness"), Options.rainWetness,
                 value -> Options.rainWetness = value),
-            rainRefraction,
+            rainRefraction, seamlessGlass,
             OptionInstance.createBoolean("options.radiante.biome_fog",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
                 this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
@@ -1067,6 +1080,9 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (this.pendingRainRefraction != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE, this.pendingRainRefraction);
+        }
+        if (this.pendingSeamlessGlass != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.SEAMLESS_GLASS_ATTRIBUTE, this.pendingSeamlessGlass);
         }
         if (this.pendingRestir != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.RESTIR_ATTRIBUTE, this.pendingRestir);

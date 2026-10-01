@@ -73,6 +73,7 @@ indexBuffer;
 #include "common/constants.glsl"
 #include "common/water_medium.glsl"
 #include "common/rain_wetness.glsl"
+#include "common/seamless_glass.glsl"
 
 #ifndef VPT_BOUNCE_LIGHT_BOOST
 #    define VPT_BOUNCE_LIGHT_BOOST 1.0
@@ -942,6 +943,10 @@ void main() {
         textureUV = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
         atlasUvMin = min(m0.textureUV, min(m1.textureUV, m2.textureUV));
         atlasUvMax = max(m0.textureUV, max(m1.textureUV, m2.textureUV));
+        if (isGlassSurface(packedData)) {
+            textureUV = seamlessGlassUV(textureUV, atlasUvMin, atlasUvMax,
+                                        textureSize(textures[nonuniformEXT(textureID)], 0));
+        }
 
         float coneRadiusWorld = mainRay.coneWidth + gl_HitTEXT * mainRay.coneSpread;
         computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, dposdu, dposdv);

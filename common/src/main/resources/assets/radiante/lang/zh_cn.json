@@ -225,6 +225,8 @@
   "options.radiante.rain_wetness.tooltip": "下雨时露天的表面会变暗并反光，雨停后慢慢变干。",
   "options.radiante.entity_light_reach": "发光物品照明距离",
   "options.radiante.entity_light_reach.tooltip": "掉落在地上或放在物品展示框中的发光物品（萤石、海晶灯等）在距你多少格以内仍会照亮周围。距离越远，数量多时开销略高。",
+  "options.radiante.seamless_glass": "无缝玻璃",
+  "options.radiante.seamless_glass.tooltip": "去掉原版在每个玻璃方块周围绘制的边框，让一整面玻璃墙看起来像一整块玻璃，而不是一格一格的方块。",
   "options.radiante.rain_refraction": "雨滴折射",
   "options.radiante.rain_refraction.tooltip": "雨滴像小透镜一样折射其后的画面，与原版 Radiance 相同。几乎没有性能开销。",
   "options.radiante.cloud_shadows": "云影",

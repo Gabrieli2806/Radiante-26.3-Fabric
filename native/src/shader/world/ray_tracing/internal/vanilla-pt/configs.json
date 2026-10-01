@@ -192,6 +192,12 @@
             "define": "VPT_VOLUMETRIC_LIGHT_MODE"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.seamless_glass",
+            "type": "bool",
+            "default_value": "render_pipeline.true",
+            "define": "VPT_SEAMLESS_GLASS"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.rain_refraction",
             "type": "bool",
             "default_value": "render_pipeline.true",

@@ -295,6 +295,8 @@
   "options.radiante.rain_wetness.tooltip": "Surfaces under open sky turn darker and glossy while it rains, and dry slowly after it stops.",
   "options.radiante.entity_light_reach": "Glowing Item Light Distance",
   "options.radiante.entity_light_reach.tooltip": "How far from you, in blocks, glowing dropped items and items in frames (glowstone, sea lanterns...) still light their surroundings. Further costs a little more when many are around.",
+  "options.radiante.seamless_glass": "Seamless Glass",
+  "options.radiante.seamless_glass.tooltip": "Hides the frame vanilla draws around every glass block, so a wall of glass looks like one big sheet instead of a grid of blocks.",
   "options.radiante.rain_refraction": "Rain Refraction",
   "options.radiante.rain_refraction.tooltip": "Raindrops bend the view behind them like little lenses, as in the original Radiance. Costs almost nothing.",
   "options.radiante.cloud_shadows": "Cloud Shadows",
