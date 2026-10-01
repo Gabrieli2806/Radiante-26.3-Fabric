@@ -27,7 +27,9 @@ std::shared_ptr<vk::Sampler> acquireSharedSampler(const std::shared_ptr<vk::Devi
                                                   VkSamplerMipmapMode mipmapMode,
                                                   VkSamplerAddressMode addressMode) {
     static std::mutex mutex;
-    static std::map<std::tuple<int, int, int>, std::shared_ptr<vk::Sampler>> cache;
+    // Never destroyed: at process exit (Linux runs static destructors after the Vulkan driver is gone) destroying
+    // the samplers would call into unloaded driver code and crash the game on quit.
+    static auto &cache = *new std::map<std::tuple<int, int, int>, std::shared_ptr<vk::Sampler>>();
 
     auto key = std::make_tuple(static_cast<int>(samplingMode), static_cast<int>(mipmapMode),
                                static_cast<int>(addressMode));

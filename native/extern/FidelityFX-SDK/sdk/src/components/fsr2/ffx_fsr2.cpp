@@ -1403,9 +1403,7 @@ FfxErrorCode ffxFsr2ContextCreate(FfxFsr2Context* context, const FfxFsr2ContextD
     }
     
     // ensure the context is large enough for the internal context.
-#if defined(_WIN32)
     FFX_STATIC_ASSERT(sizeof(FfxFsr2Context) >= sizeof(FfxFsr2Context_Private));
-#endif
 
     // create the context.
     FfxFsr2Context_Private* contextPrivate = (FfxFsr2Context_Private*)(context);

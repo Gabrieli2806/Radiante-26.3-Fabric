@@ -1211,9 +1211,7 @@ FFX_API FfxErrorCode ffxFsr3UpscalerContextCreate(FfxFsr3UpscalerContext* contex
     }
 
     // ensure the context is large enough for the internal context.
-#if defined(_WIN32)
     FFX_STATIC_ASSERT(sizeof(FfxFsr3UpscalerContext) >= sizeof(FfxFsr3UpscalerContext_Private));
-#endif
 
     // create the context.
     FfxFsr3UpscalerContext_Private* contextPrivate = (FfxFsr3UpscalerContext_Private*)(context);

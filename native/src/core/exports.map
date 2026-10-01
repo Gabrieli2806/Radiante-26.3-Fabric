@@ -1,0 +1,5 @@
+/* Only the JNI entry points leave libcore.so; everything else (including the static C++ runtime) stays private. */
+{
+  global: Java_*; JNI_OnLoad; JNI_OnUnload;
+  local: *;
+};

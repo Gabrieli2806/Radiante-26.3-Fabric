@@ -16,6 +16,7 @@
 
 #include <cstdlib>
 #include <iomanip>
+#include <iostream>
 #include <set>
 #include "core/util/logging.hpp"
 
@@ -97,8 +98,9 @@ void WorldPipeline::init(std::shared_ptr<Framework> framework, std::shared_ptr<P
         auto shaderPack = std::make_shared<ShaderPack>(framework);
         std::string error;
         if (!shaderPack->initialize(buildConfig, error)) {
-            radiante::err() << "[World Pipeline] Failed to load shared shader pack. Reason: " << error << std::endl;
-            throw std::runtime_error("failed to load shared shader pack");
+            // Always printed and carried in the exception: without a shader pack the world is only black.
+            std::cerr << "[World Pipeline] Failed to load shared shader pack. Reason: " << error << std::endl;
+            throw std::runtime_error("failed to load shared shader pack: " + error);
         }
         shaderPack_ = shaderPack;
         break;

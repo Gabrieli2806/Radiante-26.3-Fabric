@@ -77,7 +77,12 @@
 #define FFX_API __declspec(dllexport)
 #endif // #if defined (FFX_GCC)
 
+#if defined(_WIN32)
 #define FFX_SDK_DEFAULT_CONTEXT_SIZE (1024 * 128)
+#else
+// wchar_t is 4 bytes outside Windows, so the private contexts (full of wide-string names) are about twice as large.
+#define FFX_SDK_DEFAULT_CONTEXT_SIZE (1024 * 256)
+#endif
 
 /// Maximum supported number of simultaneously bound SRVs.
 ///
@@ -97,12 +102,10 @@
 /// Maximum number of characters in a resource name
 ///
 /// @ingroup Defines
-#if defined(_WIN32)
+// 64 characters on every platform. Linux once used 32 to match Windows' struct sizes in bytes, but the SDK is built
+// from source here and shader binding names reach 40 characters: cut to 31, they no longer matched the component
+// binding tables, those bindings fell back to the null resource, and FSR frame generation output garbage/black.
 #define FFX_RESOURCE_NAME_SIZE      64
-#else
-// wchar_t is 4 bytes on Linux; halve the count to keep struct sizes aligned with Windows.
-#define FFX_RESOURCE_NAME_SIZE      32
-#endif
 
 /// Maximum number of queued frames in the backend
 ///

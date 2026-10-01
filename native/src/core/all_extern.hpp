@@ -6,7 +6,7 @@
 #        define NOMINMAX
 #    endif
 #elif defined(__linux__) || defined(__unix__)
-#    define VK_USE_PLATFORM_XLIB_KHR
+// No window-system extension: the game owns the surface (X11 or Wayland), and Xlib.h is often not installed.
 #elif defined(__APPLE__)
 #    define VK_USE_PLATFORM_MACOS_MVK
 #else

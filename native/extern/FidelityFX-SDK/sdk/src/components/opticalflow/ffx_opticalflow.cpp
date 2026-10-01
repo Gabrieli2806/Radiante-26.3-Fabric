@@ -896,6 +896,9 @@ FfxErrorCode ffxOpticalflowContextCreate(FfxOpticalflowContext* context, FfxOpti
     FFX_RETURN_ON_ERROR(contextDescription->backendInterface.fpCreateBackendContext, FFX_ERROR_INCOMPLETE_INTERFACE);
     FFX_RETURN_ON_ERROR(contextDescription->backendInterface.fpDestroyBackendContext, FFX_ERROR_INCOMPLETE_INTERFACE);
 
+    // The private context lives inside the opaque FfxOpticalflowContext; it must fit (wchar_t is 4 bytes on Linux).
+    FFX_STATIC_ASSERT(sizeof(FfxOpticalflowContext) >= sizeof(FfxOpticalflowContext_Private));
+
     if (contextDescription->backendInterface.scratchBuffer) {
 
         FFX_RETURN_ON_ERROR(contextDescription->backendInterface.scratchBufferSize, FFX_ERROR_INCOMPLETE_INTERFACE);

@@ -15,6 +15,6 @@ GENERATOR=()
 command -v ninja >/dev/null && GENERATOR=(-G Ninja)
 
 cmake -S "$SRC" -B "$BUILD_DIR" "${GENERATOR[@]}" -DCMAKE_BUILD_TYPE=Release \
-    -DMCVR_ENABLE_NRD=ON -DUSE_AMD=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    -DMCVR_ENABLE_NRD=ON -DUSE_AMD=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 "$@"
 cmake --build "$BUILD_DIR" --config Release -j "$(nproc)"
 cmake --install "$BUILD_DIR" --config Release

@@ -44,9 +44,7 @@ static FfxFsr3Context* s_Context = nullptr;
 
 FfxErrorCode ffxFsr3ContextCreate(FfxFsr3Context* context, FfxFsr3ContextDescription* contextDescription)
 {
-#if defined(_WIN32)
     FFX_STATIC_ASSERT(sizeof(FfxFsr3Context) >= sizeof(FfxFsr3Context_Private));
-#endif
     FfxErrorCode            ret            = FFX_OK;
     FfxFsr3Context_Private* contextPrivate = (FfxFsr3Context_Private*)(context);
 
@@ -205,19 +203,19 @@ FfxErrorCode ffxFsr3ContextCreate(FfxFsr3Context* context, FfxFsr3ContextDescrip
         for (FfxUInt32 i = 0; i < contextPrivate->sharedResourceCount; i++)
         {
             FfxCreateResourceDescription dilD = fs3UpscalerResourceDescs.dilatedDepth;
-            swprintf(Name, 255, L"%s%d", fs3UpscalerResourceDescs.dilatedDepth.name, i);
+            swprintf(Name, 255, L"%ls%d", fs3UpscalerResourceDescs.dilatedDepth.name, i);
             dilD.name = Name;
             FFX_VALIDATE(contextDescription->backendInterfaceSharedResources.fpCreateResource(
                 &contextDescription->backendInterfaceSharedResources, &dilD, contextPrivate->effectContextIdSharedResources, &contextPrivate->sharedResources[FFX_FSR3_RESOURCE_IDENTIFIER_DILATED_DEPTH_0 + (i * FFX_FSR3_RESOURCE_IDENTIFIER_UPSCALED_COUNT)]));
 
             FfxCreateResourceDescription dilMVs = fs3UpscalerResourceDescs.dilatedMotionVectors;
-            swprintf(Name, 255, L"%s%d", fs3UpscalerResourceDescs.dilatedMotionVectors.name, i);
+            swprintf(Name, 255, L"%ls%d", fs3UpscalerResourceDescs.dilatedMotionVectors.name, i);
             dilMVs.name = Name;
             FFX_VALIDATE(contextDescription->backendInterfaceSharedResources.fpCreateResource(
                 &contextDescription->backendInterfaceSharedResources, &dilMVs, contextPrivate->effectContextIdSharedResources, &contextPrivate->sharedResources[FFX_FSR3_RESOURCE_IDENTIFIER_DILATED_MOTION_VECTORS_0 + (i * FFX_FSR3_RESOURCE_IDENTIFIER_UPSCALED_COUNT)]));
 
             FfxCreateResourceDescription recND = fs3UpscalerResourceDescs.reconstructedPrevNearestDepth;
-            swprintf(Name, 255, L"%s%d", fs3UpscalerResourceDescs.reconstructedPrevNearestDepth.name, i);
+            swprintf(Name, 255, L"%ls%d", fs3UpscalerResourceDescs.reconstructedPrevNearestDepth.name, i);
             recND.name = Name;
             FFX_VALIDATE(contextDescription->backendInterfaceSharedResources.fpCreateResource(
                 &contextDescription->backendInterfaceSharedResources, &recND, contextPrivate->effectContextIdSharedResources, &contextPrivate->sharedResources[FFX_FSR3_RESOURCE_IDENTIFIER_RECONSTRUCTED_PREVIOUS_NEAREST_DEPTH_0 + (i * FFX_FSR3_RESOURCE_IDENTIFIER_UPSCALED_COUNT)]));

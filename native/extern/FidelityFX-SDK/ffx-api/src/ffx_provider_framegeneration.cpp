@@ -161,7 +161,7 @@ ffxReturnCode_t ffxProvider_FrameGeneration::CreateContext(ffxContext* context, 
             for (FfxUInt32 i = 0; i < 2; i++)
             {
                 FfxCreateResourceDescription dilD = fiResourceDescs.dilatedDepth;
-                swprintf(Name, 255, L"%s%d", fiResourceDescs.dilatedDepth.name, i);
+                swprintf(Name, 255, L"%ls%d", fiResourceDescs.dilatedDepth.name, i);
                 dilD.name = Name;
                 TRY2(internal_context->backendInterfaceShared.fpCreateResource(
                     &internal_context->backendInterfaceShared,
@@ -170,7 +170,7 @@ ffxReturnCode_t ffxProvider_FrameGeneration::CreateContext(ffxContext* context, 
                     &internal_context->sharedResources[FFX_FSR3_RESOURCE_IDENTIFIER_DILATED_DEPTH_0 + (i * FFX_FSR3_RESOURCE_IDENTIFIER_UPSCALED_COUNT)]));
 
                 FfxCreateResourceDescription dilMVs = fiResourceDescs.dilatedMotionVectors;
-                swprintf(Name, 255, L"%s%d", fiResourceDescs.dilatedMotionVectors.name, i);
+                swprintf(Name, 255, L"%ls%d", fiResourceDescs.dilatedMotionVectors.name, i);
                 dilMVs.name = Name;
                 TRY2(internal_context->backendInterfaceShared.fpCreateResource(
                     &internal_context->backendInterfaceShared,
@@ -179,7 +179,7 @@ ffxReturnCode_t ffxProvider_FrameGeneration::CreateContext(ffxContext* context, 
                     &internal_context->sharedResources[FFX_FSR3_RESOURCE_IDENTIFIER_DILATED_MOTION_VECTORS_0 + (i * FFX_FSR3_RESOURCE_IDENTIFIER_UPSCALED_COUNT)]));
 
                 FfxCreateResourceDescription recND = fiResourceDescs.reconstructedPrevNearestDepth;
-                swprintf(Name, 255, L"%s%d", fiResourceDescs.reconstructedPrevNearestDepth.name, i);
+                swprintf(Name, 255, L"%ls%d", fiResourceDescs.reconstructedPrevNearestDepth.name, i);
                 recND.name = Name;
                 TRY2(internal_context->backendInterfaceShared.fpCreateResource(
                     &internal_context->backendInterfaceShared,

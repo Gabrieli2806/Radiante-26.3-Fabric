@@ -55,7 +55,11 @@
 /// The size of the context specified in 32bit values.
 ///
 /// @ingroup Denoiser
+#if defined(_WIN32)
 #define FFX_DENOISER_CONTEXT_SIZE (73098)
+#else
+#define FFX_DENOISER_CONTEXT_SIZE (73098 * 2) // wchar_t is 4 bytes outside Windows
+#endif
 
 #if defined(__cplusplus)
 extern "C" {

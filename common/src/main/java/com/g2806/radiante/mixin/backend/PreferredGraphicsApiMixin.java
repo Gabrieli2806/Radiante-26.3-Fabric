@@ -23,7 +23,9 @@ public class PreferredGraphicsApiMixin {
     private void radiante$preferVulkan(CallbackInfoReturnable<GpuBackend[]> cir) {
         PreferredGraphicsApi preference = (PreferredGraphicsApi) (Object) this;
         if (preference == PreferredGraphicsApi.OPENGL || Options.useOpenGl || Options.openGlAfterFailedStart) {
-            cir.setReturnValue(new GpuBackend[]{new GlBackend()});
+            // Vulkan stays as the second choice: on Linux under Wayland (NVIDIA especially) OpenGL often has no EGL
+            // display at all, and with OpenGL alone the game would not open after a single failed start.
+            cir.setReturnValue(new GpuBackend[]{new GlBackend(), new VulkanBackend()});
             return;
         }
 

@@ -151,10 +151,29 @@ endif()
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
 set(MZ_BUILD_TESTS OFF CACHE BOOL "Disable minizip tests" FORCE)
 set(MZ_BUILD_UNIT_TESTS OFF CACHE BOOL "Disable minizip unit tests" FORCE)
-set(MZ_FETCH_ZLIB ON CACHE BOOL "Fetch zlib automatically" FORCE)
+# minizip-ng only fetches zlib on Windows by default; on Linux, without zlib headers it silently drops deflate, the
+# built-in shader pack zip cannot be extracted and the world renders black. Always build zlib-ng in, statically.
+set(MZ_ZLIB ON CACHE BOOL "Enable deflate in minizip" FORCE)
+set(MZ_FETCH_LIBS ON CACHE BOOL "Fetch third-party libraries" FORCE)
+set(MZ_FORCE_FETCH_LIBS ON CACHE BOOL "Always use the fetched zlib so libcore has no system zlib dependency" FORCE)
 set(MZ_ZSTD OFF CACHE BOOL "Disable zstd in minizip-ng due to upstream target mismatch" FORCE)
+# Shader packs only use deflate/store; the rest would add shared-library dependencies on Linux.
+set(MZ_BZIP2 OFF CACHE BOOL "Disable bzip2" FORCE)
+set(MZ_LZMA OFF CACHE BOOL "Disable lzma" FORCE)
+set(MZ_OPENSSL OFF CACHE BOOL "Disable OpenSSL" FORCE)
+set(MZ_LIBBSD OFF CACHE BOOL "Disable libbsd" FORCE)
+set(MZ_ICONV OFF CACHE BOOL "Disable iconv" FORCE)
+set(ZLIB_COMPAT ON CACHE BOOL "Build zlib-ng with the zlib API" FORCE)
+if(NOT WIN32)
+    # Everything static ends up inside libcore.so.
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 add_subdirectory(extern/minizip-ng EXCLUDE_FROM_ALL)
 set_target_properties(minizip PROPERTIES POSITION_INDEPENDENT_CODE ON)
+get_target_property(MCVR_MINIZIP_SOURCES minizip SOURCES)
+if(NOT MCVR_MINIZIP_SOURCES MATCHES "mz_strm_zlib")
+    message(FATAL_ERROR "minizip-ng was configured without zlib; shader pack zips could not be extracted")
+endif()
 
 # nlohmann json
 add_subdirectory(extern/json EXCLUDE_FROM_ALL)

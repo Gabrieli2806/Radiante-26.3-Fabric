@@ -1231,9 +1231,7 @@ FfxErrorCode ffxDenoiserContextCreate(FfxDenoiserContext* context, const FfxDeno
     }
     
     // Ensure the context is large enough for the internal context.
-#if defined(_WIN32)
     FFX_STATIC_ASSERT(sizeof(FfxDenoiserContext) >= sizeof(FfxDenoiserContext_Private));
-#endif
 
     // create the context.
     FfxDenoiserContext_Private* contextPrivate = (FfxDenoiserContext_Private*)(context);

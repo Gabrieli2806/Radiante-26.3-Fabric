@@ -229,9 +229,16 @@ public final class RadianteClient {
      * directly: NeoForge serves mod resources from its own file system, which resolves files but not directories.
      */
     private static void copyFolder(String ignored, Path target, String resourceFolder) {
+        // A Linux-only build ships no core.dll, so its libcore.so (one folder deeper) serves as the anchor instead.
         URL anchor = RadianteClient.class.getResource(NATIVE_RESOURCE_ROOT + "/core.dll");
+        int anchorDepth = 2;
         if (anchor == null) {
-            throw new IllegalStateException("Missing bundled native file: core.dll");
+            anchor = RadianteClient.class.getResource(NATIVE_RESOURCE_ROOT + "/" + LINUX_FOLDER + "/libcore.so");
+            anchorDepth = 3;
+        }
+        if (anchor == null) {
+            throw new IllegalStateException("Missing bundled native renderer (core.dll or " + LINUX_FOLDER
+                + "/libcore.so)");
         }
 
         try {
@@ -253,8 +260,11 @@ public final class RadianteClient {
                     }
                 }
             } else {
-                // core.dll sits in radiante-native, one level below the resource root.
-                Path resourceRoot = Paths.get(uri).getParent().getParent();
+                // The anchor sits in radiante-native (or its Linux folder), below the resource root.
+                Path resourceRoot = Paths.get(uri);
+                for (int i = 0; i < anchorDepth; i++) {
+                    resourceRoot = resourceRoot.getParent();
+                }
                 copyTree(requireFolder(resourceRoot.resolve(resourceFolder.substring(1)), resourceFolder), target);
             }
         } catch (URISyntaxException | IOException e) {

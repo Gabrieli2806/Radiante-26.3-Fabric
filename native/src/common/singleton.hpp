@@ -44,8 +44,10 @@ class Singleton {
 
   private:
     static std::unique_ptr<Derived> &storage() {
-        static std::unique_ptr<Derived> ptr;
-        return ptr;
+        // Deliberately never destroyed: static destructors run at process exit, after the Vulkan driver may already be
+        // unloaded (always on Linux), and tearing the renderer down then crashes the game as it quits.
+        static auto *ptr = new std::unique_ptr<Derived>();
+        return *ptr;
     }
     static std::atomic<Derived *> &raw() {
         static std::atomic<Derived *> p{nullptr};

@@ -270,7 +270,8 @@ bool ShaderPackLoader::extractZip(const fs::path &zipPath,
     int32_t closeResult = mz_zip_reader_close(zipReader.get());
 
     if (extractResult != MZ_OK) {
-        error = "failed to extract zip file";
+        error = "failed to extract zip file " + zipPath.string() + " (minizip error " + std::to_string(extractResult) +
+                (extractResult == MZ_SUPPORT_ERROR ? ", compression method not built in" : "") + ")";
         return false;
     }
     if (closeResult != MZ_OK) {

@@ -96,7 +96,11 @@ endif()
 
 if(NOT WIN32)
     # The C++ runtime goes inside libcore.so: distributions older than the build machine ship an older libstdc++.
-    target_link_options(core PRIVATE -static-libstdc++ -static-libgcc)
+    # The bundled copy must stay private: the game process already has the system libstdc++ loaded (SDL, GTK,
+    # the GPU driver), and if libcore exports its own copy the two mix locale/facet state and crash on startup.
+    target_link_options(core PRIVATE -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL
+                       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map")
+    set_property(TARGET core APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
 endif()
 
 if(MSVC)

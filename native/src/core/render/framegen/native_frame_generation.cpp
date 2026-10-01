@@ -361,7 +361,9 @@ struct NativeFrameGeneration::FsrProvider : NativeFrameGeneration::Provider {
         render = {inputs.renderWidth, inputs.renderHeight};
         format = wanted;
         hudlessFormat = wantedHudless;
-        fgOut() << "FSR frame generation created for " << display.width << "x" << display.height << std::endl;
+        fgOut() << "FSR frame generation created for " << display.width << "x" << display.height << " (backbuffer "
+                << wanted << " -> ffx " << mcvr::fsr::vkToFfxFormat(wanted) << ", hudless " << wantedHudless
+                << " -> ffx " << mcvr::fsr::vkToFfxFormat(wantedHudless) << ")" << std::endl;
         return true;
     }
 #endif
@@ -758,6 +760,22 @@ bool NativeFrameGeneration::ensureResources(
            motionVectors_ != nullptr;
 }
 
+namespace {
+// Development: RADIANTE_FG_DUMP=<dir> writes the generated and real image of a few consecutive frames as raw RGBA.
+struct FgDump {
+    const char *dir = std::getenv("RADIANTE_FG_DUMP");
+    int frame = 0;
+    int dumped = 0;
+    bool pending = false;
+    uint32_t width = 0, height = 0;
+    std::shared_ptr<vk::HostVisibleBuffer> buffer;
+};
+FgDump &fgDump() {
+    static FgDump *dump = new FgDump();
+    return *dump;
+}
+} // namespace
+
 bool NativeFrameGeneration::evaluateAndBlit(VkCommandBuffer cmd,
                                             VkImage finalImage,
                                             VkFormat finalFormat,
@@ -768,6 +786,22 @@ bool NativeFrameGeneration::evaluateAndBlit(VkCommandBuffer cmd,
                                             uint32_t swapchainHeight,
                                             bool flipY) {
     pendingImages_.clear();
+    if (fgDump().pending) {
+        auto &dump = fgDump();
+        if (auto framework = framework_.lock()) framework->waitRenderQueueIdle();
+        dump.buffer->downloadFromBuffer();
+        const char *names[2] = {"gen", "real"};
+        size_t bytes = static_cast<size_t>(dump.width) * dump.height * 4;
+        for (int k = 0; k < 2; k++) {
+            std::string path = std::string(dump.dir) + "/" + std::to_string(dump.dumped) + "_" + names[k] + "_" +
+                               std::to_string(dump.width) + "x" + std::to_string(dump.height) + ".rgba";
+            if (FILE *f = std::fopen(path.c_str(), "wb")) {
+                std::fwrite(static_cast<char *>(dump.buffer->mappedPtr()) + k * bytes, 1, bytes, f);
+                std::fclose(f);
+            }
+        }
+        dump.pending = false;
+    }
     bool captured = capturedThisFrame_;
     capturedThisFrame_ = false;
     if (!active() || !captured || !capture_.valid || cmd == VK_NULL_HANDLE || provider_ == nullptr) {
@@ -890,6 +924,30 @@ bool NativeFrameGeneration::evaluateAndBlit(VkCommandBuffer cmd,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
             imageBarrier(cmd, realCopy_->vkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
             realCopy_->imageLayout() = VK_IMAGE_LAYOUT_GENERAL;
+
+            auto &dump = fgDump();
+            if (dump.dir != nullptr && ++dump.frame >= 300 && dump.dumped < 8) {
+                auto framework = framework_.lock();
+                size_t bytes = static_cast<size_t>(width) * height * 4;
+                if (dump.buffer == nullptr || dump.width != width || dump.height != height) {
+                    dump.buffer = vk::HostVisibleBuffer::create(framework->vma(), framework->device(), bytes * 2,
+                                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+                    dump.width = width;
+                    dump.height = height;
+                }
+                fullBarrier(cmd);
+                VkBufferImageCopy region{};
+                region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+                region.imageExtent = {width, height, 1};
+                vkCmdCopyImageToBuffer(cmd, generated_[0]->vkImage(), VK_IMAGE_LAYOUT_GENERAL,
+                                       dump.buffer->vkBuffer(), 1, &region);
+                region.bufferOffset = bytes;
+                vkCmdCopyImageToBuffer(cmd, realCopy_->vkImage(), VK_IMAGE_LAYOUT_GENERAL, dump.buffer->vkBuffer(),
+                                       1, &region);
+                fullBarrier(cmd);
+                dump.dumped++;
+                dump.pending = true;
+            }
         }
         VkImage first = presentGenerated ? generated_[0]->vkImage() : finalImage;
         VkImageBlit blit = presentBlit(width, height, swapchainWidth, swapchainHeight, flipY);
