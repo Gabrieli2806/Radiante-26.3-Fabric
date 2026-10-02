@@ -182,6 +182,8 @@ public final class RadianteClient {
         RendererProxy.initFolderPath(radianceDir.toAbsolutePath().toString());
         Pipeline.initFolderPath(radianceDir);
         Options.readOptions();
+        // On by default; a missing entry in an older config leaves the renderer's copy of the flag unset otherwise.
+        Options.setDebugLogging(Options.debugLogging, false);
         Pipeline.reloadAllModuleEntries();
         LOGGER.info("Radiante native renderer loaded from {}", radianceDir);
     }
@@ -197,6 +199,14 @@ public final class RadianteClient {
     private static void logNativeErrors() {
         if (!nativeLoaded) {
             return;
+        }
+        String info = RendererProxy.drainNativeInfo();
+        if (info != null) {
+            for (String line : info.split("\n")) {
+                if (!line.isBlank()) {
+                    LOGGER.info("[native] {}", line);
+                }
+            }
         }
         String errors = RendererProxy.drainNativeErrors();
         if (errors == null) {

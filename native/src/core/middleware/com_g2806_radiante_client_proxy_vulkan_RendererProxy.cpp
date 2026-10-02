@@ -244,4 +244,9 @@ JNIEXPORT jstring JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererPr
     std::string errors = radiante::drainErrors();
     return errors.empty() ? nullptr : env->NewStringUTF(errors.c_str());
 }
+
+JNIEXPORT jstring JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_drainNativeInfo(JNIEnv *env, jclass) {
+    std::string info = radiante::drainInfo();
+    return info.empty() ? nullptr : env->NewStringUTF(info.c_str());
+}
 }

@@ -64,6 +64,9 @@ public class RendererProxy {
     /** Error lines the renderer wrote since the last call (null when none), for the game log. */
     public static native String drainNativeErrors();
 
+    /** Diagnostic lines the renderer wrote since the last call (null when none), while Debug logging is on. */
+    public static native String drainNativeInfo();
+
     public static native boolean isReflexSupported();
 
     /** Chains the Reflex swapchain structure into a VkSwapchainCreateInfoKHR, by address. */

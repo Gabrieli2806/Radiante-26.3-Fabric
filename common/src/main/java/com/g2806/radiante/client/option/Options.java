@@ -31,10 +31,10 @@ public class Options {
     /** How far from the camera glowing dropped items and item frames still cast light, in blocks. */
     public static int entityLightReach = 64;
     /**
-     * Everything Radiante writes to the log is diagnostic. Off by default so a player's log stays theirs; turned
-     * on when someone is reporting a problem and the detail is worth having.
+     * Radiante's diagnostics in the log, the renderer's included. On by default so a player's latest.log already says
+     * what went wrong when they report a problem; the option turns it off.
      */
-    public static boolean debugLogging = false;
+    public static boolean debugLogging = true;
     /** Per-biome haze in the overworld: warm dust over deserts, thick green air over swamps, and so on. */
     public static boolean biomeFog = true;
     /**

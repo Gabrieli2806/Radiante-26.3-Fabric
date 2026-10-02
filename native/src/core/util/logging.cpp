@@ -38,12 +38,14 @@ std::ostream &nullStream() {
 std::atomic<bool> g_enabled{false};
 
 /**
- * The error stream: copied to stderr while logging is on, and always kept, a line at a time, for the Java side to
- * put into the game's log (drainErrors). Errors otherwise only reached a console players never see, and a black
+ * A stream kept a line at a time for the Java side to put into the game's log (drainErrors, drainInfo), and copied
+ * to the console while logging is on. Errors otherwise only reached a console players never see, and a black
  * world came with no reason in latest.log.
  */
-class ErrorBuffer : public std::streambuf {
+class LineBuffer : public std::streambuf {
   public:
+    explicit LineBuffer(std::ostream &echo) : echo_(echo) {}
+
     std::string drain() {
         std::scoped_lock lock(mutex_);
         std::string all;
@@ -69,7 +71,7 @@ class ErrorBuffer : public std::streambuf {
 
   private:
     void put(char c) {
-        if (g_enabled.load(std::memory_order_relaxed)) std::cerr.put(c);
+        if (g_enabled.load(std::memory_order_relaxed)) echo_.put(c);
         std::scoped_lock lock(mutex_);
         if (c == '\n') {
             if (lines_.size() >= 256) lines_.pop_front();
@@ -80,18 +82,30 @@ class ErrorBuffer : public std::streambuf {
         }
     }
 
+    std::ostream &echo_;
     std::mutex mutex_;
     std::deque<std::string> lines_;
     std::string current_;
 };
 
-ErrorBuffer &errorBuffer() {
-    static ErrorBuffer *buffer = new ErrorBuffer();
+LineBuffer &errorBuffer() {
+    static LineBuffer *buffer = new LineBuffer(std::cerr);
     return *buffer;
 }
 
 std::ostream &errorStream() {
     static std::ostream *stream = new std::ostream(&errorBuffer());
+    return *stream;
+}
+
+// Diagnostics: kept for the game's log too, but only while logging is on (it is by default).
+LineBuffer &infoBuffer() {
+    static LineBuffer *buffer = new LineBuffer(std::cout);
+    return *buffer;
+}
+
+std::ostream &infoStream() {
+    static std::ostream *stream = new std::ostream(&infoBuffer());
     return *stream;
 }
 
@@ -106,7 +120,11 @@ bool loggingEnabled() {
 }
 
 std::ostream &out() {
-    return loggingEnabled() ? std::cout : nullStream();
+    return loggingEnabled() ? infoStream() : nullStream();
+}
+
+std::string drainInfo() {
+    return infoBuffer().drain();
 }
 
 std::ostream &err() {
