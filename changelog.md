@@ -2,6 +2,53 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.5.0] - 2026-10-02
+
+First beta. Covers everything since 0.2.0 (0.3.0 and 0.4.0 were never documented here).
+
+### Added
+
+- **Linux support** (x86-64, glibc 2.35+). One jar per loader carries both the Windows and the Linux renderer and
+  picks the right one at start. Linux-specific fixes in the bundled FidelityFX and minizip builds, and a
+  `libcore.so` that only exports its JNI entry points.
+- **Smaller jars (about 15 MB, was 125 MB).** The native libraries ship xz-packed and are unpacked into the game
+  folder on first start, checked against their SHA-256.
+- **DLSS and XeSS on demand.** They are no longer in the jar. FSR (upscaling and frame generation) is built in and is
+  the default everywhere; on NVIDIA the first menu offers DLSS, on Intel XeSS. They are downloaded from NVIDIA's and
+  Intel's own repositories (fixed version, hash checked) with a progress bar. The Pipeline selector lists them as
+  `(Install)` / `(Restart required)`, and the settings bar has Install, Delete and Restart buttons. Installing or
+  deleting is done outside a world and always ends in a forced restart.
+- **NVIDIA Reflex without Streamline**, straight on `VK_NV_low_latency2`: no restart to toggle it, works on Linux, and
+  Streamline is gone.
+- **Distant Horizons: per-column coverage hiding**, as in Radiance's Vista. Far terrain is no longer remeshed when
+  chunks load; it is hidden per ray where the near terrain is built. Far terrain only counts as replaced once the
+  renderer actually draws what replaces it.
+- **Frame generation** on its own present thread, with native DLSS and FSR providers.
+- Froxel volumetric fog (Radiance style) with a fog-style toggle, rain refraction, light from dropped and emissive
+  entities (with a reach slider), seamless glass including panes, and a "Cache Deep Bounces" performance toggle.
+- Debug logging is on by default, and the renderer's own messages (errors always) now reach `latest.log` as
+  `[native] ...`, so one log is enough to report a problem.
+- GitHub Actions builds both renderers and the three loader jars, and publishes a release when `mod_version`
+  changes (and to Modrinth / CurseForge when configured).
+
+### Changed
+
+- Translucent particles (campfire smoke, dust) are kept by their alpha like solid surfaces instead of looking like
+  glass.
+- Tinted glass is dark and see-through but keeps its texture; glass reflections are capped.
+- Reset to Defaults now falls back to FSR instead of no upscaler.
+- Light grid and the Streamline frame generation were tried and removed (flicker, no gain).
+
+### Fixed
+
+- Black world on Linux with FSR: FidelityFX binding names were truncated on Linux, so FSR could not be created; and
+  minizip lacked deflate there, so the shader pack could not be extracted.
+- Black screen with no explanation on machines without hardware ray tracing (software Vulkan): the renderer now stays
+  off and says why.
+- Far-terrain blinking and holes when moving fast with Distant Horizons.
+- Fog glow on block edges and a bedrock-atmosphere glow on glass.
+- Crash on quit from static destructors running after the Vulkan driver was gone.
+
 ## [0.2.0] - 2026-09-26
 
 ### Added

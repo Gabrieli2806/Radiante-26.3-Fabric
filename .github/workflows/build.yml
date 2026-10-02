@@ -26,6 +26,7 @@ jobs:
       mod: ${{ steps.read.outputs.mod }}
       tag: ${{ steps.read.outputs.tag }}
       release: ${{ steps.read.outputs.release }}
+      mc: ${{ steps.read.outputs.mc }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +38,7 @@ jobs:
           tag="v${mod}+${mc}"
           echo "mod=$mod" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "mc=$mc" >> "$GITHUB_OUTPUT"
           # A release only for a version that has none yet, and only from a push (not from pull requests).
           if [ "${{ github.event_name }}" = "push" ] && ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
             echo "release=true" >> "$GITHUB_OUTPUT"
@@ -47,6 +49,8 @@ jobs:
 
   native-windows:
     runs-on: windows-latest
+    # A hung build otherwise holds the runner for GitHub's 6 h limit; a full build takes well under one.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - name: Vulkan SDK
@@ -80,6 +84,7 @@ jobs:
   native-linux:
     # glibc 2.35: libcore.so then loads on Ubuntu 22.04, Debian 12, Fedora 36 and newer (see README).
     runs-on: ubuntu-22.04
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain
@@ -186,3 +191,53 @@ jobs:
           name: Radiante ${{ needs.version.outputs.tag }}
           body_path: notes.md
           files: dist/*.jar
+
+  # Modrinth and CurseForge, one upload per loader. Set up once in the repository settings:
+  #   Secrets:   MODRINTH_TOKEN, CURSEFORGE_TOKEN
+  #   Variables: MODRINTH_ID, CURSEFORGE_ID (the projects' IDs, public anyway)
+  # A site whose token or ID is missing is skipped; the GitHub release does not depend on either.
+  publish:
+    needs: [version, release]
+    if: needs.version.outputs.release == 'true' && (vars.MODRINTH_ID != '' || vars.CURSEFORGE_ID != '')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - loader: fabric
+            name: Fabric
+            dependencies: fabric-api(required)
+          - loader: neoforge
+            name: NeoForge
+            dependencies: ''
+          - loader: forge
+            name: Forge
+            dependencies: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: radiante-${{ needs.version.outputs.tag }}
+          path: dist
+      - name: Release notes
+        run: |
+          awk -v v="${{ needs.version.outputs.mod }}" '
+            /^## / { if (found) exit; if (index($0, "[" v "]")) { found = 1; next } }
+            found { print }' changelog.md > notes.md || true
+          test -s notes.md || echo "Radiante ${{ needs.version.outputs.mod }}" > notes.md
+          ls dist/radiante-${{ matrix.loader }}-*.jar
+      - uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: ${{ vars.CURSEFORGE_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: dist/radiante-${{ matrix.loader }}-*.jar
+          name: Radiante ${{ needs.version.outputs.mod }} (${{ matrix.name }})
+          version: ${{ needs.version.outputs.mod }}+${{ matrix.loader }}
+          version-type: beta
+          loaders: ${{ matrix.loader }}
+          game-versions: ${{ needs.version.outputs.mc }}
+          java: 25
+          changelog-file: notes.md
+          dependencies: ${{ matrix.dependencies }}
