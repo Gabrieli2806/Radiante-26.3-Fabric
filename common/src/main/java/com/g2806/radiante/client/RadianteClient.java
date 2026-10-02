@@ -10,7 +10,9 @@ import com.g2806.radiante.client.pipeline.Pipeline;
 import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
+import java.io.BufferedInputStream;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -21,9 +23,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
+import org.tukaani.xz.XZInputStream;
 
 /**
  * Radiante's client side, independent of the mod loader. Each loader module calls {@link #init()} from its client
@@ -110,6 +121,8 @@ public final class RadianteClient {
             throw new RuntimeException(e);
         }
 
+        long unpackStart = System.nanoTime();
+        loadInstalledNatives();
         removeStaleNatives();
         copyFolder("shaders", radianceDir.resolve("shaders"));
         copyFolder(null, radianceDir.resolve("modules"), "/modules");
@@ -128,6 +141,11 @@ public final class RadianteClient {
             copyFile(LINUX_FOLDER + "/libcore.so", radianceDir.resolve("libcore.so"));
             copyFolder(null, radianceDir.resolve("dlss"), NATIVE_RESOURCE_ROOT + "/" + LINUX_FOLDER + "/dlss");
             System.load(radianceDir.resolve("libcore.so").toAbsolutePath().toString());
+        }
+        saveInstalledNatives();
+        if (unpackedNatives > 0) {
+            LOGGER.info("Radiante unpacked {} native libraries in {} ms", unpackedNatives,
+                (System.nanoTime() - unpackStart) / 1_000_000L);
         }
         nativeLoaded = true;
 
@@ -189,23 +207,161 @@ public final class RadianteClient {
     }
 
     private static boolean copyOptionalFile(String name, Path target) {
-        try (InputStream is = RadianteClient.class.getResourceAsStream(NATIVE_RESOURCE_ROOT + "/" + name)) {
-            if (is == null) {
-                return false;
-            }
-            try {
-                Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
+        String resource = NATIVE_RESOURCE_ROOT + "/" + name;
+        if (RadianteClient.class.getResource(resource + PACKED_SUFFIX) != null) {
+            unpackNative(name, () -> RadianteClient.class.getResourceAsStream(resource + PACKED_SUFFIX), target);
+            return true;
+        }
+        if (RadianteClient.class.getResource(resource) == null) {
+            return false;
+        }
+        writeNative(() -> RadianteClient.class.getResourceAsStream(resource), target);
+        return true;
+    }
+
+    // ---- packed natives ----
+
+    /** Released jars carry each native library xz-compressed under this suffix (see compressNatives in Gradle). */
+    private static final String PACKED_SUFFIX = ".xz";
+    /** What each packed library unpacks to, by its path in radiante-native: "sha256  path" per line. */
+    private static final String PACKED_MANIFEST = "natives.sha256";
+    /** What was unpacked into the game folder before, so unchanged libraries are not unpacked again each start. */
+    private static final String INSTALLED_MANIFEST = "natives.installed";
+
+    private static Map<String, String> packedHashes;
+    private static final Map<String, String> installedNatives = new TreeMap<>();
+    private static int unpackedNatives;
+
+    private static Map<String, String> packedHashes() {
+        if (packedHashes == null) {
+            packedHashes = new HashMap<>();
+            try (InputStream in = RadianteClient.class.getResourceAsStream(
+                NATIVE_RESOURCE_ROOT + "/" + PACKED_MANIFEST)) {
+                if (in != null) {
+                    for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+                        int split = line.indexOf("  ");
+                        if (split > 0) {
+                            packedHashes.put(line.substring(split + 2).trim(), line.substring(0, split).trim());
+                        }
+                    }
+                }
             } catch (IOException e) {
-                // A running client keeps the DLL locked; move it aside so this one gets the new build.
+                throw new UncheckedIOException(e);
+            }
+        }
+        return packedHashes;
+    }
+
+    /** "sha256 size path" per line, for the files unpacked into the game folder. */
+    private static void loadInstalledNatives() {
+        installedNatives.clear();
+        unpackedNatives = 0;
+        Path file = radianceDir.resolve(INSTALLED_MANIFEST);
+        try {
+            if (Files.exists(file)) {
+                for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+                    String[] parts = line.split(" ", 3);
+                    if (parts.length == 3) {
+                        installedNatives.put(parts[2], parts[0] + " " + parts[1]);
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+            // Everything is unpacked again.
+        }
+    }
+
+    private static void saveInstalledNatives() {
+        StringBuilder text = new StringBuilder();
+        installedNatives.forEach((path, state) -> text.append(state).append(' ').append(path).append('\n'));
+        try {
+            Files.writeString(radianceDir.resolve(INSTALLED_MANIFEST), text.toString(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            LOGGER.warn("Could not record the unpacked native libraries; they are unpacked again next start", e);
+        }
+    }
+
+    /**
+     * Unpacks one xz-packed library, unless the same one (by the hash the build recorded) is already in place. The
+     * unpacked file is checked against that hash, so a damaged jar or disk never gets loaded.
+     */
+    private static void unpackNative(String name, Supplier<InputStream> packed, Path target) {
+        String expected = packedHashes().get(name);
+        String recorded = installedNatives.get(name);
+        try {
+            if (expected != null && recorded != null && Files.exists(target)
+                && recorded.equals(expected + " " + Files.size(target))) {
+                return;
+            }
+            if (unpackedNatives == 0) {
+                LOGGER.info("Radiante is unpacking its native libraries (first start after installing or updating)");
+            }
+            writeNative(() -> unxz(packed.get()), target);
+            unpackedNatives++;
+            String actual = sha256(target);
+            if (expected != null && !expected.equals(actual)) {
+                throw new IllegalStateException("Unpacked " + name + " does not match the mod's checksum");
+            }
+            installedNatives.put(name, actual + " " + Files.size(target));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static InputStream unxz(InputStream in) {
+        if (in == null) {
+            throw new IllegalStateException("Packed native library missing from the jar");
+        }
+        try {
+            return new XZInputStream(new BufferedInputStream(in, 1 << 16));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static String sha256(Path file) throws IOException {
+        try (InputStream in = Files.newInputStream(file)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[1 << 16];
+            int n;
+            while ((n = in.read(buffer)) > 0) {
+                digest.update(buffer, 0, n);
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static InputStream open(Path file) {
+        try {
+            return Files.newInputStream(file);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * Writes a library into the game folder. A running client keeps its DLLs locked, so a locked one is deleted or
+     * moved aside (*.old, tidied next start) to make room for this build's.
+     */
+    private static void writeNative(Supplier<InputStream> source, Path target) {
+        try {
+            try (InputStream in = source.get()) {
+                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
                 try {
                     Files.deleteIfExists(target);
-                    Files.copy(RadianteClient.class.getResourceAsStream(NATIVE_RESOURCE_ROOT + "/" + name), target,
-                        StandardCopyOption.REPLACE_EXISTING);
+                    try (InputStream in = source.get()) {
+                        Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+                    }
                 } catch (IOException retry) {
                     try {
-                        Files.move(target, target.resolveSibling(target.getFileName() + "." + System.nanoTime() + ".old"));
-                        Files.copy(RadianteClient.class.getResourceAsStream(NATIVE_RESOURCE_ROOT + "/" + name), target,
-                            StandardCopyOption.REPLACE_EXISTING);
+                        Files.move(target,
+                            target.resolveSibling(target.getFileName() + "." + System.nanoTime() + ".old"));
+                        try (InputStream in = source.get()) {
+                            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+                        }
                     } catch (IOException giveUp) {
                         if (!Files.exists(target)) {
                             throw giveUp;
@@ -214,9 +370,8 @@ public final class RadianteClient {
                     }
                 }
             }
-            return true;
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -230,11 +385,15 @@ public final class RadianteClient {
      */
     private static void copyFolder(String ignored, Path target, String resourceFolder) {
         // A Linux-only build ships no core.dll, so its libcore.so (one folder deeper) serves as the anchor instead.
-        URL anchor = RadianteClient.class.getResource(NATIVE_RESOURCE_ROOT + "/core.dll");
-        int anchorDepth = 2;
-        if (anchor == null) {
-            anchor = RadianteClient.class.getResource(NATIVE_RESOURCE_ROOT + "/" + LINUX_FOLDER + "/libcore.so");
-            anchorDepth = 3;
+        // In a released jar the libraries are packed (.xz); natives.sha256 sits next to them.
+        URL anchor = null;
+        int anchorDepth = 0;
+        for (String candidate : new String[] {"/core.dll", "/" + PACKED_MANIFEST, "/" + LINUX_FOLDER + "/libcore.so"}) {
+            anchor = RadianteClient.class.getResource(NATIVE_RESOURCE_ROOT + candidate);
+            if (anchor != null) {
+                anchorDepth = candidate.split("/").length;
+                break;
+            }
         }
         if (anchor == null) {
             throw new IllegalStateException("Missing bundled native renderer (core.dll or " + LINUX_FOLDER
@@ -253,7 +412,7 @@ public final class RadianteClient {
                     created = true;
                 }
                 try {
-                    copyTree(requireFolder(fs.getPath(resourceFolder), resourceFolder), target);
+                    copyTree(requireFolder(fs.getPath(resourceFolder), resourceFolder), target, resourceFolder);
                 } finally {
                     if (created) {
                         fs.close();
@@ -265,7 +424,8 @@ public final class RadianteClient {
                 for (int i = 0; i < anchorDepth; i++) {
                     resourceRoot = resourceRoot.getParent();
                 }
-                copyTree(requireFolder(resourceRoot.resolve(resourceFolder.substring(1)), resourceFolder), target);
+                copyTree(requireFolder(resourceRoot.resolve(resourceFolder.substring(1)), resourceFolder), target,
+                    resourceFolder);
             }
         } catch (URISyntaxException | IOException e) {
             throw new RuntimeException("Failed to copy resource folder " + resourceFolder, e);
@@ -279,10 +439,21 @@ public final class RadianteClient {
         return folder;
     }
 
-    private static void copyTree(Path source, Path target) throws IOException {
+    private static void copyTree(Path source, Path target, String resourceFolder) throws IOException {
+        // Native libraries inside radiante-native are named by their path there in natives.sha256.
+        String nativePrefix = resourceFolder.startsWith(NATIVE_RESOURCE_ROOT + "/")
+            ? resourceFolder.substring(NATIVE_RESOURCE_ROOT.length() + 1) + "/" : null;
         try (Stream<Path> stream = Files.walk(source)) {
             for (Path file : (Iterable<Path>) stream.filter(Files::isRegularFile)::iterator) {
-                Path destination = target.resolve(source.relativize(file).toString());
+                String relative = source.relativize(file).toString().replace('\\', '/');
+                if (nativePrefix != null && relative.endsWith(PACKED_SUFFIX)) {
+                    String name = relative.substring(0, relative.length() - PACKED_SUFFIX.length());
+                    Path destination = target.resolve(name);
+                    Files.createDirectories(destination.getParent());
+                    unpackNative(nativePrefix + name, () -> open(file), destination);
+                    continue;
+                }
+                Path destination = target.resolve(relative);
                 Files.createDirectories(destination.getParent());
                 if (Files.exists(destination) && Files.size(destination) == Files.size(file)
                     && destination.getFileName().toString().contains("ngx")) {

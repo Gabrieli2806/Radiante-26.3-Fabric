@@ -452,7 +452,9 @@ public class RadianteOptionsScreen extends Screen {
     private void resetToDefaults() {
         Options.resetVisualDefaults();
         this.forgetStoredSettings = true;
-        this.pendingPreset = Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key) ? Presets.RT_DLSSRR : null;
+        // DLSS where the GPU has it, otherwise FSR, which every GPU runs: never back to no upscaler at all.
+        this.pendingPreset = Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key) ? Presets.RT_DLSSRR
+            : Pipeline.isPresetAvailable(Presets.RT_NRD_FSR.key) ? Presets.RT_NRD_FSR : null;
         this.pendingDlssMode = "render_pipeline.module.dlss.attribute.mode.ultra_performance";
         this.pendingGeneratedFrames = 0;
         this.pendingCloudMode = Pipeline.supportsClouds() ? Pipeline.CLOUD_MODES.get(1) : null;

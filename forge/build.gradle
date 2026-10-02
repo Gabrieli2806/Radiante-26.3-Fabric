@@ -43,11 +43,16 @@ dependencies {
 	bundled("org.yaml:snakeyaml:${rootProject.snakeyaml_version}") {
 		transitive = false
 	}
+	implementation "org.tukaani:xz:${rootProject.xz_version}"
+	bundled("org.tukaani:xz:${rootProject.xz_version}") {
+		transitive = false
+	}
 }
 
 def jarJarMetadata = tasks.register('jarJarMetadata') {
 	def output = layout.buildDirectory.file('jarjar/metadata.json')
 	def version = rootProject.snakeyaml_version
+	def xzVersion = rootProject.xz_version
 	outputs.file output
 	doLast {
 		output.get().asFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
@@ -55,6 +60,11 @@ def jarJarMetadata = tasks.register('jarJarMetadata') {
 				identifier: [group: 'org.yaml', artifact: 'snakeyaml'],
 				version: [range: "[${version},3)", artifactVersion: version],
 				path: "META-INF/jarjar/snakeyaml-${version}.jar",
+				isObfuscated: false
+			], [
+				identifier: [group: 'org.tukaani', artifact: 'xz'],
+				version: [range: "[${xzVersion},2)", artifactVersion: xzVersion],
+				path: "META-INF/jarjar/xz-${xzVersion}.jar",
 				isObfuscated: false
 			]]
 		]))
@@ -68,6 +78,8 @@ processResources {
 		expand props
 	}
 }
+
+rootProject.packNatives(tasks.jar)
 
 jar {
 	archiveFileName.set("${rootProject.archives_base_name}-forge-${project.version}+${rootProject.minecraft_version}.jar")

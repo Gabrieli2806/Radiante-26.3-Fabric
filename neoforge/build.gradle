@@ -37,6 +37,12 @@ dependencies {
 			prefer rootProject.snakeyaml_version
 		}
 	}
+	jarJar(implementation("org.tukaani:xz")) {
+		version {
+			strictly "[${rootProject.xz_version},2)"
+			prefer rootProject.xz_version
+		}
+	}
 }
 
 processResources {
@@ -47,6 +53,8 @@ processResources {
 		expand props
 	}
 }
+
+rootProject.packNatives(tasks.jar)
 
 jar {
 	archiveFileName.set("${rootProject.archives_base_name}-neoforge-${project.version}+${rootProject.minecraft_version}.jar")
