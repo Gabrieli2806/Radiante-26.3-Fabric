@@ -1,0 +1,184 @@
+# Builds the native renderer on Windows and Linux, packs both into the Fabric / NeoForge / Forge jars, and publishes a
+# GitHub release whenever mod_version in gradle.properties changes (tag v<mod_version>+<minecraft_version>).
+name: Build
+
+on:
+  push:
+    branches: [main, multiloader]
+    paths-ignore: ['**.md', 'docs/**', 'screenshots/**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VULKAN_SDK_VERSION: 1.4.341.1
+  # NVIDIA's DLSS SDK: the runtime libraries are not in this repository (native/extern/DLSS ignores lib/).
+  DLSS_SDK_TAG: v310.9.1
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      mod: ${{ steps.read.outputs.mod }}
+      tag: ${{ steps.read.outputs.tag }}
+      release: ${{ steps.read.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: read
+        run: |
+          mod=$(grep '^mod_version=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          tag="v${mod}+${mc}"
+          echo "mod=$mod" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # A release only for a version that has none yet, and only from a push (not from pull requests).
+          if [ "${{ github.event_name }}" = "push" ] && ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "New version $tag: a release will be published."
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  native-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vulkan SDK
+        shell: pwsh
+        run: |
+          $url = "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_SDK_VERSION.exe"
+          Invoke-WebRequest $url -OutFile vulkan-sdk.exe
+          Start-Process .\vulkan-sdk.exe -ArgumentList '--root', "C:\VulkanSDK\$env:VULKAN_SDK_VERSION", '--accept-licenses', '--default-answer', '--confirm-command', 'install' -Wait
+          "VULKAN_SDK=C:\VulkanSDK\$env:VULKAN_SDK_VERSION" >> $env:GITHUB_ENV
+          "C:\VulkanSDK\$env:VULKAN_SDK_VERSION\Bin" >> $env:GITHUB_PATH
+      - name: DLSS runtime
+        shell: bash
+        run: |
+          git clone --depth 1 --branch "$DLSS_SDK_TAG" https://github.com/NVIDIA/DLSS.git /tmp/dlss
+          mkdir -p native/extern/DLSS/lib && cp -r /tmp/dlss/lib/Windows_x86_64 native/extern/DLSS/lib/
+      - name: Configure
+        run: cmake -S native -B native/build/ci -A x64 -DMCVR_ENABLE_NRD=ON -DUSE_AMD=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      - name: Build
+        run: cmake --build native/build/ci --config Release --target INSTALL -- -m
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows
+          path: |
+            common/src/main/resources/radiante-native/*
+            !common/src/main/resources/radiante-native/linux-x64
+          if-no-files-found: error
+
+  native-linux:
+    # glibc 2.35: libcore.so then loads on Ubuntu 22.04, Debian 12, Fedora 36 and newer (see README).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y g++-13 ninja-build ccache
+          echo "CC=gcc-13" >> "$GITHUB_ENV"
+          echo "CXX=g++-13" >> "$GITHUB_ENV"
+      - name: Vulkan SDK
+        run: |
+          curl -sL "https://sdk.lunarg.com/sdk/download/$VULKAN_SDK_VERSION/linux/vulkansdk-linux-x86_64-$VULKAN_SDK_VERSION.tar.xz" -o vulkan-sdk.tar.xz
+          mkdir -p "$HOME/vulkan" && tar -xJf vulkan-sdk.tar.xz -C "$HOME/vulkan"
+          echo "VULKAN_SDK=$HOME/vulkan/$VULKAN_SDK_VERSION/x86_64" >> "$GITHUB_ENV"
+          echo "$HOME/vulkan/$VULKAN_SDK_VERSION/x86_64/bin" >> "$GITHUB_PATH"
+      - name: DLSS runtime
+        run: |
+          git clone --depth 1 --branch "$DLSS_SDK_TAG" https://github.com/NVIDIA/DLSS.git /tmp/dlss
+          mkdir -p native/extern/DLSS/lib && cp -r /tmp/dlss/lib/Linux_x86_64 native/extern/DLSS/lib/
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-${{ github.sha }}
+          restore-keys: ccache-linux-
+      - name: Build
+        run: native/build-linux.sh -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Check glibc requirement
+        run: |
+          lib=common/src/main/resources/radiante-native/linux-x64/libcore.so
+          objdump -T "$lib" | grep -oE 'GLIBC_2\.[0-9]+' | sort -Vu | tail -1
+          ! ldd "$lib" | grep -q 'not found'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-linux
+          path: common/src/main/resources/radiante-native/linux-x64
+          if-no-files-found: error
+
+  jars:
+    needs: [version, native-windows, native-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows
+          path: common/src/main/resources/radiante-native
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-linux
+          path: common/src/main/resources/radiante-native/linux-x64
+      - name: Both renderers present
+        run: |
+          for f in core.dll linux-x64/libcore.so; do
+            test -s "common/src/main/resources/radiante-native/$f" || { echo "missing $f"; exit 1; }
+          done
+      - name: Build jars
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+      - name: Collect
+        run: |
+          mkdir dist
+          find fabric/build/libs neoforge/build/libs forge/build/libs -name "radiante-*-${{ needs.version.outputs.mod }}+*.jar" \
+            ! -name '*-sources.jar' -exec cp {} dist/ \; 2>/dev/null || true
+          ls -la dist
+          test -n "$(ls dist)"
+          for j in dist/*.jar; do
+            unzip -l "$j" | grep -q 'radiante-native/core.dll' || { echo "$j has no core.dll"; exit 1; }
+            unzip -l "$j" | grep -q 'radiante-native/linux-x64/libcore.so' || { echo "$j has no libcore.so"; exit 1; }
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: radiante-${{ needs.version.outputs.tag }}
+          path: dist/*.jar
+
+  release:
+    needs: [version, jars]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: radiante-${{ needs.version.outputs.tag }}
+          path: dist
+      - name: Release notes
+        run: |
+          # The section of changelog.md for this version, when there is one.
+          awk -v v="${{ needs.version.outputs.mod }}" '
+            /^## / { if (found) exit; if (index($0, "[" v "]")) { found = 1; next } }
+            found { print }' changelog.md > notes.md || true
+          test -s notes.md || echo "Radiante ${{ needs.version.outputs.mod }}" > notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Radiante ${{ needs.version.outputs.tag }}
+          body_path: notes.md
+          files: dist/*.jar
