@@ -61,6 +61,9 @@ public class RendererProxy {
     public static native void setReflexEnabled(boolean enabled);
 
     /** True once the device has NVIDIA Reflex (VK_NV_low_latency2). */
+    /** Error lines the renderer wrote since the last call (null when none), for the game log. */
+    public static native String drainNativeErrors();
+
     public static native boolean isReflexSupported();
 
     /** Chains the Reflex swapchain structure into a VkSwapchainCreateInfoKHR, by address. */

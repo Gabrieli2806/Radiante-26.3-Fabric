@@ -154,6 +154,31 @@ public final class DevAutomation {
     }
 
     private static void run(Minecraft minecraft, String action) {
+        if (action.equals("settings")) {
+            minecraft.gui.setScreen(new com.g2806.radiante.client.gui.RadianteOptionsScreen(minecraft.gui.screen(), minecraft.options));
+            return;
+        }
+        if (action.startsWith("settings=")) {
+            minecraft.gui.setScreen(com.g2806.radiante.client.gui.RadianteOptionsScreen.showingPreset(minecraft.gui.screen(),
+                minecraft.options, com.g2806.radiante.client.pipeline.Presets.valueOf(action.substring(9))));
+            return;
+        }
+        if (action.startsWith("delete=")) {
+            com.g2806.radiante.client.download.UpscalerDownloads.delete(
+                com.g2806.radiante.client.download.UpscalerDownloads.Component.valueOf(
+                    action.substring(7).toUpperCase(java.util.Locale.ROOT)));
+            return;
+        }
+        if (action.startsWith("download=")) {
+            // download=dlss / download=xess: what the download button does, for testing the downloader.
+            var component = com.g2806.radiante.client.download.UpscalerDownloads.Component.valueOf(
+                action.substring(9).toUpperCase(java.util.Locale.ROOT));
+            com.g2806.radiante.client.download.UpscalerDownloads.start(component);
+            minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UpscalerDownloadScreen(minecraft.gui.screen(),
+                component, com.g2806.radiante.client.gui.UpscalerDownloadScreen.Mode.CONFIRM));
+            RadianteClient.LOGGER.info("[dev] download {} started", component.id);
+            return;
+        }
         if (action.startsWith("shot=")) {
             String name = action.substring(5) + ".png";
             Screenshot.grab(minecraft.gameDirectory, name, minecraft.gameRenderer.mainRenderTarget(), 1,

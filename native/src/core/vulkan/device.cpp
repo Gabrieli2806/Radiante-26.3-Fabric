@@ -141,7 +141,7 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
     bool dlssQueried = false;
     std::vector<VkExtensionProperties> dlssExtensions;
     if (NVSDK_NGX_FAILED(NgxContext::getDlssRRRequiredDeviceExtensions(instance, physicalDevice, dlssExtensions))) {
-        deviceCerr() << "dlss device extensions unavailable; skipping." << std::endl;
+        deviceCout() << "dlss device extensions unavailable; skipping." << std::endl;
     } else {
         dlssQueried = true;
         for (const auto &ext : dlssExtensions) {
@@ -163,7 +163,7 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
             requested.emplace_back(ext);
         }
     } else {
-        deviceCerr() << "xess device extensions unavailable; skipping." << std::endl;
+        deviceCout() << "xess device extensions unavailable; skipping." << std::endl;
     }
 #endif
 
@@ -410,7 +410,7 @@ VkResult vk::Device::createMerged(VkPhysicalDevice physicalDeviceHandle,
         if (!mcvr::XeSSWrapper::getRequiredDeviceFeatures(instance->vkInstance(), physicalDeviceHandle,
                                                           &featureChain)) {
             xessCompatible = false;
-            deviceCerr() << "xess device feature requirements are not fully satisfied." << std::endl;
+            deviceCout() << "xess device feature requirements are not fully satisfied." << std::endl;
         }
     }
 #endif

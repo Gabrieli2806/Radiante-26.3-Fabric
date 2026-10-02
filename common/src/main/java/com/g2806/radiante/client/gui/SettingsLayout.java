@@ -38,7 +38,11 @@ final class SettingsLayout {
     }
 
     /** What the bottom buttons do. */
-    record Actions(Runnable reset, Runnable undo, Runnable apply, Runnable done) {
+    record Actions(Runnable reset, Runnable undo, Runnable apply, Runnable done, Extra extra) {
+    }
+
+    /** A button for the option in focus, next to Undo: installing or deleting an upscaler. Null for none. */
+    record Extra(Component label, Component tooltip, Runnable action, boolean enabled) {
     }
 
     private static final int ACCENT = 0xFF8FE3C8;
@@ -168,10 +172,14 @@ final class SettingsLayout {
             x -= 4;
         }
         int left = this.sidebarX;
+        // The upscaler button takes the place of Advanced (not available yet) so the bar fits narrow windows.
         for (FlatButton button : List.of(
             flat("options.radiante.reset_defaults", "options.radiante.reset_defaults.tooltip", this.actions.reset(),
                 true),
-            flat("options.radiante.advanced", "options.radiante.advanced.tooltip", () -> { }, false))) {
+            this.actions.extra() != null
+                ? new FlatButton(this.actions.extra().label(), this.actions.extra().action(), this.actions.extra().enabled(),
+                    this.actions.extra().tooltip(), 0, 0, 0)
+                : flat("options.radiante.advanced", "options.radiante.advanced.tooltip", () -> { }, false))) {
             int w = this.font.width(button.label()) + 16;
             this.buttons.add(new FlatButton(button.label(), button.action(), button.enabled(), button.tooltip(), left, y,
                 w));

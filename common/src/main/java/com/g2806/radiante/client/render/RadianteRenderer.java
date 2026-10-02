@@ -63,6 +63,18 @@ public final class RadianteRenderer {
     private RadianteRenderer() {
     }
 
+    /** PCI vendor of the GPU in use: 0x10DE NVIDIA, 0x1002 AMD, 0x8086 Intel; 0 before the device exists. */
+    private static int gpuVendorId;
+    private static String gpuName = "";
+
+    public static boolean isNvidiaGpu() {
+        return gpuVendorId == 0x10DE;
+    }
+
+    public static boolean isIntelGpu() {
+        return gpuVendorId == 0x8086;
+    }
+
     public static boolean isActive() {
         return active;
     }
@@ -108,6 +120,12 @@ public final class RadianteRenderer {
     public static void onDeviceCreated(VulkanDevice device) {
         RadianteClient.ensureNativeLoaded();
         vkDevice = device.vkDevice();
+        try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+            org.lwjgl.vulkan.VkPhysicalDeviceProperties properties = org.lwjgl.vulkan.VkPhysicalDeviceProperties.calloc(stack);
+            org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceProperties(vkDevice.getPhysicalDevice(), properties);
+            gpuVendorId = properties.vendorID();
+            gpuName = properties.deviceNameString();
+        }
 
         long instance = device.instance().vkInstance().address();
         long physicalDevice = vkDevice.getPhysicalDevice().address();
@@ -157,7 +175,8 @@ public final class RadianteRenderer {
         Pipeline.migrateStoredDefaults();
         Pipeline.loadPipeline();
         Pipeline.build();
-        LOGGER.info("Radiante renderer initialised on Minecraft's Vulkan device");
+        LOGGER.info("Radiante renderer initialised on {} with the {} pipeline", gpuName,
+            Pipeline.INSTANCE.getActivePresetName());
     }
 
     /**

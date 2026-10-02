@@ -67,6 +67,10 @@ class XeSSWrapper {
     XeSSWrapper();
     ~XeSSWrapper();
 
+    // Whether libxess.dll is loaded (it is downloaded on demand); every XeSS call needs it.
+
+    static bool runtimePresent();
+
     static bool getRequiredInstanceExtensions(std::vector<const char *> &extensions, uint32_t *minVkApiVersion);
     static bool getRequiredDeviceExtensions(VkInstance instance,
                                             VkPhysicalDevice physicalDevice,

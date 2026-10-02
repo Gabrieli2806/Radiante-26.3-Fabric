@@ -98,8 +98,8 @@ void WorldPipeline::init(std::shared_ptr<Framework> framework, std::shared_ptr<P
         auto shaderPack = std::make_shared<ShaderPack>(framework);
         std::string error;
         if (!shaderPack->initialize(buildConfig, error)) {
-            // Always printed and carried in the exception: without a shader pack the world is only black.
-            std::cerr << "[World Pipeline] Failed to load shared shader pack. Reason: " << error << std::endl;
+            // Reported in the game log (radiante::err) and carried in the exception: without it the world is black.
+            radiante::err() << "[World Pipeline] Failed to load shared shader pack. Reason: " << error << std::endl;
             throw std::runtime_error("failed to load shared shader pack: " + error);
         }
         shaderPack_ = shaderPack;
@@ -341,7 +341,7 @@ void Pipeline::collectWorldModules() {
         worldModuleInOutImageNums.insert(std::make_pair(
             XessSrModule::NAME, std::make_pair(XessSrModule::inputImageNum, XessSrModule::outputImageNum)));
     } else {
-        radiante::err() << "[Pipeline] xess module skipped: incompatible instance/device extension requirements."
+        radiante::out() << "[Pipeline] xess module skipped: incompatible instance/device extension requirements."
                   << std::endl;
     }
 #endif
@@ -367,10 +367,10 @@ void Pipeline::collectWorldModules() {
                 DLSSModule::NAME, std::make_pair(DLSSModule::inputImageNum, DLSSModule::outputImageNum)));
             worldModuleStaticPreCloser.insert(std::make_pair(DLSSModule::NAME, DLSSModule::deinitNGXContext));
         } else {
-            radiante::err() << "[Pipeline] dlss module skipped: NGX initialization/query failed." << std::endl;
+            radiante::out() << "[Pipeline] dlss module skipped: NGX initialization/query failed." << std::endl;
         }
     } else {
-        radiante::err() << "[Pipeline] dlss module skipped: incompatible instance/device extension requirements."
+        radiante::out() << "[Pipeline] dlss module skipped: incompatible instance/device extension requirements."
                   << std::endl;
     }
 

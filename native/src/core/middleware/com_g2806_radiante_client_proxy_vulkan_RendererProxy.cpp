@@ -239,4 +239,9 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
                                                                                                       jint marker) {
     framegen::FrameGeneration::marker(marker);
 }
+
+JNIEXPORT jstring JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_drainNativeErrors(JNIEnv *env, jclass) {
+    std::string errors = radiante::drainErrors();
+    return errors.empty() ? nullptr : env->NewStringUTF(errors.c_str());
+}
 }

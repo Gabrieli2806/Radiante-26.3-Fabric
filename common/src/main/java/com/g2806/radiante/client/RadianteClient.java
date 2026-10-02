@@ -59,11 +59,31 @@ public final class RadianteClient {
     }
 
     public static void onEndClientTick(Minecraft minecraft) {
+        logNativeErrors();
+
         // The warning has to wait for a screen to exist, so it goes up on the first menu after startup.
         if (!RadianteRenderer.isActive()
             && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen title
             && com.g2806.radiante.client.gui.UnsupportedHardwareScreen.shouldShow()) {
             minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UnsupportedHardwareScreen(title));
+        }
+        // After installing or removing an upscaler the game must restart before going on: nothing else is offered.
+        var restart = com.g2806.radiante.client.download.UpscalerDownloads.restartRequiredFor();
+        if (restart != null && !(minecraft.gui.screen() instanceof com.g2806.radiante.client.gui.UpscalerDownloadScreen screen
+            && screen.isRestartScreen())) {
+            minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UpscalerDownloadScreen(minecraft.gui.screen(),
+                restart, com.g2806.radiante.client.gui.UpscalerDownloadScreen.Mode.RESTART));
+            return;
+        }
+        // DLSS or XeSS are downloaded on request; the first menu offers the one that suits this GPU.
+        if (RadianteRenderer.isActive()
+            && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen title) {
+            var offer = com.g2806.radiante.client.download.UpscalerDownloads.offerOnStartup(
+                RadianteRenderer.isNvidiaGpu(), RadianteRenderer.isIntelGpu());
+            if (offer != null) {
+                minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UpscalerDownloadScreen(title, offer,
+                    com.g2806.radiante.client.gui.UpscalerDownloadScreen.Mode.OFFER));
+            }
         }
 
         while (RadianteKeys.OPEN_SETTINGS.consumeClick()) {
@@ -124,12 +144,19 @@ public final class RadianteClient {
         long unpackStart = System.nanoTime();
         loadInstalledNatives();
         removeStaleNatives();
+        com.g2806.radiante.client.download.UpscalerDownloads.applyPendingDeletes();
         copyFolder("shaders", radianceDir.resolve("shaders"));
         copyFolder(null, radianceDir.resolve("modules"), "/modules");
         if (windows) {
-            copyOptionalFile("libxess.dll");
+            if (!com.g2806.radiante.client.download.UpscalerDownloads.isRemovedByPlayer(
+                com.g2806.radiante.client.download.UpscalerDownloads.Component.XESS)) {
+                copyOptionalFile("libxess.dll");
+            }
             copyFile("core.dll");
-            copyFolder("dlss", radianceDir.resolve("dlss"));
+            if (!com.g2806.radiante.client.download.UpscalerDownloads.isRemovedByPlayer(
+                com.g2806.radiante.client.download.UpscalerDownloads.Component.DLSS)) {
+                copyOptionalFolder(NATIVE_RESOURCE_ROOT + "/dlss", radianceDir.resolve("dlss"));
+            }
 
             Path xess = radianceDir.resolve("libxess.dll");
             if (Files.exists(xess)) {
@@ -139,7 +166,10 @@ public final class RadianteClient {
         } else {
             // Linux: no XeSS or Streamline (both Windows only); the renderer and DLSS come from their own folder.
             copyFile(LINUX_FOLDER + "/libcore.so", radianceDir.resolve("libcore.so"));
-            copyFolder(null, radianceDir.resolve("dlss"), NATIVE_RESOURCE_ROOT + "/" + LINUX_FOLDER + "/dlss");
+            if (!com.g2806.radiante.client.download.UpscalerDownloads.isRemovedByPlayer(
+                com.g2806.radiante.client.download.UpscalerDownloads.Component.DLSS)) {
+                copyOptionalFolder(NATIVE_RESOURCE_ROOT + "/" + LINUX_FOLDER + "/dlss", radianceDir.resolve("dlss"));
+            }
             System.load(radianceDir.resolve("libcore.so").toAbsolutePath().toString());
         }
         saveInstalledNatives();
@@ -154,6 +184,39 @@ public final class RadianteClient {
         Options.readOptions();
         Pipeline.reloadAllModuleEntries();
         LOGGER.info("Radiante native renderer loaded from {}", radianceDir);
+    }
+
+    private static String lastNativeError;
+    private static int lastNativeErrorRepeats;
+
+    /**
+     * The renderer's error lines, into the game log: a player's latest.log is all that comes back with a report, and
+     * a renderer that fails every frame would otherwise leave a black world with no reason given. A line repeated
+     * frame after frame is written once, with a count when it stops.
+     */
+    private static void logNativeErrors() {
+        if (!nativeLoaded) {
+            return;
+        }
+        String errors = RendererProxy.drainNativeErrors();
+        if (errors == null) {
+            return;
+        }
+        for (String line : errors.split("\n")) {
+            if (line.isBlank()) {
+                continue;
+            }
+            if (line.equals(lastNativeError)) {
+                lastNativeErrorRepeats++;
+                continue;
+            }
+            if (lastNativeErrorRepeats > 0) {
+                LOGGER.warn("[native] (previous line repeated {} more times)", lastNativeErrorRepeats);
+            }
+            lastNativeError = line;
+            lastNativeErrorRepeats = 0;
+            LOGGER.warn("[native] {}", line);
+        }
     }
 
     private static void sendStatus(net.minecraft.client.Minecraft minecraft, String translationKey) {
@@ -372,6 +435,20 @@ public final class RadianteClient {
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * DLSS ships in development builds only; released jars leave it to be downloaded (UpscalerDownloads), so its
+     * folder may be missing.
+     */
+    private static void copyOptionalFolder(String resourceFolder, Path target) {
+        boolean present = RadianteClient.class.getResource(resourceFolder + "/nvngx_dlss.dll") != null
+            || RadianteClient.class.getResource(resourceFolder + "/nvngx_dlss.dll.xz") != null
+            || RadianteClient.class.getResource(resourceFolder + "/libnvidia-ngx-dlss.so.310.9.1") != null
+            || RadianteClient.class.getResource(resourceFolder + "/libnvidia-ngx-dlss.so.310.9.1.xz") != null;
+        if (present) {
+            copyFolder(null, target, resourceFolder);
         }
     }
 

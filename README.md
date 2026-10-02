@@ -39,6 +39,10 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
   - Fabric Loader 0.19.5+ and Fabric API 0.160.5+26.3,
   - NeoForge 26.3.0.10-beta+,
   - Forge 26.3-66.0.3+.
+- FSR (upscaling and frame generation) is built in. NVIDIA DLSS (~115 MB) and Intel XeSS (~73 MB, Windows only)
+  are downloaded in game on request, from NVIDIA's and Intel's own repositories, and used from the next start;
+  the first menu offers DLSS on NVIDIA GPUs and XeSS on Intel ones, and Radiante settings can download or delete
+  either.
 - NVIDIA Reflex needs an NVIDIA GPU and driver with `VK_NV_low_latency2` (Windows and Linux); the option is hidden
   elsewhere.
 - Java 25.

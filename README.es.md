@@ -43,6 +43,10 @@ mismo frame.
   - Fabric Loader 0.19.5+ y Fabric API 0.160.5+26.3,
   - NeoForge 26.3.0.10-beta+,
   - Forge 26.3-66.0.3+.
+- FSR (escalado y generación de frames) viene incluido. NVIDIA DLSS (~115 MB) e Intel XeSS (~73 MB, solo Windows)
+  se descargan dentro del juego cuando se piden, desde los repositorios oficiales de NVIDIA e Intel, y se usan desde
+  el siguiente inicio; el primer menú ofrece DLSS en GPUs NVIDIA y XeSS en Intel, y los ajustes de Radiante permiten
+  descargarlos o borrarlos.
 - NVIDIA Reflex requiere una GPU NVIDIA con un driver que tenga `VK_NV_low_latency2` (Windows y Linux); en otras
   GPUs la opción no aparece.
 - Java 25.

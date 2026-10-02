@@ -61,6 +61,10 @@ if(MCVR_ENABLE_XESS)
         target_compile_definitions(core PUBLIC MCVR_ENABLE_XESS)
 
         if(WIN32)
+            # libxess.dll is downloaded on demand (the mod does not ship it), so core.dll must load without it:
+            # delay-loaded, and only called once XeSSWrapper::runtimePresent() sees it loaded.
+            target_link_options(core PRIVATE "/DELAYLOAD:libxess.dll")
+            target_link_libraries(core PRIVATE delayimp)
             # Only the upscaler. The SDK also ships libxess_fg.dll (frame generation) and libxess_dx11.dll, both for
             # DirectX; neither is used here, and together they added some 30 MB to every jar.
             file(GLOB XESS_RUNTIME_DLLS "${PROJECT_SOURCE_DIR}/extern/xess/bin/libxess.dll")

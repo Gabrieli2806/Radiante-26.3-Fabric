@@ -54,17 +54,20 @@ ext.commonResources = file('common/src/main/resources')
 // resources folder directly and keep the plain files.
 ext.nativeResources = file('common/src/main/resources/radiante-native')
 
+// DLSS and XeSS are downloaded by the player on request (UpscalerDownloads), not shipped.
+def NOT_SHIPPED = ['**/dlss/**', '**/libxess.dll']
+
 def compressNatives = tasks.register('compressNatives') {
 	def source = nativeResources
 	def output = layout.buildDirectory.dir('compressed-natives')
-	inputs.files(fileTree(source) { include '**/*.dll', '**/*.so', '**/*.so.*' })
+	inputs.files(fileTree(source) { include '**/*.dll', '**/*.so', '**/*.so.*' ; exclude NOT_SHIPPED })
 	outputs.dir output
 	doLast {
 		def out = output.get().asFile
 		project.delete(out)
 		out.mkdirs()
 		def manifest = new StringBuilder()
-		def tree = fileTree(source) { include '**/*.dll', '**/*.so', '**/*.so.*' }
+		def tree = fileTree(source) { include '**/*.dll', '**/*.so', '**/*.so.*' ; exclude NOT_SHIPPED }
 		tree.visit { details ->
 			if (details.directory) {
 				return

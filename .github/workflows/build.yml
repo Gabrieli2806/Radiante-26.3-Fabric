@@ -15,11 +15,9 @@ concurrency:
 
 env:
   VULKAN_SDK_VERSION: 1.4.341.1
-  # NVIDIA's DLSS SDK: the runtime libraries are not in this repository (native/extern/DLSS ignores lib/).
+  # NVIDIA's DLSS SDK, for the NGX libraries the renderer links against (native/extern/DLSS ignores lib/). Its
+  # runtimes are not shipped: players download DLSS (and XeSS) in game, see UpscalerDownloads.
   DLSS_SDK_TAG: v310.9.1
-  # Intel's XeSS SDK (upscaler runtime, Windows only), checked against the copy the mod has been tested with.
-  XESS_SDK_VERSION: 3.0.2
-  XESS_DLL_SHA256: 251659dd84a3e84de67c886a4186e01f3eca49b00641906fe38bb6b807e5d5b7
 
 jobs:
   version:
@@ -59,19 +57,11 @@ jobs:
           Start-Process .\vulkan-sdk.exe -ArgumentList '--root', "C:\VulkanSDK\$env:VULKAN_SDK_VERSION", '--accept-licenses', '--default-answer', '--confirm-command', 'install' -Wait
           "VULKAN_SDK=C:\VulkanSDK\$env:VULKAN_SDK_VERSION" >> $env:GITHUB_ENV
           "C:\VulkanSDK\$env:VULKAN_SDK_VERSION\Bin" >> $env:GITHUB_PATH
-      - name: DLSS runtime
+      - name: DLSS SDK libraries
         shell: bash
         run: |
           git clone --depth 1 --branch "$DLSS_SDK_TAG" https://github.com/NVIDIA/DLSS.git /tmp/dlss
           mkdir -p native/extern/DLSS/lib && cp -r /tmp/dlss/lib/Windows_x86_64 native/extern/DLSS/lib/
-      - name: XeSS runtime
-        shell: bash
-        run: |
-          # libxess.dll is not in this repository either (only the headers and import libraries are).
-          curl -sSL -o xess.zip "https://github.com/intel/xess/releases/download/v$XESS_SDK_VERSION/XeSS_SDK_$XESS_SDK_VERSION.zip"
-          mkdir -p native/extern/xess/bin
-          unzip -p xess.zip bin/libxess.dll > native/extern/xess/bin/libxess.dll
-          echo "$XESS_DLL_SHA256  native/extern/xess/bin/libxess.dll" | sha256sum -c -
       # bash, not PowerShell: PowerShell splits -DCMAKE_POLICY_VERSION_MINIMUM=3.5 into "3" and ".5".
       - name: Configure
         shell: bash
@@ -105,7 +95,7 @@ jobs:
           mkdir -p "$HOME/vulkan" && tar -xJf vulkan-sdk.tar.xz -C "$HOME/vulkan"
           echo "VULKAN_SDK=$HOME/vulkan/$VULKAN_SDK_VERSION/x86_64" >> "$GITHUB_ENV"
           echo "$HOME/vulkan/$VULKAN_SDK_VERSION/x86_64/bin" >> "$GITHUB_PATH"
-      - name: DLSS runtime
+      - name: DLSS SDK libraries
         run: |
           git clone --depth 1 --branch "$DLSS_SDK_TAG" https://github.com/NVIDIA/DLSS.git /tmp/dlss
           mkdir -p native/extern/DLSS/lib && cp -r /tmp/dlss/lib/Linux_x86_64 native/extern/DLSS/lib/
@@ -164,7 +154,6 @@ jobs:
           for j in dist/*.jar; do
             unzip -l "$j" | grep -q 'radiante-native/core.dll' || { echo "$j has no core.dll"; exit 1; }
             unzip -l "$j" | grep -q 'radiante-native/linux-x64/libcore.so' || { echo "$j has no libcore.so"; exit 1; }
-            unzip -l "$j" | grep -q 'radiante-native/libxess.dll' || { echo "$j has no libxess.dll"; exit 1; }
           done
       - uses: actions/upload-artifact@v4
         with:

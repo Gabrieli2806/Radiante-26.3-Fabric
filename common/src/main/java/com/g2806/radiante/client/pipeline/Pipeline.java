@@ -42,7 +42,7 @@ public class Pipeline {
     private static final String VANILLA_RAY_TRACING_SHADER_PACK_PATH = "shaders/world/ray_tracing/vanilla-pt.zip";
     private static final String INTERNAL_RAY_TRACING_SHADER_PACK_PATH = VANILLA_RAY_TRACING_SHADER_PACK_PATH;
     private static final String SHADER_PACK_CONFIG_FILE = "configs.json";
-    private static final String DLSS_MODULE_NAME = "render_pipeline.module.dlss.name";
+    public static final String DLSS_MODULE_NAME = "render_pipeline.module.dlss.name";
     private static final String NRD_MODULE_NAME = "render_pipeline.module.nrd.name";
     private static final String TEMPORAL_ACCUMULATION_MODULE_NAME = "render_pipeline.module.temporal_accumulation.name";
     private static final String FSR3_MODULE_NAME = "render_pipeline.module.fsr_upscaler.name";

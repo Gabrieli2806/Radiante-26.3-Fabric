@@ -60,7 +60,7 @@ VkResult vk::Instance::createMerged(const VkInstanceCreateInfo *baseInfo,
             dlssRequired.emplace_back(ext.extensionName);
         }
     } else {
-        instanceCerr() << "failed to query dlss instance extensions; skipping." << std::endl;
+        instanceCout() << "failed to query dlss instance extensions; skipping." << std::endl;
     }
 
 #ifdef MCVR_ENABLE_XESS
@@ -76,7 +76,7 @@ VkResult vk::Instance::createMerged(const VkInstanceCreateInfo *baseInfo,
         }
         appInfo.apiVersion = std::max(appInfo.apiVersion, xessMinApiVersion);
     } else {
-        instanceCerr() << "xess instance extensions unavailable; skipping." << std::endl;
+        instanceCout() << "xess instance extensions unavailable; skipping." << std::endl;
     }
 #endif
 

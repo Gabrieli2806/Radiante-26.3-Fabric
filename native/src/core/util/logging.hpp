@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ostream>
+#include <string>
 
 namespace radiante {
 
@@ -16,7 +17,10 @@ bool loggingEnabled();
 /** std::cout while logging is on, and a stream that discards everything while it is off. */
 std::ostream &out();
 
-/** The same for the error stream, so a silenced build stays silent on both. */
+/** Errors: on stderr while logging is on, and always kept for the game's log (drainErrors). */
 std::ostream &err();
+
+/** The error lines written since the last call, one per line. */
+std::string drainErrors();
 
 } // namespace radiante

@@ -1,5 +1,7 @@
 package com.g2806.radiante.client.gui;
 
+import com.g2806.radiante.client.download.UpscalerDownloads;
+import com.g2806.radiante.client.render.RadianteRenderer;
 import com.g2806.radiante.client.RadianteClient;
 import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.render.FrameGeneration;
@@ -24,6 +26,8 @@ public class RadianteOptionsScreen extends Screen {
     public static final Component TITLE = Component.translatable("options.radiante.title");
 
     private Presets pendingPreset;
+    /** A pipeline picked that needs a download or a restart first: shown, with Install / Restart below, not applied. */
+    private Presets shownPreset;
     private String pendingDlssMode;
     /** FSR or XeSS render resolution mode; null when neither is in the pipeline. */
     private String pendingUpscalerMode;
@@ -95,6 +99,7 @@ public class RadianteOptionsScreen extends Screen {
     private RadianteOptionsScreen(RadianteOptionsScreen previous) {
         this(previous.lastScreen, previous.options);
         this.pendingPreset = previous.pendingPreset;
+        this.shownPreset = previous.shownPreset;
         this.pendingDlssMode = previous.pendingDlssMode;
         this.pendingUpscalerMode = previous.pendingUpscalerMode;
         this.pendingFarBounceDistance = previous.pendingFarBounceDistance;
@@ -173,6 +178,14 @@ public class RadianteOptionsScreen extends Screen {
                 available.add(preset);
             }
         }
+        // DLSS and XeSS are downloaded on request: they are listed even when missing, and picking one offers it.
+        List<Presets> listed = new ArrayList<>(available);
+        for (Presets preset : Presets.values()) {
+            UpscalerDownloads.Component needed = downloadFor(preset);
+            if (!listed.contains(preset) && needed != null && offersDownload(needed)) {
+                listed.add(preset);
+            }
+        }
         if (available.isEmpty()) {
             return null;
         }
@@ -188,12 +201,29 @@ public class RadianteOptionsScreen extends Screen {
             active = this.pendingPreset;
         }
         this.pendingPreset = active;
+        if (this.shownPreset != null && listed.contains(this.shownPreset) && !available.contains(this.shownPreset)) {
+            active = this.shownPreset;
+        } else {
+            this.shownPreset = null;
+        }
 
         return new OptionInstance<>("options.radiante.preset", OptionInstance.noTooltip(),
-            (caption, value) -> Component.translatable(value.key),
-            new OptionInstance.Enum<>(available, Codec.STRING.xmap(Presets::valueOf, Presets::name)), active,
+            (caption, value) -> available.contains(value) ? Component.translatable(value.key)
+                : Component.translatable(value.key).append(" ").append(Component.translatable(
+                    UpscalerDownloads.isInstalled(downloadFor(value)) ? "options.radiante.download.restart_needed"
+                        : "options.radiante.download.needed")),
+            new OptionInstance.Enum<>(listed, Codec.STRING.xmap(Presets::valueOf, Presets::name)), active,
             value -> {
-                boolean changed = value != this.pendingPreset;
+                if (!available.contains(value)) {
+                    // Not usable yet: shown with Install (or Restart) at the bottom; the applied choice stays.
+                    this.shownPreset = value;
+                    if (this.minecraft != null) {
+                        this.minecraft.execute(this::reopenWithSameChoices);
+                    }
+                    return;
+                }
+                boolean changed = value != this.pendingPreset || this.shownPreset != null;
+                this.shownPreset = null;
                 this.pendingPreset = value;
                 // Which of the settings below make sense depends on this one, so the screen has to be laid out
                 // again. Doing it straight away would edit the widget list that is handling this very click.
@@ -201,6 +231,79 @@ public class RadianteOptionsScreen extends Screen {
                     this.minecraft.execute(this::reopenWithSameChoices);
                 }
             });
+    }
+
+    /** The download a preset needs, or null when it needs none. */
+    private static UpscalerDownloads.Component downloadFor(Presets preset) {
+        return switch (preset) {
+            case RT_DLSSRR -> UpscalerDownloads.Component.DLSS;
+            case RT_NRD_XESS -> UpscalerDownloads.Component.XESS;
+            default -> null;
+        };
+    }
+
+    /** DLSS only on NVIDIA GPUs; XeSS wherever its runtime exists (Windows). */
+    private static boolean offersDownload(UpscalerDownloads.Component component) {
+        if (!component.offeredHere()) {
+            return false;
+        }
+        return component != UpscalerDownloads.Component.DLSS || RadianteRenderer.isNvidiaGpu();
+    }
+
+    /**
+     * The bottom-bar button for the upscaler of the pipeline in the selector: Install when it is not downloaded,
+     * Restart when it is downloaded but not loaded yet, Delete when it is in use. None for FSR and the others.
+     */
+    /** Development: opens the settings looking at a pipeline, as if picked in the selector. */
+    public static RadianteOptionsScreen showingPreset(Screen parent, net.minecraft.client.Options options, Presets preset) {
+        RadianteOptionsScreen screen = new RadianteOptionsScreen(parent, options);
+        screen.shownPreset = preset;
+        return screen;
+    }
+
+    private SettingsLayout.Extra upscalerFooterButton() {
+        Presets shown = this.shownPreset != null ? this.shownPreset : this.pendingPreset;
+        UpscalerDownloads.Component component = shown == null ? null : downloadFor(shown);
+        if (component == null || !offersDownload(component)) {
+            return null;
+        }
+        String name = component == UpscalerDownloads.Component.DLSS ? "DLSS" : "XeSS";
+        // Installing or deleting swaps libraries the renderer loads at start: done from the menus, then a restart.
+        boolean inWorld = this.minecraft != null && this.minecraft.level != null;
+        Component manageTooltip = Component.translatable(inWorld ? "options.radiante.download.leave_world"
+            : "options.radiante.download.tooltip");
+        var progress = UpscalerDownloads.running(component);
+        if (progress != null && !progress.finished) {
+            return new SettingsLayout.Extra(Component.translatable("options.radiante.download.button.downloading",
+                name, Math.round(progress.fraction() * 100.0f)), null, () -> openUpscalerScreen(component), true);
+        }
+        if (!UpscalerDownloads.isInstalled(component)) {
+            return new SettingsLayout.Extra(Component.translatable("options.radiante.download.button.install", name,
+                Math.round(component.downloadBytes / 1_000_000.0)),
+                manageTooltip, () -> openUpscalerScreen(component), !inWorld);
+        }
+        if (!Pipeline.isPresetAvailable(shown.key)) {
+            return new SettingsLayout.Extra(Component.translatable("options.radiante.download.button.restart", name),
+                null, () -> {
+                    this.applied = true;
+                    this.minecraft.gui.setScreen(new RestartRequiredScreen(new RadianteOptionsScreen(this),
+                        List.of(Component.literal(name))));
+                }, true);
+        }
+        return new SettingsLayout.Extra(Component.translatable("options.radiante.download.button.delete", name),
+            manageTooltip, () -> openUpscalerScreen(component), !inWorld);
+    }
+
+    /** Downloads, deletes or reports on an upscaler, coming back to these settings afterwards. */
+    private void openUpscalerScreen(UpscalerDownloads.Component component) {
+        if (this.minecraft == null) {
+            return;
+        }
+        this.applied = true;
+        Screen back = new RadianteOptionsScreen(this);
+        UpscalerDownloadScreen.Mode mode = UpscalerDownloads.isInstalled(component)
+            ? UpscalerDownloadScreen.Mode.DELETE : UpscalerDownloadScreen.Mode.CONFIRM;
+        this.minecraft.gui.setScreen(new UpscalerDownloadScreen(back, component, mode));
     }
 
     /** Clouds come from the shader pack, which ray marches them, so nothing has to be submitted for them. */
@@ -924,7 +1027,7 @@ public class RadianteOptionsScreen extends Screen {
                         return fresh;
                     });
                 },
-                this::onClose),
+                this::onClose, upscalerFooterButton()),
             value -> this.scroll = value);
         this.layout.restartInfo(new SettingsLayout.RestartInfo() {
             @Override

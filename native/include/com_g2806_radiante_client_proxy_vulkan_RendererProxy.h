@@ -169,6 +169,14 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    drainNativeErrors
+ * Signature: ()Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_drainNativeErrors
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
  * Method:    isReflexSupported
  * Signature: ()Z
  */

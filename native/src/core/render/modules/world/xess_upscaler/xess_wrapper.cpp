@@ -8,12 +8,26 @@
 #endif
 #include "core/util/logging.hpp"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace mcvr {
 
 XeSSWrapper::XeSSWrapper() = default;
 
 XeSSWrapper::~XeSSWrapper() {
     destroy();
+}
+
+bool XeSSWrapper::runtimePresent() {
+#if defined(MCVR_ENABLE_XESS) && defined(_WIN32)
+    // libxess.dll is delay-loaded and only there once the player has downloaded XeSS; the mod loads it before
+    // core.dll when it is. Without it no XeSS entry point may be called at all.
+    return GetModuleHandleW(L"libxess.dll") != nullptr;
+#else
+    return false;
+#endif
 }
 
 bool XeSSWrapper::getRequiredInstanceExtensions(std::vector<const char *> &extensions, uint32_t *minVkApiVersion) {
@@ -26,6 +40,7 @@ bool XeSSWrapper::getRequiredInstanceExtensions(std::vector<const char *> &exten
     uint32_t count = 0;
     const char *const *rawExtensions = nullptr;
     uint32_t minVersion = 0;
+    if (!runtimePresent()) { return false; }
     xess_result_t result = xessVKGetRequiredInstanceExtensions(&count, &rawExtensions, &minVersion);
     if (result != XESS_RESULT_SUCCESS) {
         radiante::err() << "[XeSS] xessVKGetRequiredInstanceExtensions failed: " << static_cast<int>(result) << std::endl;
@@ -53,6 +68,7 @@ bool XeSSWrapper::getRequiredDeviceExtensions(VkInstance instance,
 #else
     uint32_t count = 0;
     const char *const *rawExtensions = nullptr;
+    if (!runtimePresent()) { return false; }
     xess_result_t result = xessVKGetRequiredDeviceExtensions(instance, physicalDevice, &count, &rawExtensions);
     if (result != XESS_RESULT_SUCCESS) {
         radiante::err() << "[XeSS] xessVKGetRequiredDeviceExtensions failed: " << static_cast<int>(result) << std::endl;
@@ -73,6 +89,7 @@ bool XeSSWrapper::getRequiredDeviceFeatures(VkInstance instance, VkPhysicalDevic
     (void)features;
     return false;
 #else
+    if (!runtimePresent()) { return false; }
     xess_result_t result = xessVKGetRequiredDeviceFeatures(instance, physicalDevice, features);
     if (result != XESS_RESULT_SUCCESS) {
         radiante::err() << "[XeSS] xessVKGetRequiredDeviceFeatures failed: " << static_cast<int>(result) << std::endl;
