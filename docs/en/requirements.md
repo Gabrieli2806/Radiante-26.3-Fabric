@@ -4,20 +4,42 @@
 
 ## System
 
-| | |
-|---|---|
-| Operating system | Windows x64. It is the only supported platform for now (see [ROADMAP.md](../../ROADMAP.md), "Investigate: backport to 26.1" section for the status of other versions; Linux/macOS are not planned in the short term). |
-| Minecraft | 26.3 |
-| Java | 25 |
-| GPU | A card with hardware ray tracing support in Vulkan: `VK_KHR_ray_tracing_pipeline` and `VK_KHR_acceleration_structure`. In practice, NVIDIA RTX 20-series or newer, AMD RX 6000 or newer, or Intel Arc. |
-| Graphics API | Vulkan. The game has to be using the `com.mojang.renderpearl` Vulkan backend, not OpenGL — see [installation](installation.md#first-launch) and [common problems](problems.md#the-game-is-running-on-opengl). |
+| | Windows | Linux |
+|---|---|---|
+| Architecture | x64 | x86-64 |
+| Minimum version | Windows 10/11 | glibc 2.35 or newer: Ubuntu 22.04, Debian 12, Fedora 36 or later |
+| Graphics API | Vulkan | Vulkan, on the GPU's real driver (not `llvmpipe`) |
+| Java | 25 | 25 |
+| Minecraft | 26.3 | 26.3 |
 
-If your GPU does not report ray tracing support, the game keeps running with Minecraft's own
-renderer; Radiante simply does not turn on. There is no software fallback path.
+The same jar works on both systems: it carries the Windows renderer (`core.dll`) and the Linux one
+(`libcore.so`) and picks the right one at start. macOS is not supported.
 
-## One loader, each with its own minimum version
+Linux has a few details of its own (Flatpak launchers, Wayland, glibc): see [Linux](linux.md).
 
-You need Minecraft 26.3 with **one** of these three:
+## GPU
+
+Hardware ray tracing in Vulkan is required: `VK_KHR_ray_tracing_pipeline` and
+`VK_KHR_acceleration_structure`. There is no software mode; without it the game keeps Minecraft's
+own renderer.
+
+| | NVIDIA | AMD | Intel |
+|---|---|---|---|
+| Cards | RTX 20 or newer | RX 6000 or newer | Arc |
+| FSR (upscaling and frame generation) | Yes, built in | Yes, built in | Yes, built in |
+| DLSS (upscaling, Ray Reconstruction, frame generation) | Yes, downloaded in game (~115 MB), Windows and Linux | No | No |
+| XeSS (~73 MB, Windows only) | Can be installed; works if the driver passes XeSS's own check | Same as NVIDIA | Recommended; offered on first start |
+| NVIDIA Reflex | Yes, if the driver has `VK_NV_low_latency2` and `VK_KHR_present_id` | No | No |
+| Shader Execution Reordering | RTX 40 or newer | No | No |
+
+NVIDIA is the main target today: DLSS Ray Reconstruction is the least noisy path. AMD and Intel
+work with FSR (and XeSS) but have not been tested as deeply yet.
+
+How DLSS and XeSS are downloaded: [Upscalers](upscalers.md).
+
+## Loader
+
+Minecraft 26.3 with **one** of:
 
 | Loader | Minimum version |
 |---|---|
@@ -25,30 +47,14 @@ You need Minecraft 26.3 with **one** of these three:
 | NeoForge | `26.3.0.10-beta+` |
 | Forge | `26.3-66.0.3+` |
 
-All three builds come from the same code and look the same visually. The main difference between
-them today is that **Frame Generation and NVIDIA Reflex only work on Fabric**, due to a Streamline
-loading issue on NeoForge and Forge — see [frame-generation-reflex.md](frame-generation-reflex.md)
-and [ROADMAP.md](../../ROADMAP.md#frame-generation-and-reflex-on-forge--neoforge--investigate).
-
-## What you do not need to download separately
-
-DLSS, FSR 3, XeSS and NRD ship inside the mod itself — there are no NVIDIA, AMD or Intel DLLs to
-download separately or copy by hand. Which options show up as available on the settings screen
-depends on your GPU and driver, not on installing anything extra:
-
-- **DLSS** mode (the "RT-DLSS" preset) only appears on NVIDIA GPUs with a driver that supports it.
-- **FSR 3** and **XeSS** work on any vendor — you do not need an AMD GPU to use FSR, or an Intel one
-  to use XeSS.
-- **NVIDIA Reflex** and **DLSS Frame Generation** are, as their name says, NVIDIA-exclusive.
-
-If a preset does not show up in the Pipeline dropdown, your GPU or driver do not meet what that
-preset needs — it is not an install step you are missing.
+All three jars come from the same code and look the same. Frame generation and Reflex no longer
+depend on Streamline or on any loader: they are the same code on all three. They are tested on
+Fabric (Windows); NeoForge and Forge share the code but are not tested yet.
 
 ## Recommended, not required
 
-- A **resource pack with LabPBR maps** (`_n`/`_s`) or a Bedrock RTX `.mcpack` converted by Radiante
-  itself, to get the most out of relief and materials — see [bedrock-rtx.md](bedrock-rtx.md).
-  Without one, the mod still works with the maps it ships for 154 vanilla textures.
-- [Distant Horizons](https://modrinth.com/mod/distanthorizons) if you also want far terrain traced —
-  experimental support, see [distant-horizons.md](distant-horizons.md).
-- An **HDR** display if you want to use HDR output — see [hdr.md](hdr.md).
+- A resource pack with LabPBR maps (`_n`/`_s`) or a Bedrock RTX `.mcpack`: see
+  [Bedrock RTX](bedrock-rtx.md). Without one, Radiante uses its own maps for 154 vanilla textures.
+- [Distant Horizons](https://modrinth.com/mod/distanthorizons) to trace far terrain too: see
+  [Distant Horizons](distant-horizons.md).
+- An HDR display for HDR output: see [HDR](hdr.md).

@@ -12,7 +12,10 @@
 
 | Control | Range | Default | What it does |
 |---|---|---|---|
-| **Light Bounces** | 1 – 4 | 4 | How many times light bounces off surfaces. Fewer is much faster (4 to 2 is about +55% FPS, 4 to 1 about +130%, measured on a reference scene) and changes little visually; rooms lit only by bounced light get a bit darker with fewer bounces. |
+| **Light Bounces** | 1 – 8 | 4 | How many times light bounces. 4 to 2 is about +50% FPS. Above 4 costs a lot and is for strong GPUs; mirrors and clear glass get extra bounces on their own. |
+| **Cache Deep Bounces** | On / Off | On | After the first bounce, light comes from the radiance cache instead of more tracing, and bounced surfaces skip block light lookups, as in Bedrock RTX. Much faster with many lights; bounced light may look slightly softer. |
+| **Far Bounce Distance** | Off, 1 – 32 chunks | Off | Beyond this distance, surfaces only get the Far Light Bounces. For example 8 with render distance 16: the far half costs less. |
+| **Far Light Bounces** | 1 – 4 | 1 | Bounces for surfaces beyond the Far Bounce Distance. Hardly visible far away. |
 | **Carved Surfaces** (parallax) | On/Off | On | Depth on resource pack textures that have height maps — bricks and stones stand out. Off: flat textures and somewhat faster. Without a pack that has height maps, this control changes nothing visually. |
 | **Volumetric Fog Quality** | 4 – 32 samples | 16 | Samples per ray for the volumetric fog (see [Sky, Fog & Water](sky-fog-water.md)). Lower is faster and a little noisier; 32 costs about 30% more than 16. Only shows up if your pipeline supports volumetric fog. |
 | **Chunk Threads** | 1 – half your logical cores (max) | Half your logical cores | CPU threads that turn loaded chunks into ray tracing geometry. More loads new areas faster when you fly or teleport, but competes with the game (and, in singleplayer, with the integrated server generating those same chunks) for CPU. Lower it if the game stutters while loading terrain; raise it if chunks visibly take a while to pop in. |

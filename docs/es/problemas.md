@@ -2,88 +2,95 @@
 
 # Problemas comunes
 
+## Antes de nada: el log
+
+El **Registro de Depuración** viene activado por defecto, y los mensajes del renderizador nativo
+llegan a `logs/latest.log` como líneas `[native] ...` (los errores siempre, aunque lo apagues).
+Para reportar un problema basta con ese archivo. Busca primero `[native]` y `Radiante`.
+
 ## El juego está en OpenGL
 
-Radiante necesita el renderizador Vulkan; el trazado de rayos no existe en OpenGL de ninguna forma.
-Si el juego arranca en OpenGL verás un mensaje pidiendo cambiar la API Gráfica a "Preferir Vulkan" o
-"Predeterminado" en las opciones de vídeo de Minecraft, y reiniciar.
+Radiante necesita Vulkan. Si el juego arranca en OpenGL, un mensaje pide cambiar la API Gráfica a
+"Preferir Vulkan" o "Predeterminado" en las opciones de vídeo y reiniciar.
 
-Si Minecraft cambió a OpenGL solo (sin que tú lo pidieras) después de un arranque que no terminó
-bien, es la propia protección de Minecraft: tras un inicio fallido, cambia la API preferida a OpenGL
-por seguridad para la siguiente vez. Radiante no guarda ese cambio automático como si fuera tu
-elección — solo cubre la sesión que protege — así que un solo fallo puntual no te deja con el
-trazado de rayos apagado para siempre; vuelve a intentarlo.
+Si Minecraft cambió a OpenGL solo tras un arranque fallido, es su propia protección. Radiante no
+guarda ese cambio como tu elección: solo dura esa sesión. Vuelve a intentarlo.
 
 ## Mi GPU no soporta trazado de rayos
 
-Verás la pantalla "Radiante: trazado de rayos no disponible". Significa que tu tarjeta gráfica o tu
-driver no reportan soporte de `VK_KHR_ray_tracing_pipeline` — revisa
-[requisitos.md](requisitos.md#sistema) para la lista de GPUs que sí lo soportan. Tienes dos opciones
-en esa pantalla:
+Pantalla "Radiante: trazado de rayos no disponible": la GPU o el driver no reportan
+`VK_KHR_ray_tracing_pipeline`. Revisa los [requisitos](requisitos.md#gpu) y actualiza el driver.
+También pasa con Vulkan por software (`llvmpipe`), típico en Linux cuando el juego no ve el driver
+real: ver [Linux](linux.md). Puedes seguir sin trazado de rayos con el renderizador de Minecraft.
 
-- **Continuar sin trazado de rayos** — el juego sigue funcionando con el renderizador propio de
-  Minecraft, como si Radiante no estuviera instalado.
-- **Cambiar a OpenGL** — no cambia nada respecto al trazado de rayos, porque tampoco existe ahí; es,
-  en la práctica, la misma opción que la anterior.
+## Mundo negro
 
-Actualizar el driver de tu GPU a la versión más reciente de tu fabricante es lo primero a probar si
-crees que tu tarjeta sí debería soportarlo.
+- **Linux con FSR, en versiones anteriores a la 0.5.0**: FSR no se podía crear
+  (`FSR3 CreateContext` en el log). Arreglado en 0.5.0.
+- Busca `[native]` en el log: el renderizador dice qué falló, y un error repetido cada fotograma
+  aparece una vez con su número de repeticiones.
 
-## Un preset (DLSS, FSR o XeSS) no aparece en el selector de Pipeline
+## DLSS o XeSS no aparecen en el selector de Pipeline
 
-No es un paso de instalación que te falte — DLSS, FSR y XeSS vienen incluidos en el mod, no hay
-nada que descargar aparte. Si un preset no aparece, tu GPU o tu driver no cumplen lo que ese preset
-concreto necesita para inicializarse: DLSS solo en GPUs NVIDIA con driver reciente; FSR y XeSS
-funcionan en cualquier fabricante, pero también necesitan que su módulo cargue correctamente. Ver
-[requisitos.md](requisitos.md#lo-que-no-necesitas-descargar-aparte).
+- **DLSS** solo se ofrece en GPUs NVIDIA. Si no está instalado aparece como `RT-DLSS (Instalar)`.
+- **XeSS** solo existe en Windows. En GPUs que no son Intel puede instalarse y aun así no quedar
+  disponible, si el driver no pasa la comprobación propia de XeSS.
+- Si lo instalaste, falta reiniciar: aparece como `(Requiere reinicio)`.
 
-## Generación de Fotogramas o NVIDIA Reflex no aparecen
+Ver [Escaladores](escaladores.md).
 
-Dos motivos posibles, y solo uno tiene solución:
+## Instalé DLSS y sigo en FSR
 
-- **Estás en NeoForge o Forge.** Estas dos funciones solo están disponibles en Fabric por ahora —
-  ver [frame-generacion-reflex.md](frame-generacion-reflex.md). No hay forma de activarlas en los
-  otros dos loaders todavía.
-- **Tu GPU no es NVIDIA.** Ambas son funciones exclusivas de NVIDIA (Streamline/DLSS); no hay
-  equivalente de AMD o Intel disponible en Radiante.
+Es lo esperado: instalar no cambia tu pipeline. Elige **RT-DLSS** en el selector Pipeline.
 
-## Activé HDR pero no veo ningún cambio
+## El botón de instalar pide salir del mundo
 
-Repasa en orden:
+Instalar o borrar un escalador se hace desde los menús, y termina en un reinicio. Sal al menú
+principal y abre los ajustes de Radiante desde Opciones → Ajustes de vídeo.
 
-1. ¿Reiniciaste el juego después de activar "Salida HDR"? El cambio no se aplica sin reiniciar.
-2. ¿HDR está realmente activado en la configuración de pantalla de Windows para ese monitor, no
-   solo soportado por él?
-3. Después de reiniciar, revisa el tooltip del ajuste "Salida HDR" en la pantalla de Radiante — si
-   sigue diciendo "activado, pero no en uso", el problema está en el paso 2, no en Radiante.
+## La descarga falló
 
-Más detalle en [hdr.md](hdr.md).
+Normalmente es red: firewall, proxy, sin conexión. FSR sigue funcionando. Reintenta desde los
+ajustes. Un archivo descargado que no coincide con su SHA-256 se descarta.
 
-## Distant Horizons: costuras o parpadeo en el terreno lejano
+## No aparece Generación de Fotogramas o Reflex
 
-Es un problema conocido y en ajuste activo, no un fallo de tu instalación — ver
-[distant-horizons.md](distant-horizons.md#qué-esperar-siendo-honestos). Reducir la distancia de
-renderizado de Distant Horizons (no la de Minecraft) suele hacerlo menos notorio mientras se sigue
-trabajando en ello.
+- **Generación de Fotogramas** se oculta con **Salida HDR** activada.
+- **Reflex** solo aparece en GPUs NVIDIA con `VK_NV_low_latency2` y `VK_KHR_present_id`.
+  Actualiza el driver.
 
-## El juego va lento / pocos FPS
+Ver [Generación de fotogramas y Reflex](frame-generacion-reflex.md).
 
-Ver la [guía de rendimiento](rendimiento.md) completa. Resumen rápido: prueba primero el selector de
-Calidad en Baja o Media; si sigue lento, el Modo DLSS (o el escalador equivalente) es lo que más
-impacto tiene de todos los controles individuales.
+## Activé HDR y no veo cambios
 
-## Quiero que un ajuste vuelva a como estaba al instalar
+1. ¿Reiniciaste el juego? Salida HDR lo necesita.
+2. ¿HDR está activado en el sistema para ese monitor, no solo soportado?
+3. Si el tooltip de "Salida HDR" dice "activado, pero no en uso", el problema es el punto 2.
 
-El botón **Restablecer valores**, junto al selector de Calidad en la pantalla de ajustes, devuelve
-absolutamente todo — incluyendo ajustes del pipeline y del shader pack que no tienen su propio
-control visible todavía — a los valores de un install nuevo. Más detalle en
-[opciones.md#la-fila-de-arriba-calidad-y-restablecer-valores](opciones.md#la-fila-de-arriba-calidad-y-restablecer-valores).
+Ver [HDR](hdr.md).
 
-## Nada de esto resolvió mi problema
+## Linux: no carga el renderizador
 
-- Revisa si ya está reportado o en trabajo en [ROADMAP.md](../../ROADMAP.md), en la raíz del
-  repositorio — cubre bastantes casos conocidos con más detalle técnico del que cabe aquí.
-- Si no, pregunta en el [Discord](https://discord.gg/DhBbAzugZ9) o abre un
-  [issue en GitHub](https://github.com/Gabrieli2806/Radiante-26.3-Fabric/issues). Activa
-  **Registro de Depuración** (categoría [Otros](opciones/otros.md)) antes de reproducir el problema
-  — el log con ese ajuste activado suele tener el detalle que hace falta para diagnosticarlo.
+`GLIBC_2.xx not found`, `UnsatisfiedLinkError`, `llvmpipe`: lista completa en [Linux](linux.md).
+
+## Distant Horizons: terreno lejano raro
+
+Ver [Distant Horizons](distant-horizons.md). Si algo falla, reduce la distancia de DH (no la de
+Minecraft) y comprueba si sigue pasando.
+
+## Va lento
+
+Ver la [guía de rendimiento](rendimiento.md). Lo primero: el nivel de Calidad, y después el modo
+del escalador y Rebotes de Luz.
+
+## Quiero volver a los valores de un install nuevo
+
+**Restablecer valores**, junto al selector de Calidad. Devuelve todo, incluidos los ajustes del
+pipeline sin control visible. El pipeline vuelve a RT-DLSS si DLSS está cargado, a FSR si no. Ver
+[Ajustes](opciones.md).
+
+## Nada de esto funcionó
+
+Pregunta en [Discord](https://discord.gg/DhBbAzugZ9) o abre un
+[issue](https://github.com/Gabrieli2806/Radiante-26.3-Fabric/issues) con tu `latest.log`, tu GPU,
+tu sistema y el loader. Revisa antes el [ROADMAP](../../ROADMAP.md) por si ya es conocido.

@@ -133,7 +133,7 @@
   "options.radiante.biome_fog_strength.tooltip": "Qué tan densa es la neblina de bioma. 100% es el aspecto ajustado; bájalo para vistas lejanas más claras, súbelo para más ambiente. No afecta al rendimiento.",
   "options.radiante.cloud_mode.tooltip": "Cómo se dibujan las nubes. Las volumétricas son nubes 3D reales que proyectan sombras y cuestan más; las de estilo vanilla son más baratas; apagado es lo más rápido.",
   "options.radiante.dlss_mode.tooltip": "Resolución interna a la que renderiza DLSS antes de escalar. Calidad se ve más nítido y cuesta más; Rendimiento y Rendimiento Ultra van más rápido pero se ven más suaves y engrosan los detalles finos.",
-  "options.radiante.frame_generation.tooltip": "Genera fotogramas extra entre los renderizados con %s. Movimiento más suave en un monitor de alta tasa de refresco, a costa de un poco más de latencia. Activa V-Sync mientras está encendido, que es lo que reparte los fotogramas. No disponible con salida HDR.",
+  "options.radiante.frame_generation.tooltip": "Genera fotogramas extra entre los renderizados con %s. Movimiento más suave en un monitor de alta tasa de refresco, a costa de un poco más de latencia. Un hilo de presentación reparte los fotogramas; V-Sync sigue siendo tu elección. No disponible con salida HDR.",
   "options.radiante.chunk_building_threads": "Hilos de Chunks",
   "options.radiante.chunk_building_batch_size": "Tamaño de Lote de Chunks",
   "options.radiante.chunk_building_total_batches": "Lotes de Chunks",

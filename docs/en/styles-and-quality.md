@@ -12,12 +12,16 @@ colour and light look. Touching any control either one covers, by hand, switches
 The **Quality** selector, at the top of [Quality & Upscaling](settings/quality-and-upscaling.md),
 sets, all at once, the controls measured to cost the most frames per second:
 
-| Level | DLSS Mode | Volumetric Fog | Clouds | Block Light Sampling | Render Distance | Light Bounces | Carved Surfaces | Volumetric Fog Quality |
+| Level | DLSS / Upscaling Mode | Volumetric Fog | Clouds | Block Light Sampling | Render Distance | Light Bounces | Carved Surfaces | Volumetric Fog Quality |
 |---|---|---|---|---|---|---|---|---|
-| **Low** | Ultra Performance | Off | Off | On | 8 chunks | 1 | Off | 8 samples |
+| **Low** | Ultra Performance | Off | Off | On | 8 chunks | 2 | Off | 8 samples |
 | **Medium** | Performance | Off | Vanilla | On | 12 chunks | 2 | Off | 8 samples |
 | **High** | Balanced | On | Vanilla | On | 16 chunks | 3 | On | 16 samples |
 | **Ultra** | Quality | On | Volumetric | On | 24 chunks | 4 | On | 24 samples |
+
+The mode applies to whichever upscaler you use: DLSS Mode with RT-DLSS, Upscaling Mode with FSR or
+XeSS. Low uses 2 bounces, not 1: with one, rooms lose the light bouncing off walls and ceiling and
+look flat.
 
 These numbers came from measuring one scene with the same chunks loaded, using DLSS Mode Ultra
 Performance (~150 fps) or Balanced (~80 fps) as the baseline for the shader pack settings:
@@ -34,10 +38,8 @@ Performance (~150 fps) or Balanced (~80 fps) as the baseline for the shader pack
 Held item light and First Person Shadow are not in the table because they changed nothing
 measurable in those tests — they are left out of the Quality selector on purpose.
 
-On a fresh install, the Quality selector shows **Custom** from the start: the shader pack's default
-Light Bounces is 4, and no level pairs 4 bounces with the default DLSS Mode Ultra Performance (Ultra
-calls for Quality, not Ultra Performance). It is not a bug — picking any level once is enough to
-stop it from showing Custom.
+On a fresh install the selector may show **Custom**: the defaults do not match any level exactly.
+Not a bug; pick a level once.
 
 ## Picture styles
 

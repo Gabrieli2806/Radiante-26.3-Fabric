@@ -12,12 +12,16 @@ hace que ese selector muestre "Personalizado" — no existe un estado "a medias"
 El selector **Calidad**, arriba en la categoría [Calidad y Escalado](opciones/calidad-y-escalado.md),
 ajusta de una vez los controles medidos como los que más cuestan en fotogramas por segundo:
 
-| Nivel | Modo DLSS | Niebla Volumétrica | Nubes | Muestreo de Luz de Bloques | Distancia de Renderizado | Rebotes de Luz | Relieve de Texturas | Calidad de Niebla Vol. |
+| Nivel | Modo DLSS / de Escalado | Niebla Volumétrica | Nubes | Muestreo de Luz de Bloques | Distancia de Renderizado | Rebotes de Luz | Relieve de Texturas | Calidad de Niebla Vol. |
 |---|---|---|---|---|---|---|---|---|
-| **Baja** | Rendimiento Ultra | Apagada | Apagadas | Activado | 8 chunks | 1 | Desactivado | 8 muestras |
+| **Baja** | Rendimiento Ultra | Apagada | Apagadas | Activado | 8 chunks | 2 | Desactivado | 8 muestras |
 | **Media** | Rendimiento | Apagada | Vanilla | Activado | 12 chunks | 2 | Desactivado | 8 muestras |
 | **Alta** | Equilibrado | Activada | Vanilla | Activado | 16 chunks | 3 | Activado | 16 muestras |
 | **Ultra** | Calidad | Activada | Volumétricas | Activado | 24 chunks | 4 | Activado | 24 muestras |
+
+El modo se aplica al escalador que uses: Modo DLSS con RT-DLSS, Modo de Escalado con FSR o XeSS.
+Baja usa 2 rebotes, no 1: con uno solo los cuartos pierden la luz que rebota en paredes y techo y
+se ven planos.
 
 Estos números salieron de medir una misma escena con los mismos chunks cargados, usando el Modo
 DLSS Rendimiento Ultra (~150 FPS) o Equilibrado (~80 FPS) como referencia para los ajustes del
@@ -35,10 +39,8 @@ shader pack:
 Luz del objeto en mano y Sombra en Primera Persona no aparecen en la tabla porque no cambiaron nada
 medible en esas pruebas — se dejan fuera del selector de Calidad a propósito.
 
-En un install nuevo, el selector de Calidad muestra **Personalizado** desde el principio: los
-Rebotes de Luz por defecto del shader pack son 4, y ningún nivel combina 4 rebotes con el Modo DLSS
-Rendimiento Ultra que también trae por defecto (Ultra pide Calidad, no Rendimiento Ultra). No es un
-fallo — basta con elegir cualquier nivel una vez para que deje de mostrar Personalizado.
+En un install nuevo el selector puede mostrar **Personalizado**: los valores por defecto no
+coinciden exactamente con ningún nivel. No es un fallo; elige un nivel una vez.
 
 ## Estilos de imagen
 

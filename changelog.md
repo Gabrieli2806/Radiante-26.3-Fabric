@@ -26,6 +26,12 @@ First beta. Covers everything since 0.2.0 (0.3.0 and 0.4.0 were never documented
 - **Frame generation** on its own present thread, with native DLSS and FSR providers.
 - Froxel volumetric fog (Radiance style) with a fog-style toggle, rain refraction, light from dropped and emissive
   entities (with a reach slider), seamless glass including panes, and a "Cache Deep Bounces" performance toggle.
+- New settings: Upscaling Mode for FSR and XeSS (the render resolution, as DLSS Mode is for DLSS, set by the
+  Quality level too), Frame Generation Type (Auto, DLSS or FSR, where the GPU runs both), ReSTIR Block Lights, Shader
+  Execution Reordering (RTX 40 and newer, experimental), Far Bounce Distance and Far Light Bounces, Cloud Shadows,
+  Wet Ground in Rain, Glowing Item Light Distance, Seamless Glass and Rain Refraction.
+- Settings screen: a search box, a performance impact label on the options that cost the most, an "Applying
+  settings" screen while the renderer rebuilds, and a notice listing what needs a restart when leaving.
 - Debug logging is on by default, and the renderer's own messages (errors always) now reach `latest.log` as
   `[native] ...`, so one log is enough to report a problem.
 - GitHub Actions builds both renderers and the three loader jars, and publishes a release when `mod_version`
@@ -37,6 +43,9 @@ First beta. Covers everything since 0.2.0 (0.3.0 and 0.4.0 were never documented
   glass.
 - Tinted glass is dark and see-through but keeps its texture; glass reflections are capped.
 - Reset to Defaults now falls back to FSR instead of no upscaler.
+- Light Bounces goes up to 8 (was 4). The Low quality level uses 2 bounces instead of 1, which left rooms flat.
+- Frame generation is no longer tied to the DLSS pipeline or to Fabric: FSR frame generation works with any
+  upscaler. It leaves V-Sync to the player and is hidden while HDR output is on.
 - Light grid and the Streamline frame generation were tried and removed (flicker, no gain).
 
 ### Fixed

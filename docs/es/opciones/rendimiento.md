@@ -8,11 +8,14 @@
 > **[rendimiento.md](../rendimiento.md)**, en la raíz de la documentación.
 
 ![Categoría Rendimiento](../../images/opciones-rendimiento.png)
-<!-- TODO: Rebotes de Luz, Relieve de Texturas, Hilos/Lotes de Chunks -->
+<!-- TODO: Rebotes de Luz, Rebotes Lejanos, Caché, Hilos/Lotes de Chunks -->
 
 | Control | Rango | Por defecto | Qué hace |
 |---|---|---|---|
-| **Rebotes de Luz** | 1 – 4 | 4 | Cuántas veces rebota la luz en las superficies. Menos es mucho más rápido (de 4 a 2 ronda +55% FPS, de 4 a 1 ronda +130%, medido en una escena de referencia) y cambia poco visualmente; los cuartos iluminados solo por luz rebotada se ven algo más oscuros con menos rebotes. |
+| **Rebotes de Luz** | 1 – 8 | 4 | Cuántas veces rebota la luz. De 4 a 2 ronda +50% FPS. Más de 4 cuesta mucho y es para GPUs potentes; espejos y vidrio claro reciben rebotes extra por su cuenta. |
+| **Caché en Rebotes Profundos** | Activado / Desactivado | Activado | Tras el primer rebote, la luz sale de la caché de radiancia en vez de seguir trazando, y las superficies rebotadas no buscan luces de bloque, como Bedrock RTX. Mucho más rápido con muchas luces; la luz rebotada puede verse algo más suave. |
+| **Distancia de Rebotes Lejanos** | Apagado, 1 – 32 chunks | Apagado | Más allá de esta distancia, las superficies reciben solo los Rebotes de Luz Lejanos. Por ejemplo, 8 con distancia de renderizado 16: la mitad lejana cuesta menos. |
+| **Rebotes de Luz Lejanos** | 1 – 4 | 1 | Rebotes para las superficies más allá de la Distancia de Rebotes Lejanos. A lo lejos casi no se nota. |
 | **Relieve de Texturas** (parallax) | Activado/Desactivado | Activado | Profundidad en texturas de resource packs con mapas de altura — ladrillos y piedras resaltan. Desactivado: texturas planas y algo más rápido. Sin un pack con mapas de altura, este control no cambia nada visualmente. |
 | **Calidad de Niebla Volumétrica** | 4 – 32 muestras | 16 | Muestras por rayo de la niebla volumétrica (ver [Cielo, Niebla y Agua](cielo-niebla-agua.md)). Menos es más rápido y algo más ruidoso; 32 cuesta cerca de un 30% más que 16. Solo aparece si tu pipeline soporta niebla volumétrica. |
 | **Hilos de Chunks** | 1 – la mitad de tus núcleos lógicos (máximo) | La mitad de tus núcleos lógicos | Hilos de CPU que convierten los chunks cargados en geometría de trazado de rayos. Más hilos cargan las áreas nuevas más rápido al volar o teletransportarte, pero compiten con el juego (y, en un solo jugador, con el servidor integrado generando esos mismos chunks) por la CPU. Bájalo si el juego se traba al cargar terreno; súbelo si los chunks tardan visiblemente en aparecer. |

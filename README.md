@@ -14,21 +14,24 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
 ## Features
 
 - Hardware ray tracing (`VK_KHR_ray_tracing_pipeline`) for terrain, with path-traced direct lighting,
-  shadows and global illumination.
+  shadows and global illumination, on Windows and Linux.
 - Physically based sky, sun and atmospheric scattering.
-- One built-in shader pack, `vanilla-pt`, with direct sampling of block lights (torches, lava, lamps),
-  volumetric fog and clouds, rain/snow with proper motion vectors, and pixelated lighting for entities and
-  blocks.
+- One built-in shader pack, `vanilla-pt`, with direct sampling of block lights (torches, lava, lamps) and ReSTIR
+  reuse of them, froxel or ray-marched volumetric fog, volumetric clouds with optional shadows, rain refraction and
+  wet ground, seamless glass, and pixelated lighting for entities and blocks.
 - LabPBR support (`_s`/`_n` maps) for blocks, atlases and entities/held items, with per-entity emission
-  (glow item frames, end crystals, self-lit mobs). A custom resource pack with PBR maps (or a Bedrock
-  `.mcpack`) is recommended to get the most out of these features.
-- Upscaling through DLSS, FSR 3 and XeSS, plus NRD denoising.
-- Motion blur and depth of field, both toggleable.
+  (glow item frames, end crystals, self-lit mobs, glowing dropped items). A custom resource pack with PBR maps (or a
+  Bedrock `.mcpack`) is recommended to get the most out of these features.
+- FSR upscaling and frame generation built in; NVIDIA DLSS (upscaling, Ray Reconstruction, frame generation up to
+  4x on RTX 50) and Intel XeSS downloaded in game on request. NRD denoising for the non-DLSS pipelines.
+- NVIDIA Reflex through `VK_NV_low_latency2`, no restart needed.
+- Motion blur and depth of field, both toggleable. HDR output on HDR displays.
 - Bedrock `.mcpack` resource pack support (including fog and water), detected directly in the pack list.
-- Experimental [Distant Horizons](https://modrinth.com/mod/distanthorizons) support: its far terrain is path
-  traced along with the rest of the world, one colour per block face (optional; nothing changes without it).
-  Still being tuned: expect the odd seam or pop-in, and a frame cost that grows with DH's render distance.
+- [Distant Horizons](https://modrinth.com/mod/distanthorizons) support: its far terrain is path traced along with
+  the rest of the world, one colour per block face, hidden column by column where near terrain is already built
+  (optional; nothing changes without it). Frame cost grows with DH's render distance.
 - Runs on the device Minecraft creates: no second Vulkan instance, no duplicated swapchain.
+- One ~15 MB jar per loader carries both renderers; they are unpacked into the game folder on first start.
 
 ## Requirements
 
@@ -46,6 +49,12 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
 - NVIDIA Reflex needs an NVIDIA GPU and driver with `VK_NV_low_latency2` (Windows and Linux); the option is hidden
   elsewhere.
 - Java 25.
+
+Debug logging is on by default: Radiante's diagnostics and the native renderer's own messages (prefixed
+`[native]`, errors always) go to `latest.log`, so that one file is enough when reporting a problem. It can be turned
+off in Radiante settings, under Other.
+
+Full player documentation (every setting, upscalers, Linux, troubleshooting): [docs/en](docs/en/README.md).
 
 ### Linux notes
 
@@ -90,12 +99,20 @@ Linux-specific fixes in the bundled third-party code, which must be kept when up
 
 ## Building
 
-The mod bundles a native library (`core.dll`) built from `native/`.
+The mod bundles a native library (`core.dll` on Windows, `libcore.so` on Linux) built from `native/`. Both link
+against NVIDIA's NGX libraries from the DLSS SDK, which is not in this repository; the DLSS runtimes themselves are
+never shipped (players download them in game). Get the SDK libraries once, at the version the build expects:
 
 ```sh
-# 1. native renderer (Visual Studio 2026 toolchain, x64)
+git clone --depth 1 --branch v310.9.1 https://github.com/NVIDIA/DLSS.git /tmp/dlss
+mkdir -p native/extern/DLSS/lib
+cp -r /tmp/dlss/lib/Windows_x86_64 native/extern/DLSS/lib/   # or Linux_x86_64 on Linux
+```
+
+```sh
+# 1. native renderer (Visual Studio 2026 toolchain, x64, Vulkan SDK 1.4.341+)
 cmake -S native -B build/native -G "Visual Studio 18 2026" -A x64 -DMCVR_ENABLE_NRD=ON -DUSE_AMD=ON
-cmake --build build/native --config Release -j 16
+cmake --build build/native --config Release --target INSTALL -j 16
 
 # 2. the mod, one jar per loader in fabric/, neoforge/ and forge/ build/libs
 ./gradlew.bat build
@@ -119,6 +136,20 @@ that runs on both, build the native part on both systems before packaging. The G
 jar per loader with both, and fails if either is missing. Check a jar with
 `unzip -l <jar> | grep -E 'core.dll|libcore.so'`.
 
+### Releases
+
+Releases are cut by the GitHub Actions workflow, not by hand:
+
+1. Add a `## [x.y.z] - date` section to `changelog.md`.
+2. Bump `mod_version` in `gradle.properties` and push to `main` (or `multiloader`).
+3. The workflow sees a version with no `v<mod_version>+<minecraft_version>` tag yet, builds both renderers and the
+   three jars, and publishes a GitHub release with that tag. Its notes are the changelog section for the version.
+4. If the repository has them configured, the same run uploads each loader's jar to Modrinth and CurseForge as a
+   beta: secrets `MODRINTH_TOKEN` / `CURSEFORGE_TOKEN`, variables `MODRINTH_ID` / `CURSEFORGE_ID`. A site whose token
+   or ID is missing is skipped.
+
+Pushes that only touch Markdown or `docs/` do not start a build. Pull requests build but never publish.
+
 ### Project layout
 
 - `common/` - everything that is plain Minecraft: the renderer, mixins, settings, assets, native files. It is
@@ -126,8 +157,10 @@ jar per loader with both, and fails if either is missing. Check a jar with
 - `fabric/`, `neoforge/`, `forge/` - each compiles the common sources together with its own small glue: the
   entrypoint (key bindings, client tick, settings screen) and a `RadiantePlatform` implementation (game
   directory, Fabric's mesh submissions), registered under `META-INF/services`.
-- `native/` - the C++ Vulkan renderer (ray tracing pipelines, shaders under `native/src/shader/`, upscaler
-  and denoiser integration) built with CMake, and installed into `common/`'s resources.
+- `native/` - the C++ Vulkan renderer (ray tracing pipelines, shaders under `native/src/shader/`, upscaler,
+  frame generation and denoiser integration) built with CMake, and installed into `common/`'s resources. Packaging
+  xz-compresses the libraries and records their SHA-256, which is checked when they are unpacked at start.
+- `.github/workflows/build.yml` - CI and releases (see [Releases](#releases)).
 - Versions for all of them live in the root `gradle.properties`.
 
 Useful run flags (Fabric):

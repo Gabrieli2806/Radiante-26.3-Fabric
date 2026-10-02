@@ -20,17 +20,19 @@ probadas. El detalle exacto de qué pone cada nivel está en
 Medido en una escena de referencia, con el Modo DLSS Rendimiento Ultra (~150 FPS) o Equilibrado
 (~80 FPS) como línea base:
 
-1. **Modo DLSS** (o, sin DLSS, el escalador FSR/XeSS equivalente) — el cambio más grande de todos.
+1. **Modo DLSS** (o **Modo de Escalado** con FSR/XeSS) — el cambio más grande de todos.
    Partiendo de Rendimiento Ultra como base, pasar a Rendimiento cuesta cerca de -45% FPS, y pasar a
    Calidad, cerca de -65%. Es lo primero a tocar si necesitas más FPS ya.
-2. **Rebotes de Luz** (categoría Rendimiento) — de 4 a 2 ronda +55% FPS; de 4 a 1, +130%, con poco
-   cambio visible tanto en interiores como en exteriores. El mejor cambio en relación
-   rendimiento/impacto visual si Modo DLSS ya está donde lo quieres.
+2. **Rebotes de Luz** (categoría Rendimiento, 1 – 8) — de 4 a 2 ronda +55% FPS, con poco cambio
+   visible. Más de 4 es para GPUs potentes. Si no quieres bajarlo para todo, usa **Distancia de
+   Rebotes Lejanos**: solo el terreno lejano recibe menos rebotes.
+   **Caché en Rebotes Profundos** (activado por defecto) ahorra mucho en zonas con muchas luces.
 3. **Distancia de renderizado** — 24 chunks cuesta un 30% más que 16.
 4. **Niebla Volumétrica** — un 10% al desactivarla; su "Calidad" (muestras por rayo) también pesa:
    32 muestras cuesta cerca de un 30% más que 16.
 5. **Muestreo de Luz de Bloques** — un 20% al desactivarlo, pero mucho más ruido de noche y en
-   cuevas; normalmente no vale la pena apagarlo solo por FPS.
+   cuevas; normalmente no vale la pena. **ReSTIR** reduce el ruido con muchas luces sin ese coste.
+   **SER** (RTX 40+) puede ganar algo de rendimiento, pero es experimental.
 6. **Relieve de Texturas** (parallax) y **Nubes** — unos pocos puntos porcentuales cada uno; solo
    importan si ya estás ajustando todo lo demás.
 
@@ -57,15 +59,14 @@ no hace falta tocarlos por rendimiento.
 
 ## Generación de fotogramas como alternativa
 
-Si tu cuello de botella es la tasa de refresco de tu monitor más que los FPS reales del motor (por
-ejemplo, ya tienes 70+ FPS reales pero un monitor de 144 Hz o más), la
-[Generación de Fotogramas de DLSS](frame-generacion-reflex.md) puede darte más fluidez percibida sin
-tocar ningún ajuste de calidad — a cambio de algo de latencia de entrada, que Reflex ayuda a
-compensar. Solo Fabric, solo NVIDIA.
+Si ya tienes 60+ FPS reales y un monitor de 144 Hz o más, la
+[generación de fotogramas](frame-generacion-reflex.md) da más fluidez sin tocar la calidad, a
+cambio de algo de latencia que Reflex ayuda a compensar. FSR funciona en cualquier GPU (2x); DLSS
+en NVIDIA (hasta 4x en RTX 50).
 
 ## Un punto de referencia conocido
 
 Con el objetivo de que una GPU de gama media (por ejemplo RTX 3060 o RX 6700) sostenga 60 FPS a 12
 chunks de distancia con DLSS o FSR, ese preset documentado todavía se está construyendo — ver
-[ROADMAP.md](../../ROADMAP.md#path-out-of-alpha). Si tienes una GPU de esa gama y quieres compartir
+[ROADMAP.md](../../ROADMAP.md). Si tienes una GPU de esa gama y quieres compartir
 tus propios números, el [Discord](https://discord.gg/DhBbAzugZ9) es el lugar.

@@ -565,7 +565,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingChunkBatchSize = 12;
         this.pendingChunkTotalBatches = 12;
         this.pendingCollectEmission = true;
-        this.pendingDebugLogging = false;
+        this.pendingDebugLogging = true;
         this.pendingBiomeFog = true;
         this.pendingFirstPersonShadow = true;
         this.pendingBiomeFogStrength = 100;

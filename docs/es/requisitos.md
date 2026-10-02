@@ -4,20 +4,41 @@
 
 ## Sistema
 
-| | |
-|---|---|
-| Sistema operativo | Windows x64. Es la única plataforma soportada por ahora (ver [ROADMAP.md](../../ROADMAP.md), sección "Investigate: backport a 26.1" para el estado de otras versiones; Linux/macOS no están planeados a corto plazo). |
-| Minecraft | 26.3 |
-| Java | 25 |
-| GPU | Una tarjeta con soporte de trazado de rayos por hardware en Vulkan: `VK_KHR_ray_tracing_pipeline` y `VK_KHR_acceleration_structure`. En la práctica, NVIDIA RTX serie 20 o superior, AMD RX 6000 o superior, o Intel Arc. |
-| API gráfica | Vulkan. El juego tiene que estar usando el backend Vulkan de `com.mojang.renderpearl`, no OpenGL — ver [instalación](instalacion.md#primer-inicio) y [problemas comunes](problemas.md#el-juego-está-en-opengl). |
+| | Windows | Linux |
+|---|---|---|
+| Arquitectura | x64 | x86-64 |
+| Versión mínima | Windows 10/11 | glibc 2.35 o más reciente: Ubuntu 22.04, Debian 12, Fedora 36 o posteriores |
+| API gráfica | Vulkan | Vulkan, sobre el driver real de la GPU (no `llvmpipe`) |
+| Java | 25 | 25 |
+| Minecraft | 26.3 | 26.3 |
 
-Si tu GPU no reporta soporte de trazado de rayos, el juego sigue funcionando con el renderizador
-propio de Minecraft; Radiante simplemente no se activa. No hay una ruta de reserva por software.
+El mismo jar sirve para los dos sistemas: trae el renderizador de Windows (`core.dll`) y el de Linux
+(`libcore.so`) y elige el correcto al arrancar. macOS no está soportado.
 
-## Un loader, con su propia versión mínima
+En Linux hay detalles propios (launchers en Flatpak, Wayland, glibc): ver [Linux](linux.md).
 
-Necesitas Minecraft 26.3 con **uno** de estos tres:
+## GPU
+
+Hace falta trazado de rayos por hardware en Vulkan: `VK_KHR_ray_tracing_pipeline` y
+`VK_KHR_acceleration_structure`. No hay modo por software; sin eso el juego sigue con el renderizador de Minecraft.
+
+| | NVIDIA | AMD | Intel |
+|---|---|---|---|
+| Tarjetas | RTX 20 o superior | RX 6000 o superior | Arc |
+| FSR (escalado y generación de fotogramas) | Sí, incluido | Sí, incluido | Sí, incluido |
+| DLSS (escalado, Ray Reconstruction, generación de fotogramas) | Sí, descarga en el juego (~115 MB), Windows y Linux | No | No |
+| XeSS (~73 MB, solo Windows) | Se puede instalar; funciona si el driver pasa el chequeo de XeSS | Igual que NVIDIA | Recomendado; se ofrece al primer inicio |
+| NVIDIA Reflex | Sí, si el driver tiene `VK_NV_low_latency2` y `VK_KHR_present_id` | No | No |
+| Shader Execution Reordering | RTX 40 o superior | No | No |
+
+NVIDIA es el objetivo principal hoy: DLSS Ray Reconstruction es el camino con menos ruido. AMD e Intel funcionan con
+FSR (y XeSS), pero todavía no están probados con la misma profundidad.
+
+Cómo se descargan DLSS y XeSS: [Escaladores](escaladores.md).
+
+## Loader
+
+Minecraft 26.3 con **uno** de estos:
 
 | Loader | Versión mínima |
 |---|---|
@@ -25,32 +46,14 @@ Necesitas Minecraft 26.3 con **uno** de estos tres:
 | NeoForge | `26.3.0.10-beta+` |
 | Forge | `26.3-66.0.3+` |
 
-Las tres compilaciones vienen del mismo código y se comportan igual visualmente. La diferencia
-principal entre ellas hoy es que **Generación de Fotogramas y NVIDIA Reflex solo funcionan en
-Fabric** por un problema de carga de Streamline en NeoForge y Forge — ver
-[frame-generacion-reflex.md](frame-generacion-reflex.md) y
-[ROADMAP.md](../../ROADMAP.md#frame-generation-and-reflex-on-forge--neoforge--investigate).
-
-## Lo que no necesitas descargar aparte
-
-DLSS, FSR 3, XeSS y NRD vienen incluidos dentro del propio mod — no hay que bajar DLLs de NVIDIA,
-AMD o Intel por separado ni copiarlas a mano. Qué opciones aparecen disponibles en la pantalla de
-ajustes depende de tu GPU y tu driver, no de si instalaste algo extra:
-
-- El modo **DLSS** (el preset "RT-DLSS") solo aparece en GPUs NVIDIA con un driver que lo soporte.
-- **FSR 3** y **XeSS** funcionan en cualquier fabricante — no necesitas una GPU AMD para usar FSR ni
-  una Intel para usar XeSS.
-- **NVIDIA Reflex** y la **Generación de Fotogramas de DLSS** son, como su nombre indica, exclusivos
-  de GPUs NVIDIA.
-
-Si un preset no aparece en el desplegable de Pipeline, tu GPU o driver no cumplen lo que ese preset
-necesita — no es un paso de instalación que te falte.
+Los tres jars salen del mismo código y se ven igual. La generación de fotogramas y Reflex ya no dependen de
+Streamline ni de ningún loader: son el mismo código en los tres. Están probados en Fabric (Windows); en NeoForge y
+Forge comparten el código pero todavía no se han probado.
 
 ## Recomendado, no obligatorio
 
-- Un **resource pack con mapas LabPBR** (`_n`/`_s`) o un `.mcpack` de Bedrock RTX convertido por el
-  propio Radiante, para aprovechar relieve y materiales — ver [bedrock-rtx.md](bedrock-rtx.md). Sin
-  uno, el mod sigue funcionando con los mapas que trae para 154 texturas vanilla.
-- [Distant Horizons](https://modrinth.com/mod/distanthorizons) si quieres terreno lejano trazado
-  también — soporte experimental, ver [distant-horizons.md](distant-horizons.md).
-- Una pantalla con **HDR** si quieres usar la salida HDR — ver [hdr.md](hdr.md).
+- Un resource pack con mapas LabPBR (`_n`/`_s`) o un `.mcpack` de Bedrock RTX: ver [Bedrock RTX](bedrock-rtx.md).
+  Sin uno, Radiante usa los mapas que trae para 154 texturas vanilla.
+- [Distant Horizons](https://modrinth.com/mod/distanthorizons) para trazar también el terreno lejano: ver
+  [Distant Horizons](distant-horizons.md).
+- Una pantalla HDR para la salida HDR: ver [HDR](hdr.md).

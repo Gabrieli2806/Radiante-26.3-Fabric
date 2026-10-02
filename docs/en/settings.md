@@ -2,52 +2,56 @@
 
 # Radiante settings
 
-Opens with `F6` in game. Changes pile up while the screen is open and are all applied together when
-you close it with "Done" (or when you switch category/preset, which reopens the screen with the
-same choices) — so the pipeline rebuilds at most once per settings session, not once per click.
+Opened with `F6` in a world, or from Radiante's button in Options → Video Settings (title screen
+included). Changes add up and are applied together when you press "Done", so the renderer rebuilds
+once. While it does, the **Applying settings...** screen shows for a few seconds.
 
-![Radiante's settings screen](../images/opciones-pantalla-completa.png)
-<!-- TODO: the full screen, Quality & Upscaling category, with Quality and Reset visible -->
+![The Radiante settings screen](../images/opciones-pantalla-completa.png)
+<!-- TODO: the full screen, with the search box, Quality, Reset and impact labels -->
 
-## The top row: Quality and Reset to Defaults
+## Search
 
-**Quality** is a quick selector — Low / Medium / High / Ultra / Custom — that sets, all at once, the
-controls measured to cost the most frames per second: DLSS mode, block light sampling, volumetric
-fog, clouds and render distance. If you then touch any of those by hand, the selector switches to
-"Custom" by itself — there is no "halfway" quality level. The exact detail of what each level sets
-is in [styles-and-quality.md#quality-levels](styles-and-quality.md#quality-levels).
+The **Search...** box filters settings across every category by name. The quickest way to find
+something without knowing its category.
 
-**Reset to Defaults** (the button next to Quality) puts *everything* on this screen back to how a
-fresh install has it: not just the sliders you can see, but also stored pipeline and shader pack
-settings that do not have their own control here yet (see
-[#the-advanced-button-and-what-you-cannot-see-yet](#the-advanced-button-and-what-you-cannot-see-yet)).
-It is a full reset, not just of the category you happen to be looking at.
+## Impact labels
+
+The settings that cost the most show **Performance impact: Low / Medium / High / Varies** in their
+tooltip. Varies means it depends on the scene (for example, on how many lights there are).
+
+## Quality and Reset to Defaults
+
+**Quality** (Low / Medium / High / Ultra / Custom) sets the costliest controls at once: upscaler
+mode, light bounces, volumetric fog, clouds, render distance and more. Changing one of those by
+hand turns it into Custom. Details in
+[styles-and-quality.md](styles-and-quality.md#quality-levels).
+
+**Reset to Defaults** returns everything to a fresh install, including pipeline and shader pack
+settings that have no control here. The pipeline goes back to RT-DLSS when DLSS is loaded, FSR
+otherwise.
+
+## Settings that need a restart
+
+Some (HDR Output, installing or deleting an upscaler) only apply after a restart. They are marked
+**(restart)** and, when you leave the screen, a notice lists the pending changes with **Close the
+game now** or **Later**.
 
 ## Categories
 
-Below that row is a **Section** selector that switches which category is shown; the game remembers
-which one you had open last, even across play sessions. Each has its own page with the full table of
-controls, their range and default value:
-
-| Section | Contents, in short |
+| Section | Contents |
 |---|---|
-| [Quality & Upscaling](settings/quality-and-upscaling.md) | The pipeline (DLSS/NRD/FSR/XeSS), DLSS mode, Frame Generation, Reflex. |
-| [Image](settings/image.md) | Picture Style, Tone Mapping, saturation, exposure, HDR, motion blur, depth of field. |
-| [Lighting](settings/lighting.md) | Day/night/emission/held-item brightness, bounced light, sky light, block light sampling. |
-| [Sky, Fog & Water](settings/sky-fog-water.md) | Java/Bedrock atmosphere, clouds, biome fog, volumetric fog, water waves and murkiness. |
-| [Performance](settings/performance.md) | Ray bounces, carved surfaces (parallax), volumetric fog quality, chunk building threads and batches. |
-| [Other](settings/other.md) | Block outline, see-through parallax edges, debug logging. |
+| [Quality & Upscaling](settings/quality-and-upscaling.md) | Pipeline, DLSS or upscaling mode, frame generation, Reflex. |
+| [Image](settings/image.md) | Picture style, tone mapping, exposure, HDR, motion blur, depth of field. |
+| [Lighting](settings/lighting.md) | Brightness, bounce light, block light sampling, ReSTIR, SER, item light. |
+| [Sky, Fog & Water](settings/sky-fog-water.md) | Atmosphere, clouds and their shadows, fog and its style, rain, water, glass. |
+| [Performance](settings/performance.md) | Light bounces, far bounces, cache, parallax, chunk building. |
+| [Other](settings/other.md) | Block outline, parallax edges, debug logging. |
 
-A control only shows up if the active pipeline or shader pack has it — for instance, DLSS Mode and
-Frame Generation only appear with the RT-DLSS preset set, and "Carved Surfaces" (parallax) only if
-the shader pack supports it. It is not a bug if something in this documentation is missing from your
-screen; it likely depends on the preset or shader pack you have active.
+A setting only shows when the pipeline, GPU or shader pack supports it: DLSS Mode only with
+RT-DLSS, Reflex only on NVIDIA, SER only on RTX 40 or newer. If something in these docs is missing
+from your screen, that is why.
 
-## The "Advanced..." button and what you cannot see yet
+## The "Advanced..." button
 
-It is disabled on purpose: for now it is a placeholder for a future screen with every pipeline and
-shader pack setting, for fine tuning beyond what these six categories cover. Those parameters
-already exist and are saved, they just do not have a control here today — see
-[ROADMAP.md](../../ROADMAP.md#advanced-settings-menu). In the meantime, **Reset to Defaults** does
-touch all of them even though you cannot see them, because it clears the whole stored pipeline, not
-just what is on screen.
+Disabled: reserved for a future screen with every pipeline parameter. See
+[ROADMAP.md](../../ROADMAP.md#advanced-settings-menu).

@@ -9,6 +9,7 @@
 |---|---|---|---|
 | **Atmosphere** | Java · Bedrock | Bedrock | Bedrock: Bedrock RTX's sky and sunlight colours, read from a Bedrock install on this PC (or from `radiante/bedrock/sky.png` and `look_up_tables.png`). Java: Radiante's own sky. Without Bedrock files available, the Java sky is used even if this is set to Bedrock. Full detail in [bedrock-rtx.md](../bedrock-rtx.md). |
 | **Clouds** | Off · Vanilla · Volumetric | Vanilla | How clouds are drawn. Volumetric are real 3D clouds that cast shadows and cost the most GPU time; vanilla-style are cheaper (the usual flat cloud mesh, but traced and lit); off is fastest. |
+| **Cloud Shadows** | On / Off | Off | Volumetric clouds cast soft shadows on the ground. Volumetric clouds only. |
 | **Sun Glow** | 0% – 300% | 100% | The halo around the sun. |
 | **Light Shafts** | 0% – 400% | 100% | Beams of light through windows, skylights and leaves. Needs Volumetric Fog turned on below. |
 | **Vanilla Sun Path** | On/Off | On | Sun and moon follow vanilla's path, straight overhead from east to west. Off, the path leans ten degrees south, so noon shadows are not straight down. |
@@ -16,7 +17,11 @@
 | **Biome Fog** | On/Off | On | Per-biome haze in every dimension: warm dust over deserts, thick green air over swamps, red haze in crimson forests, purple haze in the End. Fades between biomes and stays out of overworld caves. |
 | **Biome Fog Strength** | 0% – 400% | 100% | How thick that haze is. 100% is the tuned look; no effect on performance. |
 | **Volumetric Fog** | On/Off | On (if the pipeline supports it) | Ray marches the air, like Bedrock RTX: sunlight and moonlight scatter in the biome fog, and trees and terrain cast light shafts through it. Costs noticeably more GPU time than the plain haze. Its quality (samples per ray) is set in [Performance](performance.md). |
+| **Fog Style** | Radiance · Radiante | Radiance | Radiance: a 3D grid (froxels) lit once per cell and kept across frames; sharper shafts, block lights glow in the fog, and it costs less. Radiante: each pixel marches the air itself; follows every surface exactly but costs more. |
 | **Volumetric Fog Strength** | 0% – 400% | 100% | How thick the air that shows sunbeams and light shafts is. No effect on performance — only the sample count (in Performance) does. |
+| **Wet Ground in Rain** | On / Off | On | Surfaces under open sky darken and shine while it rains, and dry slowly after. |
+| **Rain Refraction** | On / Off | On | Raindrops bend what is behind them like small lenses. Nearly free. |
+| **Seamless Glass** | On / Off | On | Removes the frame around each glass block and pane: a glass wall reads as one sheet. |
 | **Water Waves** | 0% – 400% | 100% | How rough the water surface is. 0% is a flat, mirror-like surface. |
 | **Water Murkiness** | 0% – 500% | 100% | How quickly the view fades out underwater. Lower is clearer. |
 | **Underwater Light Rays** | 0% – 400% | 100% | Shafts of sunlight through the water surface while underwater. |

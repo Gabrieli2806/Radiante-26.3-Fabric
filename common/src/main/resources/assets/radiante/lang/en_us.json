@@ -133,7 +133,7 @@
   "options.radiante.biome_fog_strength.tooltip": "How thick the biome haze is. 100% is the tuned look; lower for clearer long views, higher for more atmosphere. No effect on performance.",
   "options.radiante.cloud_mode.tooltip": "How clouds are drawn. Volumetric are real 3D clouds that cast shadows and cost the most; vanilla-style are cheaper; off is fastest.",
   "options.radiante.dlss_mode.tooltip": "Internal resolution DLSS renders at before upscaling. Quality looks sharpest and costs the most; Performance and Ultra Performance run faster but look softer and thicken thin details.",
-  "options.radiante.frame_generation.tooltip": "Generates extra frames between rendered ones with %s. Smoother motion on a high refresh monitor, at the cost of a little input latency. Turns V-Sync on while active, which paces the frames. Not available with HDR output.",
+  "options.radiante.frame_generation.tooltip": "Generates extra frames between rendered ones with %s. Smoother motion on a high refresh monitor, at the cost of a little input latency. A present thread spreads the frames out; V-Sync stays your choice. Not available with HDR output.",
   "options.radiante.chunk_building_threads": "Chunk Threads",
   "options.radiante.chunk_building_batch_size": "Chunk Batch Size",
   "options.radiante.chunk_building_total_batches": "Chunk Batches",

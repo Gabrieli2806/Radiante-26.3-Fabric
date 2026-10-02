@@ -256,7 +256,7 @@
   "options.radiante.biome_fog_strength.tooltip": "生物群系雾气的浓度。100%为调校后的效果；调低远景更清晰，调高更有氛围。不影响性能。",
   "options.radiante.cloud_mode.tooltip": "云的绘制方式。体积云是会投射阴影的真实3D云，开销最大；原版风格更省；关闭最快。",
   "options.radiante.dlss_mode.tooltip": "DLSS放大前的内部渲染分辨率。质量模式最清晰、开销最大；性能和超级性能模式更快但更模糊，细节变粗。",
-  "options.radiante.frame_generation.tooltip": "使用 %s 在渲染帧之间生成额外的帧。在高刷新率显示器上更流畅，但会稍微增加输入延迟。开启时会启用垂直同步以均匀显示帧。HDR 输出下不可用。",
+  "options.radiante.frame_generation.tooltip": "使用 %s 在渲染帧之间生成额外的帧。在高刷新率显示器上更流畅，但会稍微增加输入延迟。由专门的呈现线程均匀分配帧，垂直同步仍由你决定。HDR 输出下不可用。",
   "options.radiante.block_light_sampling": "方块光源采样",
   "options.radiante.block_light_sampling.tooltip": "表面直接向附近的发光方块（火把、岩浆、灯）发射阴影光线，而不是等随机反弹碰到它。夜晚和洞穴中噪点大幅减少，开销很小。需要开启方块自发光。",
   "options.radiante.vanilla_sun_path": "原版日月轨迹",

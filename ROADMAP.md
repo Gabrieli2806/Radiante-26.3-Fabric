@@ -1,40 +1,44 @@
 # Radiante — Roadmap
 
-Post-0.1.0 backlog. Open work and items awaiting in-game verification come first;
+Backlog after 0.5.0 (first beta). Open work and items awaiting in-game verification come first;
 completed work is collected at the bottom. Nothing here is scheduled; it's a
 backlog, not a promise.
 
-## Path out of alpha
+## Path to 1.0
 
-What 0.2.0 still lacks before calling it beta, and then 1.0. Each item links to its own section below when it
-has one.
+0.5.0 is the first beta. What the beta list asked for, and what is still open before 1.0. Each item links to its
+own section below when it has one.
 
-**Beta** (feature complete, stable enough for everyday worlds):
+**Beta: done in 0.5.0**
+
+- The native crash on exit (`core.dll` static destructors running after the Vulkan driver was gone) fixed.
+- Error reports useful by default: debug logging on, renderer errors in `latest.log` as `[native] ...`, a GPU
+  without hardware ray tracing explained instead of a black screen.
+- Jar size: DLSS and XeSS downloaded in game, natives xz-packed; about 15 MB (was 125 MB).
+- Distant Horizons: far terrain hidden per column instead of remeshed, no more blinking or holes when moving fast.
+- Linux (x86-64, glibc 2.35+).
+
+**Beta: still open**
 
 - Visual smoke test suite running before every release, so regressions are caught by a run instead of by players.
-- No known crashes: the intermittent native crash on exit (`core.dll` static destructors, 0xC0000005 while
-  the process unloads) found and fixed.
-- Frame generation and Reflex checked on NeoForge and Forge.
-- Distant Horizons: no large LOD blinking; memory and frame cost measured at DH's default 512 chunks.
+- Frame generation and Reflex checked on NeoForge and Forge (same code as Fabric, untested there).
+- Distant Horizons: memory and frame cost measured at DH's default 512 chunks.
 - Every vanilla feature traced or deliberately replaced: check the list under "Other open work" and the
   ones marked "pending in-game check" (name tags, biome fog, texture uploads).
 - Settings that do nothing under ray tracing identified; only switched off if it measurably helps.
 - Performance baseline on a mid-range card (e.g. RTX 3060 / RX 6700): a documented preset that holds 60 fps at
   12 chunks with DLSS/FSR.
-- Crash and error reports useful by default: renderer failures logged with GPU, driver and settings.
+- Installing DLSS leaves the player on FSR until they pick RT-DLSS; switching automatically after the install is
+  a possible improvement.
 
 **1.0** (release):
 
 - AMD and Intel GPUs tested, not only NVIDIA; FSR/XeSS noise brought close to DLSS.
 - Tested against the most used mods (Distant Horizons, Not Enough Animations, EMI/JEI, Xaero's maps,
   Create-style block entities), results listed on the mod page.
-- Settings screen reviewed: presets, tooltips, translations complete.
+- Settings screen reviewed: presets, tooltips, translations complete; the Advanced screen built.
 - Upgrade path: configs from older versions migrate without the player redoing their settings.
 - Stable name (the "Radiante" working title settled).
-
-**Jar size.** 0.2.0 dropped the unused XeSS frame generation and DX11 DLLs (about 30 MB). What is left is
-mostly `libxess.dll` (~60 MB compressed of ~77 MB). Making XeSS optional like DLSS (downloaded or dropped in
-by the player, or fetched on first use when chosen) would bring the jar near 15 MB.
 
 ## Open work and verification needed
 

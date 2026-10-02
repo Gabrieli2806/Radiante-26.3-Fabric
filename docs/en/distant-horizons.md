@@ -20,21 +20,18 @@ hands Radiante to trace.
 ![Distant Horizons far terrain](../images/distant-horizons-terreno-lejano.png)
 <!-- TODO: near terrain with full RT and DH's far terrain visibly simpler -->
 
+## How it meets the near terrain
+
+Since 0.5.0 far terrain is no longer rebuilt when near chunks load. It is hidden **per column and
+per ray** where the near terrain is already built, as Vista does in Radiance. A far area only counts
+as replaced once the renderer actually draws what replaces it, so no holes are left when flying
+fast.
+
 ## What to expect, honestly
 
-This is still under active tuning. Things you may notice:
-
-- **The odd seam or flicker** where far terrain switches level of detail (a large, coarse section is
-  swapped for its finer children, or back), especially in areas up to 2048 blocks out.
-- **Frame cost grows with Distant Horizons' render distance.** The farther out you configure DH to
-  generate, the more it costs the GPU to trace as well. The cost at DH's default distance (512
-  chunks) on a fully generated world is still being measured — see
-  [ROADMAP.md](../../ROADMAP.md#distant-horizons-far-terrain--implemented-pending-in-game-tuning).
-- Textured detail for DH's nearest sections (right where normal terrain ends) is not implemented
-  yet — that band shows the flat per-face colour, not textures.
-
-None of this breaks the game; these are known visual limitations of a feature explicitly marked
-experimental.
+- **Cost grows with Distant Horizons' distance.** The farther DH generates, the more the GPU traces.
+- DH sections use a flat colour per face, not textures: the band where normal terrain ends shows.
+- Still marked experimental.
 
 ## If you quit while Distant Horizons is still generating
 

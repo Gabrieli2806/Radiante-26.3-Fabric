@@ -20,23 +20,20 @@ lejos, más simplificadas son las secciones que DH le da a Radiante para trazar.
 ![Terreno lejano de Distant Horizons](../images/distant-horizons-terreno-lejano.png)
 <!-- TODO: terreno cercano con RT completo y terreno lejano de DH visiblemente más simple -->
 
+## Cómo se une con el terreno cercano
+
+Desde la 0.5.0 el terreno lejano no se vuelve a construir cuando cargan chunks cercanos. Se oculta
+**por columna y por rayo** donde el terreno cercano ya está construido, como hace Vista en Radiance.
+Una zona lejana solo cuenta como reemplazada cuando el renderizador ya dibuja lo que la reemplaza,
+así que no quedan huecos al volar rápido.
+
 ## Qué esperar, siendo honestos
 
-Esto sigue en ajuste activo. Cosas que puedes notar:
-
-- **Alguna costura o parpadeo** donde el terreno lejano cambia de nivel de detalle (una sección
-  grande y simple se reemplaza por sus hijas más finas, o al revés), especialmente en áreas de
-  hasta 2048 bloques.
-- **El coste por fotograma crece con la distancia de renderizado de Distant Horizons.** Cuanto más
-  lejos configures que DH genere, más le cuesta a la GPU trazarlo también. El coste medido a la
-  distancia por defecto de DH (512 chunks) en un mundo completamente generado todavía se está
-  midiendo — ver [ROADMAP.md](../../ROADMAP.md#distant-horizons-far-terrain--implemented-pending-in-game-tuning).
-- El detalle con textura de las secciones más cercanas de DH (justo donde termina el terreno
-  normal) todavía no está implementado — esa franja se ve con el color plano por cara, no con
-  texturas.
-
-Nada de esto rompe el juego; son limitaciones visuales conocidas de una función marcada como
-experimental.
+- **El coste crece con la distancia de Distant Horizons.** Cuanto más lejos genere DH, más traza la
+  GPU.
+- Las secciones de DH usan un color plano por cara, no texturas: la franja donde termina el terreno
+  normal se nota.
+- Sigue marcado como experimental.
 
 ## Si sales del juego mientras Distant Horizons sigue generando
 

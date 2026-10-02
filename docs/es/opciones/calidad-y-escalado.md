@@ -3,33 +3,28 @@
 # Calidad y Escalado
 
 ![Categoría Calidad y Escalado](../../images/opciones-calidad.png)
-<!-- TODO: la categoría completa: Pipeline, Modo DLSS, Generación de Fotogramas, Reflex -->
+<!-- TODO: la categoría completa: Pipeline, Modo de Escalado, Generación de Fotogramas, Reflex -->
 
 | Control | Valores | Por defecto | Qué hace |
 |---|---|---|---|
-| **Pipeline** | RT-DLSS (Reconstrucción de Rayos) · RT-NRD · RT-NRD-FSR · RT-NRD-XeSS — solo se listan los que tu GPU soporta | RT-DLSS si tu GPU lo soporta; si no, el mejor disponible | Qué combinación de denoiser y escalador usa el motor. Ver el detalle de cada uno abajo. |
-| **Modo DLSS** | Calidad · Equilibrado · Rendimiento · Rendimiento Ultra | Rendimiento Ultra | Solo con Pipeline = RT-DLSS. Resolución interna a la que renderiza antes de escalar. Calidad se ve más nítido y cuesta más; Rendimiento y Rendimiento Ultra van más rápido pero se ven más suaves y engrosan los detalles finos. |
-| **Generación de Fotogramas** | Apagado · 2x · 3x … hasta el máximo que reporte tu GPU | Apagado | Solo con Pipeline = RT-DLSS, y solo en Fabric. DLSS genera fotogramas extra entre los renderizados. Detalle completo en [frame-generacion-reflex.md](../frame-generacion-reflex.md). |
-| **NVIDIA Reflex** | Activado/Desactivado | Desactivado | Solo GPUs NVIDIA. Modo de baja latencia. Detalle completo en [frame-generacion-reflex.md](../frame-generacion-reflex.md). |
+| **Pipeline** | RT-DLSS · RT-NRD · RT-NRD-FSR · RT-NRD-XeSS. Los no instalados salen como `(Instalar)` o `(Requiere reinicio)` | RT-DLSS si DLSS ya está instalado; si no, RT-NRD-FSR | Denoiser y escalador. Ver abajo y [Escaladores](../escaladores.md). |
+| **Modo DLSS** | Calidad · Equilibrado · Rendimiento · Rendimiento Ultra | Rendimiento Ultra | Solo con RT-DLSS. Resolución interna antes de escalar. |
+| **Modo de Escalado** | FSR: Rendimiento Ultra · Rendimiento · Equilibrado · Calidad · AA Nativo. XeSS añade Calidad Ultra y Calidad Ultra Plus | Calidad | Lo mismo que Modo DLSS, para FSR y XeSS. El nivel de Calidad también lo ajusta. |
+| **Tipo de Generación de Fotogramas** | Auto · DLSS · FSR | Auto | Auto elige DLSS si la GPU lo soporta, FSR si no. FSR funciona con cualquier escalador pero solo duplica. |
+| **Generación de Fotogramas** | Apagado · 2x … 4x | Apagado | Fotogramas extra entre los renderizados. Oculto con Salida HDR. Ver [frame-generacion-reflex.md](../frame-generacion-reflex.md). |
+| **NVIDIA Reflex** | Activado / Desactivado | Desactivado | Baja latencia. Solo NVIDIA con `VK_NV_low_latency2`; oculto en otras GPUs. Sin reinicio. |
 
-## Los cuatro pipelines
+## Los pipelines
 
-- **RT-DLSS (Reconstrucción de Rayos)** — DLSS hace el denoising y el escalado a la vez ("Ray
-  Reconstruction"). Es el camino recomendado en GPUs NVIDIA: menos ruido que los presets basados en
-  NRD, y desbloquea Modo DLSS, Generación de Fotogramas y Reflex.
-- **RT-NRD** — denoiser NRD (RELAX) sin ningún escalador: renderiza a la resolución nativa de la
-  ventana. Funciona en cualquier GPU con trazado de rayos, no solo NVIDIA.
-- **RT-NRD-FSR** — NRD más el escalador FSR 3 de AMD. FSR funciona en cualquier fabricante, no hace
-  falta una GPU AMD para elegirlo.
-- **RT-NRD-XeSS** — NRD más el escalador XeSS de Intel. Igual que FSR, funciona en cualquier
-  fabricante.
+- **RT-DLSS (Reconstrucción de Rayos)**: DLSS hace denoising y escalado a la vez. El de menos
+  ruido. Solo NVIDIA, se descarga en el juego.
+- **RT-NRD-FSR**: denoiser NRD (RELAX) y FSR 3. Cualquier GPU, viene incluido. Es el valor por
+  defecto si DLSS no está instalado.
+- **RT-NRD-XeSS**: NRD y XeSS. Windows, se descarga en el juego. Recomendado en Intel Arc.
+- **RT-NRD**: NRD sin escalador, a resolución nativa. Cualquier GPU; el más caro.
 
-Solo se ofrecen los pipelines que tu GPU y tu driver pueden ejecutar de verdad — si uno no aparece
-en la lista, no es un paso de instalación que te falte (ver
-[requisitos.md](../requisitos.md#lo-que-no-necesitas-descargar-aparte)).
+## Cambiar de pipeline no instala nada solo
 
-## Por qué DLSS y los demás no se mezclan
-
-DLSS es el denoiser y el escalador de un fabricante, juntos en un mismo paquete; ofrecerlo junto a
-FSR o XeSS sugeriría que se pueden combinar, y no es así. Por eso Modo DLSS, Generación de
-Fotogramas y Reflex solo aparecen cuando el Pipeline elegido es RT-DLSS.
+Elegir `RT-DLSS (Instalar)` cambia la barra de abajo a **Instalar DLSS (115 MB)**. Instalar o
+borrar se hace fuera de un mundo y termina en un reinicio. Después de instalar, hay que elegir
+RT-DLSS: el pipeline no cambia solo. Ver [Escaladores](../escaladores.md).

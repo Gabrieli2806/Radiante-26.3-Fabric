@@ -2,55 +2,48 @@
 
 # Frame Generation and NVIDIA Reflex
 
-Two NVIDIA features, both in the [Quality & Upscaling](settings/quality-and-upscaling.md) category,
-and both sharing the same limitation for now: **they only work on the Fabric build**. On NeoForge
-and Forge, loading Streamline (the NVIDIA library that enables them) makes native device creation
-crash, so both options are hidden there — see
-[ROADMAP.md](../../ROADMAP.md#frame-generation-and-reflex-on-forge--neoforge--investigate) for the
-state of that investigation.
+Both are in [Quality & Upscaling](settings/quality-and-upscaling.md). Since 0.5.0 neither uses
+Streamline: frame generation runs natively on its own present thread and Reflex goes straight
+through `VK_NV_low_latency2`. Neither depends on the loader or needs a restart.
 
 ## Frame Generation
 
 | | |
 |---|---|
-| Requires | Pipeline = RT-DLSS, NVIDIA GPU, Fabric |
-| Values | Off · 2x · 3x … up to whatever maximum your GPU reports |
+| Type | Auto · DLSS · FSR |
+| Values | Off · 2x · 3x · 4x (up to what the type and GPU allow) |
 | Default | Off |
-| Applies | The first time you turn it on, after restarting the game; changes after that, instantly |
+| Applies | Immediately |
+| Not available | With HDR Output on |
 
-DLSS generates additional frames between the ones the engine actually renders — at 2x, for every
-real frame you see one extra generated one; at higher multipliers, more generated frames per real
-one. The result is smoother motion on a high refresh-rate monitor, at the cost of a little extra
-input latency (generated frames do not react any faster to your mouse or keyboard, they only fill in
-the motion between the ones that do).
+Generates extra frames between the ones the engine renders. Smoother motion on a high refresh rate
+monitor, at the cost of some latency: generated frames do not react sooner to your mouse.
 
-**Why the first time-on needs a restart:** Streamline has to load before Minecraft creates its
-Vulkan device, so turning on Frame Generation for the first time in a session cannot take effect
-until the next game launch. Once Streamline is already loaded, raising or lowering the multiplier
-applies instantly.
+**Frame Generation Type:**
+
+- **DLSS**: NVIDIA only, with DLSS installed. Up to 4x on RTX 50; less on older series.
+- **FSR**: any GPU, with any upscaler (DLSS included). 2x only.
+- **Auto**: DLSS when the GPU supports it, FSR otherwise.
+
+A present thread spreads the generated frames over each real frame. It does not force V-Sync:
+that stays your choice (turning generation on makes Minecraft rebuild the swapchain once).
+
+Tested on Fabric on Windows. NeoForge and Forge run the same code, not tested yet.
 
 ![Generated frame counter](../images/frame-generation-contador.png)
 <!-- TODO: the F3 overlay showing real vs. generated FPS -->
-
-### Best used with Reflex on
-
-Generating frames adds some input latency; Reflex cuts it down. Using both together is what NVIDIA
-recommends for this combination, and is also the intended use in Radiante.
 
 ## NVIDIA Reflex
 
 | | |
 |---|---|
-| Requires | NVIDIA GPU, Fabric |
-| Values | On/Off |
+| Requires | NVIDIA GPU with `VK_NV_low_latency2` and `VK_KHR_present_id` (recent driver) |
+| Values | On / Off |
 | Default | Off |
-| Applies | The first time you turn it on, after restarting the game; after that, instantly |
+| Applies | Immediately |
 
-Low-latency mode: it holds the CPU back so each frame starts as late as the GPU allows, instead of
-getting ahead and queueing up frames. The result is that your click or mouse movement reaches the
-screen faster, most noticeable with Frame Generation on or with FPS already high enough that the CPU
-has spare headroom.
+Holds the CPU back so each frame starts as late as the GPU allows, instead of queuing frames up.
+Your clicks reach the screen sooner. Most noticeable with frame generation on. Works on Windows and
+Linux, with any pipeline. On GPUs without those extensions the setting does not show.
 
-Unlike Frame Generation, Reflex does not depend on the chosen Pipeline — only on having an NVIDIA GPU
-and being on Fabric. Just like Frame Generation, turning it on for the first time in a session needs
-a restart, because it also depends on Streamline loading before Minecraft creates its Vulkan device.
+Frame generation and Reflex together is the recommended combination.

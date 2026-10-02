@@ -20,18 +20,20 @@ exact detail of what each level sets is in
 Measured on a reference scene, with DLSS Mode Ultra Performance (~150 fps) or Balanced (~80 fps) as
 the baseline:
 
-1. **DLSS Mode** (or, without DLSS, the equivalent FSR/XeSS mode) — the biggest change of all.
+1. **DLSS Mode** (or **Upscaling Mode** with FSR/XeSS) — the biggest change of all.
    Starting from Ultra Performance as the baseline, switching to Performance costs about -45% fps,
    and switching to Quality, about -65%. It is the first thing to touch if you need more FPS right
    now.
-2. **Light Bounces** (Performance category) — 4 to 2 is about +55% fps; 4 to 1 is +130%, with little
-   visible change either indoors or outdoors. The best performance-to-visual-impact trade if DLSS
-   Mode is already where you want it.
+2. **Light Bounces** (Performance category, 1 – 8) — 4 to 2 is about +55% fps, with little visible
+   change. Above 4 is for strong GPUs. To lower it only far away, use **Far Bounce Distance**: just
+   the distant terrain gets fewer bounces. **Cache Deep Bounces** (on by default) saves a lot where
+   there are many lights.
 3. **Render distance** — 24 chunks costs about 30% more than 16.
 4. **Volumetric Fog** — about 10% when turned off; its "Quality" (samples per ray) also matters: 32
    samples costs about 30% more than 16.
 5. **Block Light Sampling** — about 20% when off, but much more noise at night and in caves; usually
-   not worth turning off just for FPS.
+   not worth it. **ReSTIR** cuts noise with many lights without that cost. **SER** (RTX 40+) may
+   gain some speed but is experimental.
 6. **Carved Surfaces** (parallax) and **Clouds** — a few percentage points each; only worth touching
    once you are already tuning everything else.
 
@@ -57,15 +59,14 @@ them for performance.
 
 ## Frame Generation as an alternative
 
-If your bottleneck is your monitor's refresh rate more than the engine's actual FPS (for example, you
-already get 70+ real FPS but a 144 Hz or higher monitor),
-[DLSS Frame Generation](frame-generation-reflex.md) can give you more perceived smoothness without
-touching any quality setting — at the cost of some input latency, which Reflex helps offset. Fabric
-only, NVIDIA only.
+If you already get 60+ real FPS on a 144 Hz or faster monitor,
+[frame generation](frame-generation-reflex.md) adds smoothness without touching quality, at the
+cost of some latency that Reflex helps offset. FSR works on any GPU (2x); DLSS on NVIDIA (up to 4x
+on RTX 50).
 
 ## A known reference point
 
 The goal of a mid-range GPU (say, an RTX 3060 or RX 6700) holding 60 fps at 12 chunks with DLSS or
 FSR is still being built into a documented preset — see
-[ROADMAP.md](../../ROADMAP.md#path-out-of-alpha). If you have a GPU in that range and want to share
+[ROADMAP.md](../../ROADMAP.md). If you have a GPU in that range and want to share
 your own numbers, the [Discord](https://discord.gg/DhBbAzugZ9) is the place.

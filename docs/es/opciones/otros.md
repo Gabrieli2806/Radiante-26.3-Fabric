@@ -9,7 +9,6 @@
 |---|---|---|---|
 | **Contorno del Bloque** | Activado/Desactivado | Desactivado | El contorno alrededor del bloque bajo la mira. |
 | **Bordes de Parallax Transparentes** | Activado/Desactivado | Desactivado | Con resource packs que tallan sus texturas (relieve/parallax), la parte tallada en los bordes exteriores de un bloque se vuelve transparente, como si de verdad estuviera recortada. Desactivado, esos bordes muestran el color del borde en vez de transparencia. |
-| **Registro de Depuración** | Activado/Desactivado | Desactivado | Todo lo que Radiante escribe en el log (el de Java y el del renderizador nativo) es diagnóstico. Está apagado por defecto para que tu log siga siendo tuyo; actívalo cuando estés reportando un problema y el detalle extra ayude a diagnosticarlo. |
+| **Registro de Depuración** | Activado / Desactivado | Activado | Escribe en `latest.log` el detalle de Radiante y del renderizador nativo (líneas `[native] ...`). Activado por defecto para que un solo log baste al reportar un problema. Los errores del renderizador llegan al log aunque lo apagues. |
 
-Ninguno de estos tres afecta al rendimiento de forma medible; son ajustes de comodidad o de
-depuración, no de calidad visual ni de velocidad.
+Ninguno de los tres afecta al rendimiento de forma medible.

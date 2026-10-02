@@ -16,23 +16,28 @@ mismo frame.
 ## Características
 
 - Trazado de rayos por hardware (`VK_KHR_ray_tracing_pipeline`) para el terreno, con iluminación directa
-  path-traced, sombras e iluminación global.
+  path-traced, sombras e iluminación global, en Windows y Linux.
 - Cielo, sol y dispersión atmosférica físicamente basados.
-- Un shader pack incluido, `vanilla-pt`, con muestreo directo de luces de bloque (antorchas, lava, lámparas),
-  niebla volumétrica y nubes, lluvia/nieve con vectores de movimiento correctos, e iluminación pixelada para
-  entidades y bloques.
+- Un shader pack incluido, `vanilla-pt`, con muestreo directo de luces de bloque (antorchas, lava, lámparas) y su
+  reutilización con ReSTIR, niebla volumétrica por froxels o por ray marching, nubes volumétricas con sombras
+  opcionales, refracción de la lluvia y suelo mojado, vidrio sin juntas, e iluminación pixelada para entidades y
+  bloques.
 - Soporte LabPBR (mapas `_s`/`_n`) para bloques, atlases y entidades/ítems en mano, con emisión por entidad
-  (marcos de ítem brillantes, cristales de END, mobs autoluminosos). Se recomienda usar un resource pack
-  personalizado con mapas PBR (o un `.mcpack` de Bedrock) para aprovechar al máximo estas funciones.
-- Escalado mediante DLSS, FSR 3 y XeSS, más denoising con NRD.
-- Motion blur y profundidad de campo, ambos activables/desactivables.
-- Soporte experimental de [Distant Horizons](https://modrinth.com/mod/distanthorizons): su terreno lejano se
-  traza con path tracing junto con el resto del mundo, con un color por cara de bloque (opcional; sin el mod no
-  cambia nada). Aún en ajuste: puede haber alguna costura o terreno que aparece de golpe, y el costo por frame
-  crece con la distancia de render de DH.
+  (marcos de ítem brillantes, cristales de END, mobs autoluminosos, ítems brillantes en el suelo). Se recomienda usar
+  un resource pack personalizado con mapas PBR (o un `.mcpack` de Bedrock) para aprovechar al máximo estas funciones.
+- Escalado y generación de frames con FSR incluidos; NVIDIA DLSS (escalado, Ray Reconstruction y generación de
+  frames hasta 4x en RTX 50) e Intel XeSS se descargan dentro del juego cuando se piden. Denoising NRD para los
+  pipelines que no son DLSS.
+- NVIDIA Reflex mediante `VK_NV_low_latency2`, sin reiniciar.
+- Motion blur y profundidad de campo, ambos activables/desactivables. Salida HDR en pantallas HDR.
 - Soporte de resource packs `.mcpack` de Bedrock (incluyendo niebla y agua), detectados directamente en la
   lista de packs.
+- Soporte de [Distant Horizons](https://modrinth.com/mod/distanthorizons): su terreno lejano se traza con path
+  tracing junto con el resto del mundo, con un color por cara de bloque, y se oculta columna por columna donde el
+  terreno cercano ya está construido (opcional; sin el mod no cambia nada). El costo por frame crece con la
+  distancia de render de DH.
 - Funciona sobre el dispositivo que Minecraft crea: sin segunda instancia de Vulkan, sin swapchain duplicado.
+- Un jar de ~15 MB por loader trae ambos renderizadores; se descomprimen en la carpeta del juego al primer inicio.
 
 ## Requisitos
 
@@ -50,6 +55,12 @@ mismo frame.
 - NVIDIA Reflex requiere una GPU NVIDIA con un driver que tenga `VK_NV_low_latency2` (Windows y Linux); en otras
   GPUs la opción no aparece.
 - Java 25.
+
+El registro de depuración viene activado por defecto: los diagnósticos de Radiante y los mensajes del propio
+renderizador nativo (con el prefijo `[native]`, los errores siempre) van a `latest.log`, así que ese archivo basta para
+reportar un problema. Se puede desactivar en los ajustes de Radiante, en Otros.
+
+Documentación completa para jugadores (cada ajuste, escaladores, Linux, problemas comunes): [docs/es](docs/es/README.md).
 
 ### Notas para Linux
 
@@ -94,12 +105,21 @@ Arreglos específicos de Linux en el código de terceros incluido, que hay que c
 
 ## Compilación
 
-El mod incluye una librería nativa (`core.dll`) compilada desde `native/`.
+El mod incluye una librería nativa (`core.dll` en Windows, `libcore.so` en Linux) compilada desde `native/`. Ambas
+se enlazan con las librerías NGX de NVIDIA del SDK de DLSS, que no está en este repositorio; los runtimes de DLSS
+nunca se distribuyen (los jugadores los descargan dentro del juego). Consigue las librerías del SDK una vez, en la
+versión que espera la compilación:
 
 ```sh
-# 1. renderizador nativo (toolchain de Visual Studio 2026, x64)
+git clone --depth 1 --branch v310.9.1 https://github.com/NVIDIA/DLSS.git /tmp/dlss
+mkdir -p native/extern/DLSS/lib
+cp -r /tmp/dlss/lib/Windows_x86_64 native/extern/DLSS/lib/   # o Linux_x86_64 en Linux
+```
+
+```sh
+# 1. renderizador nativo (toolchain de Visual Studio 2026, x64, Vulkan SDK 1.4.341+)
 cmake -S native -B build/native -G "Visual Studio 18 2026" -A x64 -DMCVR_ENABLE_NRD=ON -DUSE_AMD=ON
-cmake --build build/native --config Release -j 16
+cmake --build build/native --config Release --target INSTALL -j 16
 
 # 2. el mod, un jar por loader en fabric/, neoforge/ y forge/ build/libs
 ./gradlew.bat build
@@ -123,6 +143,21 @@ Actions (`.github/workflows/build.yml`) lo hace: compila `core.dll` en Windows y
 jar por loader con ambos y falla si falta alguno. Para revisar un jar:
 `unzip -l <jar> | grep -E 'core.dll|libcore.so'`.
 
+### Publicar una versión
+
+Las versiones las publica el workflow de GitHub Actions, no se hacen a mano:
+
+1. Añade una sección `## [x.y.z] - fecha` a `changelog.md`.
+2. Sube `mod_version` en `gradle.properties` y haz push a `main` (o `multiloader`).
+3. El workflow ve una versión que aún no tiene la etiqueta `v<mod_version>+<minecraft_version>`, compila ambos
+   renderizadores y los tres jars, y publica un release en GitHub con esa etiqueta. Sus notas son la sección del
+   changelog de esa versión.
+4. Si el repositorio los tiene configurados, la misma ejecución sube el jar de cada loader a Modrinth y CurseForge
+   como beta: secrets `MODRINTH_TOKEN` / `CURSEFORGE_TOKEN`, variables `MODRINTH_ID` / `CURSEFORGE_ID`. Un sitio sin
+   token o sin ID se omite.
+
+Los push que solo tocan Markdown o `docs/` no lanzan compilación. Los pull requests compilan pero nunca publican.
+
 ### Estructura del proyecto
 
 - `common/` - todo lo que es Minecraft puro: el renderizador, mixins, ajustes, assets, archivos nativos. Se
@@ -131,7 +166,10 @@ jar por loader con ambos y falla si falta alguno. Para revisar un jar:
   entrypoint (keybinds, tick de cliente, pantalla de ajustes) y una implementación de `RadiantePlatform`
   (carpeta del juego, envío de meshes de Fabric), registrada bajo `META-INF/services`.
 - `native/` - el renderizador Vulkan en C++ (pipelines de ray tracing, shaders bajo `native/src/shader/`,
-  integración de upscalers y denoiser) compilado con CMake, instalado en los recursos de `common/`.
+  integración de upscalers, generación de frames y denoiser) compilado con CMake, instalado en los recursos de
+  `common/`. Al empaquetar, las librerías se comprimen con xz y se anota su SHA-256, que se comprueba al
+  descomprimirlas al iniciar.
+- `.github/workflows/build.yml` - CI y publicación de versiones (ver [Publicar una versión](#publicar-una-versión)).
 - Las versiones de todo esto viven en el `gradle.properties` de la raíz.
 
 Flags útiles al ejecutar (Fabric):

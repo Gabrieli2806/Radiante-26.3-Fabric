@@ -20,7 +20,7 @@ public final class FrameGeneration {
     public static final int PRESENT_END = 5;
 
     private static boolean active;
-    /** Whether the swapchain was last configured for frame generation (FIFO); a change asks for a new one. */
+    /** Whether the swapchain was last configured with frame generation on; a change asks for a new one. */
     private static boolean configuredActive;
     private static boolean configuredOnce;
 
@@ -103,7 +103,7 @@ public final class FrameGeneration {
         configuredActive = isActive();
         configuredOnce = true;
         if (configuredActive) {
-            RadianteClient.LOGGER.info("Frame generation on: the swapchain presents in FIFO to pace the frames");
+            RadianteClient.LOGGER.info("Frame generation on: a present thread spreads the generated frames over one rendered frame");
         }
     }
 

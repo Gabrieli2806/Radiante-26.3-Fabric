@@ -6,18 +6,20 @@
 Idiomas: **ES** · [EN](../en/README.md)
 
 Radiante es un mod de trazado de rayos por hardware para Minecraft 26.3 (Fabric, NeoForge y Forge),
+en Windows y Linux,
 construido sobre el propio backend Vulkan de Minecraft en vez de crear un segundo dispositivo Vulkan
 al lado. Es un fork de [Radiance](https://github.com/Minecraft-Radiance/Radiance) y su renderizador
 nativo [MCVR](https://github.com/Minecraft-Radiance/MCVR), de LJIONG e Interstellarss.
 
-Versión de esta documentación: **0.2.0** (alpha).
+Versión de esta documentación: **0.5.0** (primera beta).
 
 ## Empezar
 
-1. **[Requisitos](requisitos.md)** — qué GPU, versión de Minecraft y de Java necesitas.
+1. **[Requisitos](requisitos.md)** — sistema, GPU por fabricante, loader y Java.
 2. **[Instalación](instalacion.md)** — pasos por loader (Fabric, NeoForge, Forge) y qué esperar al
    entrar por primera vez.
-3. **[Ajustes](opciones.md)** — cómo está organizada la pantalla de ajustes, el botón de restablecer
+3. **[Escaladores](escaladores.md)** — FSR incluido; DLSS y XeSS se descargan en el juego.
+4. **[Ajustes](opciones.md)** — cómo está organizada la pantalla de ajustes, el botón de restablecer
    valores, y el enlace a cada categoría.
 
 ## Funciones a fondo
@@ -28,11 +30,16 @@ Versión de esta documentación: **0.2.0** (alpha).
   de una instalación de Bedrock en el mismo PC.
 - **[Distant Horizons](distant-horizons.md)** — soporte experimental de terreno lejano.
 - **[HDR](hdr.md)** — salida en pantallas HDR, brillo máximo y blanco de papel.
-- **[Generación de fotogramas y NVIDIA Reflex](frame-generacion-reflex.md)** — DLSS Frame Generation
-  y el modo de baja latencia.
+- **[Generación de fotogramas y NVIDIA Reflex](frame-generacion-reflex.md)** — DLSS o FSR, y el
+  modo de baja latencia.
 - **[Rendimiento](rendimiento.md)** — qué cuesta más FPS y cómo ajustarlo a tu GPU.
+- **[Linux](linux.md)** — glibc, drivers, launchers en Flatpak y qué mirar si no arranca.
 - **[Problemas comunes](problemas.md)** — pantallas de "no disponible", cambios de API gráfica, y
   qué hacer si algo no funciona.
+
+## Para desarrolladores
+
+- **[Compilar y publicar](compilar.md)** — Windows, Linux, GitHub Actions y cómo sale una versión.
 
 ## Referencia de ajustes por categoría
 
@@ -50,31 +57,26 @@ página con todos sus controles, valor por defecto y qué hace cada uno:
 
 ## Qué es Radiante, en corto
 
-- Trazado de rayos por hardware (`VK_KHR_ray_tracing_pipeline`) para el terreno: iluminación directa
-  path-traced, sombras suaves e iluminación global.
-- Cielo, sol y luna físicamente basados, con su tamaño angular y color reales.
-- Un shader pack, `vanilla-pt`: muestreo directo de luces de bloque, niebla y nubes volumétricas,
-  lluvia/nieve con vectores de movimiento correctos, e iluminación pixelada opcional.
-- Soporte LabPBR (`_n`/`_s`) para bloques, entidades e ítems en mano, con emisión por entidad.
-- Escalado mediante DLSS, FSR 3 y XeSS, con denoising NRD (RELAX).
-- Desenfoque de movimiento y profundidad de campo, ambos opcionales.
-- Soporte experimental de Distant Horizons y de resource packs `.mcpack` de Bedrock.
-- Corre sobre el dispositivo Vulkan que Minecraft ya crea: sin segunda instancia, sin swapchain
-  duplicado.
+- Trazado de rayos por hardware para el terreno: luz directa, sombras suaves e iluminación global,
+  con hasta 8 rebotes y ReSTIR para las luces de bloque.
+- Cielo físico, niebla volumétrica (rejilla de froxels estilo Radiance o por píxel), nubes
+  volumétricas con sombras, lluvia con refracción y suelo mojado, vidrio sin bordes.
+- LabPBR (`_n`/`_s`) para bloques, entidades e ítems; resource packs `.mcpack` de Bedrock RTX.
+- FSR incluido; DLSS y XeSS descargables. Generación de fotogramas DLSS o FSR y NVIDIA Reflex.
+- Salida HDR, desenfoque de movimiento y profundidad de campo.
+- Distant Horizons experimental.
+- Corre sobre el dispositivo Vulkan que Minecraft ya crea. El jar pesa unos 15 MB.
 
-## Limitaciones conocidas (alpha)
+## Limitaciones conocidas (beta)
 
-Esto es software en fase alpha. Sé honesto contigo mismo sobre lo que todavía no funciona:
-
-- Los presets basados en NRD (todo lo que no es DLSS Ray Reconstruction) tienen algo más de ruido
-  del denoiser que DLSS-RR. Si tienes una GPU NVIDIA, DLSS es el camino estable ahora mismo.
-- La luz de un objeto en la mano no se propaga a su alrededor más allá de un pequeño radio.
-- Las nubes vanilla (no volumétricas), el clima, la animación de romper bloques y el brillo de
-  encantamiento todavía no están portados a este renderizador.
-- Generación de fotogramas y NVIDIA Reflex solo funcionan en Fabric por ahora — ver
-  [frame-generacion-reflex.md](frame-generacion-reflex.md).
-- Distant Horizons puede mostrar alguna costura o parpadeo en el terreno lejano mientras se sigue
-  ajustando — ver [distant-horizons.md](distant-horizons.md).
+- Los pipelines con NRD (FSR, XeSS, nativo) tienen algo más de ruido que DLSS Ray Reconstruction.
+- AMD e Intel funcionan, pero están menos probados que NVIDIA.
+- Generación de fotogramas y Reflex están probados en Fabric; en NeoForge y Forge corren el mismo
+  código sin probar todavía. La generación no está disponible con HDR.
+- XeSS solo en Windows. Instalar DLSS no cambia el pipeline: hay que elegir RT-DLSS.
+- Shader Execution Reordering es experimental (el agua puede verse blanca).
+- Distant Horizons sigue siendo experimental: ver [distant-horizons.md](distant-horizons.md).
+- El botón "Avanzado..." de los ajustes todavía no hace nada.
 
 La lista completa y actualizada de trabajo pendiente está en
 [ROADMAP.md](../../ROADMAP.md), en la raíz del repositorio.
