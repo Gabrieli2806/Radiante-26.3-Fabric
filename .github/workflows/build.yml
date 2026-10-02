@@ -61,9 +61,12 @@ jobs:
         run: |
           git clone --depth 1 --branch "$DLSS_SDK_TAG" https://github.com/NVIDIA/DLSS.git /tmp/dlss
           mkdir -p native/extern/DLSS/lib && cp -r /tmp/dlss/lib/Windows_x86_64 native/extern/DLSS/lib/
+      # bash, not PowerShell: PowerShell splits -DCMAKE_POLICY_VERSION_MINIMUM=3.5 into "3" and ".5".
       - name: Configure
+        shell: bash
         run: cmake -S native -B native/build/ci -A x64 -DMCVR_ENABLE_NRD=ON -DUSE_AMD=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
       - name: Build
+        shell: bash
         run: cmake --build native/build/ci --config Release --target INSTALL -- -m
       - uses: actions/upload-artifact@v4
         with:
