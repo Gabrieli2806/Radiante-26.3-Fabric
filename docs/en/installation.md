@@ -65,8 +65,7 @@ You will see "Radiante: ray tracing unavailable" and the game carries on with Mi
 This also happens with software Vulkan (`llvmpipe`). See
 [Common problems](problems.md#my-gpu-does-not-support-ray-tracing).
 
-![Ray tracing unavailable screen](../images/pantalla-rt-no-disponible.png)
-<!-- TODO: the full "Radiante: ray tracing unavailable" screen -->
+<!-- Screenshot pending: the full "Radiante: ray tracing unavailable" screen -->
 
 ### If all goes well
 

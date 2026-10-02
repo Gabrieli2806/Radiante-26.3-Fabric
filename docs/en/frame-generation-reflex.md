@@ -30,8 +30,7 @@ that stays your choice (turning generation on makes Minecraft rebuild the swapch
 
 Tested on Fabric on Windows. NeoForge and Forge run the same code, not tested yet.
 
-![Generated frame counter](../images/frame-generation-contador.png)
-<!-- TODO: the F3 overlay showing real vs. generated FPS -->
+<!-- Screenshot pending: the F3 overlay showing real vs. generated FPS -->
 
 ## NVIDIA Reflex
 

@@ -2,8 +2,13 @@
 
 # Sky, Fog & Water
 
-![Sky, Fog & Water category](../../images/opciones-cielo-agua.png)
-<!-- TODO: the category with Clouds and Volumetric Fog turned on -->
+![Radiante settings: Sky & Water](../../images/ui/settings-sky.png)
+
+**Volumetric fog.** Fog off and on at noon.
+
+| Off | On |
+|---|---|
+| ![Off](../../images/compare/volumetric-fog-off.webp) | ![On](../../images/compare/volumetric-fog-on.webp) |
 
 | Control | Range / Values | Default | What it does |
 |---|---|---|---|

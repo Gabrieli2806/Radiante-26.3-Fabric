@@ -15,6 +15,12 @@ clouds, render distance, light bounces and more), in combinations that have alre
 exact detail of what each level sets is in
 [styles-and-quality.md#quality-levels](styles-and-quality.md#quality-levels).
 
+**Low and Ultra quality.** Low turns volumetric fog off and renders fewer chunks at a lower DLSS mode.
+
+| Low | Ultra |
+|---|---|
+| ![Low](../images/compare/quality-low.webp) | ![Ultra](../images/compare/quality-ultra.webp) |
+
 ## The controls that cost the most, by impact
 
 Measured on a reference scene, with DLSS Mode Ultra Performance (~150 fps) or Balanced (~80 fps) as

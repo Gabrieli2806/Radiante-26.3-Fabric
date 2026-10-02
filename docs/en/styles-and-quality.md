@@ -59,14 +59,19 @@ Sky Light (and the tone mapping method) all at once:
 - **Vivid** — more contrast (via the more filmic ACES tone mapping) and more colour than Natural,
   without Bedrock's extra bounced light.
 
-![Natural style](../images/estilo-natural.png)
-<!-- TODO: an outdoor daytime scene, Picture Style = Natural -->
+**Picture styles.** Natural, Bedrock and Vivid change saturation, tone mapping and how far bounced light carries.
 
-![Bedrock style](../images/estilo-bedrock.png)
-<!-- TODO: the same scene and time of day, Picture Style = Bedrock -->
+*Natural*
 
-![Vivid style](../images/estilo-vivido.png)
-<!-- TODO: the same scene, Picture Style = Vivid -->
+![Natural](../images/compare/styles-natural.webp)
+
+*Bedrock*
+
+![Bedrock](../images/compare/styles-bedrock.webp)
+
+*Vivid*
+
+![Vivid](../images/compare/styles-vivid.webp)
 
 ## How it relates to "Atmosphere"
 
@@ -78,5 +83,8 @@ the Natural style.
 
 ## Quick quality comparison
 
-![Quality level comparison](../images/calidad-comparacion.png)
-<!-- TODO: two screenshots, Low vs. Ultra, same scene and angle -->
+**Low and Ultra quality.** Low turns volumetric fog off and renders fewer chunks at a lower DLSS mode.
+
+| Low | Ultra |
+|---|---|
+| ![Low](../images/compare/quality-low.webp) | ![Ultra](../images/compare/quality-ultra.webp) |

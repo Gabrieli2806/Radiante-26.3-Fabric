@@ -1,7 +1,6 @@
 # Documentación de Radiante
 
-![Radiante](../images/logo-radiante.png)
-<!-- TODO: icono/logo de Radiante, o quitar esta línea si no hay uno todavía -->
+![Radiante con DLSS Quality: bosque y río con sol](../images/scenes/hero.webp)
 
 Idiomas: **ES** · [EN](../en/README.md)
 

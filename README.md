@@ -6,10 +6,18 @@ Path-traced rendering for Minecraft 26.3 (Fabric, NeoForge and Forge), built on 
 
 Languages: **EN** · [ES](README.es.md)
 
+![Radiante with DLSS Quality: forest and river in sunlight](docs/images/scenes/hero.webp)
+
 Radiante is a fork of [Radiance](https://github.com/Minecraft-Radiance/Radiance) and its native renderer
 [MCVR](https://github.com/Minecraft-Radiance/MCVR), rewritten for the render pearl (`com.mojang.renderpearl`)
 Vulkan backend introduced in Minecraft 26.3. Instead of creating its own Vulkan device next to the game, it
 shares the device Minecraft already created, so the ray tracer and the vanilla GUI draw into the same frame.
+
+**Ray tracing off and on.** The same view with vanilla lighting and with Radiante.
+
+| Off (vanilla) | On (DLSS Quality) |
+|---|---|
+| ![Off (vanilla)](docs/images/compare/raytracing-off.webp) | ![On (DLSS Quality)](docs/images/compare/raytracing-on.webp) |
 
 ## Features
 

@@ -15,6 +15,12 @@ niebla volumétrica, nubes, distancia de renderizado, rebotes de luz y más), en
 probadas. El detalle exacto de qué pone cada nivel está en
 [estilos-y-calidad.md](estilos-y-calidad.md#niveles-de-calidad).
 
+**Calidad Baja y Ultra.** Baja apaga la niebla volumétrica y dibuja menos chunks con un modo DLSS más bajo.
+
+| Baja | Ultra |
+|---|---|
+| ![Baja](../images/compare/quality-low.webp) | ![Ultra](../images/compare/quality-ultra.webp) |
+
 ## Los controles que más cuestan, de mayor a menor impacto
 
 Medido en una escena de referencia, con el Modo DLSS Rendimiento Ultra (~150 FPS) o Equilibrado

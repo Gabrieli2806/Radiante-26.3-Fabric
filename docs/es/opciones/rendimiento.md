@@ -7,8 +7,7 @@
 > compara tu GPU, el coste de Distant Horizons), esa es una página distinta:
 > **[rendimiento.md](../rendimiento.md)**, en la raíz de la documentación.
 
-![Categoría Rendimiento](../../images/opciones-rendimiento.png)
-<!-- TODO: Rebotes de Luz, Rebotes Lejanos, Caché, Hilos/Lotes de Chunks -->
+![Ajustes de Radiante: Rendimiento](../../images/ui/settings-performance.png)
 
 | Control | Rango | Por defecto | Qué hace |
 |---|---|---|---|

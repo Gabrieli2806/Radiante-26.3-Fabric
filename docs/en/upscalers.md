@@ -28,8 +28,9 @@ The window has three buttons: **Download (N MB)**, **Not now** (asks again next 
 **Don't ask again**. Progress shows while downloading; **Continue in the background** closes the
 window and the download goes on.
 
-![DLSS download window](../images/descarga-dlss.png)
-<!-- TODO: the first-start "NVIDIA DLSS" window with the progress bar half way -->
+![First-start offer to download DLSS](../images/ui/download-offer.png)
+
+![DLSS download with a progress bar](../images/ui/download-progress.png)
 
 ## From the settings
 
@@ -44,8 +45,27 @@ or **Delete DLSS**, as fits. Installing and deleting are done **outside a world*
 button asks you to leave first. Upscalers are loaded when the game starts, so installing or
 deleting always ends in a forced restart.
 
-![Pipeline with DLSS to install](../images/pipeline-instalar.png)
-<!-- TODO: the Pipeline selector showing "RT-DLSS (Install)" and the install button below -->
+![Pipeline selector showing (Install) and the Install DLSS button](../images/ui/pipeline-install.png)
+
+![Forced restart screen after installing or deleting an upscaler](../images/ui/download-restart.png)
+
+**Upscalers.** The same view with each upscaler. The FSR and no-upscaler pipelines also draw a clearer sky, so judge the textures.
+
+*DLSS Quality*
+
+![DLSS Quality](../images/compare/upscalers-dlss-quality.webp)
+
+*DLSS Ultra Performance*
+
+![DLSS Ultra Performance](../images/compare/upscalers-dlss-ultra-performance.webp)
+
+*FSR 3*
+
+![FSR 3](../images/compare/upscalers-fsr.webp)
+
+*No upscaler*
+
+![No upscaler](../images/compare/upscalers-none.webp)
 
 ## After installing DLSS
 

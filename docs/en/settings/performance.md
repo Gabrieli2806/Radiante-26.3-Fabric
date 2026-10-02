@@ -7,8 +7,7 @@
 > GPU compares, Distant Horizons' cost), that is a different page:
 > **[performance.md](../performance.md)**, at the root of the documentation.
 
-![Performance category](../../images/opciones-rendimiento.png)
-<!-- TODO: Ray Bounces, Carved Surfaces, Chunk Threads/Batches -->
+![Radiante settings: Performance](../../images/ui/settings-performance.png)
 
 | Control | Range | Default | What it does |
 |---|---|---|---|

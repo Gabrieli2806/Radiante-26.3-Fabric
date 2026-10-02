@@ -65,8 +65,7 @@ Verás "Radiante: trazado de rayos no disponible" y el juego sigue con el render
 Pasa también con Vulkan por software (`llvmpipe`). Ver
 [Problemas comunes](problemas.md#mi-gpu-no-soporta-trazado-de-rayos).
 
-![Pantalla de trazado de rayos no disponible](../images/pantalla-rt-no-disponible.png)
-<!-- TODO: la pantalla "Radiante: trazado de rayos no disponible" completa -->
+<!-- Captura pendiente: la pantalla "Radiante: trazado de rayos no disponible" completa -->
 
 ### Si todo va bien
 

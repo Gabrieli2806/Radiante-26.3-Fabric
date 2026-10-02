@@ -2,8 +2,7 @@
 
 # Calidad y Escalado
 
-![Categoría Calidad y Escalado](../../images/opciones-calidad.png)
-<!-- TODO: la categoría completa: Pipeline, Modo de Escalado, Generación de Fotogramas, Reflex -->
+![Ajustes de Radiante: Calidad](../../images/ui/settings-quality.png)
 
 | Control | Valores | Por defecto | Qué hace |
 |---|---|---|---|

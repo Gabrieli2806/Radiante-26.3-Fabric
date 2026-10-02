@@ -2,8 +2,7 @@
 
 # Other
 
-![Other category](../../images/opciones-otros.png)
-<!-- TODO: Block Outline, See-through Parallax Edges, Debug Logging -->
+![Radiante settings: Other](../../images/ui/settings-other.png)
 
 | Control | Values | Default | What it does |
 |---|---|---|---|

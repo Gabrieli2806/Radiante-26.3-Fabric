@@ -45,6 +45,4 @@ is exactly what is being shown in real HDR. Useful to confirm the world is actua
 range and not just looking brighter — it is not saved between sessions, so it turns off again every
 time you open the game.
 
-![HDR comparison](../images/hdr-comparacion.png)
-<!-- TODO: the same scene with an intense light source, HDR on vs. off. A photo of the screen or a
-     short GIF captures the difference better than a plain PNG, which displays in SDR. -->
+<!-- Screenshot pending: the same scene with an intense light source, HDR on vs. off. A photo of the screen or a short GIF captures the difference better than a plain PNG, which displays in SDR. -->

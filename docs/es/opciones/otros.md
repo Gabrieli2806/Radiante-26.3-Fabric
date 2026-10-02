@@ -2,8 +2,7 @@
 
 # Otros
 
-![Categoría Otros](../../images/opciones-otros.png)
-<!-- TODO: Contorno del Bloque, Bordes de Parallax, Registro de Depuración -->
+![Ajustes de Radiante: Otros](../../images/ui/settings-other.png)
 
 | Control | Valores | Por defecto | Qué hace |
 |---|---|---|---|

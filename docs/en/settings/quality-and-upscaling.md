@@ -2,8 +2,7 @@
 
 # Quality & Upscaling
 
-![Quality & Upscaling category](../../images/opciones-calidad.png)
-<!-- TODO: the full category: Pipeline, Upscaling Mode, Frame Generation, Reflex -->
+![Radiante settings: Quality](../../images/ui/settings-quality.png)
 
 | Control | Values | Default | What it does |
 |---|---|---|---|

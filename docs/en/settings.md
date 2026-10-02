@@ -6,8 +6,7 @@ Opened with `F6` in a world, or from Radiante's button in Options → Video Sett
 included). Changes add up and are applied together when you press "Done", so the renderer rebuilds
 once. While it does, the **Applying settings...** screen shows for a few seconds.
 
-![The Radiante settings screen](../images/opciones-pantalla-completa.png)
-<!-- TODO: the full screen, with the search box, Quality, Reset and impact labels -->
+![Radiante settings: Quality](../images/ui/settings-quality.png)
 
 ## Search
 

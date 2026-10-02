@@ -20,8 +20,7 @@ variedad de materiales que lo incluido.
    directamente, y solo vuelve a convertir si el `.mcpack` cambió o si una versión nueva del
    conversor lo requiere.
 
-![Un .mcpack detectado en la lista de resource packs](../images/bedrock-lista-de-packs.png)
-<!-- TODO: la lista de resource packs con un .mcpack visible y activable -->
+<!-- Captura pendiente: la lista de resource packs con un .mcpack visible y activable -->
 
 ### Qué convierte exactamente
 
@@ -59,8 +58,7 @@ que la textura de reemplazo de 1x1 no es un cielo de Bedrock válido y sigue con
 cáusticas funcionan igual y por separado: sin `caustics.png` disponible, se usan las cáusticas
 procedurales de Radiante en vez de fallar.
 
-![Comparación de atmósfera Java vs. Bedrock](../images/atmosfera-java-vs-bedrock.png)
-<!-- TODO: el cielo con Atmósfera en Java y en Bedrock, misma hora del día -->
+<!-- Captura pendiente: el cielo con Atmósfera en Java y en Bedrock, misma hora del día -->
 
 ### Copiar los archivos a mano
 
@@ -75,8 +73,7 @@ colócalos en `radiante/bedrock/` dentro de la carpeta del juego, con esos nombr
 
 ## Antes / después
 
-![Comparación con y sin pack de Bedrock](../images/bedrock-antes-despues.png)
-<!-- TODO: la misma escena con un .mcpack activado y desactivado -->
+<!-- Captura pendiente: la misma escena con un .mcpack activado y desactivado -->
 
 ## Ver también
 

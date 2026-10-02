@@ -154,6 +154,20 @@ public final class DevAutomation {
     }
 
     private static void run(Minecraft minecraft, String action) {
+        if (action.startsWith("mouse=")) {
+            // mouse=x,y: parks the cursor at window pixels, e.g. in a corner so no tooltip covers a screenshot.
+            String[] xy = action.substring(6).split(",");
+            try {
+                for (String name : new String[] {"xpos", "ypos"}) {
+                    java.lang.reflect.Field field = minecraft.mouseHandler.getClass().getDeclaredField(name);
+                    field.setAccessible(true);
+                    field.setDouble(minecraft.mouseHandler, Double.parseDouble(xy[name.equals("xpos") ? 0 : 1]));
+                }
+            } catch (ReflectiveOperationException e) {
+                RadianteClient.LOGGER.warn("[dev] could not move the cursor", e);
+            }
+            return;
+        }
         if (action.equals("settings")) {
             minecraft.gui.setScreen(new com.g2806.radiante.client.gui.RadianteOptionsScreen(minecraft.gui.screen(), minecraft.options));
             return;

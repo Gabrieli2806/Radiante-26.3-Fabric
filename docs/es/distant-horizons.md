@@ -17,8 +17,7 @@ El terreno de Distant Horizons se simplifica a una sección por cara de bloque c
 cualquier otra sección del mundo: recibe luz, proyecta sombra, y aparece en reflejos. Cuanto más
 lejos, más simplificadas son las secciones que DH le da a Radiante para trazar.
 
-![Terreno lejano de Distant Horizons](../images/distant-horizons-terreno-lejano.png)
-<!-- TODO: terreno cercano con RT completo y terreno lejano de DH visiblemente más simple -->
+![Distant Horizons: terreno cercano con ray tracing, terreno lejano de Distant Horizons](../images/scenes/distant-horizons.webp)
 
 ## Cómo se une con el terreno cercano
 

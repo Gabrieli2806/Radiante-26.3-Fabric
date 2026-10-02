@@ -18,8 +18,7 @@ but a Bedrock pack usually gives more detail and material variety than what is i
    does not show up twice in the pack list). Later uses read the converted copy directly, and only
    convert again if the `.mcpack` changed or a newer version of the converter requires it.
 
-![A .mcpack detected in the resource pack list](../images/bedrock-lista-de-packs.png)
-<!-- TODO: the resource pack list with a .mcpack visible and enable-able -->
+<!-- Screenshot pending: the resource pack list with a .mcpack visible and enable-able -->
 
 ### What exactly gets converted
 
@@ -58,8 +57,7 @@ Bedrock. This is a silent switch, with no warning or error message: the shader s
 way, independently: without `caustics.png` available, Radiante's procedural caustics are used
 instead of failing.
 
-![Java vs. Bedrock atmosphere comparison](../images/atmosfera-java-vs-bedrock.png)
-<!-- TODO: the sky with Atmosphere set to Java and to Bedrock, same time of day -->
+<!-- Screenshot pending: the sky with Atmosphere set to Java and to Bedrock, same time of day -->
 
 ### Copying the files by hand
 
@@ -74,8 +72,7 @@ place them under `radiante/bedrock/` inside the game directory, with these exact
 
 ## Before / after
 
-![Comparison with and without a Bedrock pack](../images/bedrock-antes-despues.png)
-<!-- TODO: the same scene with a .mcpack enabled and disabled -->
+<!-- Screenshot pending: the same scene with a .mcpack enabled and disabled -->
 
 ## See also
 

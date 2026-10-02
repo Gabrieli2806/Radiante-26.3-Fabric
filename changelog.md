@@ -43,7 +43,7 @@ First beta. Covers everything since 0.2.0 (0.3.0 and 0.4.0 were never documented
   glass.
 - Tinted glass is dark and see-through but keeps its texture; glass reflections are capped.
 - Reset to Defaults now falls back to FSR instead of no upscaler.
-- Light Bounces goes up to 8 (was 4). The Low quality level uses 2 bounces instead of 1, which left rooms flat.
+- Light Bounces now goes up to 8. The Low quality level uses 2 bounces instead of 1, which left rooms flat.
 - Frame generation is no longer tied to the DLSS pipeline or to Fabric: FSR frame generation works with any
   upscaler. It leaves V-Sync to the player and is hidden while HDR output is on.
 - Light grid and the Streamline frame generation were tried and removed (flicker, no gain).

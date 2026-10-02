@@ -1,7 +1,6 @@
 # Radiante documentation
 
-![Radiante](../images/logo-radiante.png)
-<!-- TODO: Radiante icon/logo, or drop this line if there isn't one yet -->
+![Radiante with DLSS Quality: forest and river in sunlight](../images/scenes/hero.webp)
 
 Languages: [ES](../es/README.md) · **EN**
 

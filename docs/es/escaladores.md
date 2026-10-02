@@ -28,8 +28,9 @@ La ventana tiene tres botones: **Descargar (N MB)**, **Ahora no** (vuelve a preg
 inicio) y **No volver a preguntar**. Mientras descarga se ve el progreso; **Continuar en segundo
 plano** cierra la ventana y la descarga sigue.
 
-![Ventana de descarga de DLSS](../images/descarga-dlss.png)
-<!-- TODO: la ventana "NVIDIA DLSS" del primer inicio, con la barra de progreso a mitad -->
+![Oferta de descargar DLSS en el primer inicio](../images/ui/download-offer.png)
+
+![Descarga de DLSS con barra de progreso](../images/ui/download-progress.png)
 
 ## Desde los ajustes
 
@@ -44,8 +45,27 @@ DLSS** o **Borrar DLSS**, según el caso. Instalar y borrar se hacen **fuera de 
 de una partida el botón pide salir primero. Los escaladores se cargan al iniciar el juego, así que
 instalar o borrar siempre termina en un reinicio forzado.
 
-![Pipeline con DLSS para instalar](../images/pipeline-instalar.png)
-<!-- TODO: el selector Pipeline mostrando "RT-DLSS (Instalar)" y el botón de instalar abajo -->
+![Selector de pipeline con (Install) y el botón Instalar DLSS](../images/ui/pipeline-install.png)
+
+![Pantalla de reinicio obligatorio tras instalar o borrar un escalador](../images/ui/download-restart.png)
+
+**Escaladores.** La misma vista con cada escalador. Los pipelines FSR y sin escalador también dibujan un cielo más nítido: compara las texturas.
+
+*DLSS Quality*
+
+![DLSS Quality](../images/compare/upscalers-dlss-quality.webp)
+
+*DLSS Ultra Performance*
+
+![DLSS Ultra Performance](../images/compare/upscalers-dlss-ultra-performance.webp)
+
+*FSR 3*
+
+![FSR 3](../images/compare/upscalers-fsr.webp)
+
+*Sin escalador*
+
+![Sin escalador](../images/compare/upscalers-none.webp)
 
 ## Después de instalar DLSS
 

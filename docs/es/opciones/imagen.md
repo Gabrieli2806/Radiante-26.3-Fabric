@@ -2,8 +2,7 @@
 
 # Imagen
 
-![Categoría Imagen](../../images/opciones-imagen.png)
-<!-- TODO: Estilo de Imagen, Mapeo de Tonos, Saturación, y la sección HDR expandida -->
+![Ajustes de Radiante: Imagen](../../images/ui/settings-image.png)
 
 | Control | Rango / Valores | Por defecto | Qué hace |
 |---|---|---|---|

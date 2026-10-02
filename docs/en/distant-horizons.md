@@ -17,8 +17,7 @@ geometry near terrain uses), and is traced just like any other section of the wo
 light, casts shadows, and shows up in reflections. The farther away, the coarser the sections DH
 hands Radiante to trace.
 
-![Distant Horizons far terrain](../images/distant-horizons-terreno-lejano.png)
-<!-- TODO: near terrain with full RT and DH's far terrain visibly simpler -->
+![Distant Horizons: near terrain ray traced, far terrain from Distant Horizons](../images/scenes/distant-horizons.webp)
 
 ## How it meets the near terrain
 

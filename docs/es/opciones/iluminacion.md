@@ -2,8 +2,7 @@
 
 # Iluminación
 
-![Categoría Iluminación](../../images/opciones-iluminacion.png)
-<!-- TODO: la categoría completa, con los sliders de brillo y los toggles de ReSTIR y SER -->
+![Ajustes de Radiante: Iluminación](../../images/ui/settings-lighting.png)
 
 | Control | Rango | Por defecto | Qué hace |
 |---|---|---|---|

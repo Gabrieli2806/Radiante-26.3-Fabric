@@ -2,8 +2,13 @@
 
 # Cielo, Niebla y Agua
 
-![Categoría Cielo, Niebla y Agua](../../images/opciones-cielo-agua.png)
-<!-- TODO: la categoría con Nubes Volumétricas, Sombras de Nubes y Estilo de Niebla visibles -->
+![Ajustes de Radiante: Cielo y Agua](../../images/ui/settings-sky.png)
+
+**Niebla volumétrica.** Niebla apagada y encendida al mediodía.
+
+| Apagada | Encendida |
+|---|---|
+| ![Apagada](../../images/compare/volumetric-fog-off.webp) | ![Encendida](../../images/compare/volumetric-fog-on.webp) |
 
 | Control | Rango / Valores | Por defecto | Qué hace |
 |---|---|---|---|

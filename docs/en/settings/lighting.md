@@ -2,8 +2,7 @@
 
 # Lighting
 
-![Lighting category](../../images/opciones-iluminacion.png)
-<!-- TODO: the full category, with the brightness sliders and the ReSTIR and SER toggles -->
+![Radiante settings: Lighting](../../images/ui/settings-lighting.png)
 
 | Control | Range | Default | What it does |
 |---|---|---|---|

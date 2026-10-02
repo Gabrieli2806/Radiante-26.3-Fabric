@@ -7,11 +7,19 @@ Vulkan propio de Minecraft.
 
 Idiomas: [EN](README.md) · **ES**
 
+![Radiante con DLSS Quality: bosque y río con sol](docs/images/scenes/hero.webp)
+
 Radiante es un fork de [Radiance](https://github.com/Minecraft-Radiance/Radiance) y su renderizador nativo
 [MCVR](https://github.com/Minecraft-Radiance/MCVR), reescrito para el backend Vulkan "render pearl"
 (`com.mojang.renderpearl`) introducido en Minecraft 26.3. En lugar de crear su propio dispositivo Vulkan junto
 al del juego, comparte el que Minecraft ya creó, así que el trazador de rayos y la GUI vanilla dibujan en el
 mismo frame.
+
+**Ray tracing apagado y encendido.** La misma vista con la iluminación vanilla y con Radiante.
+
+| Apagado (vanilla) | Encendido (DLSS Quality) |
+|---|---|
+| ![Apagado (vanilla)](docs/images/compare/raytracing-off.webp) | ![Encendido (DLSS Quality)](docs/images/compare/raytracing-on.webp) |
 
 ## Características
 

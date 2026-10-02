@@ -7,8 +7,7 @@ Se abren con `F6` dentro de un mundo, o desde el botón de Radiante en Opciones 
 que el renderizador se reconstruye una sola vez. Mientras lo hace se ve la pantalla **Aplicando
 ajustes...**, que dura unos segundos.
 
-![La pantalla de ajustes de Radiante](../images/opciones-pantalla-completa.png)
-<!-- TODO: la pantalla completa, con la caja de búsqueda, Calidad, Restablecer y etiquetas de impacto -->
+![Ajustes de Radiante: Calidad](../images/ui/settings-quality.png)
 
 ## Buscar
 

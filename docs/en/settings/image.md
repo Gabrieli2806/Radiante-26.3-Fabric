@@ -2,8 +2,7 @@
 
 # Image
 
-![Image category](../../images/opciones-imagen.png)
-<!-- TODO: Picture Style, Tone Mapping, Saturation, and the expanded HDR section -->
+![Radiante settings: Image](../../images/ui/settings-image.png)
 
 | Control | Range / Values | Default | What it does |
 |---|---|---|---|

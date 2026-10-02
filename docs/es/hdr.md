@@ -46,6 +46,4 @@ color normal es exactamente lo que se está mostrando en HDR real. Sirve para co
 sí está usando el rango HDR y no solo pareciendo más brillante — no se guarda entre sesiones,
 así que vuelve a desactivarse cada vez que abres el juego.
 
-![Comparación con y sin HDR](../images/hdr-comparacion.png)
-<!-- TODO: la misma escena con una fuente de luz intensa, HDR activado vs. desactivado. Una foto de
-     pantalla o un GIF corto capturan la diferencia mejor que un PNG normal, que se muestra en SDR. -->
+<!-- Captura pendiente: la misma escena con una fuente de luz intensa, HDR activado vs. desactivado. Una foto de pantalla o un GIF corto capturan la diferencia mejor que un PNG normal, que se muestra en SDR. -->

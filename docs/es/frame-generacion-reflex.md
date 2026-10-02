@@ -31,8 +31,7 @@ swapchain una vez).
 
 Probado en Fabric en Windows. NeoForge y Forge corren el mismo código, sin probar todavía.
 
-![Contador de fotogramas generados](../images/frame-generation-contador.png)
-<!-- TODO: el overlay F3 mostrando FPS reales vs. generados -->
+<!-- Captura pendiente: el overlay F3 mostrando FPS reales vs. generados -->
 
 ## NVIDIA Reflex
 

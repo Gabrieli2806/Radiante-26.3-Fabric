@@ -60,14 +60,19 @@ Luz del Cielo (y el método de Mapeo de Tonos) a la vez:
 - **Vívido** — más contraste (vía el mapeo de tonos ACES, más cinematográfico) y más color que
   Natural, pero sin llegar a la luz rebotada extra de Bedrock.
 
-![Estilo Natural](../images/estilo-natural.png)
-<!-- TODO: escena de día al aire libre, Estilo de Imagen = Natural -->
+**Estilos de imagen.** Natural, Bedrock y Vívido cambian la saturación, el mapeo de tonos y cuánta luz rebotada llega.
 
-![Estilo Bedrock](../images/estilo-bedrock.png)
-<!-- TODO: la misma escena y hora, Estilo de Imagen = Bedrock -->
+*Natural*
 
-![Estilo Vívido](../images/estilo-vivido.png)
-<!-- TODO: la misma escena, Estilo de Imagen = Vívido -->
+![Natural](../images/compare/styles-natural.webp)
+
+*Bedrock*
+
+![Bedrock](../images/compare/styles-bedrock.webp)
+
+*Vívido*
+
+![Vívido](../images/compare/styles-vivid.webp)
 
 ## Cómo se relacionan con "Atmósfera"
 
@@ -79,5 +84,8 @@ o cielo Bedrock con Estilo Natural.
 
 ## Comparación rápida de calidad
 
-![Comparación de niveles de calidad](../images/calidad-comparacion.png)
-<!-- TODO: dos capturas, Baja vs. Ultra, misma escena y ángulo -->
+**Calidad Baja y Ultra.** Baja apaga la niebla volumétrica y dibuja menos chunks con un modo DLSS más bajo.
+
+| Baja | Ultra |
+|---|---|
+| ![Baja](../images/compare/quality-low.webp) | ![Ultra](../images/compare/quality-ultra.webp) |

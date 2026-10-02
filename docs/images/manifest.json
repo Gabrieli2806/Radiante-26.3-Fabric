@@ -1,0 +1,315 @@
+{
+  "version": 1,
+  "note": "Replace any file keeping its name (or edit this list). Paths are relative to docs/images/. UI screenshots are PNG, scenes and comparisons are WebP (quality 90). Everything was taken at 1920x1080 with DLSS Quality unless a label says otherwise.",
+  "ui": [
+    {
+      "id": "settings-quality",
+      "file": "ui/settings-quality.png",
+      "alt": {
+        "en": "Radiante settings: Quality",
+        "es": "Ajustes de Radiante: Calidad"
+      }
+    },
+    {
+      "id": "settings-image",
+      "file": "ui/settings-image.png",
+      "alt": {
+        "en": "Radiante settings: Image",
+        "es": "Ajustes de Radiante: Imagen"
+      }
+    },
+    {
+      "id": "settings-lighting",
+      "file": "ui/settings-lighting.png",
+      "alt": {
+        "en": "Radiante settings: Lighting",
+        "es": "Ajustes de Radiante: Iluminación"
+      }
+    },
+    {
+      "id": "settings-sky",
+      "file": "ui/settings-sky.png",
+      "alt": {
+        "en": "Radiante settings: Sky & Water",
+        "es": "Ajustes de Radiante: Cielo y Agua"
+      }
+    },
+    {
+      "id": "settings-performance",
+      "file": "ui/settings-performance.png",
+      "alt": {
+        "en": "Radiante settings: Performance",
+        "es": "Ajustes de Radiante: Rendimiento"
+      }
+    },
+    {
+      "id": "settings-other",
+      "file": "ui/settings-other.png",
+      "alt": {
+        "en": "Radiante settings: Other",
+        "es": "Ajustes de Radiante: Otros"
+      }
+    },
+    {
+      "id": "download-offer",
+      "file": "ui/download-offer.png",
+      "alt": {
+        "en": "First-start offer to download DLSS",
+        "es": "Oferta de descargar DLSS en el primer inicio"
+      }
+    },
+    {
+      "id": "pipeline-install",
+      "file": "ui/pipeline-install.png",
+      "alt": {
+        "en": "Pipeline selector showing (Install) and the Install DLSS button",
+        "es": "Selector de pipeline con (Install) y el botón Instalar DLSS"
+      }
+    },
+    {
+      "id": "download-progress",
+      "file": "ui/download-progress.png",
+      "alt": {
+        "en": "DLSS download with a progress bar",
+        "es": "Descarga de DLSS con barra de progreso"
+      }
+    },
+    {
+      "id": "download-restart",
+      "file": "ui/download-restart.png",
+      "alt": {
+        "en": "Forced restart screen after installing or deleting an upscaler",
+        "es": "Pantalla de reinicio obligatorio tras instalar o borrar un escalador"
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "hero",
+      "file": "scenes/hero.webp",
+      "alt": {
+        "en": "Radiante with DLSS Quality: forest and river in sunlight",
+        "es": "Radiante con DLSS Quality: bosque y río con sol"
+      }
+    },
+    {
+      "id": "coast-noon",
+      "file": "scenes/coast-noon.webp",
+      "alt": {
+        "en": "A coast at noon with ray traced water reflections",
+        "es": "Una costa al mediodía con reflejos de agua con ray tracing"
+      }
+    },
+    {
+      "id": "forest-noon",
+      "file": "scenes/forest-noon.webp",
+      "alt": {
+        "en": "Forest and river at noon",
+        "es": "Bosque y río al mediodía"
+      }
+    },
+    {
+      "id": "distant-horizons",
+      "file": "scenes/distant-horizons.webp",
+      "alt": {
+        "en": "Distant Horizons: near terrain ray traced, far terrain from Distant Horizons",
+        "es": "Distant Horizons: terreno cercano con ray tracing, terreno lejano de Distant Horizons"
+      }
+    },
+    {
+      "id": "neon-city-night",
+      "file": "scenes/neon-city-night.webp",
+      "alt": {
+        "en": "A neon city at night lit by block lights",
+        "es": "Una ciudad de neón de noche iluminada por luces de bloque"
+      }
+    },
+    {
+      "id": "campfire-smoke",
+      "file": "scenes/campfire-smoke.webp",
+      "alt": {
+        "en": "Campfire smoke particles",
+        "es": "Partículas de humo de fogata"
+      }
+    },
+    {
+      "id": "jungle-canopy",
+      "file": "scenes/jungle-canopy.webp",
+      "alt": {
+        "en": "A jungle canopy from above",
+        "es": "Dosel de selva visto desde arriba"
+      }
+    }
+  ],
+  "compare": [
+    {
+      "id": "raytracing",
+      "title": {
+        "en": "Ray tracing off and on",
+        "es": "Ray tracing apagado y encendido"
+      },
+      "caption": {
+        "en": "The same view with vanilla lighting and with Radiante.",
+        "es": "La misma vista con la iluminación vanilla y con Radiante."
+      },
+      "variants": [
+        {
+          "id": "off",
+          "label": {
+            "en": "Off (vanilla)",
+            "es": "Apagado (vanilla)"
+          },
+          "file": "compare/raytracing-off.webp"
+        },
+        {
+          "id": "on",
+          "label": {
+            "en": "On (DLSS Quality)",
+            "es": "Encendido (DLSS Quality)"
+          },
+          "file": "compare/raytracing-on.webp"
+        }
+      ]
+    },
+    {
+      "id": "quality",
+      "title": {
+        "en": "Low and Ultra quality",
+        "es": "Calidad Baja y Ultra"
+      },
+      "caption": {
+        "en": "Low turns volumetric fog off and renders fewer chunks at a lower DLSS mode.",
+        "es": "Baja apaga la niebla volumétrica y dibuja menos chunks con un modo DLSS más bajo."
+      },
+      "variants": [
+        {
+          "id": "low",
+          "label": {
+            "en": "Low",
+            "es": "Baja"
+          },
+          "file": "compare/quality-low.webp"
+        },
+        {
+          "id": "ultra",
+          "label": {
+            "en": "Ultra",
+            "es": "Ultra"
+          },
+          "file": "compare/quality-ultra.webp"
+        }
+      ]
+    },
+    {
+      "id": "styles",
+      "title": {
+        "en": "Picture styles",
+        "es": "Estilos de imagen"
+      },
+      "caption": {
+        "en": "Natural, Bedrock and Vivid change saturation, tone mapping and how far bounced light carries.",
+        "es": "Natural, Bedrock y Vívido cambian la saturación, el mapeo de tonos y cuánta luz rebotada llega."
+      },
+      "variants": [
+        {
+          "id": "natural",
+          "label": {
+            "en": "Natural",
+            "es": "Natural"
+          },
+          "file": "compare/styles-natural.webp"
+        },
+        {
+          "id": "bedrock",
+          "label": {
+            "en": "Bedrock",
+            "es": "Bedrock"
+          },
+          "file": "compare/styles-bedrock.webp"
+        },
+        {
+          "id": "vivid",
+          "label": {
+            "en": "Vivid",
+            "es": "Vívido"
+          },
+          "file": "compare/styles-vivid.webp"
+        }
+      ]
+    },
+    {
+      "id": "upscalers",
+      "title": {
+        "en": "Upscalers",
+        "es": "Escaladores"
+      },
+      "caption": {
+        "en": "The same view with each upscaler. The FSR and no-upscaler pipelines also draw a clearer sky, so judge the textures.",
+        "es": "La misma vista con cada escalador. Los pipelines FSR y sin escalador también dibujan un cielo más nítido: compara las texturas."
+      },
+      "variants": [
+        {
+          "id": "dlss-quality",
+          "label": {
+            "en": "DLSS Quality",
+            "es": "DLSS Quality"
+          },
+          "file": "compare/upscalers-dlss-quality.webp"
+        },
+        {
+          "id": "dlss-ultra-performance",
+          "label": {
+            "en": "DLSS Ultra Performance",
+            "es": "DLSS Ultra Performance"
+          },
+          "file": "compare/upscalers-dlss-ultra-performance.webp"
+        },
+        {
+          "id": "fsr",
+          "label": {
+            "en": "FSR 3",
+            "es": "FSR 3"
+          },
+          "file": "compare/upscalers-fsr.webp"
+        },
+        {
+          "id": "none",
+          "label": {
+            "en": "No upscaler",
+            "es": "Sin escalador"
+          },
+          "file": "compare/upscalers-none.webp"
+        }
+      ]
+    },
+    {
+      "id": "volumetric-fog",
+      "title": {
+        "en": "Volumetric fog",
+        "es": "Niebla volumétrica"
+      },
+      "caption": {
+        "en": "Fog off and on at noon.",
+        "es": "Niebla apagada y encendida al mediodía."
+      },
+      "variants": [
+        {
+          "id": "off",
+          "label": {
+            "en": "Off",
+            "es": "Apagada"
+          },
+          "file": "compare/volumetric-fog-off.webp"
+        },
+        {
+          "id": "on",
+          "label": {
+            "en": "On",
+            "es": "Encendida"
+          },
+          "file": "compare/volumetric-fog-on.webp"
+        }
+      ]
+    }
+  ]
+}
