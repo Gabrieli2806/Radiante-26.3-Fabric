@@ -43,7 +43,8 @@ mismo frame.
   - Fabric Loader 0.19.5+ y Fabric API 0.160.5+26.3,
   - NeoForge 26.3.0.10-beta+,
   - Forge 26.3-66.0.3+.
-- Frame generation y NVIDIA Reflex están disponibles solo en Fabric por ahora (ver [ROADMAP.md](ROADMAP.md)).
+- NVIDIA Reflex requiere una GPU NVIDIA con un driver que tenga `VK_NV_low_latency2` (Windows y Linux); en otras
+  GPUs la opción no aparece.
 - Java 25.
 
 ### Notas para Linux
@@ -91,7 +92,7 @@ versión que funcione en ambos, compila la parte nativa en los dos sistemas ante
   compila solo contra Minecraft vanilla, para que no se cuele código específico de un loader.
 - `fabric/`, `neoforge/`, `forge/` - cada uno compila las fuentes comunes junto con su propio pegamento: el
   entrypoint (keybinds, tick de cliente, pantalla de ajustes) y una implementación de `RadiantePlatform`
-  (carpeta del juego, envío de meshes de Fabric, soporte de Streamline), registrada bajo `META-INF/services`.
+  (carpeta del juego, envío de meshes de Fabric), registrada bajo `META-INF/services`.
 - `native/` - el renderizador Vulkan en C++ (pipelines de ray tracing, shaders bajo `native/src/shader/`,
   integración de upscalers y denoiser) compilado con CMake, instalado en los recursos de `common/`.
 - Las versiones de todo esto viven en el `gradle.properties` de la raíz.

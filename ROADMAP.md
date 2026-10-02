@@ -14,7 +14,7 @@ has one.
 - Visual smoke test suite running before every release, so regressions are caught by a run instead of by players.
 - No known crashes: the intermittent native crash on exit (`core.dll` static destructors, 0xC0000005 while
   the process unloads) found and fixed.
-- Frame generation and Reflex on NeoForge and Forge, or the options removed there for good.
+- Frame generation and Reflex checked on NeoForge and Forge.
 - Distant Horizons: no large LOD blinking; memory and frame cost measured at DH's default 512 chunks.
 - Every vanilla feature traced or deliberately replaced: check the list under "Other open work" and the
   ones marked "pending in-game check" (name tags, biome fog, texture uploads).
@@ -115,14 +115,14 @@ the game has quit, if only `DH-` threads are left, Radiante ends the process
 generated world, the seam where far terrain meets loaded chunks, textured detail for the nearest sections, and
 NeoForge (same jar, untested).
 
-### Reflex on Forge / NeoForge — investigate
+### Reflex without Streamline — done, keep testing
 
-Frame generation no longer needs Streamline; only Reflex does. With Streamline loaded, Forge and NeoForge crash in the
-native `createDevice` (Fabric is fine): on NeoForge Streamline is only loaded on the render thread, after LWJGL (the
-early loading window) has already loaded the system Vulkan library, so Minecraft's Vulkan objects and Streamline's
-come from different loaders. Next: load Streamline before anything touches Vulkan on NeoForge/Forge (an early FML
-hook), then drop the opt-out (`RadiantePlatform.supportsStreamline`). A dev run can force it with
-RADIANTE_DEV_STREAMLINE. Also still to check: the Forge jar installed in a real Forge client.
+Reflex runs on `VK_NV_low_latency2` directly (`framegen::Reflex`, `ReflexSurfaceMixin`): the device enables it and
+`VK_KHR_present_id` when the GPU has them, Minecraft's swapchain is created with latency mode on, each present carries
+the frame's present id, and the frame start sleeps in `vkLatencySleepNV`. Streamline is gone, so nothing has to load
+before LWJGL, the toggle applies at once, and Linux gets Reflex too. Verified on Fabric with Windows (RTX); still to
+check on NeoForge, Forge and Linux, and the latency itself with a measuring tool. Also still to check: the Forge jar
+installed in a real Forge client.
 
 ### Froxel fog (Radiance style) — done, keep tuning
 
@@ -405,7 +405,7 @@ ModDevGradle, ForgeGradle 7) that compiles the common sources with its own glue.
 Minecraft 26.x is unobfuscated, so the same mixins apply unchanged everywhere.
 Loader-specific pieces sit behind `RadiantePlatform` (ServiceLoader): game
 directory, the collector (Fabric's rendering API adds a mesh submission method,
-handled in `FabricEntityCollector`), and whether Streamline can load. Key
+handled in `FabricEntityCollector`), and loader quirks. Key
 bindings (`RadianteKeys`), the client tick (`RadianteClient.onEndClientTick`) and
 the settings screen are registered by each loader's entrypoint. Differences found
 while porting: NeoForge's resource file system resolves files but not folders

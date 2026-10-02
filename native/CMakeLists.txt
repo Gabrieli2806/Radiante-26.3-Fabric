@@ -177,6 +177,12 @@ if(NOT WIN32)
     # Everything static ends up inside libcore.so.
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
+# zlib-ng is cloned into the source tree, which the Windows and Linux builds share: once it is there, use it as is.
+# Fetching it again each configure raced between the two builds (git index.lock) and re-ran CMake in a loop on WSL.
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+if(EXISTS "${PROJECT_SOURCE_DIR}/extern/minizip-ng/third_party/zlib/CMakeLists.txt")
+    set(FETCHCONTENT_SOURCE_DIR_ZLIB "${PROJECT_SOURCE_DIR}/extern/minizip-ng/third_party/zlib")
+endif()
 add_subdirectory(extern/minizip-ng EXCLUDE_FROM_ALL)
 set_target_properties(minizip PROPERTIES POSITION_INDEPENDENT_CODE ON)
 get_target_property(MCVR_MINIZIP_SOURCES minizip SOURCES)
