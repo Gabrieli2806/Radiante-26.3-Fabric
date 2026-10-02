@@ -62,13 +62,8 @@ static const ResourceBinding srvTextureBindingTable[] =
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_INPUT_EXPOSURE,                           L"r_input_exposure"},
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_FRAME_INFO,                               L"r_frame_info"},
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_INPUT_REACTIVE_MASK,                      L"r_reactive_mask"},
-#if defined(_WIN32)
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_INPUT_TRANSPARENCY_AND_COMPOSITION_MASK,  L"r_transparency_and_composition_mask"},
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_RECONSTRUCTED_PREVIOUS_NEAREST_DEPTH,     L"r_reconstructed_previous_nearest_depth"},
-#else
-    {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_INPUT_TRANSPARENCY_AND_COMPOSITION_MASK,  L"r_transparency_and_composition_"},
-    {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_RECONSTRUCTED_PREVIOUS_NEAREST_DEPTH,     L"r_reconstructed_previous_neares"},
-#endif
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_DILATED_MOTION_VECTORS,                   L"r_dilated_motion_vectors"},
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_DILATED_DEPTH,                            L"r_dilated_depth"},
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_INTERNAL_UPSCALED_COLOR,                  L"r_internal_upscaled_color"},
@@ -90,11 +85,7 @@ static const ResourceBinding srvTextureBindingTable[] =
 
 static const ResourceBinding uavTextureBindingTable[] =
 {
-#if defined(_WIN32)
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_RECONSTRUCTED_PREVIOUS_NEAREST_DEPTH,     L"rw_reconstructed_previous_nearest_depth"},
-#else
-    {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_RECONSTRUCTED_PREVIOUS_NEAREST_DEPTH,     L"rw_reconstructed_previous_neare"},
-#endif
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_DILATED_MOTION_VECTORS,                   L"rw_dilated_motion_vectors"},
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_DILATED_DEPTH,                            L"rw_dilated_depth"},
     {FFX_FSR3UPSCALER_RESOURCE_IDENTIFIER_INTERNAL_UPSCALED_COLOR,                  L"rw_internal_upscaled_color"},

@@ -58,6 +58,36 @@ shares the device Minecraft already created, so the ray tracer and the vanilla G
 - Under Wayland with NVIDIA, Minecraft's OpenGL backend usually fails (`EGL_BAD_DISPLAY`); Radiante always keeps
   Vulkan available as a fallback.
 
+#### Black or glitched world on Linux
+
+Check `logs/launcher_log.txt` (or `latest.log`) of the instance you actually launch, in this order:
+
+1. **`Using graphics device: llvmpipe`** - not on the GPU driver, see the Flatpak note above.
+2. **`version 'GLIBC_2.xx' not found`** - the system glibc is older than the one `libcore.so` was built against.
+   Release builds need glibc 2.35+; a `libcore.so` built on a newer distribution must keep the symbol pinning in
+   `native/glibc_compat.h` and `native/src/core/glibc_shims.cpp` (check with
+   `objdump -T libcore.so | grep -o 'GLIBC_2\.[0-9]*' | sort -Vu | tail -1`).
+3. **`UnsatisfiedLinkError: ... RendererProxy.<method>`** - the Java side is newer than the native library. Any change
+   under `native/` (made on Windows too) needs `native/build-linux.sh` again before packaging.
+4. **`FSR3: CreateContext failed`** or **`Failed to load shared shader pack`** - a FidelityFX or minizip build problem;
+   the native library has to be rebuilt from this repository, which carries the Linux fixes below.
+5. The launcher may run a different instance than the one you copied the jar into (Flatpak and non-Flatpak Modrinth
+   keep separate folders: `~/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles` and
+   `~/.local/share/ModrinthApp/profiles`). The log's `gameDir` shows which one is running.
+
+Linux-specific fixes in the bundled third-party code, which must be kept when updating it:
+
+- **minizip-ng** is built with zlib-ng fetched and linked statically (`native/CMakeLists.txt`). Without zlib it
+  silently loses deflate support, the built-in shader pack zip cannot be extracted, and the world is black.
+- **FidelityFX SDK**: `wchar_t` is 4 bytes on Linux (2 on Windows). `FFX_RESOURCE_NAME_SIZE` stays 64 on every
+  platform; the opaque context sizes (`FFX_SDK_DEFAULT_CONTEXT_SIZE`, `FFX_DENOISER_CONTEXT_SIZE`) are doubled off
+  Windows, and the `static_assert`s checking that the private contexts fit are enabled everywhere. Shortening names
+  instead (an earlier attempt) truncated shader binding names: FSR frame generation output black/garbage frames and
+  the FSR upscaler failed to create, which made the `RT-NRD-FSR` preset render black. Names are formatted with
+  `%ls`, never `%s`, in wide `swprintf` calls.
+- `libcore.so` exports only the JNI entry points (`native/src/core/exports.map`) and keeps its static libstdc++
+  private; otherwise it clashes with the system libstdc++ already loaded in the game and crashes at startup.
+
 ## Building
 
 The mod bundles a native library (`core.dll`) built from `native/`.
@@ -84,7 +114,10 @@ native/build-linux.sh            # add -DVulkan_LIBRARY=/usr/lib/x86_64-linux-gn
 ```
 
 A jar built on Linux only contains the Linux renderer (and one built on Windows only `core.dll`); for a release
-that runs on both, build the native part on both systems before packaging.
+that runs on both, build the native part on both systems before packaging. The GitHub Actions workflow
+(`.github/workflows/build.yml`) does this: it builds `core.dll` on Windows and `libcore.so` on Linux, packages one
+jar per loader with both, and fails if either is missing. Check a jar with
+`unzip -l <jar> | grep -E 'core.dll|libcore.so'`.
 
 ### Project layout
 
