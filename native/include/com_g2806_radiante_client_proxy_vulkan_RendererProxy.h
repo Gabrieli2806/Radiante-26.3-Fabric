@@ -169,6 +169,22 @@ JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    rebuildPendingPipeline
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_rebuildPendingPipeline
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    rebuildProgress
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_rebuildProgress
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
  * Method:    drainNativeErrors
  * Signature: ()Ljava/lang/String;
  */

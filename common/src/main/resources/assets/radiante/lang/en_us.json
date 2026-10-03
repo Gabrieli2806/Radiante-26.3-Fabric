@@ -356,5 +356,10 @@
   "options.radiante.chunk_building_auto.tooltip": "Automatic sizes chunk building to your CPU so it does not starve the game while chunks load. This CPU has %s threads: %s chunk threads, batches of %s, %s batches at once. Manual shows the three sliders.",
   "options.radiante.applying.window_title": "Minecraft - Radiante: compiling shaders %s%%",
   "options.radiante.applying.window_title.pipelines": "Minecraft - Radiante: building pipelines %s%%",
-  "options.radiante.applying.window_title.finishing": "Minecraft - Radiante: finishing..."
+  "options.radiante.applying.window_title.finishing": "Minecraft - Radiante: finishing...",
+  "message.radiante.showcase.usage": "Radiante: /radiante showcase (build here), /radiante showcase 1-14 (go to a room), /radiante showcase clear",
+  "message.radiante.showcase.singleplayer": "Radiante: the showcase can only be built in a singleplayer world.",
+  "message.radiante.showcase.built": "Radiante: showcase built, heading east. Each room has a sign saying what to check. /radiante showcase 1-14 jumps to a room.",
+  "message.radiante.showcase.none": "Radiante: no showcase built in this session. Stand where it should start and run /radiante showcase.",
+  "message.radiante.showcase.cleared": "Radiante: showcase removed."
 }

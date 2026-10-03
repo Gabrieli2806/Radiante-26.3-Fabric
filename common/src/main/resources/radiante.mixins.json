@@ -30,6 +30,7 @@
     "framegen.FrameGenerationMarkerMixins$RenderMixin",
     "framegen.FrameGenerationMarkerMixins$TickMixin",
     "gui.OptionInstanceAccessor",
+    "gui.ShowcaseCommandMixin",
     "gui.VideoSettingsScreenMixin",
     "render.EntityRenderStateMixin",
     "render.EntityRendererMixin",

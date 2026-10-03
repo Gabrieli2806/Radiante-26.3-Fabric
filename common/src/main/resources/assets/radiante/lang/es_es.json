@@ -356,5 +356,10 @@
   "options.radiante.chunk_building_auto.tooltip": "Automática ajusta la construcción de chunks a tu CPU para que no le quite recursos al juego mientras cargan chunks. Este CPU tiene %s hilos: %s hilos de chunks, lotes de %s, %s lotes a la vez. Manual muestra los tres sliders.",
   "options.radiante.applying.window_title": "Minecraft - Radiante: compilando shaders %s%%",
   "options.radiante.applying.window_title.pipelines": "Minecraft - Radiante: creando pipelines %s%%",
-  "options.radiante.applying.window_title.finishing": "Minecraft - Radiante: terminando..."
+  "options.radiante.applying.window_title.finishing": "Minecraft - Radiante: terminando...",
+  "message.radiante.showcase.usage": "Radiante: /radiante showcase (construir aquí), /radiante showcase 1-14 (ir a una sala), /radiante showcase clear",
+  "message.radiante.showcase.singleplayer": "Radiante: la galería de pruebas solo se puede construir en un mundo de un jugador.",
+  "message.radiante.showcase.built": "Radiante: galería construida hacia el este. Cada sala tiene un cartel con lo que hay que revisar. /radiante showcase 1-14 te lleva a una sala.",
+  "message.radiante.showcase.none": "Radiante: no hay galería construida en esta sesión. Ponte donde debe empezar y usa /radiante showcase.",
+  "message.radiante.showcase.cleared": "Radiante: galería eliminada."
 }
