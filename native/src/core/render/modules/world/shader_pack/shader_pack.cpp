@@ -2,6 +2,7 @@
 
 #include "core/render/renderer.hpp"
 #include "core/util/parallel.hpp"
+#include "core/render/pipeline.hpp"
 
 #include "mz.h"
 #include "mz_strm.h"
@@ -2248,6 +2249,7 @@ ShaderPack::createShaders(std::shared_ptr<vk::Device> device,
     }
 
     std::vector<vk::Shader::CompileResult> compileResults(uniqueIndices.size());
+    Pipeline::rebuildShadersTotal.fetch_add(static_cast<uint32_t>(uniqueIndices.size()));
     mcvr::parallelFor(uniqueIndices.size(), [&](size_t ui) {
         const size_t requestIndex = uniqueIndices[ui];
         const auto &request = requests[requestIndex];
@@ -2255,6 +2257,7 @@ ShaderPack::createShaders(std::shared_ptr<vk::Device> device,
             request.path.string(), request.stage,
             mergeDefinitions(filteredRequestAttributes[requestIndex], requestDefinitions[requestIndex]),
             shaderPack_.includeDirectories, executionSources[requestIndex], cacheDir);
+        Pipeline::rebuildShadersDone.fetch_add(1);
     });
 
 #ifdef DEBUG

@@ -11,7 +11,7 @@
 
 | Control | Range | Default | What it does |
 |---|---|---|---|
-| **Light Bounces** | 1 – 8 | 4 | How many times light bounces. 4 to 2 is about +50% FPS. Above 4 costs a lot and is for strong GPUs; mirrors and clear glass get extra bounces on their own. |
+| **Light Bounces** | 1 – 128 | 4 | How many times light bounces. 4 to 2 is about +50% FPS. Above 4 costs a lot and is for strong GPUs; mirrors and clear glass get extra bounces on their own. |
 | **Cache Deep Bounces** | On / Off | On | After the first bounce, light comes from the radiance cache instead of more tracing, and bounced surfaces skip block light lookups, as in Bedrock RTX. Much faster with many lights; bounced light may look slightly softer. |
 | **Far Bounce Distance** | Off, 1 – 32 chunks | Off | Beyond this distance, surfaces only get the Far Light Bounces. For example 8 with render distance 16: the far half costs less. |
 | **Far Light Bounces** | 1 – 4 | 1 | Bounces for surfaces beyond the Far Bounce Distance. Hardly visible far away. |

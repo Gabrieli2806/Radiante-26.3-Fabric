@@ -271,8 +271,16 @@ std::map<std::string,
 std::map<std::string, std::pair<uint32_t, uint32_t>> Pipeline::worldModuleInOutImageNums{};
 std::map<std::string, std::function<void()>> Pipeline::worldModuleStaticPreCloser{};
 std::atomic<bool> Pipeline::nativeRebuildActive_{false};
+std::atomic<uint32_t> Pipeline::rebuildShadersDone{0};
+std::atomic<uint32_t> Pipeline::rebuildShadersTotal{0};
+std::atomic<uint32_t> Pipeline::rebuildPassesDone{0};
+std::atomic<uint32_t> Pipeline::rebuildPassesTotal{0};
 
 void Pipeline::beginNativeRebuild() {
+    rebuildShadersDone.store(0);
+    rebuildShadersTotal.store(0);
+    rebuildPassesDone.store(0);
+    rebuildPassesTotal.store(0);
     nativeRebuildActive_.store(true, std::memory_order_release);
 }
 

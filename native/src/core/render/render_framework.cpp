@@ -324,6 +324,14 @@ void Framework::markSubmitted(VkSemaphore timeline, uint64_t value) {
     acquireContext();
 }
 
+// The rebuild a settings change asked for, run now instead of inside the next frame: the mod calls this from a worker
+// thread while the render thread keeps the window alive (ApplyingSettingsScreen).
+void Framework::recreatePending() {
+    std::unique_lock<std::recursive_mutex> lck(recreateMtx_);
+    if (!running_ || !(pipeline_->isRecreationNeeded || Renderer::options.needRecreate)) return;
+    recreate();
+}
+
 void Framework::recreate() {
     if (!running_) return;
 

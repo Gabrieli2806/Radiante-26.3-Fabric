@@ -11,7 +11,7 @@
 
 | Control | Rango | Por defecto | Qué hace |
 |---|---|---|---|
-| **Rebotes de Luz** | 1 – 8 | 4 | Cuántas veces rebota la luz. De 4 a 2 ronda +50% FPS. Más de 4 cuesta mucho y es para GPUs potentes; espejos y vidrio claro reciben rebotes extra por su cuenta. |
+| **Rebotes de Luz** | 1 – 128 | 4 | Cuántas veces rebota la luz. De 4 a 2 ronda +50% FPS. Más de 4 cuesta mucho y es para GPUs potentes; espejos y vidrio claro reciben rebotes extra por su cuenta. |
 | **Caché en Rebotes Profundos** | Activado / Desactivado | Activado | Tras el primer rebote, la luz sale de la caché de radiancia en vez de seguir trazando, y las superficies rebotadas no buscan luces de bloque, como Bedrock RTX. Mucho más rápido con muchas luces; la luz rebotada puede verse algo más suave. |
 | **Distancia de Rebotes Lejanos** | Apagado, 1 – 32 chunks | Apagado | Más allá de esta distancia, las superficies reciben solo los Rebotes de Luz Lejanos. Por ejemplo, 8 con distancia de renderizado 16: la mitad lejana cuesta menos. |
 | **Rebotes de Luz Lejanos** | 1 – 4 | 1 | Rebotes para las superficies más allá de la Distancia de Rebotes Lejanos. A lo lejos casi no se nota. |

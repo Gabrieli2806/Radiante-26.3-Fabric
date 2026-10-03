@@ -1,6 +1,7 @@
 package com.g2806.radiante.client.gui;
 
 import com.g2806.radiante.client.pipeline.Pipeline;
+import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -54,7 +55,45 @@ final class ApplyingSettingsScreen extends Screen {
         }
         this.built = true;
         Pipeline.build();
+        rebuildKeepingWindowAlive();
         this.minecraft.gui.setScreen(this.next);
+    }
+
+    /**
+     * The renderer compiles its shaders and pipelines for the new settings, which takes seconds. Left to the next
+     * frame it held the render thread inside one native call: no window messages were answered and the system
+     * marked the game "not responding". Here it runs on a worker thread while this thread keeps answering the
+     * window and puts the progress in the title bar - the screen itself cannot be redrawn meanwhile, since drawing
+     * shares the device with the rebuild.
+     */
+    private void rebuildKeepingWindowAlive() {
+        if (!com.g2806.radiante.client.render.RadianteRenderer.isActive()) {
+            return;
+        }
+        // The same large stack the renderer is initialised with: shader includes are resolved recursively.
+        Thread worker = new Thread(null, RendererProxy::rebuildPendingPipeline, "Radiante pipeline rebuild",
+            512L * 1024L * 1024L);
+        worker.start();
+        int shown = -1;
+        try {
+            while (worker.isAlive()) {
+                org.lwjgl.sdl.SDLEvents.SDL_PumpEvents();
+                int percent = RendererProxy.rebuildProgress();
+                if (percent != shown) {
+                    shown = percent;
+                    // Shaders first, then the passes' pipelines (1000 + percent), then a last stretch with no count.
+                    String key = percent >= 1100 ? "options.radiante.applying.window_title.finishing"
+                        : percent >= 1000 ? "options.radiante.applying.window_title.pipelines"
+                        : "options.radiante.applying.window_title";
+                    this.minecraft.getWindow().setTitle(Component.translatable(key, percent % 1000).getString());
+                }
+                worker.join(15L);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            this.minecraft.updateTitle();
+        }
     }
 
     @Override

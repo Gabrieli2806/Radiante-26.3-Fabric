@@ -101,6 +101,12 @@ class Pipeline : public SharedObject<Pipeline> {
     static void beginNativeRebuild();
     static void endNativeRebuild();
     static bool nativeRebuildActive();
+    // Shaders compiled so far in the rebuild under way, and how many it needs: for the progress shown to the player.
+    static std::atomic<uint32_t> rebuildShadersDone;
+    static std::atomic<uint32_t> rebuildShadersTotal;
+    // The same for the passes whose pipelines are created after the shaders (the driver compiles them, slowly).
+    static std::atomic<uint32_t> rebuildPassesDone;
+    static std::atomic<uint32_t> rebuildPassesTotal;
 
   public:
     Pipeline();

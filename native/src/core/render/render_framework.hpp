@@ -87,6 +87,8 @@ class Framework : public SharedObject<Framework> {
     void markSubmitted(VkSemaphore timeline, uint64_t value);
 
     void recreate();
+
+    void recreatePending();
     void waitDeviceIdle();
     void waitRenderQueueIdle();
     void waitBackendQueueIdle();

@@ -749,7 +749,7 @@ public class RadianteOptionsScreen extends Screen {
             this.pendingVolumetricFog = Pipeline.isVolumetricFog();
         }
         if (this.pendingBounces == null && Pipeline.getShaderPackValue(Pipeline.RAY_BOUNCES_ATTRIBUTE) != null) {
-            this.pendingBounces = Math.max(1, Math.min(8, Pipeline.getShaderPackInt(Pipeline.RAY_BOUNCES_ATTRIBUTE, 4)));
+            this.pendingBounces = Math.max(1, Math.min(128, Pipeline.getShaderPackInt(Pipeline.RAY_BOUNCES_ATTRIBUTE, 4)));
         }
         if (this.pendingParallax == null && Pipeline.supportsShaderPackToggle(Pipeline.PARALLAX_ATTRIBUTE)) {
             this.pendingParallax = Pipeline.isShaderPackToggleOn(Pipeline.PARALLAX_ATTRIBUTE);
@@ -983,7 +983,7 @@ public class RadianteOptionsScreen extends Screen {
 
     private void addPerformanceOptions() {
         OptionInstance<Integer> bounces = this.pendingBounces == null ? null
-            : slider("options.radiante.ray_bounces", 1, 8, this.pendingBounces, value -> {
+            : slider("options.radiante.ray_bounces", 1, 128, this.pendingBounces, value -> {
                 this.pendingBounces = value;
                 refreshQualityLater();
             });

@@ -1675,7 +1675,9 @@ void RayTracingModule::initPipelines() {
                 buildComputePassPipelines(*pass, device, allCompiledShaders, shaderOffset);
             }
         }, passes_[passIndex]);
+        Pipeline::rebuildPassesDone.fetch_add(1);
     };
+    Pipeline::rebuildPassesTotal.fetch_add(static_cast<uint32_t>(passes_.size()));
 
 #ifdef DEBUG
     std::vector<std::string> passNames(passes_.size());

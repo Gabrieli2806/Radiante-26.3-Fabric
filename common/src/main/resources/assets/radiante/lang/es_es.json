@@ -213,7 +213,7 @@
   "options.radiante.hdr_debug_view": "Vista de Depuración HDR",
   "options.radiante.hdr_debug_view.tooltip": "Tiñe de azul todo lo que se muestra en SDR (menús, texto). Lo que conserva su color normal es el mundo en HDR.",
   "options.radiante.ray_bounces": "Rebotes de Luz",
-  "options.radiante.ray_bounces.tooltip": "Cuántas veces rebota la luz en las superficies (1-8). Menos es mucho más rápido (de 4 a 2: cerca de +50% fps). Más de 4 cuesta mucho y es para gráficas potentes; los espejos y el vidrio claro reciben rebotes extra por su cuenta.",
+  "options.radiante.ray_bounces.tooltip": "Cuántas veces rebota la luz en las superficies (1-128). Menos es mucho más rápido (de 4 a 2: cerca de +50% fps). Más de 4 cuesta mucho y es para gráficas potentes; pasado 8 la imagen casi no cambia y los valores altos están para experimentar; los espejos y el vidrio claro reciben rebotes extra por su cuenta.",
   "options.radiante.parallax": "Relieve de Texturas",
   "options.radiante.parallax.tooltip": "Profundidad en texturas de packs con mapas de altura (ladrillos y piedras resaltan). Apagado: planas y más rápido. Sin un pack así no cambia nada.",
   "options.radiante.volumetric_fog_samples": "Calidad de Niebla Volumétrica",
@@ -275,7 +275,7 @@
   "options.radiante.search": "Buscar...",
   "options.radiante.subtitle": "Trazado de rayos",
   "options.radiante.applying": "Aplicando ajustes...",
-  "options.radiante.applying.detail": "Reconstruyendo el renderizador; tarda unos segundos.",
+  "options.radiante.applying.detail": "Compilando shaders. El progreso se muestra en el título de la ventana; puede tardar un momento.",
   "options.radiante.upscaler_mode": "Modo de Escalado",
   "options.radiante.upscaler_mode.tooltip": "La resolución a la que se traza el mundo antes de que FSR o XeSS lo escalen a la pantalla. Nativo traza cada píxel; los modos más bajos son mucho más rápidos y más suaves. El nivel de Calidad también lo ajusta.",
   "options.radiante.far_bounce_distance": "Distancia de Rebotes Lejanos",
@@ -353,5 +353,8 @@
   "options.radiante.chunk_building_auto": "Construcción de Chunks",
   "options.radiante.chunk_building_auto.on": "Construcción de Chunks: Automática",
   "options.radiante.chunk_building_auto.off": "Construcción de Chunks: Manual",
-  "options.radiante.chunk_building_auto.tooltip": "Automática ajusta la construcción de chunks a tu CPU para que no le quite recursos al juego mientras cargan chunks. Este CPU tiene %s hilos: %s hilos de chunks, lotes de %s, %s lotes a la vez. Manual muestra los tres sliders."
+  "options.radiante.chunk_building_auto.tooltip": "Automática ajusta la construcción de chunks a tu CPU para que no le quite recursos al juego mientras cargan chunks. Este CPU tiene %s hilos: %s hilos de chunks, lotes de %s, %s lotes a la vez. Manual muestra los tres sliders.",
+  "options.radiante.applying.window_title": "Minecraft - Radiante: compilando shaders %s%%",
+  "options.radiante.applying.window_title.pipelines": "Minecraft - Radiante: creando pipelines %s%%",
+  "options.radiante.applying.window_title.finishing": "Minecraft - Radiante: terminando..."
 }

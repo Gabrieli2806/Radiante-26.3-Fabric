@@ -62,6 +62,15 @@ public class RendererProxy {
 
     /** True once the device has NVIDIA Reflex (VK_NV_low_latency2). */
     /** Error lines the renderer wrote since the last call (null when none), for the game log. */
+    /**
+     * Runs the pipeline rebuild a settings change asked for, now and on the calling thread, instead of inside the
+     * next frame. Meant for a worker thread while the render thread keeps the window responsive.
+     */
+    public static native void rebuildPendingPipeline();
+
+    /** Rebuild progress: 0-100 while shaders compile, 1000-1100 while the passes' pipelines are created. */
+    public static native int rebuildProgress();
+
     public static native String drainNativeErrors();
 
     /** Diagnostic lines the renderer wrote since the last call (null when none), while Debug logging is on. */

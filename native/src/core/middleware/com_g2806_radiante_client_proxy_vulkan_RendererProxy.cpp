@@ -249,4 +249,23 @@ JNIEXPORT jstring JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererPr
     std::string info = radiante::drainInfo();
     return info.empty() ? nullptr : env->NewStringUTF(info.c_str());
 }
+
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_rebuildPendingPipeline(JNIEnv *env, jclass) {
+    try {
+        if (Renderer::is_initialized()) Renderer::instance().framework()->recreatePending();
+    } catch (const std::exception &e) {
+        radiante::err() << "[Radiante] pipeline rebuild failed: " << e.what() << std::endl;
+    } catch (...) { radiante::err() << "[Radiante] pipeline rebuild failed" << std::endl; }
+}
+
+JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_rebuildProgress(JNIEnv *, jclass) {
+    // 0-100: compiling shaders; 1000-1100: creating the passes' pipelines, which follows.
+    uint32_t passes = Pipeline::rebuildPassesTotal.load();
+    if (passes > 0) {
+        return 1000 + static_cast<jint>(std::min<uint64_t>(100, 100ull * Pipeline::rebuildPassesDone.load() / passes));
+    }
+    uint32_t total = Pipeline::rebuildShadersTotal.load();
+    if (total == 0) return 0;
+    return static_cast<jint>(std::min<uint64_t>(100, 100ull * Pipeline::rebuildShadersDone.load() / total));
+}
 }

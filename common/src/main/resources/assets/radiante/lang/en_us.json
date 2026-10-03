@@ -213,7 +213,7 @@
   "options.radiante.hdr_debug_view": "HDR Debug View",
   "options.radiante.hdr_debug_view.tooltip": "Tints blue everything shown in SDR (menus, text). What keeps its normal colour is the world in HDR.",
   "options.radiante.ray_bounces": "Light Bounces",
-  "options.radiante.ray_bounces.tooltip": "How many times light bounces off surfaces (1-8). Fewer is much faster (4 to 2: about +50% fps). Above 4 costs a lot and is meant for powerful GPUs; mirrors and clear glass get extra bounces on their own.",
+  "options.radiante.ray_bounces.tooltip": "How many times light bounces off surfaces (1-128). Fewer is much faster (4 to 2: about +50% fps). Above 4 costs a lot and is meant for powerful GPUs; past 8 the picture barely changes and the high values are there to experiment with; mirrors and clear glass get extra bounces on their own.",
   "options.radiante.parallax": "Carved Surfaces",
   "options.radiante.parallax.tooltip": "Depth on resource pack textures that have height maps (bricks, stones stand out). Off: flat and faster. No effect without such a pack.",
   "options.radiante.volumetric_fog_samples": "Volumetric Fog Quality",
@@ -275,7 +275,7 @@
   "options.radiante.search": "Search...",
   "options.radiante.subtitle": "Ray tracing",
   "options.radiante.applying": "Applying settings...",
-  "options.radiante.applying.detail": "Rebuilding the renderer; this takes a few seconds.",
+  "options.radiante.applying.detail": "Compiling shaders. Progress is shown in the window title; this can take a moment.",
   "options.radiante.upscaler_mode": "Upscaling Mode",
   "options.radiante.upscaler_mode.tooltip": "The resolution the world is traced at before FSR or XeSS scales it to the screen. Native traces every pixel; lower modes are much faster and softer. The Quality level sets it too.",
   "options.radiante.far_bounce_distance": "Far Bounce Distance",
@@ -353,5 +353,8 @@
   "options.radiante.chunk_building_auto": "Chunk Building",
   "options.radiante.chunk_building_auto.on": "Chunk Building: Automatic",
   "options.radiante.chunk_building_auto.off": "Chunk Building: Manual",
-  "options.radiante.chunk_building_auto.tooltip": "Automatic sizes chunk building to your CPU so it does not starve the game while chunks load. This CPU has %s threads: %s chunk threads, batches of %s, %s batches at once. Manual shows the three sliders."
+  "options.radiante.chunk_building_auto.tooltip": "Automatic sizes chunk building to your CPU so it does not starve the game while chunks load. This CPU has %s threads: %s chunk threads, batches of %s, %s batches at once. Manual shows the three sliders.",
+  "options.radiante.applying.window_title": "Minecraft - Radiante: compiling shaders %s%%",
+  "options.radiante.applying.window_title.pipelines": "Minecraft - Radiante: building pipelines %s%%",
+  "options.radiante.applying.window_title.finishing": "Minecraft - Radiante: finishing..."
 }
