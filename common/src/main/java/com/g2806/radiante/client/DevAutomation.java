@@ -154,6 +154,20 @@ public final class DevAutomation {
     }
 
     private static void run(Minecraft minecraft, String action) {
+        if (action.equals("f3")) {
+            minecraft.debugEntries.setOverlayVisible(!minecraft.debugEntries.isOverlayVisible());
+            return;
+        }
+        if (action.equals("screen=unsupported")) {
+            minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UnsupportedHardwareScreen(minecraft.gui.screen()));
+            return;
+        }
+        if (action.equals("screen=packs")) {
+            minecraft.gui.setScreen(new net.minecraft.client.gui.screens.packs.PackSelectionScreen(
+                minecraft.getResourcePackRepository(), repository -> { }, minecraft.getResourcePackDirectory(),
+                net.minecraft.network.chat.Component.translatable("resourcePack.title")));
+            return;
+        }
         if (action.startsWith("mouse=")) {
             // mouse=x,y: parks the cursor at window pixels, e.g. in a corner so no tooltip covers a screenshot.
             String[] xy = action.substring(6).split(",");

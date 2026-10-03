@@ -93,21 +93,7 @@ public final class RadianteClient {
         }
 
         while (RadianteKeys.TOGGLE_RAY_TRACING.consumeClick()) {
-            if (!RadianteRenderer.isActive()) {
-                sendStatus(minecraft, "message.radiante.ray_tracing_unavailable");
-                continue;
-            }
-            Options.rayTracingEnabled = !Options.rayTracingEnabled;
-            Options.overwriteConfig();
-
-            // Each renderer keeps its own copy of the world, and only the one in use is kept up to date, so the one
-            // being handed the world back has to rebuild it before it can draw anything.
-            if (minecraft.level != null) {
-                minecraft.levelExtractor.allChanged();
-            }
-
-            sendStatus(minecraft, Options.rayTracingEnabled
-                ? "message.radiante.ray_tracing_on" : "message.radiante.ray_tracing_off");
+            toggleRayTracing(minecraft);
         }
 
         com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.tick();
@@ -186,6 +172,25 @@ public final class RadianteClient {
         Options.setDebugLogging(Options.debugLogging, false);
         Pipeline.reloadAllModuleEntries();
         LOGGER.info("Radiante native renderer loaded from {}", radianceDir);
+    }
+
+    /** Ray tracing on or off, as the key binding and the settings screen switch it. */
+    public static void toggleRayTracing(Minecraft minecraft) {
+        if (!RadianteRenderer.isActive()) {
+            sendStatus(minecraft, "message.radiante.ray_tracing_unavailable");
+            return;
+        }
+        Options.rayTracingEnabled = !Options.rayTracingEnabled;
+        Options.overwriteConfig();
+
+        // Each renderer keeps its own copy of the world, and only the one in use is kept up to date, so the one
+        // being handed the world back has to rebuild it before it can draw anything.
+        if (minecraft.level != null) {
+            minecraft.levelExtractor.allChanged();
+        }
+
+        sendStatus(minecraft, Options.rayTracingEnabled
+            ? "message.radiante.ray_tracing_on" : "message.radiante.ray_tracing_off");
     }
 
     private static String lastNativeError;

@@ -78,6 +78,43 @@ public class RadianteOptionsScreen extends Screen {
     /** Reset to Defaults was pressed: the stored pipeline and shader pack settings go too, on apply. */
     private boolean forgetStoredSettings;
 
+    /**
+     * Plain options (Options fields) changed on this screen, by field name, held until Apply or Done like every other
+     * choice here. Written straight to Options they took effect while the screen was still open.
+     */
+    private final java.util.Map<String, Object> staged = new java.util.HashMap<>();
+
+    @SuppressWarnings("unchecked")
+    private <T> T staged(String field, T current) {
+        Object value = this.staged.get(field);
+        return value != null ? (T) value : current;
+    }
+
+    private void stage(String field, Object value) {
+        this.staged.put(field, value);
+    }
+
+    /** Writes the staged plain options into Options. */
+    private void applyStaged() {
+        for (var entry : this.staged.entrySet()) {
+            if (entry.getKey().equals("renderDistance")) {
+                // Minecraft's own option, not one of ours.
+                this.options.renderDistance().set((Integer) entry.getValue());
+                continue;
+            }
+            if (entry.getKey().equals("entityLightReach")) {
+                Options.setEntityLightReach((Integer) entry.getValue(), false);
+                continue;
+            }
+            try {
+                Options.class.getField(entry.getKey()).set(null, entry.getValue());
+            } catch (ReflectiveOperationException e) {
+                com.g2806.radiante.client.RadianteClient.LOGGER.warn("Could not apply option {}", entry.getKey(), e);
+            }
+        }
+        this.staged.clear();
+    }
+
     private final Screen lastScreen;
     private final net.minecraft.client.Options options;
     /** The options of the section shown, filled by the add*Options builders. */
@@ -99,6 +136,7 @@ public class RadianteOptionsScreen extends Screen {
     private RadianteOptionsScreen(RadianteOptionsScreen previous) {
         this(previous.lastScreen, previous.options);
         this.pendingPreset = previous.pendingPreset;
+        this.staged.putAll(previous.staged);
         this.shownPreset = previous.shownPreset;
         this.pendingDlssMode = previous.pendingDlssMode;
         this.pendingUpscalerMode = previous.pendingUpscalerMode;
@@ -229,6 +267,23 @@ public class RadianteOptionsScreen extends Screen {
                 // again. Doing it straight away would edit the widget list that is handling this very click.
                 if (changed && this.minecraft != null) {
                     this.minecraft.execute(this::reopenWithSameChoices);
+                }
+            });
+    }
+
+    /**
+     * Ray tracing on or off, at once and exactly as the key binding does it (RadianteClient.toggleRayTracing): not
+     * held for Apply, since the world is handed to the other renderer straight away.
+     */
+    private OptionInstance<Boolean> rayTracingToggle() {
+        if (!RadianteRenderer.isActive()) {
+            return null;
+        }
+        return OptionInstance.createBoolean("options.radiante.ray_tracing",
+            OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.ray_tracing.tooltip")),
+            Options.rayTracingEnabled, value -> {
+                if (value != Options.rayTracingEnabled && this.minecraft != null) {
+                    com.g2806.radiante.client.RadianteClient.toggleRayTracing(this.minecraft);
                 }
             });
     }
@@ -370,7 +425,7 @@ public class RadianteOptionsScreen extends Screen {
             max = fsr ? 1 : FrameGeneration.dlssMaxGeneratedFrames();
             backend = fsr ? "FSR" : "DLSS";
         }
-        if (max <= 0 || Options.hdrOutput) {
+        if (max <= 0 || staged("hdrOutput", Options.hdrOutput)) {
             return null;
         }
 
@@ -418,7 +473,7 @@ public class RadianteOptionsScreen extends Screen {
 
     /** DLSS or FSR frame generation, offered where the GPU runs both (FSR works next to any upscaler). */
     private OptionInstance<Integer> frameGenerationBackendOption() {
-        if (!FrameGeneration.hasBackendChoice() || Options.hdrOutput) {
+        if (!FrameGeneration.hasBackendChoice() || staged("hdrOutput", Options.hdrOutput)) {
             return null;
         }
         return new OptionInstance<>("options.radiante.frame_generation_backend",
@@ -442,7 +497,7 @@ public class RadianteOptionsScreen extends Screen {
 
     /** HDR output chosen differently from what the window was created with. */
     private boolean hdrPending() {
-        return Options.hdrOutput != com.g2806.radiante.client.hdr.HdrDisplay.isActive();
+        return staged("hdrOutput", Options.hdrOutput) != com.g2806.radiante.client.hdr.HdrDisplay.isActive();
     }
 
     /** What the player changed that needs the game started again, for the notice after leaving. */
@@ -514,8 +569,8 @@ public class RadianteOptionsScreen extends Screen {
                 && (this.pendingParallax == null || this.pendingParallax == quality.parallax)
                 && (this.pendingFogSamples == null || this.pendingFogSamples == quality.fogSamples);
             if (dlssMatches && fogMatches && cloudsMatch && shaderMatches
-                && Options.blockLightSampling == quality.blockLights
-                && this.options.renderDistance().get() == quality.renderDistance) {
+                && staged("blockLightSampling", Options.blockLightSampling) == quality.blockLights
+                && staged("renderDistance", this.options.renderDistance().get()) == quality.renderDistance) {
                 return quality;
             }
         }
@@ -538,8 +593,8 @@ public class RadianteOptionsScreen extends Screen {
         if (Pipeline.supportsClouds()) {
             this.pendingCloudMode = Pipeline.CLOUD_MODES.get(quality.cloudMode);
         }
-        Options.blockLightSampling = quality.blockLights;
-        this.options.renderDistance().set(quality.renderDistance);
+        stage("blockLightSampling", quality.blockLights);
+        stage("renderDistance", quality.renderDistance);
         if (this.pendingBounces != null) {
             this.pendingBounces = quality.bounces;
         }
@@ -553,7 +608,21 @@ public class RadianteOptionsScreen extends Screen {
 
     /** Every setting on this screen back to how a fresh install has it. */
     private void resetToDefaults() {
-        Options.resetVisualDefaults();
+        // Staged like every other change: Reset to Defaults then Undo leaves the options as they were.
+        stage("blockLightSampling", true);
+        stage("heldItemLight", true);
+        stage("rainWetness", true);
+        stage("blockOutline", false);
+        stage("parallaxTransparentEdges", false);
+        stage("pixelLighting", false);
+        stage("dayBrightness", 25);
+        stage("nightBrightness", 35);
+        stage("emissionBrightness", 12);
+        stage("heldLightBrightness", 12);
+        stage("entityLightReach", 64);
+        stage("volumetricFogStrength", 100);
+        stage("vanillaSunPath", true);
+        stage("vanillaCelestialOrientation", true);
         this.forgetStoredSettings = true;
         // DLSS where the GPU has it, otherwise FSR, which every GPU runs: never back to no upscaler at all.
         this.pendingPreset = Pipeline.isPresetAvailable(Presets.RT_DLSSRR.key) ? Presets.RT_DLSSRR
@@ -704,6 +773,7 @@ public class RadianteOptionsScreen extends Screen {
             this.page.clear();
             switch (section) {
                 case QUALITY -> {
+                    addRows(rayTracingToggle());
                     addRows(quality);
                     addQualityOptions(preset, dlssMode, frameGeneration);
                 }
@@ -781,29 +851,29 @@ public class RadianteOptionsScreen extends Screen {
     }
 
     private void addLightingOptions() {
-        addRows(brightnessSlider("options.radiante.day_brightness", Options.dayBrightness,
-                value -> Options.dayBrightness = value),
-            brightnessSlider("options.radiante.night_brightness", Options.nightBrightness,
-                value -> Options.nightBrightness = value),
-            brightnessSlider("options.radiante.emission_brightness", Options.emissionBrightness,
-                value -> Options.emissionBrightness = value),
-            brightnessSlider("options.radiante.held_light_brightness", Options.heldLightBrightness,
-                value -> Options.heldLightBrightness = value),
+        addRows(brightnessSlider("options.radiante.day_brightness", staged("dayBrightness", Options.dayBrightness),
+                value -> stage("dayBrightness", value)),
+            brightnessSlider("options.radiante.night_brightness", staged("nightBrightness", Options.nightBrightness),
+                value -> stage("nightBrightness", value)),
+            brightnessSlider("options.radiante.emission_brightness", staged("emissionBrightness", Options.emissionBrightness),
+                value -> stage("emissionBrightness", value)),
+            brightnessSlider("options.radiante.held_light_brightness", staged("heldLightBrightness", Options.heldLightBrightness),
+                value -> stage("heldLightBrightness", value)),
             tunable(Tunable.BOUNCE_LIGHT, true), tunable(Tunable.SKY_LIGHT, true),
             OptionInstance.createBoolean("options.radiante.block_light_sampling",
-                tooltip("options.radiante.block_light_sampling"), Options.blockLightSampling,
+                tooltip("options.radiante.block_light_sampling"), staged("blockLightSampling", Options.blockLightSampling),
                 value -> {
-                    Options.blockLightSampling = value;
+                    stage("blockLightSampling", value);
                     refreshQualityLater();
                 }),
             restirOption(), serOption(),
             OptionInstance.createBoolean("options.radiante.held_item_light",
-                tooltip("options.radiante.held_item_light"), Options.heldItemLight,
-                value -> Options.heldItemLight = value),
-            slider("options.radiante.entity_light_reach", 8, 256, Options.entityLightReach,
-                value -> Options.setEntityLightReach(value, true)),
+                tooltip("options.radiante.held_item_light"), staged("heldItemLight", Options.heldItemLight),
+                value -> stage("heldItemLight", value)),
+            slider("options.radiante.entity_light_reach", 8, 256, staged("entityLightReach", Options.entityLightReach),
+                value -> stage("entityLightReach", value)),
             OptionInstance.createBoolean("options.radiante.pixel_lighting",
-                tooltip("options.radiante.pixel_lighting"), Options.pixelLighting, value -> Options.pixelLighting = value),
+                tooltip("options.radiante.pixel_lighting"), staged("pixelLighting", Options.pixelLighting), value -> stage("pixelLighting", value)),
             OptionInstance.createBoolean("options.radiante.first_person_shadow",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.first_person_shadow.tooltip")),
                 this.pendingFirstPersonShadow, value -> this.pendingFirstPersonShadow = value));
@@ -836,7 +906,7 @@ public class RadianteOptionsScreen extends Screen {
                     this.pendingFroxelFog, value -> this.pendingFroxelFog = value);
             }
             volumetricStrength = brightnessSlider("options.radiante.volumetric_fog_strength",
-                Options.volumetricFogStrength, value -> Options.volumetricFogStrength = value);
+                staged("volumetricFogStrength", Options.volumetricFogStrength), value -> stage("volumetricFogStrength", value));
         }
         OptionInstance<Boolean> cloudShadows = null;
         if (Pipeline.supportsShaderPackToggle(Pipeline.CLOUD_SHADOWS_ATTRIBUTE)) {
@@ -869,14 +939,14 @@ public class RadianteOptionsScreen extends Screen {
             tunable(Tunable.LIGHT_SHAFTS, false),
             OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
-                Options.vanillaSunPath, value -> Options.vanillaSunPath = value),
+                staged("vanillaSunPath", Options.vanillaSunPath), value -> stage("vanillaSunPath", value)),
             OptionInstance.createBoolean("options.radiante.vanilla_celestial_orientation",
                 OptionInstance.cachedConstantTooltip(
                     Component.translatable("options.radiante.vanilla_celestial_orientation.tooltip")),
-                Options.vanillaCelestialOrientation, value -> Options.vanillaCelestialOrientation = value),
+                staged("vanillaCelestialOrientation", Options.vanillaCelestialOrientation), value -> stage("vanillaCelestialOrientation", value)),
             OptionInstance.createBoolean("options.radiante.rain_wetness",
-                tooltip("options.radiante.rain_wetness"), Options.rainWetness,
-                value -> Options.rainWetness = value),
+                tooltip("options.radiante.rain_wetness"), staged("rainWetness", Options.rainWetness),
+                value -> stage("rainWetness", value)),
             rainRefraction, seamlessGlass,
             OptionInstance.createBoolean("options.radiante.biome_fog",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
@@ -948,11 +1018,11 @@ public class RadianteOptionsScreen extends Screen {
 
     private void addOtherOptions() {
         addRows(OptionInstance.createBoolean("options.radiante.block_outline",
-                tooltip("options.radiante.block_outline"), Options.blockOutline,
-                value -> Options.blockOutline = value),
+                tooltip("options.radiante.block_outline"), staged("blockOutline", Options.blockOutline),
+                value -> stage("blockOutline", value)),
             OptionInstance.createBoolean("options.radiante.parallax_transparent_edges",
-                tooltip("options.radiante.parallax_transparent_edges"), Options.parallaxTransparentEdges,
-                value -> Options.parallaxTransparentEdges = value),
+                tooltip("options.radiante.parallax_transparent_edges"), staged("parallaxTransparentEdges", Options.parallaxTransparentEdges),
+                value -> stage("parallaxTransparentEdges", value)),
             OptionInstance.createBoolean("options.radiante.debug_logging",
                 this.pendingDebugLogging, value -> this.pendingDebugLogging = value));
     }
@@ -963,25 +1033,25 @@ public class RadianteOptionsScreen extends Screen {
      */
     private void addHdrOptions() {
         String tooltipKey = com.g2806.radiante.client.hdr.HdrDisplay.isActive() ? "options.radiante.hdr_output.tooltip"
-            : Options.hdrOutput ? "options.radiante.hdr_output.tooltip_pending"
+            : staged("hdrOutput", Options.hdrOutput) ? "options.radiante.hdr_output.tooltip_pending"
                 : "options.radiante.hdr_output.tooltip";
         OptionInstance<Boolean> toggle = OptionInstance.createBoolean("options.radiante.hdr_output",
-            OptionInstance.cachedConstantTooltip(Component.translatable(tooltipKey)), Options.hdrOutput, value -> {
-                Options.hdrOutput = value;
+            OptionInstance.cachedConstantTooltip(Component.translatable(tooltipKey)), staged("hdrOutput", Options.hdrOutput), value -> {
+                stage("hdrOutput", value);
                 refreshQualityLater();
             });
         this.hdrToggle = toggle;
-        if (!Options.hdrOutput) {
+        if (!staged("hdrOutput", Options.hdrOutput)) {
             addRows(toggle);
             return;
         }
-        addRows(toggle, nitsSlider("options.radiante.hdr_peak", 400, 4000, Options.hdrPeakNits,
-                value -> Options.hdrPeakNits = value),
-            nitsSlider("options.radiante.hdr_paper_white", 80, 400, Options.hdrPaperWhiteNits,
-                value -> Options.hdrPaperWhiteNits = value),
+        addRows(toggle, nitsSlider("options.radiante.hdr_peak", 400, 4000, staged("hdrPeakNits", Options.hdrPeakNits),
+                value -> stage("hdrPeakNits", value)),
+            nitsSlider("options.radiante.hdr_paper_white", 80, 400, staged("hdrPaperWhiteNits", Options.hdrPaperWhiteNits),
+                value -> stage("hdrPaperWhiteNits", value)),
             OptionInstance.createBoolean("options.radiante.hdr_debug_view",
-                tooltip("options.radiante.hdr_debug_view"), Options.hdrDebugView,
-                value -> Options.hdrDebugView = value));
+                tooltip("options.radiante.hdr_debug_view"), staged("hdrDebugView", Options.hdrDebugView),
+                value -> stage("hdrDebugView", value)));
     }
 
     private static OptionInstance<Integer> nitsSlider(String key, int min, int max, int current,
@@ -1103,6 +1173,7 @@ public class RadianteOptionsScreen extends Screen {
             return false;
         }
         this.applied = true;
+        applyStaged();
 
         if (this.pendingChunkThreads != Options.chunkBuildingThreads) {
             Options.setChunkBuildingThreads(this.pendingChunkThreads, false);

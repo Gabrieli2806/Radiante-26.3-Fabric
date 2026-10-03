@@ -346,5 +346,8 @@
   "options.radiante.download.button.delete": "Delete %s",
   "options.radiante.download.button.downloading": "Downloading %s... %s%%",
   "options.radiante.download.leave_world": "Leave the world first: installing or deleting an upscaler is done from the menus and needs a restart.",
-  "screen.radiante.download.restart.message": "The change is ready. Radiante loads upscalers when the game starts, so the game has to be restarted now to avoid errors."
+  "screen.radiante.download.restart.message": "The change is ready. Radiante loads upscalers when the game starts, so the game has to be restarted now to avoid errors.",
+  "key.category.radiante.radiante": "Radiante",
+  "options.radiante.ray_tracing": "Ray Tracing",
+  "options.radiante.ray_tracing.tooltip": "Switches between Radiante's ray traced renderer and Minecraft's own, at once, like the Toggle Ray Tracing key (unbound by default, set it in Controls). The world is rebuilt for the renderer that takes over."
 }
