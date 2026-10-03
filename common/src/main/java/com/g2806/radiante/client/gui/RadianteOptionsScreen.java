@@ -39,6 +39,7 @@ public class RadianteOptionsScreen extends Screen {
     private int pendingChunkThreads = Options.chunkBuildingThreads;
     private int pendingChunkBatchSize = Options.chunkBuildingBatchSize;
     private int pendingChunkTotalBatches = Options.chunkBuildingTotalBatches;
+    private boolean pendingChunkAuto = Options.chunkBuildingAuto;
     private boolean pendingCollectEmission = Options.collectChunkEmission;
     private boolean pendingDebugLogging = Options.debugLogging;
     private boolean pendingBiomeFog = Options.biomeFog;
@@ -147,6 +148,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingChunkThreads = previous.pendingChunkThreads;
         this.pendingChunkBatchSize = previous.pendingChunkBatchSize;
         this.pendingChunkTotalBatches = previous.pendingChunkTotalBatches;
+        this.pendingChunkAuto = previous.pendingChunkAuto;
         this.pendingCollectEmission = previous.pendingCollectEmission;
         this.pendingDebugLogging = previous.pendingDebugLogging;
         this.pendingBiomeFog = previous.pendingBiomeFog;
@@ -286,6 +288,16 @@ public class RadianteOptionsScreen extends Screen {
                     com.g2806.radiante.client.RadianteClient.toggleRayTracing(this.minecraft);
                 }
             });
+    }
+
+    /** While chunk building is automatic the pending values are the CPU's (Options.autoChunkBuilding). */
+    private void syncChunkAuto() {
+        if (this.pendingChunkAuto) {
+            int[] auto = Options.autoChunkBuilding();
+            this.pendingChunkThreads = auto[0];
+            this.pendingChunkBatchSize = auto[1];
+            this.pendingChunkTotalBatches = auto[2];
+        }
     }
 
     /** The download a preset needs, or null when it needs none. */
@@ -630,9 +642,8 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingDlssMode = "render_pipeline.module.dlss.attribute.mode.ultra_performance";
         this.pendingGeneratedFrames = 0;
         this.pendingCloudMode = Pipeline.supportsClouds() ? Pipeline.CLOUD_MODES.get(1) : null;
-        this.pendingChunkThreads = Options.getDefaultChunkBuildingThreads();
-        this.pendingChunkBatchSize = 12;
-        this.pendingChunkTotalBatches = 12;
+        this.pendingChunkAuto = true;
+        syncChunkAuto();
         this.pendingCollectEmission = true;
         this.pendingDebugLogging = true;
         this.pendingBiomeFog = true;
@@ -1005,12 +1016,27 @@ public class RadianteOptionsScreen extends Screen {
                 value -> this.pendingFarBounces = value);
         addRows(bounces, packToggle(Pipeline.CACHE_DEEP_BOUNCES_ATTRIBUTE, "options.radiante.cache_deep_bounces"),
             parallax, farDistance, farBounces, fogSamples,
-            slider("options.radiante.chunk_building_threads", 1, Options.getMaxChunkBuildingThreads(),
-                this.pendingChunkThreads, value -> this.pendingChunkThreads = value),
-            slider("options.radiante.chunk_building_batch_size", 1, 64, this.pendingChunkBatchSize,
-                value -> this.pendingChunkBatchSize = value),
-            slider("options.radiante.chunk_building_total_batches", 1, 64, this.pendingChunkTotalBatches,
-                value -> this.pendingChunkTotalBatches = value),
+            OptionInstance.createBoolean("options.radiante.chunk_building_auto",
+                OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.chunk_building_auto.tooltip",
+                    Runtime.getRuntime().availableProcessors(), Options.autoChunkBuilding()[0],
+                    Options.autoChunkBuilding()[1], Options.autoChunkBuilding()[2])),
+                (caption, value) -> Component.translatable(value ? "options.radiante.chunk_building_auto.on"
+                    : "options.radiante.chunk_building_auto.off"),
+                this.pendingChunkAuto, value -> {
+                    this.pendingChunkAuto = value;
+                    syncChunkAuto();
+                    // The three sliders below are only shown (and only count) while this is off.
+                    if (this.minecraft != null) {
+                        this.minecraft.execute(this::reopenWithSameChoices);
+                    }
+                }),
+            this.pendingChunkAuto ? null : slider("options.radiante.chunk_building_threads", 1,
+                Options.getMaxChunkBuildingThreads(), this.pendingChunkThreads,
+                value -> this.pendingChunkThreads = value),
+            this.pendingChunkAuto ? null : slider("options.radiante.chunk_building_batch_size", 1, 64,
+                this.pendingChunkBatchSize, value -> this.pendingChunkBatchSize = value),
+            this.pendingChunkAuto ? null : slider("options.radiante.chunk_building_total_batches", 1, 64,
+                this.pendingChunkTotalBatches, value -> this.pendingChunkTotalBatches = value),
             OptionInstance.createBoolean("options.radiante.collect_chunk_emission",
                 tooltip("options.radiante.collect_chunk_emission"), this.pendingCollectEmission,
                 value -> this.pendingCollectEmission = value));
@@ -1174,6 +1200,8 @@ public class RadianteOptionsScreen extends Screen {
         }
         this.applied = true;
         applyStaged();
+        Options.chunkBuildingAuto = this.pendingChunkAuto;
+        syncChunkAuto();
 
         if (this.pendingChunkThreads != Options.chunkBuildingThreads) {
             Options.setChunkBuildingThreads(this.pendingChunkThreads, false);

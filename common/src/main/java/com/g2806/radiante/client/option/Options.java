@@ -147,7 +147,37 @@ public class Options {
     }
 
     public static int getDefaultChunkBuildingThreads() {
-        return clampChunkBuildingThreads(Math.max(2, Math.min(6, Runtime.getRuntime().availableProcessors() / 4)));
+        return autoChunkBuilding()[0];
+    }
+
+    /**
+     * Chunk building sized to the CPU: threads, sections per batch and batches in flight. The fixed 12 x 12 batches
+     * that suit a 16 thread CPU starved the render and server threads on smaller ones (stutter, low frame rate while
+     * chunks load), and players had to find the sliders to fix it.
+     */
+    public static int[] autoChunkBuilding() {
+        int cpus = Runtime.getRuntime().availableProcessors();
+        int[] values = cpus <= 4 ? new int[] {1, 4, 4}
+            : cpus <= 8 ? new int[] {2, 6, 6}
+            : cpus <= 12 ? new int[] {3, 8, 8}
+            : cpus <= 16 ? new int[] {4, 12, 12}
+            : new int[] {Math.min(6, cpus / 4), 12, 12};
+        values[0] = clampChunkBuildingThreads(values[0]);
+        return values;
+    }
+
+    /** On: the three chunk building settings follow autoChunkBuilding(); off: the player's own values. */
+    public static boolean chunkBuildingAuto = true;
+
+    /** Puts the automatic values in place (and in the renderer) while chunkBuildingAuto is on. */
+    public static void applyChunkBuildingAuto() {
+        if (!chunkBuildingAuto) {
+            return;
+        }
+        int[] values = autoChunkBuilding();
+        setChunkBuildingThreads(values[0], false);
+        setChunkBuildingBatchSize(values[1], false);
+        setChunkBuildingTotalBatches(values[2], false);
     }
 
     /** One saved setting: its key in options.properties, how to write it out and how to take it back. */
@@ -175,6 +205,7 @@ public class Options {
         number("chunkBuildingTotalBatches", () -> chunkBuildingTotalBatches,
             v -> setChunkBuildingTotalBatches(v, false)),
         number("chunkBuildingThreads", () -> chunkBuildingThreads, v -> setChunkBuildingThreads(v, false)),
+        bool("chunkBuildingAuto", () -> chunkBuildingAuto, v -> chunkBuildingAuto = v),
         bool("collectChunkEmission", () -> collectChunkEmission, v -> setCollectChunkEmission(v, false)),
         number("entityLightReach", () -> entityLightReach, v -> setEntityLightReach(v, false)),
         bool("debugLogging", () -> debugLogging, v -> setDebugLogging(v, false)),
@@ -212,6 +243,7 @@ public class Options {
     public static void readOptions() {
         Path path = RadianteClient.radianceDir.resolve(OPTION_PROPERTIES);
         if (!Files.exists(path)) {
+            applyChunkBuildingAuto();
             overwriteConfig();
             return;
         }
@@ -234,6 +266,11 @@ public class Options {
                 RadianteClient.LOGGER.warn("Ignoring option {}={}", entry.key(), text);
             }
         }
+        // A config from before the automatic setting: automatic unless the batch sliders were moved off their old 12.
+        if (!props.containsKey("chunkBuildingAuto")) {
+            chunkBuildingAuto = chunkBuildingBatchSize == 12 && chunkBuildingTotalBatches == 12;
+        }
+        applyChunkBuildingAuto();
         // Held lights used to follow the block setting; a config from before keeps them where they were.
         if (!props.containsKey("heldLightBrightness")) {
             heldLightBrightness = emissionBrightness;

@@ -349,5 +349,9 @@
   "screen.radiante.download.restart.message": "El cambio está listo. Radiante carga los escaladores al iniciar el juego, así que hay que reiniciarlo ahora para evitar errores.",
   "key.category.radiante.radiante": "Radiante",
   "options.radiante.ray_tracing": "Trazado de Rayos",
-  "options.radiante.ray_tracing.tooltip": "Cambia al instante entre el renderizador con trazado de rayos de Radiante y el de Minecraft, igual que la tecla Alternar Trazado de Rayos (sin asignar por defecto, se asigna en Controles). El mundo se reconstruye para el renderizador que toma el relevo."
+  "options.radiante.ray_tracing.tooltip": "Cambia al instante entre el renderizador con trazado de rayos de Radiante y el de Minecraft, igual que la tecla Alternar Trazado de Rayos (sin asignar por defecto, se asigna en Controles). El mundo se reconstruye para el renderizador que toma el relevo.",
+  "options.radiante.chunk_building_auto": "Construcción de Chunks",
+  "options.radiante.chunk_building_auto.on": "Construcción de Chunks: Automática",
+  "options.radiante.chunk_building_auto.off": "Construcción de Chunks: Manual",
+  "options.radiante.chunk_building_auto.tooltip": "Automática ajusta la construcción de chunks a tu CPU para que no le quite recursos al juego mientras cargan chunks. Este CPU tiene %s hilos: %s hilos de chunks, lotes de %s, %s lotes a la vez. Manual muestra los tres sliders."
 }

@@ -314,5 +314,9 @@
   "screen.radiante.download.restart.message": "The change is ready. Radiante loads upscalers when the game starts, so the game has to be restarted now to avoid errors.",
   "key.category.radiante.radiante": "Radiante",
   "options.radiante.ray_tracing": "Ray Tracing",
-  "options.radiante.ray_tracing.tooltip": "Switches between Radiante's ray traced renderer and Minecraft's own, at once, like the Toggle Ray Tracing key (unbound by default, set it in Controls). The world is rebuilt for the renderer that takes over."
+  "options.radiante.ray_tracing.tooltip": "Switches between Radiante's ray traced renderer and Minecraft's own, at once, like the Toggle Ray Tracing key (unbound by default, set it in Controls). The world is rebuilt for the renderer that takes over.",
+  "options.radiante.chunk_building_auto": "Chunk Building",
+  "options.radiante.chunk_building_auto.on": "Chunk Building: Automatic",
+  "options.radiante.chunk_building_auto.off": "Chunk Building: Manual",
+  "options.radiante.chunk_building_auto.tooltip": "Automatic sizes chunk building to your CPU so it does not starve the game while chunks load. This CPU has %s threads: %s chunk threads, batches of %s, %s batches at once. Manual shows the three sliders."
 }
