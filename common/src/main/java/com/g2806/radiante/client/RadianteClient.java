@@ -55,6 +55,7 @@ public final class RadianteClient {
         ensureNativeLoaded();
         com.g2806.radiante.client.compat.physicsmod.PhysicsModCompat.init();
         com.g2806.radiante.client.compat.journeymap.JourneyMapCompat.init();
+        com.g2806.radiante.client.compat.litematica.LitematicaCompat.init();
         com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.init();
         DevAutomation.register();
         com.g2806.radiante.client.gui.RadianteDebugEntries.register();
@@ -102,13 +103,18 @@ public final class RadianteClient {
         }
 
         while (RadianteKeys.OPEN_SETTINGS.consumeClick()) {
-            if (minecraft.gui.screen() == null) {
+            if (minecraft.gui.screen() == null && !RadianteKeys.OPEN_SETTINGS.isUnbound()) {
                 minecraft.gui.setScreen(new RadianteOptionsScreen(null, minecraft.options));
             }
         }
 
         while (RadianteKeys.TOGGLE_RAY_TRACING.consumeClick()) {
-            toggleRayTracing(minecraft);
+            // Unbound by default, and an unbound key still gets "pressed": every mapping without a key shares the
+            // unknown key, so a mod that clicks one of its own unbound mappings (ImmersiveMC does) clicked this one
+            // too and switched ray tracing on and off by itself.
+            if (!RadianteKeys.TOGGLE_RAY_TRACING.isUnbound()) {
+                toggleRayTracing(minecraft);
+            }
         }
 
         com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.tick();

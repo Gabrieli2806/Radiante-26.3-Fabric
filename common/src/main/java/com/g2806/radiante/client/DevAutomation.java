@@ -182,6 +182,48 @@ public final class DevAutomation {
             }
             return;
         }
+        if (action.startsWith("litematic=")) {
+            // litematic=x1,y1,z1,x2,y2,z2,ox,oy,oz: copies a box of the world into a Litematica schematic and
+            // places it at another origin, for testing the schematic ghosts.
+            String[] v = action.substring(10).split(",");
+            int[] n = new int[9];
+            for (int i = 0; i < 9; i++) {
+                n[i] = Integer.parseInt(v[i]);
+            }
+            try {
+                ClassLoader loader = DevAutomation.class.getClassLoader();
+                Class<?> boxType = Class.forName("fi.dy.masa.litematica.selection.Box", true, loader);
+                Class<?> areaType = Class.forName("fi.dy.masa.litematica.selection.AreaSelection", true, loader);
+                Class<?> schematicType = Class.forName("fi.dy.masa.litematica.schematic.LitematicaSchematic", true, loader);
+                Class<?> infoType = Class.forName(
+                    "fi.dy.masa.litematica.schematic.LitematicaSchematic$SchematicSaveInfo", true, loader);
+                Class<?> consumerType = Class.forName("fi.dy.masa.malilib.interfaces.IStringConsumer", true, loader);
+                Class<?> placementType = Class.forName(
+                    "fi.dy.masa.litematica.schematic.placement.SchematicPlacement", true, loader);
+                Object box = boxType.getConstructor(net.minecraft.core.BlockPos.class, net.minecraft.core.BlockPos.class,
+                    String.class).newInstance(new net.minecraft.core.BlockPos(n[0], n[1], n[2]),
+                    new net.minecraft.core.BlockPos(n[3], n[4], n[5]), "main");
+                Object area = areaType.getConstructor().newInstance();
+                areaType.getMethod("addSubRegionBox", boxType, boolean.class).invoke(area, box, true);
+                Object feedback = java.lang.reflect.Proxy.newProxyInstance(loader, new Class<?>[] {consumerType},
+                    (proxy, method, arguments) -> null);
+                Object schematic = schematicType.getMethod("createFromWorld", net.minecraft.world.level.Level.class,
+                    areaType, infoType, String.class, consumerType).invoke(null, minecraft.level, area,
+                    infoType.getConstructor(boolean.class, boolean.class).newInstance(false, false), "radiante",
+                    feedback);
+                Object placement = placementType.getMethod("createFor", schematicType,
+                    net.minecraft.core.BlockPos.class, String.class, boolean.class, boolean.class).invoke(null,
+                    schematic, new net.minecraft.core.BlockPos(n[6], n[7], n[8]), "radiante test", true, true);
+                Object manager = Class.forName("fi.dy.masa.litematica.data.DataManager", true, loader)
+                    .getMethod("getSchematicPlacementManager").invoke(null);
+                manager.getClass().getMethod("addSchematicPlacement", placementType, boolean.class)
+                    .invoke(manager, placement, false);
+                RadianteClient.LOGGER.info("[dev] litematica placement at {},{},{}", n[6], n[7], n[8]);
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                RadianteClient.LOGGER.warn("[dev] litematica placement failed", e);
+            }
+            return;
+        }
         if (action.startsWith("jmwp=")) {
             // jmwp=x,y,z,name: a JourneyMap waypoint through its API, for testing the waypoint beams.
             String[] v = action.substring(5).split(",");

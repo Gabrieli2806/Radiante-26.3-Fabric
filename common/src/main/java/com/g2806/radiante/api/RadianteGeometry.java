@@ -25,7 +25,12 @@ public final class RadianteGeometry {
         /** Texels are there or not (leaves, grates). */
         CUTOUT,
         /** See-through (stained glass, ice). */
-        TRANSLUCENT
+        TRANSLUCENT,
+        /**
+         * Faded: each point is there or not at random, as often as its alpha says, which reads as a ghost of the
+         * thing. For previews and guides; the colour's alpha sets how solid it looks.
+         */
+        DITHERED
     }
 
     /** Called once a frame, on the render thread, while the world is being traced. */
@@ -68,7 +73,11 @@ public final class RadianteGeometry {
     public record RegisteredSubmitter(Submitter submitter, boolean castsShadows) {
     }
 
-    private static final Map<String, Provider> PROVIDERS = new LinkedHashMap<>();
+    /** A provider and whether its geometry casts shadows. */
+    public record RegisteredProvider(Provider provider, boolean castsShadows) {
+    }
+
+    private static final Map<String, RegisteredProvider> PROVIDERS = new LinkedHashMap<>();
     private static final Map<String, RegisteredSubmitter> SUBMITTERS = new LinkedHashMap<>();
 
     private RadianteGeometry() {
@@ -76,7 +85,12 @@ public final class RadianteGeometry {
 
     /** Registers a provider under a name of the mod's own ("mymod:debris"); a second one of that name replaces it. */
     public static synchronized void register(String name, Provider provider) {
-        PROVIDERS.put(name, provider);
+        register(name, provider, true);
+    }
+
+    /** As {@link #register(String, Provider)}; {@code castsShadows} false is for previews, guides and markers. */
+    public static synchronized void register(String name, Provider provider, boolean castsShadows) {
+        PROVIDERS.put(name, new RegisteredProvider(provider, castsShadows));
     }
 
     public static synchronized void unregister(String name) {
@@ -101,7 +115,7 @@ public final class RadianteGeometry {
     }
 
     /** The providers by name, for the renderer. */
-    public static synchronized Map<String, Provider> providers() {
+    public static synchronized Map<String, RegisteredProvider> providers() {
         return new LinkedHashMap<>(PROVIDERS);
     }
 }

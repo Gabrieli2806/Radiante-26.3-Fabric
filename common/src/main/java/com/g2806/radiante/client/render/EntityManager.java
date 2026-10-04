@@ -494,14 +494,15 @@ public final class EntityManager {
             }
         }
 
-        Map<String, com.g2806.radiante.api.RadianteGeometry.Provider> providers =
+        Map<String, com.g2806.radiante.api.RadianteGeometry.RegisteredProvider> providers =
             com.g2806.radiante.api.RadianteGeometry.providers();
         if (providers.isEmpty()) {
             return;
         }
         float partialTick = levelRenderState.worldPartialTicks;
         int[] used = {0};
-        for (Map.Entry<String, com.g2806.radiante.api.RadianteGeometry.Provider> provider : providers.entrySet()) {
+        for (Map.Entry<String, com.g2806.radiante.api.RadianteGeometry.RegisteredProvider> provider
+            : providers.entrySet()) {
             // Texture id and alpha mode, to the writer and the geometry type of its layer.
             Map<Long, PBRVertexWriter> writers = new java.util.LinkedHashMap<>();
             Map<Long, Integer> geometryTypes = new java.util.HashMap<>();
@@ -545,6 +546,7 @@ public final class EntityManager {
                             case OPAQUE -> PBRVertexWriter.ALPHA_MODE_OPAQUE;
                             case CUTOUT -> PBRVertexWriter.ALPHA_MODE_CUTOUT;
                             case TRANSLUCENT -> PBRVertexWriter.ALPHA_MODE_TRANSPARENT;
+                            case DITHERED -> PBRVertexWriter.ALPHA_MODE_STOCHASTIC;
                         })
                         .coordinate(NativeGeometry.COORDINATE_WORLD)
                         .albedoEmission(0.0f)
@@ -558,7 +560,7 @@ public final class EntityManager {
                 }
             };
             try {
-                provider.getValue().provide(sink);
+                provider.getValue().provider().provide(sink);
             } catch (RuntimeException e) {
                 // Another mod's mistake costs its own geometry for the frame, not the frame.
                 continue;
@@ -576,7 +578,7 @@ public final class EntityManager {
             }
             if (!layers.isEmpty()) {
                 PENDING.add(new PendingEntity(provider.getKey().hashCode() ^ EXTERNAL_ID_SALT, camera.x(), camera.y(),
-                    camera.z(), RAY_TRACING_WORLD, layers));
+                    camera.z(), provider.getValue().castsShadows() ? RAY_TRACING_WORLD : RAY_TRACING_PARTICLE, layers));
             }
         }
     }
