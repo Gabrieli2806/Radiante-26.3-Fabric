@@ -27,6 +27,10 @@ public abstract class GameRendererMixin {
 
     @Shadow
     @Final
+    private net.minecraft.client.renderer.fog.FogRenderer fogRenderer;
+
+    @Shadow
+    @Final
     private com.mojang.blaze3d.pipeline.RenderTarget mainRenderTarget;
 
     @Shadow
@@ -97,9 +101,16 @@ public abstract class GameRendererMixin {
         Operation<Void> original) {
         if (!RadianteRenderer.isTracingLevel()) {
             original.call(gameRenderer, cameraState, playerState, optionsState, consistentDepthRequired);
-        } else if (RadianteRenderer.wasFrameTraced()) {
-            // The traced picture is already in the target; without the overlay pass it is not yet (see above).
-            radiante$debugCrosshair();
+        } else {
+            // What this pass does besides drawing: it ends the world fog. Minecraft level render switches that fog
+            // on when it runs over the traced picture, and left on it reached the screens drawn afterwards - item
+            // icons in an inventory came out as flat shapes in the fog colour.
+            com.mojang.blaze3d.systems.RenderSystem.setShaderFog(this.fogRenderer.getBuffer(
+                net.minecraft.client.renderer.fog.FogRenderer.FogMode.NONE));
+            if (RadianteRenderer.wasFrameTraced()) {
+                // The traced picture is already in the target; without the overlay pass it is not yet (see above).
+                radiante$debugCrosshair();
+            }
         }
     }
 

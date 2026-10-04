@@ -162,6 +162,12 @@ public final class DevAutomation {
             minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UnsupportedHardwareScreen(minecraft.gui.screen()));
             return;
         }
+        if (action.equals("screen=creative")) {
+            // The creative inventory: many item icons at once, for checking how the GUI draws items.
+            minecraft.gui.setScreen(new net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen(
+                minecraft.player, minecraft.level.enabledFeatures(), false));
+            return;
+        }
         if (action.equals("screen=packs")) {
             minecraft.gui.setScreen(new net.minecraft.client.gui.screens.packs.PackSelectionScreen(
                 minecraft.getResourcePackRepository(), repository -> { }, minecraft.getResourcePackDirectory(),
