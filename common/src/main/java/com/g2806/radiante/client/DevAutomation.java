@@ -182,6 +182,25 @@ public final class DevAutomation {
             }
             return;
         }
+        if (action.startsWith("jmwp=")) {
+            // jmwp=x,y,z,name: a JourneyMap waypoint through its API, for testing the waypoint beams.
+            String[] v = action.substring(5).split(",");
+            try {
+                Object waypoint = Class.forName("journeymap.api.v2.common.waypoint.WaypointFactory")
+                    .getMethod("createWaypoint", String.class, net.minecraft.core.BlockPos.class, String.class,
+                        net.minecraft.resources.ResourceKey.class, boolean.class)
+                    .invoke(null, "radiante", new net.minecraft.core.BlockPos(Integer.parseInt(v[0]),
+                        Integer.parseInt(v[1]), Integer.parseInt(v[2])), v[3], minecraft.level.dimension(), false);
+                Class<?> api = Class.forName("journeymap.api.client.impl.ClientAPI");
+                api.getMethod("addWaypoint", String.class,
+                    Class.forName("journeymap.api.v2.common.waypoint.Waypoint"))
+                    .invoke(api.getField("INSTANCE").get(null), "radiante", waypoint);
+                RadianteClient.LOGGER.info("[dev] journeymap waypoint {}", v[3]);
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                RadianteClient.LOGGER.warn("[dev] journeymap waypoint failed", e);
+            }
+            return;
+        }
         if (action.equals("settings")) {
             minecraft.gui.setScreen(new com.g2806.radiante.client.gui.RadianteOptionsScreen(minecraft.gui.screen(), minecraft.options));
             return;

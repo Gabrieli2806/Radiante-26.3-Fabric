@@ -1705,15 +1705,18 @@ bool Chunks::updateLodCoverage(std::vector<uint32_t> &out) {
     if (lodSize_ == 0) return true;
     std::copy(lodJavaWords_.begin(), lodJavaWords_.end(), out.begin() + kLodCoverageHeader);
 
-    // A section queued for a rebuild (or moved and not rebuilt yet) leaves its column to the far terrain until the
-    // renderer has caught up: Java counts a section built as soon as it hands it over.
+    // A section handed over and not built yet leaves its column to the far terrain until the renderer has caught
+    // up: Java counts a section built as soon as it hands it over. Only while it has nothing to show, though. One
+    // being rebuilt after a block change still draws what it had, and giving its column to the far terrain as well
+    // put that terrain's flat boxes over the real blocks until the rebuild landed - walls flashing where blocks
+    // had just been broken, a column at a time.
     size_t gridCount = static_cast<size_t>(sizeX_) * sizeY_ * sizeZ_;
     gridCount = std::min(gridCount, chunks_.size());
     const bool useOccupied = occupied_.size() == chunks_.size();
     for (size_t i = 0; i < gridCount; i++) {
         if (useOccupied && occupied_[i] == 0) continue;
         const auto &chunk1 = chunks_[i];
-        if (chunk1 == nullptr || chunk1->blasVersion == chunk1->latestVersion - 1) continue;
+        if (chunk1 == nullptr || chunk1->blasVersion == chunk1->latestVersion - 1 || chunk1->blas != nullptr) continue;
         int32_t cx = (chunk1->x >> 4) - lodOriginX_;
         int32_t cz = (chunk1->z >> 4) - lodOriginZ_;
         if (cx < 0 || cz < 0 || cx >= lodSize_ || cz >= lodSize_) continue;

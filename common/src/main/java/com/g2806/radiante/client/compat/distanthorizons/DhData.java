@@ -326,6 +326,24 @@ final class DhData {
         return column;
     }
 
+    /**
+     * The beacons Distant Horizons has on record inside a square of blocks, each as x, y, z and colour (0xRRGGBB).
+     * A database query: not for the render thread.
+     */
+    static java.util.List<int[]> beacons(Object level, int minX, int maxX, int minZ, int maxZ) {
+        java.util.List<int[]> beams = new java.util.ArrayList<>();
+        AbstractDhWorld world = SharedApi.getAbstractDhWorld();
+        IDhLevel dhLevel = world == null ? null : world.getLevel((ILevelWrapper) level);
+        if (dhLevel == null || dhLevel.getBeaconBeamRepo() == null) {
+            return beams;
+        }
+        for (var beam : dhLevel.getBeaconBeamRepo().getAllBeamsInBlockPosRange(minX, maxX, minZ, maxZ)) {
+            beams.add(new int[] {beam.blockPos.getX(), beam.blockPos.getY(), beam.blockPos.getZ(),
+                beam.color.getRGB() & 0xFFFFFF});
+        }
+        return beams;
+    }
+
     private static @Nullable FullDataSourceProviderV2 provider(Object level) {
         AbstractDhWorld world = SharedApi.getAbstractDhWorld();
         if (world == null) {

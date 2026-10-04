@@ -825,7 +825,9 @@ void resetMainRay(inout MainRay ray, int bounce) {
 
 /** How far primary and first-bounce rays look for the world; further when far terrain is loaded. */
 float worldTraceDistance() {
-    return max(1000.0, worldUBO.traceDistance);
+    // At least as far as a beacon beam is tall (2048 blocks, BeaconRenderer.MAX_RENDER_Y): with less its beam
+    // ended in mid air, a sphere's radius from the camera, where vanilla shows it running on up out of sight.
+    return max(2304.0, worldUBO.traceDistance);
 }
 
 /** computeCameraMotionVector for a point of the hand, which is seen through the hand's own field of view. */

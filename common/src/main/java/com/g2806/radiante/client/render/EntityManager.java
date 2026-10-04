@@ -257,7 +257,66 @@ public final class EntityManager {
                 }
             }
         }
+        addFarBeacons(minecraft, camera, partialTicks, states);
         return states;
+    }
+
+    /** Beacons in loaded chunks, found by a sweep every so often; see addFarBeacons. */
+    private static final List<BlockPos> BEACONS = new ArrayList<>();
+    private static final int BEACON_SWEEP_FRAMES = 40;
+    private static int beaconSweepCountdown;
+    private static Object beaconSweepLevel;
+
+    /**
+     * A beacon's beam is seen from as far as its chunk is loaded, unlike every other block entity, which ends at
+     * {@link #BLOCK_ENTITY_RANGE}: without this the beam went out on walking away from it. Looking through every
+     * loaded chunk each frame would cost too much, so the beacons are found by a sweep now and then and only their
+     * render states are taken each frame.
+     */
+    private static void addFarBeacons(Minecraft minecraft, Vec3 camera, float partialTicks,
+        List<BlockEntityRenderState> states) {
+        if (beaconSweepLevel != minecraft.level) {
+            beaconSweepLevel = minecraft.level;
+            beaconSweepCountdown = 0;
+        }
+        if (beaconSweepCountdown-- <= 0) {
+            beaconSweepCountdown = BEACON_SWEEP_FRAMES;
+            BEACONS.clear();
+            int centerX = Mth.floor(camera.x()) >> 4;
+            int centerZ = Mth.floor(camera.z()) >> 4;
+            int radius = minecraft.options.getEffectiveRenderDistance();
+            for (int x = centerX - radius; x <= centerX + radius; x++) {
+                for (int z = centerZ - radius; z <= centerZ + radius; z++) {
+                    LevelChunk chunk = minecraft.level.getChunkSource().getChunk(x, z, false);
+                    if (chunk == null) {
+                        continue;
+                    }
+                    for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
+                        if (blockEntity instanceof net.minecraft.world.level.block.entity.BeaconBlockEntity) {
+                            BEACONS.add(blockEntity.getBlockPos());
+                        }
+                    }
+                }
+            }
+        }
+        if (BEACONS.isEmpty()) {
+            return;
+        }
+        java.util.Set<BlockPos> present = new java.util.HashSet<>();
+        for (BlockEntityRenderState state : states) {
+            present.add(state.blockPos);
+        }
+        for (BlockPos pos : BEACONS) {
+            if (present.contains(pos) || !(minecraft.level.getBlockEntity(pos)
+                instanceof net.minecraft.world.level.block.entity.BeaconBlockEntity beacon)) {
+                continue;
+            }
+            BlockEntityRenderState state = minecraft.getBlockEntityRenderDispatcher()
+                .tryExtractRenderState(beacon, partialTicks, null, false);
+            if (state != null) {
+                states.add(state);
+            }
+        }
     }
 
     /**
@@ -418,12 +477,28 @@ public final class EntityManager {
      * mask, so it casts shadows and shows in reflections.
      */
     private static void collectExternal(LevelRenderState levelRenderState, CameraRenderState cameraState) {
+        Vec3 camera = cameraState.pos;
+        // Mods that submit as they would to Minecraft's own collector: camera-relative, so the object sits at the
+        // camera.
+        for (Map.Entry<String, com.g2806.radiante.api.RadianteGeometry.RegisteredSubmitter> entry
+            : com.g2806.radiante.api.RadianteGeometry.submitters().entrySet()) {
+            COLLECTOR.reset();
+            try {
+                entry.getValue().submitter().submit(COLLECTOR);
+            } catch (RuntimeException e) {
+                continue;
+            }
+            if (!COLLECTOR.isEmpty()) {
+                addPending(entry.getKey().hashCode() ^ EXTERNAL_ID_SALT, camera.x(), camera.y(), camera.z(),
+                    entry.getValue().castsShadows() ? RAY_TRACING_WORLD : RAY_TRACING_PARTICLE);
+            }
+        }
+
         Map<String, com.g2806.radiante.api.RadianteGeometry.Provider> providers =
             com.g2806.radiante.api.RadianteGeometry.providers();
         if (providers.isEmpty()) {
             return;
         }
-        Vec3 camera = cameraState.pos;
         float partialTick = levelRenderState.worldPartialTicks;
         int[] used = {0};
         for (Map.Entry<String, com.g2806.radiante.api.RadianteGeometry.Provider> provider : providers.entrySet()) {

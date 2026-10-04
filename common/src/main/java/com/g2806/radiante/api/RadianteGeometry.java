@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 
@@ -53,7 +54,22 @@ public final class RadianteGeometry {
         VertexConsumer quads(Identifier texture, Alpha alpha);
     }
 
+    /**
+     * For a mod that already submits to Minecraft's {@link SubmitNodeCollector} from a hook inside the level render
+     * (models, items, text, custom geometry): the same calls, made on the collector handed in here, reach the ray
+     * tracer. Poses are relative to the camera, as they are in Minecraft's own level render.
+     */
+    @FunctionalInterface
+    public interface Submitter {
+        void submit(SubmitNodeCollector collector);
+    }
+
+    /** A submitter and whether what it submits casts shadows. */
+    public record RegisteredSubmitter(Submitter submitter, boolean castsShadows) {
+    }
+
     private static final Map<String, Provider> PROVIDERS = new LinkedHashMap<>();
+    private static final Map<String, RegisteredSubmitter> SUBMITTERS = new LinkedHashMap<>();
 
     private RadianteGeometry() {
     }
@@ -65,6 +81,23 @@ public final class RadianteGeometry {
 
     public static synchronized void unregister(String name) {
         PROVIDERS.remove(name);
+    }
+
+    /**
+     * Registers a submitter under a name of the mod's own. {@code castsShadows} false is for things made of light
+     * or drawn over the world (beams, markers, labels).
+     */
+    public static synchronized void registerSubmitter(String name, Submitter submitter, boolean castsShadows) {
+        SUBMITTERS.put(name, new RegisteredSubmitter(submitter, castsShadows));
+    }
+
+    public static synchronized void unregisterSubmitter(String name) {
+        SUBMITTERS.remove(name);
+    }
+
+    /** The submitters by name, for the renderer. */
+    public static synchronized Map<String, RegisteredSubmitter> submitters() {
+        return new LinkedHashMap<>(SUBMITTERS);
     }
 
     /** The providers by name, for the renderer. */

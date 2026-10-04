@@ -54,6 +54,8 @@ public final class RadianteClient {
     public static void init() {
         ensureNativeLoaded();
         com.g2806.radiante.client.compat.physicsmod.PhysicsModCompat.init();
+        com.g2806.radiante.client.compat.journeymap.JourneyMapCompat.init();
+        com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.init();
         DevAutomation.register();
         com.g2806.radiante.client.gui.RadianteDebugEntries.register();
         LOGGER.info("Radiante running on {}", RadiantePlatform.INSTANCE.loaderName());
