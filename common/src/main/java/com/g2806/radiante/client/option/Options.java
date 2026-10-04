@@ -62,6 +62,11 @@ public class Options {
     public static boolean rainWetness = true;
     /** The outline around the block under the crosshair. */
     public static boolean blockOutline = false;
+    /**
+     * Lets Minecraft's level render run over the traced world, with nothing of its own to draw, so that what other
+     * mods draw into the world shows: schematics, selection boxes, waypoint beams, guides.
+     */
+    public static boolean modOverlays = true;
     /** Carved (parallax) resource pack faces are see-through at the outer edges of their block. */
     public static boolean parallaxTransparentEdges = false;
     /** Light and shadow snap to the texture's pixels, a retro blocky look. Off: smooth, as vanilla-like. */
@@ -220,6 +225,7 @@ public class Options {
         bool("heldItemLight", () -> heldItemLight, v -> heldItemLight = v),
         bool("rainWetness", () -> rainWetness, v -> rainWetness = v),
         bool("blockOutline", () -> blockOutline, v -> blockOutline = v),
+        bool("modOverlays", () -> modOverlays, v -> modOverlays = v),
         bool("parallaxTransparentEdges", () -> parallaxTransparentEdges, v -> parallaxTransparentEdges = v),
         bool("pixelLighting", () -> pixelLighting, v -> pixelLighting = v),
         number("dayBrightness", () -> dayBrightness, v -> dayBrightness = v),

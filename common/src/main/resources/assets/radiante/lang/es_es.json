@@ -425,5 +425,7 @@
   "options.radiante.advanced.group.renderer": "Renderer (avanzado)",
   "options.radiante.advanced.group.upscaler": "Escalador (avanzado)",
   "options.radiante.advanced.group.debug": "Vistas de depuración",
-  "options.radiante.advanced.group.unsorted": "Otros ajustes del pipeline"
+  "options.radiante.advanced.group.unsorted": "Otros ajustes del pipeline",
+  "options.radiante.mod_overlays": "Overlays de Otros Mods",
+  "options.radiante.mod_overlays.tooltip": "Deja que otros mods dibujen en el mundo trazado: esquemas y cajas de selección de Litematica, formas de MiniHUD, haces de waypoints, guías y marcadores. Se dibujan al modo de Minecraft, encima de la imagen trazada, y quedan tapados por el mundo trazado como deben. Apágalo si algún mod dibuja algo mal sobre el mundo."
 }

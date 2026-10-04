@@ -4,6 +4,7 @@
 #include "common/singleton.hpp"
 #include "core/all_extern.hpp"
 #include "core/render/modules/world/dlss/dlss_wrapper.hpp"
+#include "core/render/mc_depth.hpp"
 #include "core/render/pipeline.hpp"
 #include "core/vulkan/all_core_vulkan.hpp"
 
@@ -85,6 +86,9 @@ class Framework : public SharedObject<Framework> {
     // returns them in execution order. The next slot is opened before returning.
     std::vector<VkCommandBuffer> renderFrame(VkImage target, uint32_t width, uint32_t height, VkFormat format);
     void markSubmitted(VkSemaphore timeline, uint64_t value);
+    // Minecraft's depth texture for the next renderFrame to fill with the traced world's depth (McDepthWriter), or
+    // VK_NULL_HANDLE for none. Asked for again every frame.
+    void setOverlayDepthTarget(VkImage image, VkFormat format, const float projection[4]);
 
     void recreate();
 
@@ -138,6 +142,8 @@ class Framework : public SharedObject<Framework> {
     bool running_ = true;
 
     std::shared_ptr<FrameResourceRetainer> frameResourceRetainer_;
+    McDepthWriter mcDepth_;
+    McDepthWriter::Target overlayDepth_;
 };
 
 template <typename T>

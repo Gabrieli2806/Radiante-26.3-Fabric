@@ -35,6 +35,10 @@ final class FabricLevelRenderEvents implements RadianteGeometry.Submitter {
 
     @Override
     public void submit(SubmitNodeCollector collector) {
+        // With the overlay pass Fabric fires the event itself, from Minecraft's level render.
+        if (com.g2806.radiante.client.render.RadianteRenderer.usesOverlayPass()) {
+            return;
+        }
         Minecraft minecraft = Minecraft.getInstance();
         LevelRenderState levelState = minecraft.gameRenderer.gameRenderState().levelRenderState;
         PoseStack poseStack = new PoseStack();

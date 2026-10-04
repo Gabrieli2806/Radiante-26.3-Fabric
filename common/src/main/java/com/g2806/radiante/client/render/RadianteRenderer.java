@@ -91,6 +91,37 @@ public final class RadianteRenderer {
 
     public static void setTracingLevel(boolean tracing) {
         tracingLevel = tracing;
+        if (tracing) {
+            frameTraced = false;
+            overlayFrame = false;
+        } else {
+            overlayFrame = false;
+        }
+    }
+
+    /** The frame was traced from inside Minecraft's level render (prepareFrame); see GameRendererMixin. */
+    private static boolean frameTraced;
+    /** Minecraft's level render is going on over the traced picture, for other mods' overlays. */
+    private static boolean overlayFrame;
+    /** Command buffers recorded by prepareFrame, waiting for submitFrame. */
+    private static int pendingCommandBuffers;
+
+    /**
+     * Whether Minecraft's level render runs over the traced world so that what other mods draw into the world shows
+     * (LevelRendererSkipMixin).
+     */
+    public static boolean usesOverlayPass() {
+        return Options.modOverlays && isRayTracingEnabled();
+    }
+
+    /** True from prepareFrame to the end of Minecraft's level render, while that render is an overlay pass. */
+    public static boolean isOverlayFrame() {
+        return overlayFrame;
+    }
+
+    /** Whether this frame was already traced; asked once, after Minecraft's level render. */
+    public static boolean wasFrameTraced() {
+        return frameTraced;
     }
 
     /** True when the ray tracer both works here and the player has it switched on. */
@@ -216,13 +247,50 @@ public final class RadianteRenderer {
         LEVEL_FRAMES.set(0);
     }
 
+    /** Traces the frame and puts it in Minecraft's target, in one go: the path without an overlay pass. */
     public static void renderLevel(GameRenderer gameRenderer, LevelRenderState levelRenderState) {
+        if (record(gameRenderer, levelRenderState, false)) {
+            submitFrame();
+        }
+    }
+
+    /**
+     * The first half of a frame with an overlay pass: everything up to the recorded command buffers, the traced
+     * depth for Minecraft's depth texture among them. Called at the head of Minecraft's level render, which then
+     * goes on as the overlay pass; submitFrame runs from inside it. False when there was nothing to trace.
+     */
+    public static boolean prepareFrame(GameRenderer gameRenderer, LevelRenderState levelRenderState) {
+        frameTraced = true;
+        overlayFrame = record(gameRenderer, levelRenderState, true);
+        return overlayFrame;
+    }
+
+    /** The second half: hands the recorded command buffers to Minecraft's encoder. */
+    public static void submitFrame() {
+        int count = pendingCommandBuffers;
+        pendingCommandBuffers = 0;
+        if (count <= 0) {
+            return;
+        }
+        VulkanCommandEncoder encoder = (VulkanCommandEncoder) ((FrontendCommandEncoder) RenderSystem.getDevice()
+            .createCommandEncoder()).backend();
+        for (int i = 0; i < count; i++) {
+            encoder.execute(new VkCommandBuffer(commandBufferHandles[i], vkDevice));
+        }
+
+        VulkanCommandEncoderAccessor accessor = (VulkanCommandEncoderAccessor) encoder;
+        RendererProxy.markSubmitted(accessor.radiante$getSubmitSemaphore(), accessor.radiante$getCurrentSubmitIndex());
+        DevProfiler.mark(6);
+        DevProfiler.endFrame();
+    }
+
+    private static boolean record(GameRenderer gameRenderer, LevelRenderState levelRenderState, boolean withDepth) {
         Minecraft minecraft = Minecraft.getInstance();
         CameraRenderState cameraState = levelRenderState.cameraRenderState;
         RenderTarget mainTarget = gameRenderer.mainRenderTarget();
         GpuTexture colorTexture = mainTarget.getColorTexture();
         if (colorTexture == null) {
-            return;
+            return false;
         }
 
         LEVEL_FRAMES.incrementAndGet();
@@ -257,6 +325,15 @@ public final class RadianteRenderer {
             compiledCallback.run();
         }
 
+        GpuTexture depthTexture = withDepth ? mainTarget.getDepthTexture() : null;
+        if (depthTexture instanceof VulkanGpuTexture vulkanDepth) {
+            // How Minecraft's projection turns a view space z into clip z and w; the native side makes the depth
+            // Minecraft's passes compare against from the traced distance with it.
+            Matrix4f projection = cameraState.projectionMatrix;
+            RendererProxy.setOverlayDepthTarget(vulkanDepth.vkImage(), VulkanConst.toVk(depthTexture.getFormat()),
+                projection.m22(), projection.m32(), projection.m23(), projection.m33());
+        }
+
         long image = ((VulkanGpuTexture) colorTexture).vkImage();
         int format = VulkanConst.toVk(colorTexture.getFormat());
         int count = RendererProxy.renderFrame(image, mainTarget.width, mainTarget.height, format,
@@ -264,19 +341,10 @@ public final class RadianteRenderer {
         DevProfiler.mark(5);
         if (count <= 0) {
             DevProfiler.endFrame();
-            return;
+            return false;
         }
-
-        VulkanCommandEncoder encoder = (VulkanCommandEncoder) ((FrontendCommandEncoder) RenderSystem.getDevice()
-            .createCommandEncoder()).backend();
-        for (int i = 0; i < count; i++) {
-            encoder.execute(new VkCommandBuffer(commandBufferHandles[i], vkDevice));
-        }
-
-        VulkanCommandEncoderAccessor accessor = (VulkanCommandEncoderAccessor) encoder;
-        RendererProxy.markSubmitted(accessor.radiante$getSubmitSemaphore(), accessor.radiante$getCurrentSubmitIndex());
-        DevProfiler.mark(6);
-        DevProfiler.endFrame();
+        pendingCommandBuffers = count;
+        return true;
     }
 
     private static void updateUniforms(Minecraft minecraft, GameRenderer gameRenderer,

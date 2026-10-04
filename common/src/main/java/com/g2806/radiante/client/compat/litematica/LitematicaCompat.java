@@ -153,6 +153,11 @@ public final class LitematicaCompat implements RadianteGeometry.Provider {
 
     @Override
     public void provide(RadianteGeometry.Sink sink) {
+        // With the overlay pass Litematica draws its schematics itself, overlays and all.
+        if (com.g2806.radiante.client.render.RadianteRenderer.usesOverlayPass()) {
+            this.sections.clear();
+            return;
+        }
         try {
             if (!this.resolved) {
                 resolve();

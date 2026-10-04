@@ -226,8 +226,20 @@ std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t wid
         }
 
         context->fuseInto(vk::ExternalImage::create(target, width, height, format));
+
+        // For what Minecraft draws over the traced picture afterwards: the traced depth, in its depth texture.
+        if (overlayDepth_.image != VK_NULL_HANDLE && worldPipeline != nullptr) {
+            int overlayDepthSlot = framegen::FrameGeneration::depthSlot();
+            if (overlayDepthSlot >= 0) {
+                mcDepth_.write(shared_from_this(), context->fuseCommandBuffer,
+                               worldPipeline->sharedImage(context->frameIndex, static_cast<uint32_t>(overlayDepthSlot)),
+                               overlayDepth_, width, height, context->frameIndex);
+            }
+        }
         HdrOutput::instance().noteWorldFrame(pipelineContext->worldPipelineContext);
     }
+
+    overlayDepth_.image = VK_NULL_HANDLE;
 
     context->uploadCommandBuffer->end();
     context->worldCommandBuffer->end();
@@ -312,6 +324,13 @@ void startWatchdog(VkDevice device) {
 }
 } // namespace
 
+void Framework::setOverlayDepthTarget(VkImage image, VkFormat format, const float projection[4]) {
+    std::unique_lock<std::recursive_mutex> lck(recreateMtx_);
+    overlayDepth_.image = image;
+    overlayDepth_.format = format;
+    for (int i = 0; i < 4; i++) overlayDepth_.projection[i] = projection[i];
+}
+
 void Framework::markSubmitted(VkSemaphore timeline, uint64_t value) {
     g_watchTimeline.store(timeline);
     g_watchValue.store(value);
@@ -344,6 +363,7 @@ void Framework::recreate() {
 
         waitRenderQueueIdle();
         framegen::NativeFrameGeneration::instance().reset();
+        mcDepth_.reset();
 
         createContexts();
         pipeline_->recreate(shared_from_this());
@@ -371,6 +391,7 @@ void Framework::waitBackendQueueIdle() {
 
 void Framework::close() {
     framegen::NativeFrameGeneration::instance().release();
+    mcDepth_.reset();
     if (running_ && pipeline_ != nullptr) { pipeline_->close(); }
     running_ = false;
 }

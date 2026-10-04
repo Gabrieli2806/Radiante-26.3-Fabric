@@ -224,6 +224,15 @@ JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
     return static_cast<jint>(framegen::NativeFrameGeneration::instance().presentedFrameRate());
 }
 
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setOverlayDepthTarget(
+    JNIEnv *, jclass, jlong image, jint format, jfloat zScale, jfloat zOffset, jfloat wScale, jfloat wOffset) {
+    if (!Renderer::is_initialized()) return;
+    auto framework = Renderer::instance().framework();
+    if (framework == nullptr) return;
+    const float projection[4] = {zScale, zOffset, wScale, wOffset};
+    framework->setOverlayDepthTarget(reinterpret_cast<VkImage>(image), static_cast<VkFormat>(format), projection);
+}
+
 JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setFrameGenerationImages(
     JNIEnv *, jclass, jint depthSlot, jint motionVectorSlot) {
     framegen::FrameGeneration::setImageSlots(depthSlot, motionVectorSlot);

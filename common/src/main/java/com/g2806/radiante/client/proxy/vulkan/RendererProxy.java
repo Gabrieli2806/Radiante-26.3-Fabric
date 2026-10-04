@@ -48,6 +48,14 @@ public class RendererProxy {
     /** Frames put on screen per second, real plus generated; 0 while frame generation is off. */
     public static native int presentedFrameRate();
 
+    /**
+     * Minecraft's depth texture for the next {@link #renderFrame} to fill with the traced world's depth, so that what
+     * Minecraft draws afterwards is hidden behind the traced world. The four numbers are how its projection turns a
+     * view space z into clip z and w: z * zScale + zOffset and z * wScale + wOffset. Asked for anew every frame.
+     */
+    public static native void setOverlayDepthTarget(long depthImage, int vkFormat, float zScale, float zOffset,
+        float wScale, float wOffset);
+
     /** Pipeline image slots holding the depth and motion vectors frame generation reads. */
     public static native void setFrameGenerationImages(int depthSlot, int motionVectorSlot);
 

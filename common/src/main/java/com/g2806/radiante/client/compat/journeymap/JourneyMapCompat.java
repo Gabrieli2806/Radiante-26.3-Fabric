@@ -37,6 +37,10 @@ public final class JourneyMapCompat implements RadianteGeometry.Submitter {
 
     @Override
     public void submit(SubmitNodeCollector collector) {
+        // With the overlay pass JourneyMap submits its beams to Minecraft itself, as it does without Radiante.
+        if (com.g2806.radiante.client.render.RadianteRenderer.usesOverlayPass()) {
+            return;
+        }
         try {
             if (this.handler == null) {
                 Class<?> type = Class.forName(HANDLER, true, JourneyMapCompat.class.getClassLoader());

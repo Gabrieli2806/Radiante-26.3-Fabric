@@ -1,0 +1,44 @@
+#version 460
+
+// Turns the tracer's first hit depth (distance in front of the camera) into the depth Minecraft's own passes
+// compare against, so that what other mods draw over the traced picture is hidden behind the traced world.
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, r16f) uniform readonly image2D firstHitDepth;
+layout(set = 0, binding = 1, r32f) uniform writeonly image2D deviceDepth;
+
+layout(push_constant) uniform Params {
+    // The third and fourth rows of Minecraft's projection, as they apply to a view space z: clip z = zScale * z +
+    // zOffset, clip w = wScale * z + wOffset.
+    float zScale;
+    float zOffset;
+    float wScale;
+    float wOffset;
+    uint srcWidth;
+    uint srcHeight;
+    uint dstWidth;
+    uint dstHeight;
+} params;
+
+void main() {
+    uvec2 coord = gl_GlobalInvocationID.xy;
+    if (coord.x >= params.dstWidth || coord.y >= params.dstHeight) { return; }
+
+    vec2 uv = (vec2(coord) + 0.5) / vec2(params.dstWidth, params.dstHeight);
+    ivec2 src = clamp(ivec2(uv * vec2(params.srcWidth, params.srcHeight)), ivec2(0),
+                      ivec2(int(params.srcWidth) - 1, int(params.srcHeight) - 1));
+    float hitDistance = abs(imageLoad(firstHitDepth, src).r);
+    // Nothing hit (the sky), or more than a half float holds: as far as it goes.
+    if (isnan(hitDistance) || isinf(hitDistance) || hitDistance > 60000.0) { hitDistance = 1.0e7; }
+    // The stored depth is a half float, good to about a thousandth of the distance. Pushed back by a little more
+    // than that, so an outline or a ghost drawn on a block's own surface is in front of it rather than flickering
+    // through it.
+    hitDistance = hitDistance * 1.004 + 0.03;
+
+    float z = -hitDistance;
+    float clipZ = params.zScale * z + params.zOffset;
+    float clipW = params.wScale * z + params.wOffset;
+    float depth = abs(clipW) > 1.0e-12 ? clipZ / clipW : 0.0;
+    imageStore(deviceDepth, ivec2(coord), vec4(clamp(depth, 0.0, 1.0), 0.0, 0.0, 0.0));
+}

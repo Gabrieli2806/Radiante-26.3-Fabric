@@ -137,6 +137,14 @@ JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
 
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
+ * Method:    setOverlayDepthTarget
+ * Signature: (JIFFFF)V
+ */
+JNIEXPORT void JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_setOverlayDepthTarget
+  (JNIEnv *, jclass, jlong, jint, jfloat, jfloat, jfloat, jfloat);
+
+/*
+ * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
  * Method:    setFrameGenerationImages
  * Signature: (II)V
  */

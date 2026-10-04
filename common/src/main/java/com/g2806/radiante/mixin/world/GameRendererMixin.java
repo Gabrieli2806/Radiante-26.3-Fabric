@@ -7,6 +7,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,6 +20,47 @@ public abstract class GameRendererMixin {
 
     @Shadow
     public abstract net.minecraft.client.renderer.state.GameRenderState gameRenderState();
+
+    @Shadow
+    @Final
+    private net.minecraft.client.renderer.DebugCrosshairRenderer debugCrosshairRenderer;
+
+    @Shadow
+    @Final
+    private com.mojang.blaze3d.pipeline.RenderTarget mainRenderTarget;
+
+    @Shadow
+    @Final
+    private net.minecraft.client.renderer.Projection hudProjection;
+
+    @Shadow
+    @Final
+    private net.minecraft.client.renderer.ProjectionMatrixBuffer hud3dProjectionMatrixBuffer;
+
+    /**
+     * The three coloured axes F3 puts at the crosshair. Minecraft draws them at the end of the pass that draws the
+     * hand, which is skipped while tracing because the hand is traced; they are drawn here the same way, over the
+     * traced picture.
+     */
+    private void radiante$debugCrosshair() {
+        net.minecraft.client.renderer.state.GameRenderState state = this.gameRenderState();
+        if (!state.levelRenderState.render3dCrosshair || !state.optionsRenderState.cameraType.isFirstPerson()
+            || state.guiRenderState.isHudHidden || this.mainRenderTarget.getDepthTexture() == null) {
+            return;
+        }
+        net.minecraft.client.renderer.state.level.CameraRenderState cameraState =
+            state.levelRenderState.cameraRenderState;
+        this.hudProjection.setupPerspective(0.05F, cameraState.depthFar, cameraState.hudFov,
+            state.windowRenderState.width, state.windowRenderState.height);
+        com.mojang.blaze3d.systems.RenderSystem.setProjectionMatrix(
+            this.hud3dProjectionMatrixBuffer.getBuffer(this.hudProjection),
+            com.mojang.blaze3d.ProjectionType.PERSPECTIVE);
+        // In front of everything, as in vanilla, where the hand pass starts from a cleared depth.
+        com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder()
+            .clearDepthTexture(this.mainRenderTarget.getDepthTexture(), 0.0);
+        this.debugCrosshairRenderer.render(cameraState, state.windowRenderState.guiScale,
+            this.mainRenderTarget.getColorTextureView(), this.mainRenderTarget.getDepthTextureView());
+    }
 
     @WrapOperation(method = "render", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel()V"))
@@ -38,7 +80,12 @@ public abstract class GameRendererMixin {
         } finally {
             RadianteRenderer.setTracingLevel(false);
         }
-        RadianteRenderer.renderLevel(gameRenderer, this.gameRenderState().levelRenderState);
+        // With mod overlays on the frame was traced from inside that level render (LevelRendererSkipMixin), which
+        // then went on over the traced picture; otherwise it is traced now.
+        if (!RadianteRenderer.wasFrameTraced()) {
+            RadianteRenderer.renderLevel(gameRenderer, this.gameRenderState().levelRenderState);
+            radiante$debugCrosshair();
+        }
     }
 
     @WrapOperation(method = "renderLevel", at = @At(value = "INVOKE",
@@ -50,6 +97,9 @@ public abstract class GameRendererMixin {
         Operation<Void> original) {
         if (!RadianteRenderer.isTracingLevel()) {
             original.call(gameRenderer, cameraState, playerState, optionsState, consistentDepthRequired);
+        } else if (RadianteRenderer.wasFrameTraced()) {
+            // The traced picture is already in the target; without the overlay pass it is not yet (see above).
+            radiante$debugCrosshair();
         }
     }
 
