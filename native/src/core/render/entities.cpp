@@ -383,8 +383,46 @@ void Entities::resetFrame() {
     }
 }
 
+namespace {
+// Development timings (RADIANTE_DEV_PROFILE): where queueBuild spends its time, averaged over 300 calls.
+struct DevQueueProfile {
+    bool enabled = std::getenv("RADIANTE_DEV_PROFILE") != nullptr;
+    double acquire = 0, kept = 0, built = 0;
+    long keptCount = 0, builtCount = 0;
+    int calls = 0;
+};
+DevQueueProfile g_devQueue;
+} // namespace
+
 void Entities::queueBuild(EntitiesBuildTask task) {
+    auto devStart = std::chrono::steady_clock::now();
     Renderer::instance().framework()->safeAcquireCurrentContext();
+    auto devLast = std::chrono::steady_clock::now();
+    if (g_devQueue.enabled) {
+        g_devQueue.acquire += std::chrono::duration<double, std::milli>(devLast - devStart).count();
+    }
+    auto devMark = [&](bool kept) {
+        if (!g_devQueue.enabled) { return; }
+        auto now = std::chrono::steady_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(now - devLast).count();
+        devLast = now;
+        if (kept) {
+            g_devQueue.kept += ms;
+            g_devQueue.keptCount++;
+        } else {
+            g_devQueue.built += ms;
+            g_devQueue.builtCount++;
+        }
+    };
+    struct DevReport {
+        ~DevReport() {
+            if (!g_devQueue.enabled || ++g_devQueue.calls < 300) { return; }
+            std::cout << "[native profile] entities: acquire(wait)=" << g_devQueue.acquire / 300 << "ms kept="
+                      << g_devQueue.kept / 300 << "ms (" << g_devQueue.keptCount / 300 << ") built="
+                      << g_devQueue.built / 300 << "ms (" << g_devQueue.builtCount / 300 << ")" << std::endl;
+            g_devQueue = DevQueueProfile{};
+        }
+    } devReport;
     auto framework = Renderer::instance().framework();
     auto vma = framework->vma();
     auto device = framework->device();
@@ -434,6 +472,7 @@ void Entities::queueBuild(EntitiesBuildTask task) {
                 entry.entity->y = y;
                 entry.entity->z = z;
                 reusedEntities_.push_back(entry.entity);
+                devMark(true);
                 continue;
             }
         }
@@ -1054,6 +1093,7 @@ void Entities::queueBuild(EntitiesBuildTask task) {
             entry.lastSeenFrame = frameCounter_;
             if (entry.entity != nullptr && entry.contentHash == contentHash) {
                 reusedEntities_.push_back(entry.entity);
+                devMark(false);
                 continue;
             }
             bool stable = keyed || (entry.seen && entry.contentHash == contentHash);
@@ -1097,6 +1137,7 @@ void Entities::queueBuild(EntitiesBuildTask task) {
         } else {
             entityBuildDataBatch_->addData(chunkBuildData);
         }
+        devMark(false);
 
         // radiante::out() << "used texture ids: ";
         // for (auto id : textureIDs) { radiante::out() << id << " "; }

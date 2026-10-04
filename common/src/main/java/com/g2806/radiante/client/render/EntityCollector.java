@@ -62,7 +62,7 @@ public class EntityCollector implements SubmitNodeCollector {
 
 
     /** How far world text is lifted off the surface it is written on, in blocks. */
-    private static final float TEXT_SURFACE_OFFSET = 0.02f;
+    private static final float TEXT_SURFACE_OFFSET = 0.003f;
 
     private final Map<RenderType, PBRVertexWriter> writers = new LinkedHashMap<>();
 
@@ -315,6 +315,12 @@ public class EntityCollector implements SubmitNodeCollector {
                 case STANDARD -> material.itemGlintRenderType();
                 case SPECIAL -> material.itemGlintSpecialRenderType();
             };
+            if (com.g2806.radiante.client.option.Options.debugLogging) {
+                TextureTracker.reportUse("item " + displayContext + " layer "
+                    + ((com.g2806.radiante.mixin.render.RenderTypeAccessors.RenderTypeAccessor) (Object) renderType)
+                        .radiante$name() + " sprite " + material.sprite().contents().name() + " "
+                    + material.sprite().contents().width() + "x" + material.sprite().contents().height());
+            }
             this.writer(renderType).putBakedQuad(poseStack.last(), quad, this.quadInstance);
         }
     }
@@ -489,6 +495,11 @@ public class EntityCollector implements SubmitNodeCollector {
         poseStack.translate(0.0f, 0.0f, TEXT_SURFACE_OFFSET / Math.max(glyphScale, 1.0E-6f));
         Matrix4fc pose = poseStack.last().pose();
         Font.PreparedText prepared = font.prepareText(string, x, y, color, dropShadow, false, backgroundColor);
+        if (com.g2806.radiante.client.option.Options.debugLogging) {
+            TextureTracker.reportUse("text mode=" + displayMode + " color=" + Integer.toHexString(color)
+                + " background=" + Integer.toHexString(backgroundColor) + " light=" + Integer.toHexString(lightCoords)
+                + " scale=" + glyphScale);
+        }
         prepared.visit(new Font.GlyphVisitor() {
             @Override
             public void acceptRenderable(TextRenderable renderable) {
@@ -518,6 +529,10 @@ public class EntityCollector implements SubmitNodeCollector {
             return;
         }
         GpuTexture page = renderable.textureView().texture();
+        if (com.g2806.radiante.client.option.Options.debugLogging) {
+            TextureTracker.reportUse("glyph " + renderable.getClass().getSimpleName() + " page "
+                + TextureTracker.describe(page) + " mode=" + displayMode);
+        }
         int fontTextureId = TextureTracker.idOf(page);
         if (fontTextureId == 0) {
             TextureTracker.reportMissing("font page " + page.getLabel(), page);
@@ -545,6 +560,9 @@ public class EntityCollector implements SubmitNodeCollector {
         poseStack.pushPose();
         float glyphScale = poseStack.last().pose().transformDirection(new Vector3f(0.0f, 0.0f, 1.0f)).length();
         poseStack.translate(0.0f, 0.0f, TEXT_SURFACE_OFFSET / Math.max(glyphScale, 1.0E-6f));
+        if (com.g2806.radiante.client.option.Options.debugLogging) {
+            TextureTracker.reportUse("text background mode=" + displayMode + " color=" + Integer.toHexString(color));
+        }
         this.writeTextRenderable(font.prepareBackground(x0, y0, x1, y1, color), poseStack.last().pose(), displayMode,
             lightCoords);
         poseStack.popPose();

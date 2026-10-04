@@ -40,6 +40,14 @@ public final class EntityManager {
     /** How far out block entities are gathered, in chunks and in blocks; beyond this they are too small to matter. */
     private static final int BLOCK_ENTITY_CHUNK_RADIUS = 6;
     private static final double BLOCK_ENTITY_RANGE = 80.0;
+    /**
+     * How far the writing on signs is traced. Past this a letter is smaller than a pixel of the traced picture,
+     * and every sign's text is an instance of its own whose letters are cut out by an any-hit shader: around a
+     * spawn with hundreds of signs that was a large share of the frame for nothing anyone could read.
+     */
+    private static final double BLOCK_TEXT_RANGE = 40.0;
+    /** How far from the camera banners still sway. */
+    private static final double BANNER_SWAY_RANGE = 24.0;
     private static final int END_CRYSTAL_TINT = 0xD9A6FF;
     /** Below this the difference is the lightmap disagreeing with the block below the entity, not a glow. */
     private static final int SELF_LIT_MIN_EXCESS = 5;
@@ -126,7 +134,7 @@ public final class EntityManager {
     private static final int PREBUILT_BLAS_NONE = -1;
     private static final int PREBUILT_BLAS_CACHEABLE = -2;
     /** Cached by the content name the layers carry, and moved by position alone; see Entities::KEYED_BLAS. */
-    private static final int PREBUILT_BLAS_KEYED = -3;
+    static final int PREBUILT_BLAS_KEYED = -3;
 
     public static void render(Minecraft minecraft, LevelRenderState levelRenderState) {
         if (minecraft.level == null) {
@@ -137,14 +145,22 @@ public final class EntityManager {
         PENDING.clear();
         // Last frame's vertex copies were consumed by the upload below; the arena starts over.
         ARENA.reset();
+        BlockEntityCache.beginFrame(minecraft.level);
+        CACHE_CANDIDATES.clear();
 
+        DevProfiler.partsBegin();
         for (EntityRenderState state : levelRenderState.entityRenderStates) {
             collect(minecraft, cameraState, state);
         }
+        DevProfiler.part(0);
 
-        for (BlockEntityRenderState state : collectBlockEntityStates(minecraft, levelRenderState, cameraState)) {
+        List<BlockEntityRenderState> blockEntityStates = collectBlockEntityStates(minecraft, levelRenderState,
+            cameraState);
+        DevProfiler.part(1);
+        for (BlockEntityRenderState state : blockEntityStates) {
             collectBlockEntity(minecraft, cameraState, state);
         }
+        DevProfiler.part(2);
 
         collectPlayerShadow(minecraft, levelRenderState, cameraState);
         collectBlockBreaking(minecraft, levelRenderState);
@@ -155,13 +171,20 @@ public final class EntityManager {
         OverlayLines.collectBlockOutline(levelRenderState, cameraState);
         collectClouds(minecraft, levelRenderState, cameraState);
         collectHands(minecraft, levelRenderState, cameraState);
+        Vec3 eye = cameraState.pos;
+        PENDING.removeIf(entity -> isBlockText(entity) && (entity.x() - eye.x()) * (entity.x() - eye.x())
+            + (entity.y() - eye.y()) * (entity.y() - eye.y()) + (entity.z() - eye.z()) * (entity.z() - eye.z())
+            > BLOCK_TEXT_RANGE * BLOCK_TEXT_RANGE);
+        DevProfiler.part(3);
 
         upload(NativeGeometry.COORDINATE_WORLD);
+        DevProfiler.part(4);
 
         if (queued) {
             queued = false;
             EntityProxy.build();
         }
+        DevProfiler.part(5);
     }
 
     private static void collect(Minecraft minecraft, CameraRenderState cameraState, EntityRenderState state) {
@@ -199,7 +222,14 @@ public final class EntityManager {
             return;
         }
 
-        addPending(historyId(state), state.x, state.y, state.z, RAY_TRACING_WORLD);
+        // Entities that hang or stand where they were put: the renderer keeps what it built for them while their
+        // geometry stays the same, as it does for block entities, instead of building it again every frame.
+        boolean still = state instanceof net.minecraft.client.renderer.entity.state.ItemFrameRenderState
+            || state instanceof net.minecraft.client.renderer.entity.state.PaintingRenderState
+            || state instanceof net.minecraft.client.renderer.entity.state.ArmorStandRenderState;
+        DevProfiler.kind(state);
+        addPending(historyId(state), state.x, state.y, state.z, RAY_TRACING_WORLD, still);
+        DevProfiler.kind(null);
 
         if (state.appearsGlowing()) {
             // Vanilla's glowing effect is an outline of the entity in its team colour, seen through walls. A copy of
@@ -250,10 +280,21 @@ public final class EntityManager {
                     if (pos.distToCenterSqr(camera) > BLOCK_ENTITY_RANGE * BLOCK_ENTITY_RANGE) {
                         continue;
                     }
+                    // One that has not changed is handed back as it was; see BlockEntityCache.
+                    if (BlockEntityCache.reuse(pos, entry.getValue(), PENDING)) {
+                        continue;
+                    }
                     BlockEntityRenderState state = minecraft.getBlockEntityRenderDispatcher()
                         .tryExtractRenderState(entry.getValue(), partialTicks, null, false);
                     if (state != null) {
+                        // A banner sways all the time, which made every one of them new geometry every frame.
+                        // Away from the camera the sway is not worth that: it hangs still and is kept.
+                        if (state instanceof net.minecraft.client.renderer.blockentity.state.BannerRenderState banner
+                            && pos.distToCenterSqr(camera) > BANNER_SWAY_RANGE * BANNER_SWAY_RANGE) {
+                            banner.phase = 0.0f;
+                        }
                         states.add(state);
+                        CACHE_CANDIDATES.put(pos, entry.getValue());
                     }
                 }
             }
@@ -388,7 +429,13 @@ public final class EntityManager {
 
         BlockPos pos = state.blockPos;
         int before = PENDING.size();
-        addPending(pos.hashCode() ^ 0x5BD1E995, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_WORLD, true);
+        DevProfiler.kind(state);
+        addPending(blockId(pos) ^ 0x5BD1E995, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_WORLD, true);
+        DevProfiler.kind(null);
+        BlockEntity cached = CACHE_CANDIDATES.get(pos);
+        if (cached != null) {
+            BlockEntityCache.collected(pos, cached, PENDING.subList(before, PENDING.size()), ARENA.addressOf(0L));
+        }
         if (Options.debugLogging && DEBUG_BLOCK_ENTITIES < 20) {
             for (RenderType type : COLLECTOR.layers().keySet()) {
                 RenderTypeInfo info = RenderTypeInfo.of(type);
@@ -434,7 +481,7 @@ public final class EntityManager {
             if (!COLLECTOR.isEmpty()) {
                 // Under the particle mask: the cracks sit a hair in front of the block, and as shadow casters they
                 // would shade the very face they are drawn on.
-                addPending(pos.hashCode() ^ BREAKING_ID_SALT, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_PARTICLE);
+                addPending(blockId(pos) ^ BREAKING_ID_SALT, pos.getX(), pos.getY(), pos.getZ(), RAY_TRACING_PARTICLE);
             }
         }
     }
@@ -708,6 +755,7 @@ public final class EntityManager {
 
     /** The render pipeline was just rebuilt; see collectClouds. */
     public static void onPipelineRebuilt() {
+        BlockEntityCache.invalidate();
         cloudPauseFrames = 3;
         cloudsShownLastFrame = false;
     }
@@ -822,9 +870,26 @@ public final class EntityManager {
      * was taken for a still one, and the upscaler, finding it elsewhere than the motion vectors said, threw its
      * history away and showed it noisy.
      */
+    /**
+     * The id of whatever stands at a block. {@code BlockPos.hashCode} will not do: it gives two blocks 31 apart
+     * along x and one apart in height the same number, and the renderer keeps what it has built by id - two signs
+     * sharing one took each other's place every frame and were both built again every frame, by the hundred
+     * around a server spawn.
+     */
+    private static int blockId(BlockPos pos) {
+        long mixed = pos.asLong() * 0x9E3779B97F4A7C15L;
+        return (int) (mixed ^ mixed >>> 32);
+    }
+
     private static int historyId(EntityRenderState state) {
         int entityId = ((EntityIdHolder) state).radiante$entityId();
         return entityId == Integer.MIN_VALUE ? System.identityHashCode(state) : entityId * 0x9E3779B1 ^ 0x7F4A7C15;
+    }
+
+    /** The text instance of a block entity (see addPending), as against a name tag, which is never kept. */
+    private static boolean isBlockText(PendingEntity entity) {
+        return entity.rayTracingFlag() == RAY_TRACING_PARTICLE && entity.prebuiltBlas() != PREBUILT_BLAS_NONE
+            && !entity.layers().isEmpty() && entity.layers().get(0).name().startsWith("text");
     }
 
     private static void addPending(int id, double x, double y, double z, int rayTracingFlag) {
@@ -840,6 +905,7 @@ public final class EntityManager {
 
         List<PendingLayer> layers = new ArrayList<>();
         List<PendingLayer> nameTagLayers = new ArrayList<>();
+        int profiledVertices = 0;
         for (Map.Entry<RenderType, PBRVertexWriter> entry : COLLECTOR.layers().entrySet()) {
             PBRVertexWriter writer = entry.getValue();
             writer.finish();
@@ -861,8 +927,13 @@ public final class EntityManager {
             }
             PendingLayer layer = new PendingLayer(info.geometryType(), info.textureId(), writer.vertexCount(),
                 copyVertices(writer), info.groupName());
-            (COLLECTOR.isNameTagLayer(entry.getKey()) ? nameTagLayers : layers).add(layer);
+            profiledVertices += writer.vertexCount();
+            // Text casts no shadow, as in vanilla: the letters of a sign stand a hair off its board, and their
+            // shadow on it read as a second, darker line of text behind the first.
+            boolean overlay = COLLECTOR.isNameTagLayer(entry.getKey()) || info.groupName().startsWith("text");
+            (overlay ? nameTagLayers : layers).add(layer);
         }
+        DevProfiler.count(layers.size() + nameTagLayers.size(), profiledVertices);
 
         if (!layers.isEmpty()) {
             PENDING.add(new PendingEntity(id, x, y, z, rayTracingFlag, layers, cacheable));
@@ -870,7 +941,8 @@ public final class EntityManager {
         // Name tags go in as their own instance under the particle mask: seen by camera rays, skipped by shadow
         // rays, so neither the letters nor the plate behind them cast a shadow on the world.
         if (!nameTagLayers.isEmpty() && rayTracingFlag != RAY_TRACING_GLOW_OUTLINE) {
-            PENDING.add(new PendingEntity(id ^ NAME_TAG_ID_SALT, x, y, z, RAY_TRACING_PARTICLE, nameTagLayers));
+            PENDING.add(new PendingEntity(id ^ NAME_TAG_ID_SALT, x, y, z, RAY_TRACING_PARTICLE, nameTagLayers,
+                cacheable));
         }
     }
 
@@ -920,6 +992,8 @@ public final class EntityManager {
     }
 
     private static final Arena ARENA = new Arena();
+    /** Block entities collected this frame from the chunks around the camera, by position; see BlockEntityCache. */
+    private static final Map<BlockPos, BlockEntity> CACHE_CANDIDATES = new java.util.HashMap<>();
 
     /**
      * Group names are a handful of fixed strings, but a native copy of one was being allocated for every layer of
@@ -942,6 +1016,9 @@ public final class EntityManager {
     private static java.nio.ByteBuffer contentNameBuffer;
 
     private static long contentNameAddress(String name) {
+        if (name.startsWith(BlockEntityCache.NAME_PREFIX)) {
+            return BlockEntityCache.nameAddress(name);
+        }
         if (!name.equals(contentName)) {
             if (contentNameBuffer != null) {
                 MemoryUtil.memFree(contentNameBuffer);

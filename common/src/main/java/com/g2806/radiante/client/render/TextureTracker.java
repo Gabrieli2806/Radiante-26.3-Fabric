@@ -83,9 +83,20 @@ public final class TextureTracker {
             texture == null ? "no GPU texture" : describe(texture), allocatedIds - FREE_IDS.size(), MAX_TEXTURES);
     }
 
-    private static String describe(GpuTexture texture) {
+    private static final java.util.Set<String> REPORTED_USES = new java.util.HashSet<>();
+
+    /** Says once per distinct line, with debug logging on, how something is drawn: for bug reports from servers. */
+    public static synchronized void reportUse(String what) {
+        if (!com.g2806.radiante.client.option.Options.debugLogging || REPORTED_USES.size() >= 200
+            || !REPORTED_USES.add(what)) {
+            return;
+        }
+        RadianteRenderer.LOGGER.info("drawn: {}", what);
+    }
+
+    static String describe(GpuTexture texture) {
         return texture.getLabel() + " " + texture.getFormat() + " " + texture.getWidth(0) + "x" + texture.getHeight(0)
-            + " layers=" + texture.getDepthOrLayers() + " usage=" + texture.usage() + (texture.isClosed() ? " closed" : "");
+            + " mips=" + texture.getMipLevels() + " layers=" + texture.getDepthOrLayers() + " usage=" + texture.usage() + (texture.isClosed() ? " closed" : "");
     }
 
     public static synchronized void onCreated(GpuTexture texture) {

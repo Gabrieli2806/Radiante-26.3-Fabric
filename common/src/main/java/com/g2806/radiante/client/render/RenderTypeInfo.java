@@ -96,6 +96,15 @@ public final class RenderTypeInfo {
             solid, name, uOffset, vOffset);
         if (!scrolling) {
             CACHE.put(renderType, info);
+            if (com.g2806.radiante.client.option.Options.debugLogging) {
+                AbstractTexture found = texture == null ? null
+                    : Minecraft.getInstance().getTextureManager().getTexture(texture);
+                com.mojang.renderpearl.api.textures.GpuTexture gpu = found == null ? null
+                    : TextureTracker.gpuTextureOrNull(found);
+                TextureTracker.reportUse("layer " + name + " blending=" + renderType.hasBlending() + " alphaMode="
+                    + info.alphaMode() + " group=" + info.groupName() + " texture=" + texture
+                    + (gpu == null ? "" : " (" + TextureTracker.describe(gpu) + ")"));
+            }
         }
         return info;
     }
@@ -273,6 +282,13 @@ public final class RenderTypeInfo {
         // glassy shell and the eyes came out washed out.
         if (this.name.equals("eyes")) {
             return PBRVertexWriter.ALPHA_MODE_ADDITIVE;
+        }
+        // Minecraft gives an item a translucent layer as soon as its sprite has one texel that is not fully opaque
+        // or fully clear, and server packs draw whole signs and logos that way. Traced as a translucent surface
+        // such an item is a pane of tinted glass, see-through and mirror-like; as coverage its solid texels are
+        // solid and only the soft ones let rays through, which is what blending shows in vanilla.
+        if (this.blending && this.name.startsWith("item")) {
+            return PBRVertexWriter.ALPHA_MODE_STOCHASTIC;
         }
         return this.blending ? PBRVertexWriter.ALPHA_MODE_TRANSPARENT : PBRVertexWriter.ALPHA_MODE_CUTOUT;
     }
