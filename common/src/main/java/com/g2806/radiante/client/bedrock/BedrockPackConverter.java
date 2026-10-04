@@ -40,7 +40,7 @@ public final class BedrockPackConverter {
     /** Stored as the zip comment; a pack converted by another version of the converter is converted again. */
     /** Largest size a Bedrock texture set is converted at, in pixels per side; finer maps are averaged down to it. */
     private static final int MAX_DETAIL = 128;
-    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 8";
+    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 11";
     /** Resource pack format of Minecraft 26.3. */
     private static final int PACK_FORMAT = 97;
     /** Slope of normals built from a height map: height units per texel. */
@@ -153,6 +153,16 @@ public final class BedrockPackConverter {
                 }
             }
 
+            // The side of a grass block is two layers in Java: the dirt with a green fringe painted on, and the
+            // tinted fringe over it. The fringe comes from the pack and has the pack's shape; Java's painted one
+            // under it has another, and its tips showed past the pack's as dark green slits. Plain dirt goes under
+            // the pack's fringe instead.
+            TgaReader.Image dirt = color(zip, root, "textures/blocks/dirt");
+            if (dirt != null) {
+                write(zos, "assets/minecraft/textures/block/grass_block_side.png",
+                    png(grassSideBase(dirt, color(zip, root, "textures/blocks/grass_side"))));
+            }
+
             byte[] fog = BedrockFog.convert(zip, root);
             if (fog != null) {
                 write(zos, BedrockFog.PATH, fog);
@@ -163,6 +173,65 @@ public final class BedrockPackConverter {
         }
         Files.move(temp, out, StandardCopyOption.REPLACE_EXISTING);
         return converted;
+    }
+
+    /** Grass green of the plains, for the part of the side that is always under the fringe. */
+    private static final int GRASS_TINT = 0x91BD59;
+
+    /**
+     * The layer under a grass block's fringe: the pack's dirt, and where the fringe covers a whole row - the top
+     * of the side - the fringe's own grass in a plain green, so that the hair of it that shows along the block's
+     * top edge, where the fringe is sampled a little short, is green and not a line of dirt.
+     */
+    private static TgaReader.Image grassSideBase(TgaReader.Image dirt, TgaReader.Image fringe) {
+        if (fringe == null) {
+            return dirt;
+        }
+        int width = dirt.width();
+        int height = dirt.height();
+        int[] base = dirt.argb().clone();
+        int[] grass = fringe.argb();
+        for (int y = 0; y < height; y++) {
+            int y0 = y * fringe.height() / height;
+            int y1 = Math.max(y0 + 1, (y + 1) * fringe.height() / height);
+            boolean covered = true;
+            for (int fy = y0; fy < y1 && covered; fy++) {
+                for (int fx = 0; fx < fringe.width(); fx++) {
+                    if (grass[fy * fringe.width() + fx] >>> 24 < 250) {
+                        covered = false;
+                        break;
+                    }
+                }
+            }
+            if (!covered) {
+                break;
+            }
+            for (int x = 0; x < width; x++) {
+                int texel = grass[y0 * fringe.width() + x * fringe.width() / width];
+                // The fringe is grey for the tint to colour; at full brightness here, it reads as lit grass.
+                int level = Math.max(1, Math.max(texel >> 16 & 0xFF, Math.max(texel >> 8 & 0xFF, texel & 0xFF)));
+                int r = (texel >> 16 & 0xFF) * (GRASS_TINT >> 16 & 0xFF) / level;
+                int g = (texel >> 8 & 0xFF) * (GRASS_TINT >> 8 & 0xFF) / level;
+                int b = (texel & 0xFF) * (GRASS_TINT & 0xFF) / level;
+                base[y * width + x] = 0xFF000000 | r << 16 | g << 8 | b;
+            }
+        }
+        return new TgaReader.Image(width, height, base);
+    }
+
+    /** The colour image of a Bedrock texture set, or null when the pack has none. */
+    private static TgaReader.Image color(ZipFile zip, String root, String bedrockPath) throws IOException {
+        byte[] setBytes = read(zip, root + bedrockPath + ".texture_set.json");
+        if (setBytes == null) {
+            return null;
+        }
+        JsonObject set = JsonParser.parseString(new String(setBytes, StandardCharsets.UTF_8)).getAsJsonObject()
+            .getAsJsonObject("minecraft:texture_set");
+        if (set == null) {
+            return null;
+        }
+        String dir = bedrockPath.contains("/") ? bedrockPath.substring(0, bedrockPath.lastIndexOf('/') + 1) : "";
+        return image(zip, root + dir, set.get("color"));
     }
 
     /** One Java texture from its Bedrock texture set; false when the pack has no set for it. */

@@ -188,7 +188,10 @@ void sampleSurfaceState(bool useTexture,
                           vec4(0.0);
         if (hasHeightMap && textureMap.normal >= 0) {
             ivec2 heightMapSize = textureSize(textures[nonuniformEXT(textureMap.normal)], 0);
-            useFlatEdgeBand = isEdgeUV(uv, atlasUvMin, atlasUvMax, heightMapSize);
+            // Only where the texture is carved there: the band is for the walls a carved border grows. On a
+            // texture with a normal map and no depth it was a ring of flat shading round every face, a dark line
+            // round the top of a grass block.
+            useFlatEdgeBand = normalValue.a < 0.999 && isEdgeUV(uv, atlasUvMin, atlasUvMax, heightMapSize);
         }
     }
 
@@ -1053,6 +1056,14 @@ void main() {
     bool traceLocalHeight =
         hasHeightMapSurface && (lod == 0.0 || distance(planeHitWorldPos, cameraOrigin) <= VPT_PARALLAX_CLOSE_DISTANCE) &&
         !hasFftWaterSurface;
+
+    // Where the texture is not carved the ray is on the surface already. Tracing it all the same ran it through the
+    // edge handling of carved faces, which along the border of an uncarved one left a dark line - round the top of a
+    // grass block with a pack that gives it a normal map and no depth.
+    if (traceLocalHeight &&
+        sampleHeight(textures[nonuniformEXT(textureMap.normal)], textureUV, atlasUvMin, atlasUvMax, 0, 0u) >= 0.999) {
+        traceLocalHeight = false;
+    }
 
     HeightMapHit initialHit;
     initialHit.hit = false;

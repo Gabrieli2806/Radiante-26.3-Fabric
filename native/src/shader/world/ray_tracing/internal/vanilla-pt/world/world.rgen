@@ -380,6 +380,9 @@ float biomeFogDensity() {
 
 // How far along this ray the biome fog reaches: the hit itself, or for the sky a distance that is long at the horizon
 // and short towards the zenith, so looking up stays clear.
+/** The darkest sky the albedo guide still divides by; below it the guide itself goes dark. See main. */
+const float SKY_GUIDE_MIN_LEVEL = 0.02;
+
 float biomeFogReach(vec3 rayDir, bool hitSky, float hitDistance) {
     return hitSky ? biomeFogSkyReach(rayDir) : min(hitDistance, BIOME_HAZE_MAX_DISTANCE);
 }
@@ -1438,7 +1441,13 @@ void main() {
 
     if (hitSky) {
         imageStore(outputImage, pixel, vec4(mainRay.radiance, 1.0));
-        imageStore(diffuseAlbedoImage, pixel, vec4(reinhardMax(mainRay.radiance), 0));
+        // The sky's albedo guide is its colour, and what the denoiser takes for the light on it is the picture
+        // divided by that guide. Tone mapped, the guide made that light at least 1 however dark the sky was, and at
+        // dusk, at night or in fog - where the light on a block is a fraction of that - it bled into the pixels
+        // along every silhouette: a pale rim on the edges of blocks and of the hand. Dividing by the brightest
+        // channel instead keeps the sky's light on the scale of what is next to it.
+        float skyLevel = max(max(mainRay.radiance.r, max(mainRay.radiance.g, mainRay.radiance.b)), SKY_GUIDE_MIN_LEVEL);
+        imageStore(diffuseAlbedoImage, pixel, vec4(clamp(mainRay.radiance / skyLevel, 0.0, 1.0), 0));
         imageStore(specularAlbedoImage, pixel, vec4(0));
         imageStore(normalRoughnessImage, pixel, vec4(0.0));
 

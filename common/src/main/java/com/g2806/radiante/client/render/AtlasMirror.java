@@ -41,8 +41,36 @@ public final class AtlasMirror {
                 int width = Math.max(1, contents.width() >> level);
                 int height = Math.max(1, contents.height() >> level);
                 int rowPixels = Math.max(1, ((SpriteContentsAccess) contents).radiante$mipWidth(level));
-                TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, 0,
-                    (sprite.getX() + paddingX) >> level, (sprite.getY() + paddingY) >> level, width, height, level);
+                int x = (sprite.getX() + paddingX) >> level;
+                int y = (sprite.getY() + paddingY) >> level;
+                TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, 0, x, y, width, height, level);
+
+                // The border the stitcher leaves round a sprite repeats the sprite's edge in Minecraft's atlas.
+                // Left empty here, a ray hitting a face on its very edge sampled it - and on a cut out texture
+                // empty is a hole: a hairline along the top of a grass block where the fringe let the layer under
+                // it through. One texel of each edge is repeated outwards, which is as far as such a sample strays.
+                int levelWidth = Math.max(1, atlasWidth >> level);
+                int levelHeight = Math.max(1, atlasHeight >> level);
+                if (paddingY >> level > 0 || level == 0 && paddingY > 0) {
+                    if (y > 0) {
+                        TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, 0, x, y - 1, width, 1,
+                            level);
+                    }
+                    if (y + height < levelHeight) {
+                        TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, height - 1, x,
+                            y + height, width, 1, level);
+                    }
+                }
+                if (paddingX >> level > 0 || level == 0 && paddingX > 0) {
+                    if (x > 0) {
+                        TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, 0, x - 1, y, 1, height,
+                            level);
+                    }
+                    if (x + width < levelWidth) {
+                        TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, width - 1, 0, x + width, y,
+                            1, height, level);
+                    }
+                }
             }
         }
     }
