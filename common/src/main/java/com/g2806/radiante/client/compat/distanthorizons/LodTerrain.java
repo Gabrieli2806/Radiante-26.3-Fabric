@@ -417,7 +417,11 @@ final class LodTerrain {
         private boolean hasData(int detail, int x, int z) {
             long key = Tile.key(detail, x, z);
             Availability known = LodTerrain.this.availability.get(key);
-            if (known == null || !known.complete() && this.now - known.checkedAt > RETRY_INTERVAL_NS) {
+            // Sooner while terrain is being generated: what was missing a moment ago may be there now, and waiting
+            // out the long interval left the far terrain empty until ray tracing was switched off and on again.
+            long sinceChecked = known == null ? 0L : this.now - known.checkedAt;
+            if (known == null || !known.complete() && (sinceChecked > RETRY_INTERVAL_NS
+                || sinceChecked > RETRY_AFTER_GENERATION_NS && LodTerrain.this.lastGenerated - known.checkedAt > 0L)) {
                 queueProbe(key, detail, x, z, distanceTo(detail, x, z));
             }
             if (known == null || known.none()) {
@@ -606,7 +610,7 @@ final class LodTerrain {
                 for (int[] section : sections) {
                     if (this.closed || !DhData.requestGeneration(current.dhLevel(),
                         GENERATION_REQUEST_DETAIL, section[0], section[1], current.x(), current.z(),
-                        this.requestedGeneration)) {
+                        this.requestedGeneration, () -> this.lastGenerated = System.nanoTime())) {
                         break;
                     }
                 }
@@ -622,6 +626,10 @@ final class LodTerrain {
     }
 
     private boolean generationRequestsFailed;
+    /** When Distant Horizons last finished generating something that was asked for here. */
+    private volatile long lastGenerated;
+    /** A section found without its data is asked about again this soon when terrain has been generated since. */
+    private static final long RETRY_AFTER_GENERATION_NS = 2_000_000_000L;
     /** The size of section generation is asked for by: 512 blocks, a handful of them around the camera at a time. */
     private static final int GENERATION_REQUEST_DETAIL = 9;
 

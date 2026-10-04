@@ -350,10 +350,11 @@ final class DhData {
      * draws none, so it asked for nothing: in a world it had no data for yet, the far terrain never came.
      *
      * @param requested positions already asked for and not yet answered; kept by the caller
+     * @param onGenerated run, on one of Distant Horizons' threads, each time it has generated one of them
      * @return false once the queue is full, or when Distant Horizons cannot generate here at all
      */
     static boolean requestGeneration(Object level, int detail, int x, int z, double cameraX, double cameraZ,
-        java.util.Set<Long> requested) {
+        java.util.Set<Long> requested, Runnable onGenerated) {
         FullDataSourceProviderV2 provider = provider(level);
         if (provider == null || !provider.canRetrieveMissingDataSources() || !provider.canQueueRetrievalNow()) {
             return false;
@@ -387,7 +388,12 @@ final class DhData {
                 continue;
             }
             // Answered, or failed: either way it may be asked for again if it is still missing.
-            future.whenComplete((result, error) -> requested.remove(pos));
+            future.whenComplete((result, error) -> {
+                requested.remove(pos);
+                if (error == null) {
+                    onGenerated.run();
+                }
+            });
         }
         return true;
     }
