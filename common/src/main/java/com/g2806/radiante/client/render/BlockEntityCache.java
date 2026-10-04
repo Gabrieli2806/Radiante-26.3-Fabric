@@ -33,7 +33,8 @@ final class BlockEntityCache {
     private static final int UNUSED_FRAMES = 300;
 
     private static final class Entry {
-        BlockEntity blockEntity;
+        /** The block entity, or for an entity its id: what the kept geometry was made from. */
+        Object owner;
         BlockState blockState;
         Object frontText;
         Object backText;
@@ -47,7 +48,8 @@ final class BlockEntityCache {
         int lastUsed;
     }
 
-    private static final Map<BlockPos, Entry> ENTRIES = new HashMap<>();
+    /** By block position, or by entity id. */
+    private static final Map<Object, Entry> ENTRIES = new HashMap<>();
     /** Native copies of the content names the kept layers carry, by name. */
     private static final Map<String, Long> NAME_ADDRESSES = new HashMap<>();
     static final String NAME_PREFIX = "be:";
@@ -99,6 +101,38 @@ final class BlockEntityCache {
         if (frame >= entry.nextLook || entry.interval == 0 || !sameData(entry, blockEntity)) {
             return false;
         }
+        handBack(entry, pending);
+        return true;
+    }
+
+    /**
+     * The same for an entity that stays where it was put - an item frame, a painting, an armor stand. Walls of
+     * framed maps are hundreds of them, each several hundred vertices that were written, copied and compared again
+     * every frame.
+     */
+    static boolean reuseEntity(int id, double x, double y, double z, List<PendingEntity> pending) {
+        Entry entry = ENTRIES.get(id);
+        if (entry == null) {
+            return false;
+        }
+        entry.lastUsed = frame;
+        if (frame >= entry.nextLook || entry.interval == 0 || entry.entities.isEmpty()) {
+            return false;
+        }
+        PendingEntity first = entry.entities.get(0);
+        if (first.x() != x || first.y() != y || first.z() != z) {
+            return false;
+        }
+        handBack(entry, pending);
+        return true;
+    }
+
+    static void collectedEntity(int id, List<PendingEntity> collected, long arenaBase) {
+        Integer key = id;
+        store(key, key, MAX_INTERVAL, id, collected, arenaBase);
+    }
+
+    private static void handBack(Entry entry, List<PendingEntity> pending) {
         pending.addAll(entry.entities);
         for (PendingEntity entity : entry.entities) {
             int vertices = 0;
@@ -108,11 +142,10 @@ final class BlockEntityCache {
             DevProfiler.count(entity.layers().size(), vertices);
         }
         DevProfiler.reused();
-        return true;
     }
 
     private static boolean sameData(Entry entry, BlockEntity blockEntity) {
-        if (entry.blockEntity != blockEntity || blockEntity.isRemoved()
+        if (entry.owner != blockEntity || blockEntity.isRemoved()
             || entry.blockState != blockEntity.getBlockState()) {
             return false;
         }
@@ -130,6 +163,19 @@ final class BlockEntityCache {
      * vertices still in the frame's arena, at {@code arenaBase}).
      */
     static void collected(BlockPos pos, BlockEntity blockEntity, List<PendingEntity> collected, long arenaBase) {
+        int limit = blockEntity instanceof SignBlockEntity || blockEntity instanceof SkullBlockEntity
+            || blockEntity instanceof LidBlockEntity
+            ? MAX_STATIC_INTERVAL : MAX_INTERVAL;
+        Entry entry = store(pos.immutable(), blockEntity, limit, pos.asLong(), collected, arenaBase);
+        entry.blockState = blockEntity.getBlockState();
+        if (blockEntity instanceof SignBlockEntity sign) {
+            entry.frontText = sign.getText(SignTextSlot.FRONT);
+            entry.backText = sign.getText(SignTextSlot.BACK);
+        }
+    }
+
+    private static Entry store(Object key, Object owner, int limit, long nameKey, List<PendingEntity> collected,
+        long arenaBase) {
         long hash = 0xCBF29CE484222325L;
         long size = 0L;
         for (PendingEntity entity : collected) {
@@ -145,24 +191,25 @@ final class BlockEntityCache {
             }
         }
 
-        Entry entry = ENTRIES.get(pos.immutable());
+        Entry entry = ENTRIES.get(key);
         if (entry == null) {
             entry = new Entry();
-            ENTRIES.put(pos.immutable(), entry);
+            ENTRIES.put(key, entry);
         }
-        boolean same = entry.blockEntity == blockEntity && entry.hash == hash && entry.memory != 0L;
+        boolean same = owner.equals(entry.owner) && entry.hash == hash && entry.memory != 0L;
         entry.lastUsed = frame;
         if (!same) {
             free(entry);
-            entry.blockEntity = blockEntity;
+            entry.owner = owner;
             entry.hash = hash;
             entry.interval = 0;
             if (size == 0L) {
-                return;
+                return entry;
             }
             // The kept copy goes to the renderer under a name of its own: with a name the native side takes the
             // content as unchanged without copying and hashing its vertices again (Entities::KEYED_BLAS).
-            entry.name = NAME_PREFIX + Long.toHexString(hash) + "@" + Long.toHexString(pos.asLong());
+            entry.name = NAME_PREFIX + Long.toHexString(hash) + "@" + Long.toHexString(nameKey)
+                + (owner instanceof Integer ? "e" : "");
             entry.nameBuffer = MemoryUtil.memUTF8(entry.name, true);
             NAME_ADDRESSES.put(entry.name, MemoryUtil.memAddress(entry.nameBuffer));
             entry.memory = MemoryUtil.nmemAllocChecked(size);
@@ -182,23 +229,16 @@ final class BlockEntityCache {
             }
             entry.entities = kept;
         } else {
-            int limit = blockEntity instanceof SignBlockEntity || blockEntity instanceof SkullBlockEntity
-                || blockEntity instanceof LidBlockEntity
-                ? MAX_STATIC_INTERVAL : MAX_INTERVAL;
             entry.interval = Math.min(limit, Math.max(1, entry.interval * 2));
             // Unchanged: the kept copy goes in place of the one just collected, so the renderer sees the same
             // named content it already has rather than something to compare.
             collected.clear();
             collected.addAll(entry.entities);
         }
-        entry.blockState = blockEntity.getBlockState();
-        if (blockEntity instanceof SignBlockEntity sign) {
-            entry.frontText = sign.getText(SignTextSlot.FRONT);
-            entry.backText = sign.getText(SignTextSlot.BACK);
-        }
         // Spread out, so a thousand signs first seen together are not all looked at again in the same frame.
-        int spread = entry.interval > 1 ? Math.floorMod(pos.hashCode(), entry.interval) : 0;
+        int spread = entry.interval > 1 ? Math.floorMod(key.hashCode() * 0x9E3779B1 >>> 8, entry.interval) : 0;
         entry.nextLook = frame + 1 + entry.interval / 2 + spread / 2;
+        return entry;
     }
 
     private static void free(Entry entry) {

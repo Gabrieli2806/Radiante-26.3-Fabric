@@ -188,6 +188,15 @@ public final class EntityManager {
     }
 
     private static void collect(Minecraft minecraft, CameraRenderState cameraState, EntityRenderState state) {
+        // Entities that hang or stand where they were put: kept while their geometry stays the same, like block
+        // entities (BlockEntityCache), instead of being written and built again every frame.
+        boolean still = !state.appearsGlowing()
+            && (state instanceof net.minecraft.client.renderer.entity.state.ItemFrameRenderState
+                || state instanceof net.minecraft.client.renderer.entity.state.PaintingRenderState
+                || state instanceof net.minecraft.client.renderer.entity.state.ArmorStandRenderState);
+        if (still && BlockEntityCache.reuseEntity(historyId(state), state.x, state.y, state.z, PENDING)) {
+            return;
+        }
 
         COLLECTOR.reset();
         POSE_STACK.setIdentity();
@@ -222,14 +231,14 @@ public final class EntityManager {
             return;
         }
 
-        // Entities that hang or stand where they were put: the renderer keeps what it built for them while their
-        // geometry stays the same, as it does for block entities, instead of building it again every frame.
-        boolean still = state instanceof net.minecraft.client.renderer.entity.state.ItemFrameRenderState
-            || state instanceof net.minecraft.client.renderer.entity.state.PaintingRenderState
-            || state instanceof net.minecraft.client.renderer.entity.state.ArmorStandRenderState;
+        int before = PENDING.size();
         DevProfiler.kind(state);
         addPending(historyId(state), state.x, state.y, state.z, RAY_TRACING_WORLD, still);
         DevProfiler.kind(null);
+        if (still) {
+            BlockEntityCache.collectedEntity(historyId(state), PENDING.subList(before, PENDING.size()),
+                ARENA.addressOf(0L));
+        }
 
         if (state.appearsGlowing()) {
             // Vanilla's glowing effect is an outline of the entity in its team colour, seen through walls. A copy of
