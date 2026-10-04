@@ -344,6 +344,54 @@ final class DhData {
         return beams;
     }
 
+    /**
+     * Asks Distant Horizons to generate what a section is missing, the nearest of it first, as far as its queue has
+     * room. It asks for this itself from the tree of sections it draws - and while Radiante traces the world it
+     * draws none, so it asked for nothing: in a world it had no data for yet, the far terrain never came.
+     *
+     * @param requested positions already asked for and not yet answered; kept by the caller
+     * @return false once the queue is full, or when Distant Horizons cannot generate here at all
+     */
+    static boolean requestGeneration(Object level, int detail, int x, int z, double cameraX, double cameraZ,
+        java.util.Set<Long> requested) {
+        FullDataSourceProviderV2 provider = provider(level);
+        if (provider == null || !provider.canRetrieveMissingDataSources() || !provider.canQueueRetrievalNow()) {
+            return false;
+        }
+        it.unimi.dsi.fastutil.longs.LongArrayList missing =
+            provider.getPositionsToRetrieve(DhSectionPos.encode((byte) detail, x, z), (byte) detail);
+        if (missing == null || missing.isEmpty()) {
+            return true;
+        }
+        long[] positions = missing.toLongArray();
+        Long[] ordered = new Long[positions.length];
+        for (int i = 0; i < positions.length; i++) {
+            ordered[i] = positions[i];
+        }
+        java.util.Arrays.sort(ordered, java.util.Comparator.comparingDouble(pos -> {
+            int width = 1 << DhSectionPos.getDetailLevel(pos);
+            double dx = (DhSectionPos.getX(pos) + 0.5) * width - cameraX;
+            double dz = (DhSectionPos.getZ(pos) + 0.5) * width - cameraZ;
+            return dx * dx + dz * dz;
+        }));
+        for (Long pos : ordered) {
+            if (!provider.canQueueRetrievalNow()) {
+                return false;
+            }
+            if (!requested.add(pos)) {
+                continue;
+            }
+            java.util.concurrent.CompletableFuture<?> future = provider.queuePositionForRetrieval(pos);
+            if (future == null) {
+                requested.remove(pos);
+                continue;
+            }
+            // Answered, or failed: either way it may be asked for again if it is still missing.
+            future.whenComplete((result, error) -> requested.remove(pos));
+        }
+        return true;
+    }
+
     private static @Nullable FullDataSourceProviderV2 provider(Object level) {
         AbstractDhWorld world = SharedApi.getAbstractDhWorld();
         if (world == null) {

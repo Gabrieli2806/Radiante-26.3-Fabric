@@ -95,7 +95,21 @@ final class LodTerrain {
     private float reach;
     private volatile boolean closed;
 
+    /** What the generation requests go by: where the camera is and how far the far terrain reaches. */
+    private record Wish(Object dhLevel, double x, double z, int distance, long time) {
+    }
+
+    private volatile @Nullable Wish wish;
+    /** Positions Distant Horizons was asked to generate and has not answered yet. */
+    private final Set<Long> requestedGeneration = ConcurrentHashMap.newKeySet();
+    private static final long GENERATION_REQUEST_INTERVAL_MS = 500L;
+    private static final long WISH_LIFETIME_NS = 2_000_000_000L;
+
     LodTerrain() {
+        Thread requests = new Thread(this::generationRequestLoop, "Radiante LOD Generation Requests");
+        requests.setDaemon(true);
+        requests.setPriority(Thread.NORM_PRIORITY - 2);
+        requests.start();
         for (int i = 0; i < BUILDER_THREADS; i++) {
             Thread thread = new Thread(this::buildLoop, "Radiante LOD Builder " + i);
             thread.setDaemon(true);
@@ -118,6 +132,7 @@ final class LodTerrain {
         }
         Object currentDhLevel = current != null && DhData.isActive() ? DhData.levelFor(current) : null;
         if (currentDhLevel == null) {
+            this.wish = null;
             reset();
             return;
         }
@@ -141,6 +156,9 @@ final class LodTerrain {
         long now = System.nanoTime();
         int distance = DhData.renderDistanceBlocks();
         this.reach = (float) (distance * Math.sqrt(2.0) + 512.0);
+        if (!this.generationRequestsFailed) {
+            this.wish = new Wish(currentDhLevel, camera.x, camera.z, distance, now);
+        }
         boolean moved = Double.isNaN(this.lastSelectX)
             || Math.abs(camera.x - this.lastSelectX) + Math.abs(camera.z - this.lastSelectZ) > RESELECT_DISTANCE;
         if (moved || now - this.lastSelect > RESELECT_INTERVAL_NS) {
@@ -552,6 +570,60 @@ final class LodTerrain {
             return byPriority != 0 ? byPriority : Long.compare(this.order, other.order);
         }
     }
+
+    /**
+     * Keeps Distant Horizons generating the far terrain around the camera; see DhData.requestGeneration. Off the
+     * render thread: finding what a section is missing reads its database.
+     */
+    private void generationRequestLoop() {
+        while (!this.closed) {
+            try {
+                Thread.sleep(GENERATION_REQUEST_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                return;
+            }
+            Wish latest = this.wish;
+            // Not updated lately: the world is not being traced, and Distant Horizons is asking for itself again.
+            final Wish current = latest != null && System.nanoTime() - latest.time() > WISH_LIFETIME_NS ? null : latest;
+            if (current == null) {
+                this.requestedGeneration.clear();
+                continue;
+            }
+            try {
+                int width = 1 << GENERATION_REQUEST_DETAIL;
+                int minX = Math.floorDiv((int) Math.floor(current.x()) - current.distance(), width);
+                int maxX = Math.floorDiv((int) Math.floor(current.x()) + current.distance(), width);
+                int minZ = Math.floorDiv((int) Math.floor(current.z()) - current.distance(), width);
+                int maxZ = Math.floorDiv((int) Math.floor(current.z()) + current.distance(), width);
+                List<int[]> sections = new ArrayList<>();
+                for (int x = minX; x <= maxX; x++) {
+                    for (int z = minZ; z <= maxZ; z++) {
+                        sections.add(new int[] {x, z});
+                    }
+                }
+                sections.sort(java.util.Comparator.comparingDouble(section ->
+                    Math.hypot((section[0] + 0.5) * width - current.x(), (section[1] + 0.5) * width - current.z())));
+                for (int[] section : sections) {
+                    if (this.closed || !DhData.requestGeneration(current.dhLevel(),
+                        GENERATION_REQUEST_DETAIL, section[0], section[1], current.x(), current.z(),
+                        this.requestedGeneration)) {
+                        break;
+                    }
+                }
+            } catch (Throwable e) {
+                // A version of Distant Horizons this does not fit: the far terrain it already has still shows.
+                if (!this.generationRequestsFailed) {
+                    this.generationRequestsFailed = true;
+                    RadianteRenderer.LOGGER.warn("Could not ask Distant Horizons to generate far terrain", e);
+                }
+                this.wish = null;
+            }
+        }
+    }
+
+    private boolean generationRequestsFailed;
+    /** The size of section generation is asked for by: 512 blocks, a handful of them around the camera at a time. */
+    private static final int GENERATION_REQUEST_DETAIL = 9;
 
     private void buildLoop() {
         PBRVertexWriter solid = new PBRVertexWriter(4096);
