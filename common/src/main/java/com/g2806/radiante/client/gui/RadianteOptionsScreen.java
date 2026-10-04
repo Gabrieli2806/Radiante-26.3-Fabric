@@ -31,6 +31,12 @@ public class RadianteOptionsScreen extends Screen {
     private String pendingDlssMode;
     /** FSR or XeSS render resolution mode; null when neither is in the pipeline. */
     private String pendingUpscalerMode;
+    /** The Custom upscaling mode is chosen: the render resolution is the percentage below, not a mode's. */
+    private boolean pendingCustomScale;
+    /** Render resolution of the Custom mode, in percent of the screen. */
+    private Integer pendingRenderScale;
+    /** Entry of the mode lists that stands for the Custom mode; it is never written to the pipeline. */
+    private static final String CUSTOM_MODE = "options.radiante.upscaler_mode.custom";
     private Integer pendingFarBounceDistance;
     private Integer pendingFarBounces;
     private int pendingGeneratedFrames = Options.frameGeneration ? Options.generatedFrames : 0;
@@ -141,6 +147,8 @@ public class RadianteOptionsScreen extends Screen {
         this.shownPreset = previous.shownPreset;
         this.pendingDlssMode = previous.pendingDlssMode;
         this.pendingUpscalerMode = previous.pendingUpscalerMode;
+        this.pendingRenderScale = previous.pendingRenderScale;
+        this.pendingCustomScale = previous.pendingCustomScale;
         this.pendingFarBounceDistance = previous.pendingFarBounceDistance;
         this.pendingFarBounces = previous.pendingFarBounces;
         this.pendingGeneratedFrames = previous.pendingGeneratedFrames;
@@ -415,11 +423,14 @@ public class RadianteOptionsScreen extends Screen {
                 : "render_pipeline.module.dlss.attribute.mode.ultra_performance";
         }
 
+        loadRenderScale();
         return new OptionInstance<>("options.radiante.dlss_mode", tooltip("options.radiante.dlss_mode"),
             (caption, value) -> Component.translatable(value),
-            new OptionInstance.Enum<>(Pipeline.DLSS_MODES, Codec.STRING), this.pendingDlssMode,
-            value -> {
-                this.pendingDlssMode = value;
+            new OptionInstance.Enum<>(withCustom(Pipeline.DLSS_MODES), Codec.STRING),
+            this.pendingCustomScale ? CUSTOM_MODE : this.pendingDlssMode, value -> {
+                if (!chooseCustomMode(value)) {
+                    this.pendingDlssMode = value;
+                }
                 refreshQualityLater();
             });
     }
@@ -548,14 +559,93 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (this.pendingUpscalerMode == null || !modes.contains(this.pendingUpscalerMode)) {
             String current = Pipeline.getModuleValue(upscalerModule(), upscalerAttribute());
-            this.pendingUpscalerMode = current != null && modes.contains(current) ? current : modes.get(3);
+            this.pendingUpscalerMode = current != null && modes.contains(current) ? current : modes.get(0);
         }
+        loadRenderScale();
         return new OptionInstance<>("options.radiante.upscaler_mode", tooltip("options.radiante.upscaler_mode"),
             (caption, value) -> Component.translatable(value),
-            new OptionInstance.Enum<>(modes, Codec.STRING), this.pendingUpscalerMode, value -> {
-                this.pendingUpscalerMode = value;
+            new OptionInstance.Enum<>(withCustom(modes), Codec.STRING),
+            this.pendingCustomScale ? CUSTOM_MODE : this.pendingUpscalerMode, value -> {
+                if (!chooseCustomMode(value)) {
+                    this.pendingUpscalerMode = value;
+                }
                 refreshQualityLater();
             });
+    }
+
+    /** The module and attribute holding the custom render resolution of the chosen pipeline's upscaler. */
+    private String[] renderScaleTarget() {
+        if (usingDlss()) {
+            return new String[] {Pipeline.DLSS_MODULE_NAME, Pipeline.DLSS_RENDER_SCALE_ATTRIBUTE};
+        }
+        if (this.pendingPreset == Presets.RT_NRD_FSR) {
+            return new String[] {Pipeline.FSR_MODULE_NAME, Pipeline.FSR_RENDER_SCALE_ATTRIBUTE};
+        }
+        if (this.pendingPreset == Presets.RT_NRD_XESS) {
+            return new String[] {Pipeline.XESS_MODULE_NAME, Pipeline.XESS_RENDER_SCALE_ATTRIBUTE};
+        }
+        return null;
+    }
+
+    private static List<String> withCustom(List<String> modes) {
+        List<String> all = new ArrayList<>(modes);
+        all.add(CUSTOM_MODE);
+        return all;
+    }
+
+    /**
+     * Applies a pick in a mode list: true when it was Custom (the render resolution slider then shows), false when
+     * it was a real mode, which also leaves Custom.
+     */
+    private boolean chooseCustomMode(String value) {
+        boolean custom = CUSTOM_MODE.equals(value);
+        if (custom && !this.pendingCustomScale) {
+            this.pendingRenderScale = Math.max(renderScaleMin(), Math.min(100,
+                this.pendingRenderScale == null ? 50 : this.pendingRenderScale));
+        }
+        this.pendingCustomScale = custom;
+        return custom;
+    }
+
+    /**
+     * The lowest render resolution offered, in percent. DLSS copes with very low ones (its Ray Reconstruction has
+     * its own floor in height); FSR and XeSS are designed for at most 3x, which is 33%, and fall apart below.
+     */
+    private int renderScaleMin() {
+        return usingDlss() ? 20 : 33;
+    }
+
+    /** Reads the render resolution stored in the pipeline once: a value above 0 means the Custom mode was in use. */
+    private void loadRenderScale() {
+        String[] target = renderScaleTarget();
+        if (target == null || this.pendingRenderScale != null) {
+            return;
+        }
+        int stored = 0;
+        String value = Pipeline.getModuleValue(target[0], target[1]);
+        try {
+            stored = value == null ? 0 : (int) Math.round(Double.parseDouble(value.trim()));
+        } catch (NumberFormatException ignored) {
+            // Left to the mode.
+        }
+        this.pendingCustomScale = stored > 0;
+        this.pendingRenderScale = Math.max(renderScaleMin(), Math.min(100, stored > 0 ? stored : 50));
+    }
+
+    /** The render resolution slider of the Custom upscaling mode; absent in any other mode. */
+    private OptionInstance<Integer> renderScaleOption() {
+        if (renderScaleTarget() == null) {
+            return null;
+        }
+        loadRenderScale();
+        if (!this.pendingCustomScale) {
+            return null;
+        }
+        return new OptionInstance<Integer>("options.radiante.render_scale",
+            tooltip(usingDlss() ? "options.radiante.render_scale" : "options.radiante.render_scale.limited"),
+            (caption, value) -> Component.translatable("options.percent_value", caption, value),
+            new OptionInstance.IntRange(renderScaleMin(), 100, false),
+            Math.max(renderScaleMin(), this.pendingRenderScale), value -> this.pendingRenderScale = value);
     }
 
     /** The FSR / XeSS mode a quality level uses: the same step as its DLSS mode. */
@@ -570,8 +660,8 @@ public class RadianteOptionsScreen extends Screen {
             if (quality == QualityPreset.CUSTOM) {
                 continue;
             }
-            boolean dlssMatches = !usingDlss() || Objects.equals(this.pendingDlssMode,
-                Pipeline.DLSS_MODES.get(quality.dlssMode));
+            boolean dlssMatches = !this.pendingCustomScale && (!usingDlss() || Objects.equals(this.pendingDlssMode,
+                Pipeline.DLSS_MODES.get(quality.dlssMode)));
             dlssMatches &= upscalerModes() == null || this.pendingUpscalerMode == null
                 || Objects.equals(this.pendingUpscalerMode, upscalerModeFor(quality));
             boolean fogMatches = this.pendingVolumetricFog == null || this.pendingVolumetricFog == quality.volumetricFog;
@@ -599,6 +689,8 @@ public class RadianteOptionsScreen extends Screen {
         if (upscalerModes() != null) {
             this.pendingUpscalerMode = upscalerModeFor(quality);
         }
+        // A quality level picks the upscaler's mode; the Custom mode would hide that.
+        this.pendingCustomScale = false;
         if (Pipeline.supportsVolumetricFog()) {
             this.pendingVolumetricFog = quality.volumetricFog;
         }
@@ -646,10 +738,10 @@ public class RadianteOptionsScreen extends Screen {
         syncChunkAuto();
         this.pendingCollectEmission = true;
         this.pendingDebugLogging = true;
-        this.pendingBiomeFog = true;
+        this.pendingBiomeFog = false;
         this.pendingFirstPersonShadow = true;
         this.pendingBiomeFogStrength = 100;
-        this.pendingVolumetricFog = Pipeline.supportsVolumetricFog() ? Boolean.TRUE : null;
+        this.pendingVolumetricFog = Pipeline.supportsVolumetricFog() ? Boolean.FALSE : null;
         this.pendingMotionBlur = Boolean.FALSE;
         this.pendingCloudShadows = Boolean.FALSE;
         this.pendingRestir = Boolean.TRUE;
@@ -672,7 +764,9 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingParallax = this.pendingParallax == null ? null : Boolean.TRUE;
         this.pendingBedrockAtmosphere = this.pendingBedrockAtmosphere == null ? null : Boolean.TRUE;
         this.pendingFogSamples = this.pendingFogSamples == null ? null : 16;
-        this.pendingUpscalerMode = null;
+        this.pendingUpscalerMode = upscalerModes() == null ? null : upscalerModes().get(0);
+        this.pendingCustomScale = false;
+        this.pendingRenderScale = null;
         this.pendingFarBounceDistance = this.pendingFarBounceDistance == null ? null : 0;
         this.pendingFarBounces = this.pendingFarBounces == null ? null : 1;
         if (this.pendingTunables != null) {
@@ -714,10 +808,15 @@ public class RadianteOptionsScreen extends Screen {
             return null;
         }
         return new OptionInstance<Integer>(tunable.key(), RadianteOptionsScreen.<Integer>tooltip(tunable.key()),
-            (caption, value) -> tunable.format == Tunable.Format.EV
-                ? Component.translatable("options.radiante.ev_value", caption,
-                    String.format(java.util.Locale.ROOT, "%+.1f", value * tunable.unit))
-                : Component.translatable("options.percent_value", caption, value),
+            (caption, value) -> switch (tunable.format) {
+                case EV -> Component.translatable("options.radiante.ev_value", caption,
+                    String.format(java.util.Locale.ROOT, "%+.1f", value * tunable.unit));
+                case NUMBER -> Component.translatable("options.generic_value", caption,
+                    String.valueOf(Math.round(value * tunable.unit)));
+                case BLOCKS -> Component.translatable("options.radiante.blocks_value", caption,
+                    String.valueOf(Math.round(value * tunable.unit)));
+                case PERCENT -> Component.translatable("options.percent_value", caption, value);
+            },
             new OptionInstance.IntRange(tunable.min, tunable.max, false), current, value -> {
                 this.pendingTunables.put(tunable, value);
                 if (affectsStyle) {
@@ -811,7 +910,8 @@ public class RadianteOptionsScreen extends Screen {
                 });
         }
         this.reflexToggle = reflex;
-        addRows(preset, dlssMode, upscalerModeOption(), frameGenerationBackendOption(), frameGeneration, reflex);
+        addRows(preset, dlssMode, upscalerModeOption(), renderScaleOption(), frameGenerationBackendOption(),
+            frameGeneration, reflex);
     }
 
     private void addImageOptions() {
@@ -842,7 +942,8 @@ public class RadianteOptionsScreen extends Screen {
                     refreshQualityLater();
                 });
         addRows(style, method, tunable(Tunable.SATURATION, true), tunable(Tunable.EXPOSURE_ADAPTATION, false),
-            tunable(Tunable.EXPOSURE_BIAS, false));
+            tunable(Tunable.EXPOSURE_SPEED, false), tunable(Tunable.EXPOSURE_BIAS, false),
+            tunable(Tunable.LOW_LIGHT_BOOST, false), tunable(Tunable.FSR_SHARPNESS, false));
         addHdrOptions();
         if (Pipeline.supportsShaderPackToggle(Pipeline.MOTION_BLUR_ATTRIBUTE)
             && Pipeline.supportsShaderPackToggle(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE)) {
@@ -857,7 +958,11 @@ public class RadianteOptionsScreen extends Screen {
                     this.pendingMotionBlur, value -> this.pendingMotionBlur = value),
                 OptionInstance.createBoolean("options.radiante.depth_of_field",
                     tooltip("options.radiante.depth_of_field"), this.pendingDepthOfField,
-                    value -> this.pendingDepthOfField = value));
+                    value -> this.pendingDepthOfField = value),
+                tunable(Tunable.MOTION_BLUR_STRENGTH, false),
+                tunable(Tunable.DOF_STRENGTH, false), tunable(Tunable.DOF_RANGE, false),
+                packToggle(Pipeline.DOF_AUTO_FOCUS_ATTRIBUTE, "options.radiante.dof_auto_focus"),
+                tunable(Tunable.DOF_FOCUS_DISTANCE, false));
         }
     }
 
@@ -946,7 +1051,9 @@ public class RadianteOptionsScreen extends Screen {
                 tooltip("options.radiante.seamless_glass"), this.pendingSeamlessGlass,
                 value -> this.pendingSeamlessGlass = value);
         }
-        addRows(atmosphere, clouds, cloudShadows, tunable(Tunable.SUN_GLOW, false),
+        addRows(atmosphere, clouds, cloudShadows, tunable(Tunable.CLOUD_COVERAGE, false),
+            tunable(Tunable.CLOUD_DENSITY, false), tunable(Tunable.CLOUD_QUALITY, false), tunable(Tunable.STARS, false),
+            tunable(Tunable.SUN_GLOW, false),
             tunable(Tunable.LIGHT_SHAFTS, false),
             OptionInstance.createBoolean("options.radiante.vanilla_sun_path",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.vanilla_sun_path.tooltip")),
@@ -966,7 +1073,7 @@ public class RadianteOptionsScreen extends Screen {
                 (caption, value) -> Component.translatable("options.percent_value", caption, value),
                 new OptionInstance.IntRange(0, 400, false), this.pendingBiomeFogStrength,
                 value -> this.pendingBiomeFogStrength = value),
-            volumetricFog, fogStyle, volumetricStrength,
+            volumetricFog, fogStyle, volumetricStrength, tunable(Tunable.FOG_DISTANCE, false),
             tunable(Tunable.WATER_WAVES, false), tunable(Tunable.WATER_DENSITY, false),
             tunable(Tunable.WATER_GOD_RAYS, false));
     }
@@ -1014,7 +1121,8 @@ public class RadianteOptionsScreen extends Screen {
         OptionInstance<Integer> farBounces = this.pendingFarBounces == null ? null
             : slider("options.radiante.far_bounces", 1, 4, this.pendingFarBounces,
                 value -> this.pendingFarBounces = value);
-        addRows(bounces, packToggle(Pipeline.CACHE_DEEP_BOUNCES_ATTRIBUTE, "options.radiante.cache_deep_bounces"),
+        addRows(bounces, tunable(Tunable.MIRROR_BOUNCES, false),
+            packToggle(Pipeline.CACHE_DEEP_BOUNCES_ATTRIBUTE, "options.radiante.cache_deep_bounces"),
             parallax, farDistance, farBounces, fogSamples,
             OptionInstance.createBoolean("options.radiante.chunk_building_auto",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.chunk_building_auto.tooltip",
@@ -1123,7 +1231,14 @@ public class RadianteOptionsScreen extends Screen {
                         return fresh;
                     });
                 },
-                this::onClose, upscalerFooterButton()),
+                this::onClose, upscalerFooterButton(),
+                () -> {
+                    // Leaving through Share must not apply what is only staged here.
+                    this.applied = true;
+                    Screen last = this.lastScreen;
+                    this.minecraft.gui.setScreen(new ShareSettingsScreen(this,
+                        () -> new RadianteOptionsScreen(last, this.options)));
+                }),
             value -> this.scroll = value);
         this.layout.restartInfo(new SettingsLayout.RestartInfo() {
             @Override
@@ -1312,6 +1427,11 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (this.pendingUpscalerMode != null && upscalerModes() != null) {
             rebuild |= Pipeline.setModuleValue(upscalerModule(), upscalerAttribute(), this.pendingUpscalerMode);
+        }
+        String[] renderScale = renderScaleTarget();
+        if (this.pendingRenderScale != null && renderScale != null) {
+            rebuild |= Pipeline.setModuleValue(renderScale[0], renderScale[1],
+                this.pendingCustomScale ? this.pendingRenderScale + ".0" : "0.0");
         }
         if (this.pendingFarBounceDistance != null) {
             rebuild |= Pipeline.setShaderPackValue(Pipeline.FAR_BOUNCE_DISTANCE_ATTRIBUTE,

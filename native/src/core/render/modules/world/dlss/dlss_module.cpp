@@ -6,6 +6,7 @@
 #include "core/render/renderer.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include "core/util/logging.hpp"
 
 std::shared_ptr<NgxContext> DLSSModule::ngxContext_ = nullptr;
@@ -89,6 +90,20 @@ bool DLSSModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::DeviceLo
     querySizeInfo.outputSize.width = outputWidth_;
     querySizeInfo.outputSize.height = outputHeight_;
     effectiveMode_ = mode_;
+    if (renderScale_ > 0.0f) {
+        // DLSS is still told a mode; the one whose own render size is nearest suits its tuning best.
+        if (renderScale_ >= 0.995f) {
+            effectiveMode_ = NVSDK_NGX_PerfQuality_Value_DLAA;
+        } else if (renderScale_ >= 0.62f) {
+            effectiveMode_ = NVSDK_NGX_PerfQuality_Value_MaxQuality;
+        } else if (renderScale_ >= 0.54f) {
+            effectiveMode_ = NVSDK_NGX_PerfQuality_Value_Balanced;
+        } else if (renderScale_ >= 0.40f) {
+            effectiveMode_ = NVSDK_NGX_PerfQuality_Value_MaxPerf;
+        } else {
+            effectiveMode_ = NVSDK_NGX_PerfQuality_Value_UltraPerformance;
+        }
+    }
     querySizeInfo.quality = effectiveMode_;
     if (rayReconstruction_) {
         ngxContext_->querySupportedDlssInputSizes(querySizeInfo, supportedSizes_);
@@ -120,6 +135,19 @@ bool DLSSModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::DeviceLo
 
     inputWidth_ = supportedSizes_.optimalSize.width;
     inputHeight_ = supportedSizes_.optimalSize.height;
+    if (renderScale_ > 0.0f && renderScale_ < 0.995f && outputWidth_ > 0 && outputHeight_ > 0) {
+        float scale = renderScale_;
+        // The same floor as above: Ray Reconstruction loses the device on very small renders.
+        if (rayReconstruction_) {
+            scale = std::max(scale, static_cast<float>(kMinUltraPerformanceRenderHeight) /
+                                        static_cast<float>(outputHeight_));
+        }
+        scale = std::min(scale, 1.0f);
+        inputWidth_ = std::max(1u, static_cast<uint32_t>(std::lround(static_cast<float>(outputWidth_) * scale)));
+        inputHeight_ = std::max(1u, static_cast<uint32_t>(std::lround(static_cast<float>(outputHeight_) * scale)));
+        radiante::out() << "[DLSS] custom render scale " << scale << ": " << inputWidth_ << "x" << inputHeight_
+                        << std::endl;
+    }
 
     if (images[0] == nullptr) {
         hdrImages_[frameIndex] = images[0] = vk::DeviceLocalImage::create(
@@ -236,6 +264,11 @@ void DLSSModule::setAttributes(int attributeCount, std::vector<std::string> &att
     for (int i = 0; i < attributeCount; i++) {
         if (attributeKVs[2 * i] == "render_pipeline.module.dlss.attribute.ray_reconstruction") {
             rayReconstruction_ = attributeKVs[2 * i + 1] == "render_pipeline.true";
+            continue;
+        }
+        if (attributeKVs[2 * i] == "render_pipeline.module.dlss.attribute.render_scale") {
+            float percent = std::stof(attributeKVs[2 * i + 1]);
+            renderScale_ = percent > 0.0f ? std::clamp(percent / 100.0f, 0.20f, 1.0f) : 0.0f;
             continue;
         }
         if (attributeKVs[2 * i] == "render_pipeline.module.dlss.attribute.mode") {

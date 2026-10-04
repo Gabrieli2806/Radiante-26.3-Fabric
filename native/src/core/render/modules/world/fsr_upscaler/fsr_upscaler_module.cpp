@@ -82,9 +82,7 @@ bool FSRUpscalerModule::setOrCreateInputImages(std::vector<std::shared_ptr<vk::D
                 break;
             }
         }
-        if (renderWidth_ == 0 || renderHeight_ == 0) {
-            getRenderResolution(displayWidth_, displayHeight_, qualityMode_, &renderWidth_, &renderHeight_);
-        }
+        if (renderWidth_ == 0 || renderHeight_ == 0) { resolveRenderResolution(); }
     }
 
     for (uint32_t i = 0; i < images.size(); i++) {
@@ -313,6 +311,7 @@ void FSRUpscalerModule::initPipeline() {
 
 void FSRUpscalerModule::setAttributes(int attributeCount, std::vector<std::string> &attributeKVs) {
     auto parseBool = [](const std::string &value) { return value == "render_pipeline.true"; };
+    bool resolutionChanged = false;
 
     for (int i = 0; i < attributeCount; i++) {
         const std::string &key = attributeKVs[2 * i];
@@ -324,19 +323,34 @@ void FSRUpscalerModule::setAttributes(int attributeCount, std::vector<std::strin
             QualityMode mode = qualityMode_;
             if (parseQualityModeValue(value, mode)) {
                 qualityMode_ = mode;
-                if (displayWidth_ > 0 && displayHeight_ > 0) {
-                    getRenderResolution(displayWidth_, displayHeight_, qualityMode_, &renderWidth_, &renderHeight_);
-                } else {
-                    renderWidth_ = 0;
-                    renderHeight_ = 0;
-                }
+                resolutionChanged = true;
             }
+        } else if (key == "render_pipeline.module.fsr_upscaler.attribute.render_scale") {
+            float percent = std::stof(value);
+            renderScale_ = percent > 0.0f ? std::clamp(percent / 100.0f, 0.33f, 1.0f) : 0.0f;
+            resolutionChanged = true;
         } else if (key == "render_pipeline.module.fsr_upscaler.attribute.sharpness") {
             sharpness_ = std::stof(value);
         } else if (key == "render_pipeline.module.fsr_upscaler.attribute.pre_exposure") {
             preExposure_ = std::stof(value);
         }
     }
+
+    if (resolutionChanged) { resolveRenderResolution(); }
+}
+
+void FSRUpscalerModule::resolveRenderResolution() {
+    if (displayWidth_ == 0 || displayHeight_ == 0) {
+        renderWidth_ = 0;
+        renderHeight_ = 0;
+        return;
+    }
+    if (renderScale_ > 0.0f) {
+        renderWidth_ = std::max(1u, static_cast<uint32_t>(std::lround(static_cast<float>(displayWidth_) * renderScale_)));
+        renderHeight_ = std::max(1u, static_cast<uint32_t>(std::lround(static_cast<float>(displayHeight_) * renderScale_)));
+        return;
+    }
+    getRenderResolution(displayWidth_, displayHeight_, qualityMode_, &renderWidth_, &renderHeight_);
 }
 
 std::vector<std::shared_ptr<WorldModuleContext>> &FSRUpscalerModule::contexts() {

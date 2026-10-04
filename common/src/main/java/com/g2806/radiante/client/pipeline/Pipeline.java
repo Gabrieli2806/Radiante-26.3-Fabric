@@ -37,7 +37,7 @@ import org.yaml.snakeyaml.inspector.TagInspector;
 public class Pipeline {
 
     public static Pipeline INSTANCE = new Pipeline();
-    private static final String RAY_TRACING_MODULE_NAME = "render_pipeline.module.ray_tracing.name";
+    public static final String RAY_TRACING_MODULE_NAME = "render_pipeline.module.ray_tracing.name";
     private static final String RAY_TRACING_SHADER_PACK_PATH_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.shader_pack_path";
     private static final String VANILLA_RAY_TRACING_SHADER_PACK_PATH = "shaders/world/ray_tracing/vanilla-pt.zip";
     private static final String INTERNAL_RAY_TRACING_SHADER_PACK_PATH = VANILLA_RAY_TRACING_SHADER_PACK_PATH;
@@ -47,7 +47,7 @@ public class Pipeline {
     private static final String TEMPORAL_ACCUMULATION_MODULE_NAME = "render_pipeline.module.temporal_accumulation.name";
     private static final String FSR3_MODULE_NAME = "render_pipeline.module.fsr_upscaler.name";
     public static final String TONE_MAPPING_MODULE_NAME = "render_pipeline.module.tone_mapping.name";
-    private static final String POST_RENDER_MODULE_NAME = "render_pipeline.module.post_render.name";
+    public static final String POST_RENDER_MODULE_NAME = "render_pipeline.module.post_render.name";
     private static Path PIPELINE_CONFIG_PATH = null;
     private final List<Module> modules = new ArrayList<>();
     private final Map<ImageConfig, List<ImageConfig>> moduleConnections = new HashMap<>();
@@ -304,6 +304,13 @@ public class Pipeline {
      * the mode's share of the screen and upscales the rest. Index-aligned with the quality levels (QualityPreset).
      */
     public static final String FSR_MODULE_NAME = "render_pipeline.module.fsr_upscaler.name";
+    /**
+     * The share of the screen each upscaler renders at, in percent; 0 leaves it to the upscaler's mode. Every
+     * upscaler module has one.
+     */
+    public static final String DLSS_RENDER_SCALE_ATTRIBUTE = "render_pipeline.module.dlss.attribute.render_scale";
+    public static final String FSR_RENDER_SCALE_ATTRIBUTE = "render_pipeline.module.fsr_upscaler.attribute.render_scale";
+    public static final String XESS_RENDER_SCALE_ATTRIBUTE = "render_pipeline.module.xess_sr.attribute.render_scale";
     public static final String FSR_MODE_ATTRIBUTE = "render_pipeline.module.fsr_upscaler.attribute.quality_mode";
     public static final List<String> FSR_MODES = List.of(
         "render_pipeline.module.fsr_upscaler.attribute.quality_mode.ultra",
@@ -391,6 +398,8 @@ public class Pipeline {
 
     public static final String MOTION_BLUR_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.post_enable_motion_blur";
+    public static final String DOF_AUTO_FOCUS_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.post_dof_auto_focus";
     public static final String DEPTH_OF_FIELD_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.post_enable_dof";
     /** Shader Execution Reordering for the path rays (NVIDIA RTX 40 and newer; ignored elsewhere). */
@@ -458,6 +467,32 @@ public class Pipeline {
         }
         attribute.value = value;
         return true;
+    }
+
+    /** Every attribute of a module of the active pipeline and its value, in order; empty without that module. */
+    public static Map<String, String> moduleValues(String moduleName) {
+        Map<String, String> values = new java.util.LinkedHashMap<>();
+        for (Module module : INSTANCE.modules) {
+            if (module != null && Objects.equals(module.name, moduleName) && module.attributeConfigs != null) {
+                for (AttributeConfig attribute : module.attributeConfigs) {
+                    if (attribute != null && attribute.name != null) {
+                        values.put(attribute.name, attribute.value);
+                    }
+                }
+            }
+        }
+        return values;
+    }
+
+    /** The declared type of a module's attribute ("bool", "int_range:1-8", "enum:a-b"...), or null without it. */
+    public static String getModuleAttributeType(String moduleName, String attributeName) {
+        for (Module module : INSTANCE.modules) {
+            if (module != null && Objects.equals(module.name, moduleName)) {
+                AttributeConfig attribute = findAttribute(module, attributeName);
+                return attribute == null ? null : attribute.type;
+            }
+        }
+        return null;
     }
 
     /** An attribute of any module by module and attribute name, or null when there is no such module or attribute. */

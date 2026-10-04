@@ -32,3 +32,6 @@ attributeConfigs:
   - name: "render_pipeline.module.dlss.attribute.mode"
     type: "enum:render_pipeline.module.dlss.attribute.mode.ultra_performance-render_pipeline.module.dlss.attribute.mode.performance-render_pipeline.module.dlss.attribute.mode.balanced-render_pipeline.module.dlss.attribute.mode.quality-render_pipeline.module.dlss.attribute.mode.dlaa"
     value: "render_pipeline.module.dlss.attribute.mode.ultra_performance"
+  - name: "render_pipeline.module.dlss.attribute.render_scale"
+    type: "float_range:0.0-100.0"
+    value: "0.0"

@@ -36,7 +36,7 @@ public class Options {
      */
     public static boolean debugLogging = true;
     /** Per-biome haze in the overworld: warm dust over deserts, thick green air over swamps, and so on. */
-    public static boolean biomeFog = true;
+    public static boolean biomeFog = false;
     /**
      * Whether the player casts a shadow (and shows up in reflections) while the camera is in first person.
      * Minecraft does not draw the player at all then, so nothing of them would reach the world without this.
@@ -239,6 +239,31 @@ public class Options {
         number("hdrPeakNits", () -> hdrPeakNits, v -> hdrPeakNits = Math.max(200, Math.min(10000, v))),
         number("hdrPaperWhiteNits", () -> hdrPaperWhiteNits,
             v -> hdrPaperWhiteNits = Math.max(80, Math.min(500, v))));
+
+    /** The saved text of the named settings, for sharing them (SettingsCode). */
+    public static java.util.Map<String, String> exportValues(java.util.Collection<String> keys) {
+        java.util.Map<String, String> values = new java.util.LinkedHashMap<>();
+        for (Entry entry : ENTRIES) {
+            if (keys.contains(entry.key())) {
+                values.put(entry.key(), entry.value().get());
+            }
+        }
+        return values;
+    }
+
+    /** Sets one setting from its saved text; the caller has checked the value and saves afterwards. */
+    public static void importValue(String key, String text) {
+        for (Entry entry : ENTRIES) {
+            if (entry.key().equals(key)) {
+                try {
+                    entry.load().accept(text);
+                } catch (NumberFormatException badValue) {
+                    RadianteClient.LOGGER.warn("Ignoring option {}={}", key, text);
+                }
+                return;
+            }
+        }
+    }
 
     public static void readOptions() {
         Path path = RadianteClient.radianceDir.resolve(OPTION_PROPERTIES);

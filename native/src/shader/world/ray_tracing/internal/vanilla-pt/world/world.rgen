@@ -1026,7 +1026,10 @@ bool initTransparent(MainRay rayState,
     return true;
 }
 
-const int MIRROR_EXTRA_BOUNCES = 8;
+#ifndef VPT_MIRROR_EXTRA_BOUNCES
+#    define VPT_MIRROR_EXTRA_BOUNCES 8
+#endif
+const int MIRROR_EXTRA_BOUNCES = VPT_MIRROR_EXTRA_BOUNCES;
 
 #ifndef VPT_FAR_BOUNCE_DISTANCE
 #    define VPT_FAR_BOUNCE_DISTANCE 0
@@ -1125,7 +1128,9 @@ void traceSecondary(inout MainRay rayState,
             }
         }
 
-        if (b > 2) {
+        // A chain of mirrors seen from the camera is not cut short at random: the reflection inside a reflection
+        // would come out speckled. Its length is bounded by the mirror bounces allowed.
+        if (b > 2 && !isPrimaryCameraPath) {
             float maxComponent = max(rayState.throughput.r, max(rayState.throughput.g, rayState.throughput.b));
             float rrProbability = min(maxComponent, 0.9);
             if (rand(rayState.seed) > rrProbability) { break; }

@@ -38,7 +38,7 @@ final class SettingsLayout {
     }
 
     /** What the bottom buttons do. */
-    record Actions(Runnable reset, Runnable undo, Runnable apply, Runnable done, Extra extra) {
+    record Actions(Runnable reset, Runnable undo, Runnable apply, Runnable done, Extra extra, Runnable share) {
     }
 
     /** A button for the option in focus, next to Undo: installing or deleting an upscaler. Null for none. */
@@ -148,7 +148,12 @@ final class SettingsLayout {
         this.listW = remaining - (this.panelW > 0 ? this.panelW + GAP : 0);
         this.panelX = this.listX + this.listW + GAP;
 
-        this.search = new EditBox(this.font, this.sidebarX, 12, this.width - margin * 2, 18,
+        // Share sits at the end of the search bar, out of the way of the settings and their buttons.
+        FlatButton share = flat("options.radiante.share", "options.radiante.share.tooltip", this.actions.share(), true);
+        int shareW = this.font.width(share.label()) + 16;
+        this.buttons.add(new FlatButton(share.label(), share.action(), true, share.tooltip(),
+            this.width - margin - shareW, 13, shareW));
+        this.search = new EditBox(this.font, this.sidebarX, 12, this.width - margin * 2 - shareW - 4, 18,
             Component.translatable("options.radiante.search"));
         this.search.setHint(Component.translatable("options.radiante.search").withStyle(ChatFormatting.DARK_GRAY));
         this.search.setValue(initialSearch);

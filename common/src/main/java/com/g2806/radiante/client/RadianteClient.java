@@ -78,6 +78,18 @@ public final class RadianteClient {
         // DLSS or XeSS are downloaded on request; the first menu offers the one that suits this GPU.
         if (RadianteRenderer.isActive()
             && minecraft.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen title) {
+            // An upscaler installed before this start: offer to use it, now that it can be.
+            var installed = com.g2806.radiante.client.download.UpscalerDownloads.switchOfferOnStartup();
+            if (installed != null) {
+                String presetKey = com.g2806.radiante.client.gui.UpscalerDownloadScreen.presetOf(installed).key;
+                if (com.g2806.radiante.client.pipeline.Pipeline.isPresetAvailable(presetKey) && !java.util.Objects.equals(
+                    presetKey, com.g2806.radiante.client.pipeline.Pipeline.INSTANCE.getActivePresetName())) {
+                    minecraft.gui.setScreen(new com.g2806.radiante.client.gui.UpscalerDownloadScreen(title, installed,
+                        com.g2806.radiante.client.gui.UpscalerDownloadScreen.Mode.SWITCH));
+                    return;
+                }
+                com.g2806.radiante.client.download.UpscalerDownloads.clearSwitchOffer(installed);
+            }
             var offer = com.g2806.radiante.client.download.UpscalerDownloads.offerOnStartup(
                 RadianteRenderer.isNvidiaGpu(), RadianteRenderer.isIntelGpu());
             if (offer != null) {

@@ -165,6 +165,33 @@ public final class UpscalerDownloads {
         return wanted;
     }
 
+    private static boolean switchOffered;
+
+    /**
+     * An upscaler installed before this start that the player has not been asked about yet: the first menu offers to
+     * switch the pipeline to it. Asked once per session at most.
+     */
+    public static @Nullable Component switchOfferOnStartup() {
+        if (switchOffered) {
+            return null;
+        }
+        switchOffered = true;
+        for (Component component : Component.values()) {
+            if (Boolean.parseBoolean(state().getProperty(component.id + ".switch", "false"))) {
+                if (isInstalled(component)) {
+                    return component;
+                }
+                clearSwitchOffer(component);
+            }
+        }
+        return null;
+    }
+
+    public static void clearSwitchOffer(Component component) {
+        state().remove(component.id + ".switch");
+        saveState();
+    }
+
     // ---- remembered choices ----
 
     private static synchronized Properties state() {
@@ -335,6 +362,9 @@ public final class UpscalerDownloads {
             progress.done = before;
         }
         RadianteClient.LOGGER.info("Downloaded {}; it takes effect after restarting the game", component.id);
+        // Asked on the next start, once the upscaler can actually be used.
+        state().setProperty(component.id + ".switch", "true");
+        saveState();
         restartFor = component;
     }
 }

@@ -24,7 +24,9 @@ public class UpscalerDownloadScreen extends Screen {
         /** Delete or cancel. */
         DELETE,
         /** Installed or removed: the only way on is restarting the game. */
-        RESTART
+        RESTART,
+        /** Installed and usable after the restart: switch the pipeline to it, or keep the current one. */
+        SWITCH
     }
 
     private static final int WIDGET_WIDTH = 240;
@@ -40,11 +42,17 @@ public class UpscalerDownloadScreen extends Screen {
         this.parent = parent;
         this.component = component;
         this.mode = mode;
-        this.progress = mode == Mode.RESTART ? null : UpscalerDownloads.running(component);
+        this.progress = mode == Mode.RESTART || mode == Mode.SWITCH ? null : UpscalerDownloads.running(component);
     }
 
     private static net.minecraft.network.chat.Component text(String key, Object... args) {
         return net.minecraft.network.chat.Component.translatable(key, args);
+    }
+
+    /** The pipeline that uses an upscaler. */
+    public static com.g2806.radiante.client.pipeline.Presets presetOf(Component component) {
+        return component == Component.DLSS ? com.g2806.radiante.client.pipeline.Presets.RT_DLSSRR
+            : com.g2806.radiante.client.pipeline.Presets.RT_NRD_XESS;
     }
 
     public boolean isRestartScreen() {
@@ -69,7 +77,20 @@ public class UpscalerDownloadScreen extends Screen {
                 .setMaxWidth(320).setCentered(true));
             layout.addChild(Button.builder(text("options.radiante.restart.quit"), button -> this.minecraft.stop())
                 .width(WIDGET_WIDTH).build());
-        } else         if (this.progress != null) {
+        } else if (this.mode == Mode.SWITCH) {
+            layout.addChild(new MultiLineTextWidget(text("screen.radiante.download." + this.component.id + ".switch"),
+                this.font).setMaxWidth(320).setCentered(true));
+            layout.addChild(Button.builder(text("screen.radiante.download.switch.yes"), button -> {
+                UpscalerDownloads.clearSwitchOffer(this.component);
+                com.g2806.radiante.client.pipeline.Pipeline.switchToPresetMode(presetOf(this.component).key, false);
+                com.g2806.radiante.client.pipeline.Pipeline.savePipeline();
+                this.minecraft.gui.setScreen(new ApplyingSettingsScreen(this.parent));
+            }).width(WIDGET_WIDTH).build());
+            layout.addChild(Button.builder(text("screen.radiante.download.switch.no"), button -> {
+                UpscalerDownloads.clearSwitchOffer(this.component);
+                this.onClose();
+            }).width(WIDGET_WIDTH).build());
+        } else if (this.progress != null) {
             // Room for the bar and its text, drawn in extractRenderState.
             layout.addChild(new MultiLineTextWidget(net.minecraft.network.chat.Component.empty(), this.font)
                 .setMaxWidth(320));

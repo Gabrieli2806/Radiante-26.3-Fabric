@@ -6,6 +6,7 @@
 #include "core/render/renderer.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include "core/util/logging.hpp"
 
 XessSrModule::XessSrModule() {}
@@ -160,7 +161,7 @@ void XessSrModule::build() {
     config.renderHeight = renderHeight_;
     config.displayWidth = displayWidth_;
     config.displayHeight = displayHeight_;
-    config.qualityMode = static_cast<mcvr::XeSSQualityMode>(qualityMode_);
+    config.qualityMode = static_cast<mcvr::XeSSQualityMode>(effectiveQualityMode());
     config.initFlags = 0;
     config.velocityScaleX = 1.0f;
     config.velocityScaleY = 1.0f;
@@ -327,6 +328,10 @@ void XessSrModule::setAttributes(int attributeCount, std::vector<std::string> &a
                 qualityMode_ = mode;
                 shouldRefreshResolution = true;
             }
+        } else if (key == "render_pipeline.module.xess_sr.attribute.render_scale") {
+            float percent = std::stof(value);
+            renderScale_ = percent > 0.0f ? std::clamp(percent / 100.0f, 0.33f, 1.0f) : 0.0f;
+            shouldRefreshResolution = true;
         } else if (key == "render_pipeline.module.xess_sr.attribute.pre_exposure") {
             preExposure_ = std::stof(value);
         }
@@ -344,6 +349,7 @@ void XessSrModule::bindTexture(std::shared_ptr<vk::Sampler> sampler,
                                int index) {}
 
 void XessSrModule::preClose() {
+    if (auto fw = framework_.lock()) { fw->waitRenderQueueIdle(); }
     if (xess_ != nullptr) {
         xess_->destroy();
         xess_.reset();
@@ -355,6 +361,12 @@ void XessSrModule::updateRenderResolution() {
     if (displayWidth_ == 0 || displayHeight_ == 0) {
         renderWidth_ = 0;
         renderHeight_ = 0;
+        return;
+    }
+
+    if (renderScale_ > 0.0f) {
+        renderWidth_ = std::max(1u, static_cast<uint32_t>(std::lround(static_cast<float>(displayWidth_) * renderScale_)));
+        renderHeight_ = std::max(1u, static_cast<uint32_t>(std::lround(static_cast<float>(displayHeight_) * renderScale_)));
         return;
     }
 
@@ -370,6 +382,19 @@ void XessSrModule::updateRenderResolution() {
     if (!gotOptimal) {
         getRenderResolution(displayWidth_, displayHeight_, qualityMode_, &renderWidth_, &renderHeight_);
     }
+}
+
+XessSrModule::QualityMode XessSrModule::effectiveQualityMode() const {
+    if (renderScale_ <= 0.0f) { return qualityMode_; }
+    float ratio = 1.0f / renderScale_;
+    // Native is for an input the size of the output only.
+    if (renderScale_ >= 0.995f) return QualityMode::NativeAA;
+    if (ratio < 1.4f) return QualityMode::UltraQualityPlus;
+    if (ratio < 1.6f) return QualityMode::UltraQuality;
+    if (ratio < 1.85f) return QualityMode::Quality;
+    if (ratio < 2.15f) return QualityMode::Balanced;
+    if (ratio < 2.65f) return QualityMode::Performance;
+    return QualityMode::UltraPerformance;
 }
 
 void XessSrModule::getRenderResolution(uint32_t displayWidth,

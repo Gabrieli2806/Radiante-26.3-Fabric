@@ -61,6 +61,9 @@ class FSRUpscalerModule : public WorldModule, public SharedObject<FSRUpscalerMod
   private:
     static bool isHdrUpscaleFormat(VkFormat format);
 
+    // The render size for the current display size: the chosen share of it, or the quality mode's.
+    void resolveRenderResolution();
+
     void initDescriptorTables();
     void initImages();
     void initPipeline();
@@ -73,6 +76,8 @@ class FSRUpscalerModule : public WorldModule, public SharedObject<FSRUpscalerMod
     uint32_t displayWidth_ = 0;
     uint32_t displayHeight_ = 0;
     QualityMode qualityMode_ = QualityMode::NativeAA;
+    // Share of the display size to render at (0-1); 0 leaves it to the quality mode.
+    float renderScale_ = 0.0f;
     float sharpness_ = 0.7f;
     float preExposure_ = 1.0f;
     bool fsr3Enabled_ = true;

@@ -16,6 +16,12 @@
             "define": "VPT_NUM_RAY_BOUNCES"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.mirror_extra_bounces",
+            "type": "int_range:0-64",
+            "default_value": "8",
+            "define": "VPT_MIRROR_EXTRA_BOUNCES"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.pbr_sampling_mode",
             "type": "enum:render_pipeline.module.ray_tracing.attribute.pbr_sampling.nearest-render_pipeline.module.ray_tracing.attribute.pbr_sampling.bilinear",
             "default_value": "render_pipeline.module.ray_tracing.attribute.pbr_sampling.nearest",
@@ -188,7 +194,7 @@
         {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode",
             "type": "enum:render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.vanilla-render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.volumetric",
-            "default_value": "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.volumetric",
+            "default_value": "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.vanilla",
             "define": "VPT_VOLUMETRIC_LIGHT_MODE"
         },
         {

@@ -60,6 +60,8 @@ class XessSrModule : public WorldModule, public SharedObject<XessSrModule> {
 
   private:
     void updateRenderResolution();
+    // The quality mode XeSS is set up with: the one whose ratio is nearest a custom render scale, or the chosen one.
+    QualityMode effectiveQualityMode() const;
 
     void initDescriptorTables();
     void initImages();
@@ -72,6 +74,8 @@ class XessSrModule : public WorldModule, public SharedObject<XessSrModule> {
     uint32_t displayWidth_ = 0;
     uint32_t displayHeight_ = 0;
     QualityMode qualityMode_ = QualityMode::Quality;
+    // Share of the display size to render at (0-1); 0 leaves it to the quality mode.
+    float renderScale_ = 0.0f;
     float preExposure_ = 1.0f;
     bool xessEnabled_ = true;
 

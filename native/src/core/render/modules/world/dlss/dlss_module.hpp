@@ -78,6 +78,8 @@ class DLSSModule : public WorldModule, public SharedObject<DLSSModule> {
     // the world for seconds after a settings change or a window resize.
     uint32_t framesSinceBuild_ = 0;
     bool rayReconstruction_ = true;
+    // Share of the output size to render at (0-1); 0 leaves it to the mode.
+    float renderScale_ = 0.0f;
     NgxContext::SupportedSizes supportedSizes_{};
     NVSDK_NGX_PerfQuality_Value mode_ = NVSDK_NGX_PerfQuality_Value_Balanced;
     // The mode actually run at the current size; differs from mode_ where a size floor applies.
