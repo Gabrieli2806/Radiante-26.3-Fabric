@@ -37,6 +37,8 @@ public class Options {
     public static boolean debugLogging = true;
     /** Per-biome haze in the overworld: warm dust over deserts, thick green air over swamps, and so on. */
     public static boolean biomeFog = false;
+    /** Whether the settings screen shows the Advanced options; their values apply either way. */
+    public static boolean advancedSettings = false;
     /**
      * Whether the player casts a shadow (and shows up in reflections) while the camera is in first person.
      * Minecraft does not draw the player at all then, so nothing of them would reach the world without this.
@@ -209,6 +211,7 @@ public class Options {
         bool("collectChunkEmission", () -> collectChunkEmission, v -> setCollectChunkEmission(v, false)),
         number("entityLightReach", () -> entityLightReach, v -> setEntityLightReach(v, false)),
         bool("debugLogging", () -> debugLogging, v -> setDebugLogging(v, false)),
+        bool("advancedSettings", () -> advancedSettings, v -> advancedSettings = v),
         bool("biomeFog", () -> biomeFog, v -> biomeFog = v),
         number("volumetricFogStrength", () -> volumetricFogStrength,
             v -> volumetricFogStrength = Math.max(0, Math.min(400, v))),

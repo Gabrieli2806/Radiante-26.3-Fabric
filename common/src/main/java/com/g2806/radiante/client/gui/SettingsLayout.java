@@ -34,15 +34,33 @@ import net.minecraft.util.FormattedCharSequence;
 final class SettingsLayout {
 
     /** A section and its options, in order. */
-    record Section(RadianteOptionsScreen.Category category, List<OptionInstance<?>> options) {
+    record Section(RadianteOptionsScreen.Category category, List<OptionInstance<?>> options, List<Group> groups) {
     }
 
-    /** What the bottom buttons do. */
-    record Actions(Runnable reset, Runnable undo, Runnable apply, Runnable done, Extra extra, Runnable share) {
+    /** Advanced options about one thing, under a heading that folds them away. */
+    record Group(String key, List<OptionInstance<?>> options) {
     }
 
-    /** A button for the option in focus, next to Undo: installing or deleting an upscaler. Null for none. */
-    record Extra(Component label, Component tooltip, Runnable action, boolean enabled) {
+    /** What the bottom buttons do. {@code advanced} is whether the Advanced options show; the toggle flips it. */
+    record Actions(Runnable reset, Runnable undo, Runnable apply, Runnable done, Extra extra, Runnable share,
+                   boolean advanced, Runnable toggleAdvanced) {
+    }
+
+    /**
+     * A button that belongs to one option, beside Advanced: installing or deleting an upscaler. It shows once the
+     * option with the caption {@code anchorKey} was clicked, or always when that is null. Null for no button.
+     */
+    record Extra(Component label, Component tooltip, Runnable action, boolean enabled, String anchorKey) {
+    }
+
+    /** The caption key of the option clicked last; kept while the screen is rebuilt, which a click often causes. */
+    private static String focusedKey;
+    /** Advanced groups folded open, by key; kept while the game runs. */
+    private static final java.util.Set<String> openGroups = new java.util.HashSet<>();
+
+    /** A newly opened settings screen starts with no option in focus. */
+    static void clearFocus() {
+        focusedKey = null;
     }
 
     private static final int ACCENT = 0xFF8FE3C8;
@@ -78,8 +96,15 @@ final class SettingsLayout {
     private double scroll;
     private int contentHeight;
 
-    /** One line of the list: a section heading or an option. */
-    private record Line(Section section, OptionInstance<?> option, int y, int height) {
+    /**
+     * One line of the list: an option (advanced when it comes from a group), a group's heading, a note, or with none
+     * of these a section's heading.
+     */
+    private record Line(Section section, OptionInstance<?> option, Group group, Component note, boolean advanced,
+                        int y, int height) {
+        boolean sectionHeading() {
+            return this.option == null && this.group == null && this.note == null;
+        }
     }
 
     private final List<Line> lines = new ArrayList<>();
@@ -165,6 +190,21 @@ final class SettingsLayout {
         layoutLines();
         this.scroll = clampScroll(initialScroll);
 
+        this.margin = margin;
+        this.topButtons = this.buttons.size();
+        layoutButtons();
+        return this.search;
+    }
+
+    private int margin;
+    private int topButtons;
+
+    /** The buttons along the bottom; laid out again when the option in focus changes, as one of them follows it. */
+    private void layoutButtons() {
+        while (this.buttons.size() > this.topButtons) {
+            this.buttons.remove(this.buttons.size() - 1);
+        }
+        int margin = this.margin;
         int y = this.height - 24;
         int x = this.width - margin;
         for (FlatButton button : List.of(
@@ -177,20 +217,22 @@ final class SettingsLayout {
             x -= 4;
         }
         int left = this.sidebarX;
-        // The upscaler button takes the place of Advanced (not available yet) so the bar fits narrow windows.
-        for (FlatButton button : List.of(
-            flat("options.radiante.reset_defaults", "options.radiante.reset_defaults.tooltip", this.actions.reset(),
-                true),
-            this.actions.extra() != null
-                ? new FlatButton(this.actions.extra().label(), this.actions.extra().action(), this.actions.extra().enabled(),
-                    this.actions.extra().tooltip(), 0, 0, 0)
-                : flat("options.radiante.advanced", "options.radiante.advanced.tooltip", () -> { }, false))) {
+        List<FlatButton> leftButtons = new ArrayList<>();
+        leftButtons.add(flat("options.radiante.reset_defaults", "options.radiante.reset_defaults.tooltip",
+            this.actions.reset(), true));
+        leftButtons.add(new FlatButton(Component.translatable(this.actions.advanced() ? "options.radiante.advanced.on"
+            : "options.radiante.advanced.off"), this.actions.toggleAdvanced(), true,
+            Component.translatable("options.radiante.advanced.tooltip"), 0, 0, 0));
+        Extra extra = this.actions.extra();
+        if (extra != null && (extra.anchorKey() == null || extra.anchorKey().equals(focusedKey))) {
+            leftButtons.add(new FlatButton(extra.label(), extra.action(), extra.enabled(), extra.tooltip(), 0, 0, 0));
+        }
+        for (FlatButton button : leftButtons) {
             int w = this.font.width(button.label()) + 16;
             this.buttons.add(new FlatButton(button.label(), button.action(), button.enabled(), button.tooltip(), left, y,
                 w));
             left += w + 4;
         }
-        return this.search;
     }
 
     private static FlatButton flat(String key, String tooltip, Runnable action, boolean enabled) {
@@ -209,26 +251,61 @@ final class SettingsLayout {
             if (filter.isEmpty() && section.category() != selected) {
                 continue;
             }
-            List<OptionInstance<?>> shown = new ArrayList<>();
-            for (OptionInstance<?> option : section.options()) {
-                if (filter.isEmpty() || caption(option).getString().toLowerCase(Locale.ROOT).contains(filter)) {
-                    shown.add(option);
+            List<OptionInstance<?>> shown = matching(section.options(), filter);
+            // Advanced options: under their group's heading when Advanced is on (a search opens the groups it finds
+            // something in); when it is off a search only says how many more it would find there.
+            List<Group> groups = new ArrayList<>();
+            int hidden = 0;
+            for (Group group : section.groups()) {
+                List<OptionInstance<?>> matches = matching(group.options(), filter);
+                if (matches.isEmpty()) {
+                    continue;
+                }
+                if (this.actions.advanced()) {
+                    groups.add(new Group(group.key(), matches));
+                } else if (!filter.isEmpty()) {
+                    hidden += matches.size();
                 }
             }
-            if (shown.isEmpty()) {
+            if (shown.isEmpty() && groups.isEmpty() && hidden == 0) {
                 continue;
             }
             int start = y;
-            this.lines.add(new Line(section, null, y, HEADER));
+            this.lines.add(new Line(section, null, null, null, false, y, HEADER));
             y += HEADER + 2;
             for (OptionInstance<?> option : shown) {
-                this.lines.add(new Line(section, option, y, ROW));
+                this.lines.add(new Line(section, option, null, null, false, y, ROW));
+                y += ROW;
+            }
+            for (Group group : groups) {
+                this.lines.add(new Line(section, null, group, null, false, y, ROW));
+                y += ROW;
+                if (!filter.isEmpty() || openGroups.contains(group.key())) {
+                    for (OptionInstance<?> option : group.options()) {
+                        this.lines.add(new Line(section, option, group, null, true, y, ROW));
+                        y += ROW;
+                    }
+                }
+            }
+            if (hidden > 0) {
+                this.lines.add(new Line(section, null, null,
+                    Component.translatable("options.radiante.advanced.more", hidden), false, y, ROW));
                 y += ROW;
             }
             y += GAP;
             this.sectionSpans.add(new int[] {section.category().ordinal(), start, y});
         }
         this.contentHeight = y;
+    }
+
+    private static List<OptionInstance<?>> matching(List<OptionInstance<?>> options, String filter) {
+        List<OptionInstance<?>> shown = new ArrayList<>();
+        for (OptionInstance<?> option : options) {
+            if (filter.isEmpty() || caption(option).getString().toLowerCase(Locale.ROOT).contains(filter)) {
+                shown.add(option);
+            }
+        }
+        return shown;
     }
 
     private double clampScroll(double value) {
@@ -278,7 +355,7 @@ final class SettingsLayout {
         for (int i = 0; i < this.lines.size(); i++) {
             Line line = this.lines.get(i);
             int y = base + line.y();
-            if (line.option() == null) {
+            if (line.sectionHeading()) {
                 if (y + HEADER > this.top && y < this.bottom) {
                     g.fill(this.listX, Math.max(y, this.top), this.listX + this.listW, Math.min(y + HEADER, this.bottom),
                         PANEL_DARK);
@@ -290,7 +367,7 @@ final class SettingsLayout {
         }
         for (int i = 0; i < this.lines.size(); i++) {
             Line line = this.lines.get(i);
-            if (line.option() == null) {
+            if (line.sectionHeading()) {
                 continue;
             }
             int y = base + line.y();
@@ -299,7 +376,7 @@ final class SettingsLayout {
             }
             // The group's dark box, a slice per row (the first one reaching up to the header): one tall box for the
             // whole group went missing once its header scrolled out of view.
-            boolean firstOfSection = i > 0 && this.lines.get(i - 1).option() == null;
+            boolean firstOfSection = i > 0 && this.lines.get(i - 1).sectionHeading();
             int sliceTop = Math.max(firstOfSection ? y - 2 : y, this.top);
             int sliceBottom = Math.min(y + ROW, this.bottom);
             if (sliceBottom > sliceTop) {
@@ -307,11 +384,28 @@ final class SettingsLayout {
             }
             boolean hover = inside(mouseX, mouseY, this.listX + 4, y, this.listW - 8, ROW)
                 && mouseY >= this.top && mouseY < this.bottom;
+            if (line.note() != null) {
+                g.text(this.font, line.note(), this.listX + PAD + 4, y + 6, TEXT_DIM);
+                continue;
+            }
+            if (line.option() == null) {
+                // A group's heading: an arrow for folded or open, and how many options it holds.
+                boolean open = openGroups.contains(line.group().key())
+                    || !(this.search == null || this.search.getValue().trim().isEmpty());
+                if (hover) {
+                    g.fill(this.listX + 4, y, this.listX + this.listW - 4, y + ROW, ROW_HOVER);
+                }
+                g.text(this.font, Component.literal(open ? "▾ " : "▸ ").append(Component.translatable(
+                    line.group().key())), this.listX + PAD + 4, y + 6, hover ? TEXT : ACCENT);
+                Component count = Component.literal(String.valueOf(line.group().options().size()));
+                g.text(this.font, count, this.listX + this.listW - PAD - 4 - this.font.width(count), y + 6, TEXT_DIM);
+                continue;
+            }
             if (hover) {
                 g.fill(this.listX + 4, y, this.listX + this.listW - 4, y + ROW, ROW_HOVER);
                 hovered = line.option();
             }
-            drawRow(g, line.option(), y, hover);
+            drawRow(g, line.option(), y, hover, line.advanced());
         }
         g.disableScissor();
         if (this.contentHeight > this.bottom - this.top) {
@@ -340,9 +434,10 @@ final class SettingsLayout {
         }
     }
 
-    private void drawRow(GuiGraphicsExtractor g, OptionInstance<?> option, int y, boolean hover) {
+    private void drawRow(GuiGraphicsExtractor g, OptionInstance<?> option, int y, boolean hover, boolean advanced) {
         int right = this.listX + this.listW - PAD - 4;
-        g.text(this.font, caption(option), this.listX + PAD + 4, y + 6, TEXT);
+        // Advanced options sit a step in and a shade dimmer than the everyday ones above them.
+        g.text(this.font, caption(option), this.listX + PAD + (advanced ? 14 : 4), y + 6, advanced ? TEXT_DIM : TEXT);
         if (this.restart.needsRestart(option)) {
             // Marked on the row itself, amber once the choice differs from what the running game uses.
             boolean pending = this.restart.pending(option);
@@ -469,14 +564,27 @@ final class SettingsLayout {
         }
         int base = this.top - (int) this.scroll;
         for (Line line : this.lines) {
-            if (line.option() == null) {
+            if (line.sectionHeading() || line.note() != null) {
                 continue;
             }
             int y = base + line.y();
             if (mouseY >= y && mouseY < y + ROW) {
+                if (line.option() == null) {
+                    clickSound();
+                    if (!openGroups.remove(line.group().key())) {
+                        openGroups.add(line.group().key());
+                    }
+                    layoutLines();
+                    this.scroll = clampScroll(this.scroll);
+                    this.onScroll.accept(this.scroll);
+                    return true;
+                }
                 if (!(line.option().values() instanceof OptionInstance.IntRange)) {
                     clickSound();
                 }
+                // Laid out before the click takes effect: it may replace this screen with a new one.
+                focusedKey = keyOf(caption(line.option()));
+                layoutButtons();
                 activate(line.option(), mouseX, button);
                 return true;
             }
@@ -574,8 +682,11 @@ final class SettingsLayout {
         return (OptionInstanceAccessor) (Object) option;
     }
 
+    /** The option's name; a pipeline attribute without a translation gets its own name made readable. */
     private static Component caption(OptionInstance<?> option) {
-        return accessor(option).radiante$caption();
+        Component caption = accessor(option).radiante$caption();
+        String key = keyOf(caption);
+        return key == null ? caption : AdvancedOptions.caption(key);
     }
 
     /** The value alone: the option's own "Name: value" text without the name in front. */
