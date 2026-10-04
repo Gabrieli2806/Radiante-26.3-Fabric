@@ -35,6 +35,7 @@ final class ApplyingSettingsScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int centerY = this.height / 2;
+        drawIcon(graphics, centerX, centerY - 62);
         graphics.centeredText(this.font, this.title, centerX, centerY - 20, 0xFFFFFFFF);
         graphics.centeredText(this.font, Component.translatable("options.radiante.applying.detail"), centerX,
             centerY - 6, 0xFFB0B8B4);
@@ -47,6 +48,16 @@ final class ApplyingSettingsScreen extends Screen {
         graphics.fill(x, y, x + filled, y + 6, 0xFF8FE3C8);
         this.framesShown++;
     }
+
+    /** The mod's icon (the one beside its name in the settings), centred on {@code centerX} with its top at y. */
+    static void drawIcon(GuiGraphicsExtractor graphics, int centerX, int y) {
+        graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, ICON, centerX - ICON_SIZE / 2, y, 0.0f,
+            0.0f, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);
+    }
+
+    private static final net.minecraft.resources.Identifier ICON =
+        net.minecraft.resources.Identifier.fromNamespaceAndPath("radiante", "textures/gui/settings/icon.png");
+    private static final int ICON_SIZE = 32;
 
     @Override
     public void tick() {

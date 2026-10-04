@@ -41,9 +41,25 @@ public final class RenderTypeInfo {
         this.useOverlay = useOverlay;
         this.blending = blending;
         this.solid = solid;
-        this.name = name == null ? "" : name;
+        this.name = tracedName(name == null ? "" : name);
         this.uOffset = uOffset;
         this.vOffset = vOffset;
+    }
+
+    /**
+     * The plain text layers - what a text display uses unless it is see-through - have no hit group of their own in
+     * the packs, and their text modes mean cut out and translucent to the ordinary entity shaders: logos and
+     * holograms came out as panes of glass. A ray tracer has no depth bias to tell them from the polygon offset
+     * layers anyway, so they are traced as those. The untextured background layers ride along: with no texture the
+     * text shaders take their coverage from the vertex colour alone.
+     */
+    private static String tracedName(String name) {
+        return switch (name) {
+            case "text", "text_background" -> "text_polygon_offset";
+            case "text_intensity" -> "text_intensity_polygon_offset";
+            case "text_background_see_through" -> "text_see_through";
+            default -> name;
+        };
     }
 
     public static RenderTypeInfo of(RenderType renderType) {
@@ -159,6 +175,13 @@ public final class RenderTypeInfo {
             return 0;
         }
         int id = TextureTracker.idOf(this.texture);
+        if (id == 0) {
+            net.minecraft.client.renderer.texture.AbstractTexture found =
+                net.minecraft.client.Minecraft.getInstance().getTextureManager().getTexture(this.texture);
+            TextureTracker.reportMissing("layer " + this.name + " texture " + this.texture
+                + (found == null ? " (not registered)" : " (" + found.getClass().getSimpleName() + ")"),
+                found == null ? null : TextureTracker.gpuTextureOrNull(found));
+        }
         EntityPbr.note(this.texture, id);
         return id;
     }

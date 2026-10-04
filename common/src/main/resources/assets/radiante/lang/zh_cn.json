@@ -392,5 +392,7 @@
   "options.radiante.advanced.group.debug": "调试视图",
   "options.radiante.advanced.group.unsorted": "其他管线设置",
   "options.radiante.mod_overlays": "其他模组的叠加层",
-  "options.radiante.mod_overlays.tooltip": "允许其他模组在光追世界中绘制：Litematica 的投影和选区框、MiniHUD 形状、路径点光柱、指引和标记。它们以 Minecraft 的方式绘制在光追画面之上，并会被光追世界正确遮挡。如果某个模组在世界上绘制出错，请关闭此项。"
+  "options.radiante.mod_overlays.tooltip": "允许其他模组在光追世界中绘制：Litematica 的投影和选区框、MiniHUD 形状、路径点光柱、指引和标记。它们以 Minecraft 的方式绘制在光追画面之上，并会被光追世界正确遮挡。如果某个模组在世界上绘制出错，请关闭此项。",
+  "options.radiante.text_backgrounds": "文本展示背景",
+  "options.radiante.text_backgrounds.tooltip": "像 Minecraft 一样绘制文本展示实体（排行榜、全息字、服务器告示）背后的半透明底板，让文字更易读。关闭后只显示文字。"
 }

@@ -427,5 +427,7 @@
   "options.radiante.advanced.group.debug": "Debug views",
   "options.radiante.advanced.group.unsorted": "Other pipeline settings",
   "options.radiante.mod_overlays": "Other Mods' Overlays",
-  "options.radiante.mod_overlays.tooltip": "Lets other mods draw into the traced world: Litematica schematics and selection boxes, MiniHUD shapes, waypoint beams, guides and markers. They are drawn Minecraft's way, on top of the traced picture, and are hidden behind the traced world as they should be. Turn it off if a mod draws something wrong over the world."
+  "options.radiante.mod_overlays.tooltip": "Lets other mods draw into the traced world: Litematica schematics and selection boxes, MiniHUD shapes, waypoint beams, guides and markers. They are drawn Minecraft's way, on top of the traced picture, and are hidden behind the traced world as they should be. Turn it off if a mod draws something wrong over the world.",
+  "options.radiante.text_backgrounds": "Text Display Backgrounds",
+  "options.radiante.text_backgrounds.tooltip": "Draws the translucent plate behind text displays - leaderboards, holograms and server signs - as Minecraft does, so the text is easier to read. Off shows only the letters."
 }

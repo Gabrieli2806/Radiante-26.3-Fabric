@@ -43,6 +43,7 @@ public final class EntityManager {
     private static final int END_CRYSTAL_TINT = 0xD9A6FF;
     /** Below this the difference is the lightmap disagreeing with the block below the entity, not a glow. */
     private static final int SELF_LIT_MIN_EXCESS = 5;
+    private static final int DISPLAY_MAX_GLOW_LEVEL = 3;
     private static final double[] SELF_LIT_SAMPLE_HEIGHTS = {0.0, 0.5, 1.0};
     private static int DEBUG_TEXT_LAYERS;
 
@@ -352,7 +353,17 @@ public final class EntityManager {
         }
 
         int excess = ownBlockLight - worldBlockLight;
-        return excess < SELF_LIT_MIN_EXCESS ? 0.0f : Glow.ofLevel(excess);
+        if (excess < SELF_LIT_MIN_EXCESS) {
+            return 0.0f;
+        }
+        // A display entity given a brightness of its own (maps and servers build signs, statues and whole walls from
+        // them) is drawn unshaded in vanilla but lights nothing. At a mob's glow a wall of them became a wall of
+        // lamps: the room washed out and the exposure with it. A low glow keeps them readable in the dark without
+        // turning them into light sources.
+        if (state instanceof net.minecraft.client.renderer.entity.state.DisplayEntityRenderState) {
+            return Glow.ofLevel(Math.min(excess, DISPLAY_MAX_GLOW_LEVEL));
+        }
+        return Glow.ofLevel(excess);
     }
 
     private static void collectBlockEntity(Minecraft minecraft, CameraRenderState cameraState,

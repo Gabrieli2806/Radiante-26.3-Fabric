@@ -131,7 +131,10 @@ public class UpscalerDownloadScreen extends Screen {
         layout.arrangeElements();
         layout.visitWidgets(this::addRenderableWidget);
         layout.setPosition(this.width / 2 - layout.getWidth() / 2, this.height / 2 - layout.getHeight() / 2);
+        this.iconY = this.height / 2 - layout.getHeight() / 2 - 40;
     }
+
+    private int iconY;
 
     @Override
     public void tick() {
@@ -145,6 +148,8 @@ public class UpscalerDownloadScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        // Above the widgets, which are centred on the screen as a block.
+        ApplyingSettingsScreen.drawIcon(graphics, this.width / 2, Math.max(4, this.iconY));
         Progress current = this.progress;
         if (current == null) {
             return;

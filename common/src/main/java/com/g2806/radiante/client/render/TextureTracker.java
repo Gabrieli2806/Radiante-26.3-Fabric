@@ -43,7 +43,18 @@ public final class TextureTracker {
         boolean cpuWritten = (usage & GpuTexture.USAGE_COPY_DST) != 0;
         GpuFormat format = texture.getFormat();
         boolean supportedFormat = format == GpuFormat.RGBA8_UNORM || format == GpuFormat.R8_UNORM;
-        return sampled && cpuWritten && supportedFormat && texture.getDepthOrLayers() == 1;
+        return sampled && cpuWritten && supportedFormat && texture.getDepthOrLayers() == 1
+            && !isAnimationFrame(texture);
+    }
+
+    /**
+     * Minecraft keeps every frame of an animated sprite in a texture of its own and copies it into the atlas on the
+     * GPU. Nothing is ever drawn with them, and AnimationMirror uploads the frames itself, so they get no id: a
+     * server pack with many animations would otherwise fill the whole table and leave skins and font pages out.
+     */
+    private static boolean isAnimationFrame(GpuTexture texture) {
+        String label = texture.getLabel();
+        return label != null && label.contains(" animation frame ");
     }
 
     private static final ThreadLocal<Boolean> SKIP_TRACKING = ThreadLocal.withInitial(() -> Boolean.FALSE);
@@ -54,8 +65,41 @@ public final class TextureTracker {
     }
 
 
+    /** Diagnostics (debug logging): textures the tracer could not take, a line each for the first few. */
+    private static int reportedUntracked;
+    private static boolean reportedFull;
+    private static final java.util.Set<String> REPORTED_MISSING = new java.util.HashSet<>();
+
+    /**
+     * Says once, with debug logging on, that something is drawn with a texture the tracer does not have - it comes
+     * out white, or not at all for text. {@code what} names the texture and the reason for looking it up.
+     */
+    public static synchronized void reportMissing(String what, GpuTexture texture) {
+        if (!com.g2806.radiante.client.option.Options.debugLogging || REPORTED_MISSING.size() >= 60
+            || !REPORTED_MISSING.add(what)) {
+            return;
+        }
+        RadianteRenderer.LOGGER.info("texture not mirrored: {} ({}); {} of {} ids in use", what,
+            texture == null ? "no GPU texture" : describe(texture), allocatedIds - FREE_IDS.size(), MAX_TEXTURES);
+    }
+
+    private static String describe(GpuTexture texture) {
+        return texture.getLabel() + " " + texture.getFormat() + " " + texture.getWidth(0) + "x" + texture.getHeight(0)
+            + " layers=" + texture.getDepthOrLayers() + " usage=" + texture.usage() + (texture.isClosed() ? " closed" : "");
+    }
+
     public static synchronized void onCreated(GpuTexture texture) {
-        if (SKIP_TRACKING.get() || !RadianteRenderer.isActive() || !isTracked(texture)) {
+        if (SKIP_TRACKING.get() || !RadianteRenderer.isActive()) {
+            return;
+        }
+        if (!isTracked(texture)) {
+            // Sampled textures only: render targets and the like are never drawn with.
+            if (com.g2806.radiante.client.option.Options.debugLogging && reportedUntracked < 40
+                && (texture.usage() & GpuTexture.USAGE_TEXTURE_BINDING) != 0
+                && (texture.usage() & GpuTexture.USAGE_RENDER_ATTACHMENT) == 0) {
+                reportedUntracked++;
+                RadianteRenderer.LOGGER.info("texture left untracked: {}", describe(texture));
+            }
             return;
         }
 
@@ -67,6 +111,11 @@ public final class TextureTracker {
             id = TextureProxy.generateTextureId();
             allocatedIds++;
         } else {
+            if (!reportedFull) {
+                reportedFull = true;
+                RadianteRenderer.LOGGER.warn("Radiante's texture table is full ({} textures); further textures are "
+                    + "drawn white. This one: {}", MAX_TEXTURES, describe(texture));
+            }
             return;
         }
 

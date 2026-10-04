@@ -492,38 +492,62 @@ public class EntityCollector implements SubmitNodeCollector {
         prepared.visit(new Font.GlyphVisitor() {
             @Override
             public void acceptRenderable(TextRenderable renderable) {
-                RenderType renderType = renderable.renderType(displayMode);
-                if (renderType == null) {
-                    return;
-                }
-                PBRVertexWriter writer = EntityCollector.this.writer(renderType);
-                if (EntityCollector.this.collectingNameTag) {
-                    EntityCollector.this.nameTagLayers.add(renderType);
-                }
-                // Font pages are built at runtime and are not registered under the identifier the render layer
-                // names, so asking the texture manager for the layer's texture answers about some other sheet.
-                // Everything about a glyph - which page to sample and how many channels that page has - has to
-                // come from the renderable, which knows the page its glyph was baked into.
-                if (renderable.textureView() == null || renderable.textureView().texture() == null) {
-                    return;
-                }
-                GpuTexture page = renderable.textureView().texture();
-                int fontTextureId = TextureTracker.idOf(page);
-                if (fontTextureId == 0) {
-                    return;
-                }
-                writer.textureId(fontTextureId);
-                writer.alphaMode(RenderTypeInfo.of(renderType)
-                    .alphaModeForPage(page.getFormat() == GpuFormat.R8_UNORM));
-                renderable.render(pose, writer, lightCoords, false);
+                EntityCollector.this.writeTextRenderable(renderable, pose, displayMode, lightCoords);
             }
         });
         poseStack.popPose();
     }
 
+    private void writeTextRenderable(TextRenderable renderable, Matrix4fc pose, Font.DisplayMode displayMode,
+        int lightCoords) {
+        RenderType renderType = renderable.renderType(displayMode);
+        if (renderType == null) {
+            return;
+        }
+        PBRVertexWriter writer = this.writer(renderType);
+        if (this.collectingNameTag) {
+            this.nameTagLayers.add(renderType);
+        }
+        // Font pages are built at runtime and are not registered under the identifier the render layer
+        // names, so asking the texture manager for the layer's texture answers about some other sheet.
+        // Everything about a glyph - which page to sample and how many channels that page has - has to
+        // come from the renderable, which knows the page its glyph was baked into.
+        if (renderable.textureView() == null || renderable.textureView().texture() == null) {
+            TextureTracker.reportMissing("text glyph of " + renderable.getClass().getName()
+                + " without a texture view", null);
+            return;
+        }
+        GpuTexture page = renderable.textureView().texture();
+        int fontTextureId = TextureTracker.idOf(page);
+        if (fontTextureId == 0) {
+            TextureTracker.reportMissing("font page " + page.getLabel(), page);
+            return;
+        }
+        writer.textureId(fontTextureId);
+        writer.alphaMode(RenderTypeInfo.of(renderType)
+            .alphaModeForPage(page.getFormat() == GpuFormat.R8_UNORM));
+        renderable.render(pose, writer, lightCoords, false);
+    }
+
+    /**
+     * The plate behind a text display - a leaderboard, a hologram. It is a quad of the font's white glyph, so it
+     * goes through the text layers like the plate of a name tag: the text any-hit shader lets through the share of
+     * rays its opacity says, and it darkens what is behind it without becoming a solid board.
+     */
     @Override
     public void submitTextBackground(PoseStack poseStack, float x0, float y0, float x1, float y1, int color,
         Font.DisplayMode displayMode, int lightCoords) {
+        Font font = Minecraft.getInstance().font;
+        if (font == null || !com.g2806.radiante.client.option.Options.textBackgrounds || ARGB.alpha(color) == 0) {
+            return;
+        }
+        // Moved out with the text (see submitText); the plate itself sits a hair behind the letters.
+        poseStack.pushPose();
+        float glyphScale = poseStack.last().pose().transformDirection(new Vector3f(0.0f, 0.0f, 1.0f)).length();
+        poseStack.translate(0.0f, 0.0f, TEXT_SURFACE_OFFSET / Math.max(glyphScale, 1.0E-6f));
+        this.writeTextRenderable(font.prepareBackground(x0, y0, x1, y1, color), poseStack.last().pose(), displayMode,
+            lightCoords);
+        poseStack.popPose();
     }
 
     /**

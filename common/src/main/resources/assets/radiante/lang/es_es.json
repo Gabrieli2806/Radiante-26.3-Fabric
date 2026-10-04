@@ -427,5 +427,7 @@
   "options.radiante.advanced.group.debug": "Vistas de depuración",
   "options.radiante.advanced.group.unsorted": "Otros ajustes del pipeline",
   "options.radiante.mod_overlays": "Overlays de Otros Mods",
-  "options.radiante.mod_overlays.tooltip": "Deja que otros mods dibujen en el mundo trazado: esquemas y cajas de selección de Litematica, formas de MiniHUD, haces de waypoints, guías y marcadores. Se dibujan al modo de Minecraft, encima de la imagen trazada, y quedan tapados por el mundo trazado como deben. Apágalo si algún mod dibuja algo mal sobre el mundo."
+  "options.radiante.mod_overlays.tooltip": "Deja que otros mods dibujen en el mundo trazado: esquemas y cajas de selección de Litematica, formas de MiniHUD, haces de waypoints, guías y marcadores. Se dibujan al modo de Minecraft, encima de la imagen trazada, y quedan tapados por el mundo trazado como deben. Apágalo si algún mod dibuja algo mal sobre el mundo.",
+  "options.radiante.text_backgrounds": "Fondo de Textos Flotantes",
+  "options.radiante.text_backgrounds.tooltip": "Dibuja la placa translúcida detrás de los textos flotantes (tablas de clasificación, hologramas y carteles de servidores) como hace Minecraft, para que se lean mejor. Apagado muestra solo las letras."
 }

@@ -67,6 +67,8 @@ public class Options {
      * mods draw into the world shows: schematics, selection boxes, waypoint beams, guides.
      */
     public static boolean modOverlays = true;
+    /** The translucent plate behind text displays (leaderboards, holograms), as Minecraft draws it. */
+    public static boolean textBackgrounds = true;
     /** Carved (parallax) resource pack faces are see-through at the outer edges of their block. */
     public static boolean parallaxTransparentEdges = false;
     /** Light and shadow snap to the texture's pixels, a retro blocky look. Off: smooth, as vanilla-like. */
@@ -226,6 +228,7 @@ public class Options {
         bool("rainWetness", () -> rainWetness, v -> rainWetness = v),
         bool("blockOutline", () -> blockOutline, v -> blockOutline = v),
         bool("modOverlays", () -> modOverlays, v -> modOverlays = v),
+        bool("textBackgrounds", () -> textBackgrounds, v -> textBackgrounds = v),
         bool("parallaxTransparentEdges", () -> parallaxTransparentEdges, v -> parallaxTransparentEdges = v),
         bool("pixelLighting", () -> pixelLighting, v -> pixelLighting = v),
         number("dayBrightness", () -> dayBrightness, v -> dayBrightness = v),
