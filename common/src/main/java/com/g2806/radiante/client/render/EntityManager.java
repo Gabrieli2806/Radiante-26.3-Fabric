@@ -148,6 +148,7 @@ public final class EntityManager {
         collectPlayerShadow(minecraft, levelRenderState, cameraState);
         collectBlockBreaking(minecraft, levelRenderState);
         collectParticles(levelRenderState, cameraState);
+        collectExternal(levelRenderState, cameraState);
         collectWeather(levelRenderState, cameraState);
         OverlayLines.collectDebugGizmos(minecraft, cameraState);
         OverlayLines.collectBlockOutline(levelRenderState, cameraState);
@@ -406,6 +407,106 @@ public final class EntityManager {
                 layers));
         }
     }
+
+    /** Writers for other mods' geometry (RadianteGeometry), reused from frame to frame. */
+    private static final List<PBRVertexWriter> EXTERNAL_WRITERS = new ArrayList<>();
+
+    /**
+     * Geometry other mods hand over through {@link com.g2806.radiante.api.RadianteGeometry}: what they would have
+     * drawn in level passes that do not run while the world is traced. Each provider becomes one object placed at
+     * the camera, a layer per texture and alpha mode, built anew every frame as particles are - but under the world
+     * mask, so it casts shadows and shows in reflections.
+     */
+    private static void collectExternal(LevelRenderState levelRenderState, CameraRenderState cameraState) {
+        Map<String, com.g2806.radiante.api.RadianteGeometry.Provider> providers =
+            com.g2806.radiante.api.RadianteGeometry.providers();
+        if (providers.isEmpty()) {
+            return;
+        }
+        Vec3 camera = cameraState.pos;
+        float partialTick = levelRenderState.worldPartialTicks;
+        int[] used = {0};
+        for (Map.Entry<String, com.g2806.radiante.api.RadianteGeometry.Provider> provider : providers.entrySet()) {
+            // Texture id and alpha mode, to the writer and the geometry type of its layer.
+            Map<Long, PBRVertexWriter> writers = new java.util.LinkedHashMap<>();
+            Map<Long, Integer> geometryTypes = new java.util.HashMap<>();
+            com.g2806.radiante.api.RadianteGeometry.Sink sink = new com.g2806.radiante.api.RadianteGeometry.Sink() {
+                @Override
+                public Vec3 camera() {
+                    return camera;
+                }
+
+                @Override
+                public float partialTick() {
+                    return partialTick;
+                }
+
+                @Override
+                public com.mojang.blaze3d.vertex.VertexConsumer quads(com.mojang.renderpearl.api.textures.GpuTexture texture,
+                    com.g2806.radiante.api.RadianteGeometry.Alpha alpha) {
+                    return writer(TextureTracker.idOf(texture), alpha);
+                }
+
+                @Override
+                public com.mojang.blaze3d.vertex.VertexConsumer quads(net.minecraft.resources.Identifier texture,
+                    com.g2806.radiante.api.RadianteGeometry.Alpha alpha) {
+                    return writer(TextureTracker.idOf(texture), alpha);
+                }
+
+                private PBRVertexWriter writer(int textureId, com.g2806.radiante.api.RadianteGeometry.Alpha alpha) {
+                    long key = (long) textureId << 2 | alpha.ordinal();
+                    PBRVertexWriter writer = writers.get(key);
+                    if (writer != null) {
+                        return writer;
+                    }
+                    if (used[0] == EXTERNAL_WRITERS.size()) {
+                        EXTERNAL_WRITERS.add(new PBRVertexWriter(1024));
+                    }
+                    writer = EXTERNAL_WRITERS.get(used[0]++);
+                    writer.reset();
+                    writer.textureId(textureId)
+                        .glintTextureId(0)
+                        .alphaMode(switch (alpha) {
+                            case OPAQUE -> PBRVertexWriter.ALPHA_MODE_OPAQUE;
+                            case CUTOUT -> PBRVertexWriter.ALPHA_MODE_CUTOUT;
+                            case TRANSLUCENT -> PBRVertexWriter.ALPHA_MODE_TRANSPARENT;
+                        })
+                        .coordinate(NativeGeometry.COORDINATE_WORLD)
+                        .albedoEmission(0.0f)
+                        .overlayEnabled(false)
+                        .computeQuadNormals(true);
+                    writers.put(key, writer);
+                    // Only what is opaque all over may be solid geometry; see RenderTypeInfo.geometryType.
+                    geometryTypes.put(key, alpha == com.g2806.radiante.api.RadianteGeometry.Alpha.OPAQUE
+                        ? NativeGeometry.GEOMETRY_TYPE_WORLD_SOLID : NativeGeometry.GEOMETRY_TYPE_WORLD_TRANSPARENT);
+                    return writer;
+                }
+            };
+            try {
+                provider.getValue().provide(sink);
+            } catch (RuntimeException e) {
+                // Another mod's mistake costs its own geometry for the frame, not the frame.
+                continue;
+            }
+
+            List<PendingLayer> layers = new ArrayList<>();
+            for (Map.Entry<Long, PBRVertexWriter> entry : writers.entrySet()) {
+                PBRVertexWriter writer = entry.getValue();
+                writer.finish();
+                if (writer.vertexCount() == 0 || writer.vertexCount() % 4 != 0) {
+                    continue;
+                }
+                layers.add(new PendingLayer(geometryTypes.get(entry.getKey()), (int) (entry.getKey() >> 2),
+                    writer.vertexCount(), copyVertices(writer), "Entity"));
+            }
+            if (!layers.isEmpty()) {
+                PENDING.add(new PendingEntity(provider.getKey().hashCode() ^ EXTERNAL_ID_SALT, camera.x(), camera.y(),
+                    camera.z(), RAY_TRACING_WORLD, layers));
+            }
+        }
+    }
+
+    private static final int EXTERNAL_ID_SALT = 0x65787467;
 
     /**
      * Rain and snow: the same sheets vanilla draws, built from the columns Minecraft already extracted. They go in

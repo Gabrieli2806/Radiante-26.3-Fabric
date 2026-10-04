@@ -85,6 +85,9 @@ public class RadianteOptionsScreen extends Screen {
     /** Reset to Defaults was pressed: the stored pipeline and shader pack settings go too, on apply. */
     private boolean forgetStoredSettings;
 
+    /** Advanced options changed and not applied yet, by AdvancedOptions.key; shared by the screens of one visit. */
+    private java.util.Map<String, String> pendingAdvanced = new java.util.HashMap<>();
+
     /**
      * Plain options (Options fields) changed on this screen, by field name, held until Apply or Done like every other
      * choice here. Written straight to Options they took effect while the screen was still open.
@@ -137,6 +140,7 @@ public class RadianteOptionsScreen extends Screen {
         super(TITLE);
         this.lastScreen = lastScreen;
         this.options = options;
+        SettingsLayout.clearFocus();
     }
 
     /** Carries every choice made so far into a fresh screen. */
@@ -149,6 +153,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingUpscalerMode = previous.pendingUpscalerMode;
         this.pendingRenderScale = previous.pendingRenderScale;
         this.pendingCustomScale = previous.pendingCustomScale;
+        this.pendingAdvanced = previous.pendingAdvanced;
         this.pendingFarBounceDistance = previous.pendingFarBounceDistance;
         this.pendingFarBounces = previous.pendingFarBounces;
         this.pendingGeneratedFrames = previous.pendingGeneratedFrames;
@@ -336,6 +341,9 @@ public class RadianteOptionsScreen extends Screen {
         return screen;
     }
 
+    /** The Pipeline row: Install and Delete for its upscaler show at the bottom once it was clicked. */
+    private static final String PIPELINE_OPTION_KEY = "options.radiante.preset";
+
     private SettingsLayout.Extra upscalerFooterButton() {
         Presets shown = this.shownPreset != null ? this.shownPreset : this.pendingPreset;
         UpscalerDownloads.Component component = shown == null ? null : downloadFor(shown);
@@ -350,12 +358,12 @@ public class RadianteOptionsScreen extends Screen {
         var progress = UpscalerDownloads.running(component);
         if (progress != null && !progress.finished) {
             return new SettingsLayout.Extra(Component.translatable("options.radiante.download.button.downloading",
-                name, Math.round(progress.fraction() * 100.0f)), null, () -> openUpscalerScreen(component), true);
+                name, Math.round(progress.fraction() * 100.0f)), null, () -> openUpscalerScreen(component), true, null);
         }
         if (!UpscalerDownloads.isInstalled(component)) {
             return new SettingsLayout.Extra(Component.translatable("options.radiante.download.button.install", name,
                 Math.round(component.downloadBytes / 1_000_000.0)),
-                manageTooltip, () -> openUpscalerScreen(component), !inWorld);
+                manageTooltip, () -> openUpscalerScreen(component), !inWorld, PIPELINE_OPTION_KEY);
         }
         if (!Pipeline.isPresetAvailable(shown.key)) {
             return new SettingsLayout.Extra(Component.translatable("options.radiante.download.button.restart", name),
@@ -363,10 +371,10 @@ public class RadianteOptionsScreen extends Screen {
                     this.applied = true;
                     this.minecraft.gui.setScreen(new RestartRequiredScreen(new RadianteOptionsScreen(this),
                         List.of(Component.literal(name))));
-                }, true);
+                }, true, null);
         }
         return new SettingsLayout.Extra(Component.translatable("options.radiante.download.button.delete", name),
-            manageTooltip, () -> openUpscalerScreen(component), !inWorld);
+            manageTooltip, () -> openUpscalerScreen(component), !inWorld, PIPELINE_OPTION_KEY);
     }
 
     /** Downloads, deletes or reports on an upscaler, coming back to these settings afterwards. */
@@ -767,6 +775,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingUpscalerMode = upscalerModes() == null ? null : upscalerModes().get(0);
         this.pendingCustomScale = false;
         this.pendingRenderScale = null;
+        this.pendingAdvanced.clear();
         this.pendingFarBounceDistance = this.pendingFarBounceDistance == null ? null : 0;
         this.pendingFarBounces = this.pendingFarBounces == null ? null : 1;
         if (this.pendingTunables != null) {
@@ -893,7 +902,8 @@ public class RadianteOptionsScreen extends Screen {
                 case PERFORMANCE -> addPerformanceOptions();
                 case OTHER -> addOtherOptions();
             }
-            this.sections.add(new SettingsLayout.Section(section, List.copyOf(this.page)));
+            this.sections.add(new SettingsLayout.Section(section, List.copyOf(this.page),
+                AdvancedOptions.groups(section, this.pendingAdvanced)));
         }
     }
 
@@ -1238,6 +1248,13 @@ public class RadianteOptionsScreen extends Screen {
                     Screen last = this.lastScreen;
                     this.minecraft.gui.setScreen(new ShareSettingsScreen(this,
                         () -> new RadianteOptionsScreen(last, this.options)));
+                },
+                Options.advancedSettings,
+                () -> {
+                    // Only what is shown changes: advanced values stay as they are, visible or not.
+                    Options.advancedSettings = !Options.advancedSettings;
+                    Options.overwriteConfig();
+                    reopenWithSameChoices();
                 }),
             value -> this.scroll = value);
         this.layout.restartInfo(new SettingsLayout.RestartInfo() {
@@ -1428,6 +1445,11 @@ public class RadianteOptionsScreen extends Screen {
         if (this.pendingUpscalerMode != null && upscalerModes() != null) {
             rebuild |= Pipeline.setModuleValue(upscalerModule(), upscalerAttribute(), this.pendingUpscalerMode);
         }
+        for (java.util.Map.Entry<String, String> advanced : this.pendingAdvanced.entrySet()) {
+            String[] target = advanced.getKey().split("\n", 2);
+            rebuild |= Pipeline.setModuleValue(target[0], target[1], advanced.getValue());
+        }
+        this.pendingAdvanced.clear();
         String[] renderScale = renderScaleTarget();
         if (this.pendingRenderScale != null && renderScale != null) {
             rebuild |= Pipeline.setModuleValue(renderScale[0], renderScale[1],
