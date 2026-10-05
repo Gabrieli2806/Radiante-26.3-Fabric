@@ -147,6 +147,10 @@ vec3 applyNormalMapToBasis(vec3 matNormal,
 /** The hit being shaded is glass or a glass pane (set by main from the vertex flag). */
 bool g_hitIsGlass = false;
 
+#ifndef VPT_GLASS_REFLECTION
+#    define VPT_GLASS_REFLECTION 1.0
+#endif
+
 void sampleSurfaceState(bool useTexture,
                         uint textureID,
                         TextureMapEntry textureMap,
@@ -900,8 +904,12 @@ void main() {
         if (rayInWater(mainRay)) {
             vec3 waterTransmittance;
             vec3 waterScatter;
-            waterMediumSegment(gl_HitTEXT, waterMediumBounceDensity(bounce), waterTransmittance, waterScatter);
-            float waterAmbient = max(waterMediumBounceAmbient(bounce), 0.0);
+            // A ray that reached the water through a window is the camera's view of it as much as one that came
+            // straight down from the air: counted by bounces it passed for light filling the water, and a tank
+            // behind glass glowed with the open sky along every long sight line through it.
+            uint mediumBounce = mainRay.pad0 == RAY_VIEW_BOUNCE_MARK || rayCameraPath(mainRay) ? min(bounce, 1u) : bounce;
+            waterMediumSegment(gl_HitTEXT, waterMediumBounceDensity(mediumBounce), waterTransmittance, waterScatter);
+            float waterAmbient = max(waterMediumBounceAmbient(mediumBounce), 0.0);
             if (waterAmbient > 0.0) {
                 // Some light still reaches under an overhang sideways through the water around it.
                 waterAmbient *= mix(0.35, 1.0,
@@ -1017,9 +1025,12 @@ void main() {
                 // Only the sky above reflects: what the glass reflects below the horizon is the ground, not the bright
                 // haze at the bottom of the sky.
                 vec3 reflected = reflect(incident, baseGeoNormal);
-                vec3 skyReflection = texture(skyFull, normalize(vec3(reflected.x, max(reflected.y, 0.05), reflected.z))).rgb *
+                // And the sky well above the horizon at that: a level view reflects level, and the haze along the
+                // horizon is the brightest stretch of the whole sky - it lay as a pale band at eye height across
+                // every window, over whatever was behind the glass.
+                vec3 skyReflection = texture(skyFull, normalize(vec3(reflected.x, max(reflected.y, 0.45), reflected.z))).rgb *
                                      smoothstep(-0.3, 0.1, reflected.y);
-                mainRay.radiance += mainRay.throughput * fresnel * skyReflection;
+                mainRay.radiance += mainRay.throughput * fresnel * skyReflection * clamp(VPT_GLASS_REFLECTION, 0.0, 1.0);
                 vec3 filterColour = glassTint(glassTexel.rgb * colorLayer, glassAlpha);
                 // Dark (tinted) glass shows its own texture lit by the sky, as a dark pane does, not only a dimmed view.
                 float tintedness = glassDarkness(glassTexel.rgb * colorLayer);

@@ -182,6 +182,10 @@ bool rayBlockLightSampled(MainRay ray) {
     return (ray.stateBits & rayBlockLightSampledBit) != 0u;
 }
 
+// Put in a ray's pad0 before it is traced, for the miss shader (hits write their own data there): the ray is what
+// the camera sees off or through a surface - a reflection, a refraction - and not light gathered for one.
+const uint RAY_VIEW_BOUNCE_MARK = 1u;
+
 uint rayLobeType(MainRay ray) {
     return (ray.stateBits & rayLobeMask) >> rayLobeShift;
 }

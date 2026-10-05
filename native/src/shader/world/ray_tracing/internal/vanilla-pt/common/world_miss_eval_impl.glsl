@@ -261,7 +261,12 @@ void main() {
     // The sky lighting the world (every bounce after the first): Bedrock RTX's shade under a building is lit well
     // by the open sky around it, not left in deep shadow.
     // The camera's own ray, seen through glass or a sheet of water, is still the sky the camera sees, not light.
-    if (rayBounce(mainRay) > 0u && !rayCameraPath(mainRay) && worldUBO.skyType == 1) { backgroundRadiance *= max(VPT_SKY_LIGHT_BOOST, 0.0); }
+    // Nor is the sky mirrored in a window or on water: boosted like the light, every pane facing the open sky
+    // showed it nearly twice as bright as the sky itself, a pale band over whatever was behind the glass.
+    if (rayBounce(mainRay) > 0u && !rayCameraPath(mainRay) && worldUBO.skyType == 1 &&
+        mainRay.pad0 != RAY_VIEW_BOUNCE_MARK) {
+        backgroundRadiance *= max(VPT_SKY_LIGHT_BOOST, 0.0);
+    }
     mainRay.radiance += backgroundRadiance * mainRay.throughput;
     raySetStop(mainRay, true);
     mainRay.hitT = INF_DISTANCE;

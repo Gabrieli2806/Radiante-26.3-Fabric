@@ -313,7 +313,7 @@ public final class DevAutomation {
             String[] xy = action.substring(6).split(",");
             if (minecraft.gui.screen() != null) {
                 var event = new net.minecraft.client.input.MouseButtonEvent(Double.parseDouble(xy[0]),
-                    Double.parseDouble(xy[1]), new net.minecraft.client.input.MouseButtonInfo(0, 0));
+                    Double.parseDouble(xy[1]), new net.minecraft.client.input.MouseButtonInfo(1, 0));
                 minecraft.gui.screen().mouseClicked(event, false);
                 minecraft.gui.screen().mouseReleased(event);
                 RadianteClient.LOGGER.info("[dev] click {} on {}", action.substring(6),

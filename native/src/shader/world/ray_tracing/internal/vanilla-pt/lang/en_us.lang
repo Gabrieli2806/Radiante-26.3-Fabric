@@ -46,6 +46,7 @@ render_pipeline.module.ray_tracing.attribute.biome_fog_scattering=Biome Fog Scat
 render_pipeline.module.ray_tracing.attribute.biome_fog_forward=Biome Fog Sun Glow
 render_pipeline.module.ray_tracing.attribute.bedrock_atmosphere=Bedrock Style Atmosphere
 render_pipeline.module.ray_tracing.attribute.bedrock_sky_intensity=Bedrock Sky Intensity
+render_pipeline.module.ray_tracing.attribute.glass_reflection=Glass Reflections
 render_pipeline.module.ray_tracing.attribute.sun_glow=Sun Glow
 render_pipeline.module.ray_tracing.attribute.sun_glow_width=Sun Glow Width
 render_pipeline.module.ray_tracing.attribute.water_density=Water Density

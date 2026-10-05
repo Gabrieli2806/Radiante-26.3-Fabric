@@ -1131,7 +1131,7 @@ public class RadianteOptionsScreen extends Screen {
         OptionInstance<Integer> farBounces = this.pendingFarBounces == null ? null
             : slider("options.radiante.far_bounces", 1, 4, this.pendingFarBounces,
                 value -> this.pendingFarBounces = value);
-        addRows(bounces, tunable(Tunable.MIRROR_BOUNCES, false),
+        addRows(bounces, tunable(Tunable.MIRROR_BOUNCES, false), tunable(Tunable.GLASS_REFLECTIONS, false),
             packToggle(Pipeline.CACHE_DEEP_BOUNCES_ATTRIBUTE, "options.radiante.cache_deep_bounces"),
             parallax, farDistance, farBounces, fogSamples,
             OptionInstance.createBoolean("options.radiante.chunk_building_auto",

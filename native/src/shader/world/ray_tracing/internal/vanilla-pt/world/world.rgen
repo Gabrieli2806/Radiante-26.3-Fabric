@@ -1071,15 +1071,22 @@ void traceSecondary(inout MainRay rayState,
     // two mirrors facing each other used up the few bounces in the first reflections, and the mirror seen inside the
     // mirror came out black.
     int extraBounces = 0;
+    bool viewChain = false;
     int budget = bounceBudget(rayState.origin);
     for (int b = startBounce; b < budget + extraBounces; b++) {
         if (rayShouldStop(rayState)) break;
 
         uint mask;
         float len;
-        uint firstBounceLobeType = b == startBounce ? rayLobeType(rayState) : 0u;
+        uint leavingLobeType = rayLobeType(rayState);
+        uint firstBounceLobeType = b == startBounce ? leavingLobeType : 0u;
+        // Still what the camera sees, off or through one mirror-like surface after another: a window, then the
+        // water behind it. It ends at the first surface the ray scatters from.
+        viewChain = (b == startBounce || viewChain) && leavingLobeType != 0u;
         resetMainRay(rayState, b);
         prepareSecondary(b, isHand, len, mask);
+        // What such a ray ends in is seen, not gathered as light; see the miss shader and the water medium.
+        if (viewChain) { rayState.pad0 = RAY_VIEW_BOUNCE_MARK; }
 
         vec3 tracedOrigin = rayState.origin;
         vec3 tracedDirection = rayState.direction;

@@ -324,6 +324,12 @@
             "define": "VPT_FAR_BOUNCES"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.glass_reflection",
+            "type": "float_range:0.0-1.0",
+            "default_value": "0.5",
+            "define": "VPT_GLASS_REFLECTION"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.sun_glow",
             "type": "float_range:0.0-1.0",
             "default_value": "0.08",

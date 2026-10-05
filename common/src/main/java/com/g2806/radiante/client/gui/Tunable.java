@@ -43,6 +43,9 @@ enum Tunable {
     // Reflections inside reflections allowed on top of the light bounces.
     MIRROR_BOUNCES(null, "render_pipeline.module.ray_tracing.attribute.mirror_extra_bounces", 1.0, 0, 64, 8,
         Format.NUMBER),
+    // How much of the sky a window shows on top of what is behind it.
+    GLASS_REFLECTIONS(null, "render_pipeline.module.ray_tracing.attribute.glass_reflection", 0.005, 0, 200, 100,
+        Format.PERCENT),
     STARS(Pipeline.POST_RENDER_MODULE_NAME, "render_pipeline.module.post_render.attribute.star_count", 100.0, 1, 200,
         30, Format.NUMBER),
     BOUNCE_LIGHT(null, "render_pipeline.module.ray_tracing.attribute.bounce_light_boost", 0.01, 50, 200, 150,
