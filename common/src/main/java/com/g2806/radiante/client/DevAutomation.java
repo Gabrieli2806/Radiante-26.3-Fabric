@@ -322,6 +322,14 @@ public final class DevAutomation {
         } else if (action.startsWith("rd=")) {
             minecraft.options.renderDistance().set(Integer.parseInt(action.substring(3)));
             RadianteClient.LOGGER.info("[dev] render distance {}", action.substring(3));
+        } else if (action.startsWith("profile=")) {
+            // profile=<DEFAULT|BEDROCK_RTX|RADIANTE_ENHANCED>: applies a renderer profile and rebuilds at once.
+            var profile = com.g2806.radiante.client.profile.RendererProfile.of(action.substring(8));
+            boolean rebuild = profile.apply();
+            if (rebuild) {
+                com.g2806.radiante.client.pipeline.Pipeline.build();
+            }
+            RadianteClient.LOGGER.info("[dev] profile {} rebuilt {}", profile, rebuild);
         } else if (action.startsWith("pipe=")) {
             // pipe=dlss:<index> | fog:<bool> | clouds:<index> - shader pack settings, rebuilt at once, for benchmarks.
             String[] parts = action.substring(5).split(":", 2);
@@ -404,6 +412,12 @@ public final class DevAutomation {
             String levelId = action.substring(5);
             minecraft.createWorldOpenFlows().openWorld(levelId, () -> RadianteClient.LOGGER.info("[dev] join failed"));
             RadianteClient.LOGGER.info("[dev] join {}", levelId);
+        } else if (action.startsWith("hud=")) {
+            // hud=false hides the whole interface (F1), for captures that are compared pixel for pixel.
+            if (minecraft.gui.hud.isHidden() == Boolean.parseBoolean(action.substring(4))) {
+                minecraft.gui.hud.toggle();
+            }
+            RadianteClient.LOGGER.info("[dev] hud {}", action.substring(4));
         } else if (action.startsWith("fov=")) {
             minecraft.options.fov().set(Integer.parseInt(action.substring(4)));
             RadianteClient.LOGGER.info("[dev] fov {}", action.substring(4));

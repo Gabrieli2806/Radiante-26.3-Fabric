@@ -41,6 +41,8 @@ int parseToneMappingMethodValue(const std::string &value, int fallback) {
     if (value == "render_pipeline.module.tone_mapping.attribute.method.aces_white_point")
         return TONE_MAPPING_METHOD_ACES_FITTED_WHITE_POINT;
     if (value == "render_pipeline.module.tone_mapping.attribute.method.uncharted2") return TONE_MAPPING_METHOD_UNCHARTED2;
+    if (value == "render_pipeline.module.tone_mapping.attribute.method.bedrock_provisional")
+        return TONE_MAPPING_METHOD_BEDROCK_PROVISIONAL;
     return fallback;
 }
 
@@ -142,6 +144,36 @@ void ToneMappingModule::setAttributes(int attributeCount, std::vector<std::strin
             if (tryParseFloat(value, floatValue)) centerMeteringPercent_ = std::clamp(floatValue, 1.0f, 100.0f);
         } else if (key == "render_pipeline.module.tone_mapping.attribute.exposure_adaptation") {
             if (tryParseFloat(value, floatValue)) adaptation_ = std::clamp(floatValue, 0.0f, 1.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.bloom_enable") {
+            bloomEnabled_ = parseBoolValue(value, bloomEnabled_);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.bloom_intensity") {
+            if (tryParseFloat(value, floatValue)) bloomIntensity_ = std::clamp(floatValue, 0.0f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.bloom_scatter") {
+            if (tryParseFloat(value, floatValue)) bloomScatter_ = std::clamp(floatValue, 0.0f, 1.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.bloom_threshold") {
+            if (tryParseFloat(value, floatValue)) bloomThreshold_ = std::clamp(floatValue, 0.0f, 64.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.bloom_weight_1") {
+            if (tryParseFloat(value, floatValue)) bloomWeights_[0] = std::clamp(floatValue, 0.0f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.bloom_weight_2") {
+            if (tryParseFloat(value, floatValue)) bloomWeights_[1] = std::clamp(floatValue, 0.0f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.bloom_weight_3") {
+            if (tryParseFloat(value, floatValue)) bloomWeights_[2] = std::clamp(floatValue, 0.0f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.bloom_weight_4") {
+            if (tryParseFloat(value, floatValue)) bloomWeights_[3] = std::clamp(floatValue, 0.0f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.contrast") {
+            if (tryParseFloat(value, floatValue)) contrast_ = std::clamp(floatValue, 0.25f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.shadow_contrast") {
+            if (tryParseFloat(value, floatValue)) shadowContrast_ = std::clamp(floatValue, -2.0f, 2.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.shadow_contrast_end") {
+            if (tryParseFloat(value, floatValue)) shadowContrastEnd_ = std::clamp(floatValue, 1e-3f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.gamma") {
+            if (tryParseFloat(value, floatValue)) gamma_ = std::clamp(floatValue, 1.0f, 3.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.color_balance_r") {
+            if (tryParseFloat(value, floatValue)) colorBalance_[0] = std::clamp(floatValue, 0.0f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.color_balance_g") {
+            if (tryParseFloat(value, floatValue)) colorBalance_[1] = std::clamp(floatValue, 0.0f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.color_balance_b") {
+            if (tryParseFloat(value, floatValue)) colorBalance_[2] = std::clamp(floatValue, 0.0f, 4.0f);
         }
     }
 }
@@ -157,6 +189,7 @@ void ToneMappingModule::build() {
     initRenderPass();
     initFrameBuffers();
     initPipeline();
+    initBloom();
 
     contexts_.resize(size);
 
@@ -206,6 +239,12 @@ void ToneMappingModule::initDescriptorTables() {
                                        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                                        .descriptorCount = 1,
                                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                                   })
+                                   .defineDescriptorLayoutSetBinding({
+                                       .binding = 3, // the bloom pyramid's result
+                                       .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                       .descriptorCount = 1,
+                                       .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                    })
                                    .endDescriptorLayoutSetBinding()
                                    .endDescriptorLayoutSet()
@@ -360,6 +399,246 @@ void ToneMappingModule::initPipeline() {
                     .build(device);
 }
 
+// Bloom. What is Bedrock structure and what is a placeholder is written down in
+// docs/bedrock-rtx-compat/BLOOM_AND_TONEMAPPING.md.
+void ToneMappingModule::initBloom() {
+    auto framework = framework_.lock();
+    auto device = framework->device();
+    auto vma = framework->vma();
+    uint32_t frames = framework->swapchain()->imageCount();
+
+    if (!bloomEnabled_) {
+        // Nothing is rendered; the slot still has to point at a valid image, and the intensity pushed is 0. The
+        // tone mapping sampler does for that, so bloom off creates no sampler of its own.
+        for (uint32_t i = 0; i < frames; i++) {
+            descriptorTables_[i]->bindSamplerImageForShader(samplers_[i], hdrImages_[i], 0, 3);
+        }
+        return;
+    }
+
+    bloomSampler_ = vk::Sampler::create(device, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
+                                        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+
+    constexpr VkFormat bloomFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+    auto levelSize = [&](uint32_t level) {
+        return VkExtent2D{std::max(1u, width_ >> (level + 1)), std::max(1u, height_ >> (level + 1))};
+    };
+
+    bloomRenderPass_ = vk::RenderPassBuilder{}
+                           .beginAttachmentDescription()
+                           .defineAttachmentDescription({
+                               .format = bloomFormat,
+                               .samples = VK_SAMPLE_COUNT_1_BIT,
+                               .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                               .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                               .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                               .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                               .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                               .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                           })
+                           .endAttachmentDescription()
+                           .beginAttachmentReference()
+                           .defineAttachmentReference({
+                               .attachment = 0,
+                               .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                           })
+                           .endAttachmentReference()
+                           .beginSubpassDescription()
+                           .defineSubpassDescription({
+                               .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+                               .colorAttachmentIndices = {0},
+                           })
+                           .endSubpassDescription()
+                           .build(device);
+
+    std::filesystem::path shaderPath = Renderer::folderPath / "shaders";
+    bloomDownShader_ = vk::Shader::create(device, (shaderPath / "world/tone_mapping/bloom_down_frag.spv").string());
+    bloomUpShader_ = vk::Shader::create(device, (shaderPath / "world/tone_mapping/bloom_up_frag.spv").string());
+
+    bloomDownImages_.assign(frames, std::vector<std::shared_ptr<vk::DeviceLocalImage>>(BLOOM_DOWN_LEVELS));
+    bloomUpImages_.assign(frames, std::vector<std::shared_ptr<vk::DeviceLocalImage>>(BLOOM_UP_LEVELS));
+    bloomTables_.assign(frames, std::vector<std::shared_ptr<vk::DescriptorTable>>(BLOOM_PASSES));
+    bloomFramebuffers_.assign(frames, std::vector<std::shared_ptr<vk::Framebuffer>>(BLOOM_PASSES));
+    bloomPipelines_.assign(BLOOM_PASSES, nullptr);
+
+    constexpr VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    for (uint32_t frame = 0; frame < frames; frame++) {
+        for (uint32_t level = 0; level < BLOOM_DOWN_LEVELS; level++) {
+            VkExtent2D e = levelSize(level);
+            bloomDownImages_[frame][level] =
+                vk::DeviceLocalImage::create(device, vma, false, e.width, e.height, 1, bloomFormat, usage);
+        }
+        for (uint32_t level = 0; level < BLOOM_UP_LEVELS; level++) {
+            VkExtent2D e = levelSize(level);
+            bloomUpImages_[frame][level] =
+                vk::DeviceLocalImage::create(device, vma, false, e.width, e.height, 1, bloomFormat, usage);
+        }
+
+        for (uint32_t pass = 0; pass < BLOOM_PASSES; pass++) {
+            std::shared_ptr<vk::DeviceLocalImage> srcA, srcB, target;
+            if (pass == 0) {
+                srcA = srcB = hdrImages_[frame];
+                target = bloomDownImages_[frame][0];
+            } else if (pass < BLOOM_DOWN_LEVELS) {
+                srcA = srcB = bloomDownImages_[frame][pass - 1];
+                target = bloomDownImages_[frame][pass];
+            } else {
+                uint32_t up = pass - BLOOM_DOWN_LEVELS; // 0..3, producing level 3..0
+                uint32_t level = BLOOM_UP_LEVELS - 1 - up;
+                srcA = up == 0 ? bloomDownImages_[frame][BLOOM_DOWN_LEVELS - 1] : bloomUpImages_[frame][level + 1];
+                srcB = bloomDownImages_[frame][level];
+                target = bloomUpImages_[frame][level];
+            }
+
+            auto table = vk::DescriptorTableBuilder{}
+                             .beginDescriptorLayoutSet()
+                             .beginDescriptorLayoutSetBinding()
+                             .defineDescriptorLayoutSetBinding({
+                                 .binding = 0,
+                                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                 .descriptorCount = 1,
+                                 .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                             })
+                             .defineDescriptorLayoutSetBinding({
+                                 .binding = 1,
+                                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                 .descriptorCount = 1,
+                                 .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                             })
+                             .defineDescriptorLayoutSetBinding({
+                                 .binding = 2,
+                                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                 .descriptorCount = 1,
+                                 .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                             })
+                             .endDescriptorLayoutSetBinding()
+                             .endDescriptorLayoutSet()
+                             .definePushConstant(VkPushConstantRange{
+                                 .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                 .offset = 0,
+                                 .size = sizeof(ToneMappingBloomPushConstant),
+                             })
+                             .build(device);
+            table->bindSamplerImageForShader(bloomSampler_, srcA, 0, 0);
+            table->bindSamplerImageForShader(bloomSampler_, srcB, 0, 1);
+            table->bindBuffer(exposureData_, 0, 2);
+            bloomTables_[frame][pass] = table;
+
+            bloomFramebuffers_[frame][pass] =
+                vk::FramebufferBuilder{}.beginAttachment().defineAttachment(target).endAttachment().build(
+                    device, bloomRenderPass_);
+
+            if (frame == 0) {
+                VkExtent2D e = {target->width(), target->height()};
+                bloomPipelines_[pass] =
+                    vk::GraphicsPipelineBuilder{}
+                        .defineRenderPass(bloomRenderPass_, 0)
+                        .beginShaderStage()
+                        .defineShaderStage(vertShader_, VK_SHADER_STAGE_VERTEX_BIT)
+                        .defineShaderStage(pass < BLOOM_DOWN_LEVELS ? bloomDownShader_ : bloomUpShader_,
+                                           VK_SHADER_STAGE_FRAGMENT_BIT)
+                        .endShaderStage()
+                        .defineVertexInputState<void>()
+                        .defineViewportScissorState({
+                            .viewport = {.x = 0,
+                                         .y = 0,
+                                         .width = static_cast<float>(e.width),
+                                         .height = static_cast<float>(e.height),
+                                         .minDepth = 0.0,
+                                         .maxDepth = 1.0},
+                            .scissor = {.offset = {.x = 0, .y = 0}, .extent = e},
+                        })
+                        .defineDepthStencilState({
+                            .depthTestEnable = VK_FALSE,
+                            .depthWriteEnable = VK_FALSE,
+                            .depthCompareOp = VK_COMPARE_OP_ALWAYS,
+                            .depthBoundsTestEnable = VK_FALSE,
+                            .stencilTestEnable = VK_FALSE,
+                        })
+                        .beginColorBlendAttachmentState()
+                        .defineDefaultColorBlendAttachmentState()
+                        .endColorBlendAttachmentState()
+                        .definePipelineLayout(table)
+                        .build(device);
+            }
+        }
+
+        // The main tone mapping table reads the finest combined level.
+        descriptorTables_[frame]->bindSamplerImageForShader(bloomSampler_, bloomUpImages_[frame][0], 0, 3);
+    }
+}
+
+void ToneMappingModule::recordBloom(std::shared_ptr<vk::CommandBuffer> commandBuffer,
+                                    uint32_t frameIndex,
+                                    uint32_t queueFamily) {
+    auto transition = [&](const std::shared_ptr<vk::DeviceLocalImage> &image, VkImageLayout newLayout) {
+        VkImageLayout oldLayout = image->imageLayout();
+        bool fresh = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED;
+        commandBuffer->barriersBufferImage(
+            {}, {{
+                    .srcStageMask = fresh ? VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                    .srcAccessMask = fresh ? 0 : (VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT),
+                    .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                    .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                    .oldLayout = oldLayout,
+                    .newLayout = newLayout,
+                    .srcQueueFamilyIndex = queueFamily,
+                    .dstQueueFamilyIndex = queueFamily,
+                    .image = image,
+                    .subresourceRange = vk::wholeColorSubresourceRange,
+                }});
+        image->imageLayout() = newLayout;
+    };
+
+    for (uint32_t pass = 0; pass < BLOOM_PASSES; pass++) {
+        bool down = pass < BLOOM_DOWN_LEVELS;
+        std::shared_ptr<vk::DeviceLocalImage> source, target;
+        float weight = 1.0f;
+        if (pass == 0) {
+            source = hdrImages_[frameIndex];
+            target = bloomDownImages_[frameIndex][0];
+        } else if (down) {
+            source = bloomDownImages_[frameIndex][pass - 1];
+            target = bloomDownImages_[frameIndex][pass];
+        } else {
+            uint32_t up = pass - BLOOM_DOWN_LEVELS;
+            uint32_t level = BLOOM_UP_LEVELS - 1 - up;
+            source = up == 0 ? bloomDownImages_[frameIndex][BLOOM_DOWN_LEVELS - 1] : bloomUpImages_[frameIndex][level + 1];
+            target = bloomUpImages_[frameIndex][level];
+            weight = bloomWeights_[level];
+        }
+
+        transition(target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        ToneMappingBloomPushConstant pc{};
+        pc.srcTexelX = 1.0f / static_cast<float>(source->width());
+        pc.srcTexelY = 1.0f / static_cast<float>(source->height());
+        pc.firstPass = pass == 0 ? 1 : 0;
+        pc.autoExposure = isAutoExposureEnabled_ ? 1 : 0;
+        pc.manualExposure = std::max(manualExposure_, 1e-6f);
+        pc.exposureBias = exposureBias_;
+        pc.threshold = bloomThreshold_;
+        pc.scatter = bloomScatter_;
+        pc.weight = weight;
+
+        auto &table = bloomTables_[frameIndex][pass];
+        commandBuffer->beginRenderPass({
+            .renderPass = bloomRenderPass_,
+            .framebuffer = bloomFramebuffers_[frameIndex][pass],
+            .renderAreaExtent = {target->width(), target->height()},
+            .clearValues = {{.color = {0.0f, 0.0f, 0.0f, 1.0f}}},
+        });
+        vkCmdPushConstants(commandBuffer->vkCommandBuffer(), table->vkPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(ToneMappingBloomPushConstant), &pc);
+        commandBuffer->bindGraphicsPipeline(bloomPipelines_[pass])
+            ->bindDescriptorTable(table, VK_PIPELINE_BIND_POINT_GRAPHICS)
+            ->draw(3, 1)
+            ->endRenderPass();
+
+        transition(target, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+}
+
 ToneMappingModuleContext::ToneMappingModuleContext(std::shared_ptr<FrameworkContext> frameworkContext,
                                                    std::shared_ptr<WorldPipelineContext> worldPipelineContext,
                                                    std::shared_ptr<ToneMappingModule> toneMappingModule)
@@ -497,7 +776,7 @@ void ToneMappingModuleContext::render() {
     pc.whitePoint = std::max(module->whitePoint_, 1e-3f);
     pc.saturation = std::max(module->saturation_, 0.0f);
     pc.toneMappingMethod = std::clamp(module->toneMappingMethod_, static_cast<int>(TONE_MAPPING_METHOD_PBR_NEUTRAL),
-                                      static_cast<int>(TONE_MAPPING_METHOD_UNCHARTED2));
+                                      static_cast<int>(TONE_MAPPING_METHOD_BEDROCK_PROVISIONAL));
     pc.autoExposure = module->isAutoExposureEnabled_ ? 1 : 0;
     pc.clampOutput = module->shouldClampOutput_ ? 1 : 0;
     pc.exposureMeteringMode =
@@ -505,6 +784,14 @@ void ToneMappingModuleContext::render() {
                    static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_CENTER));
     pc.centerMeteringPercent = sanitizedCenterMeteringPercent;
     pc.adaptation = std::clamp(module->adaptation_, 0.0f, 1.0f);
+    pc.bloomIntensity = module->bloomEnabled_ ? module->bloomIntensity_ : 0.0f;
+    pc.contrast = module->contrast_;
+    pc.shadowContrast = module->shadowContrast_;
+    pc.shadowContrastEnd = module->shadowContrastEnd_;
+    pc.gamma = module->gamma_;
+    pc.balanceR = module->colorBalance_[0];
+    pc.balanceG = module->colorBalance_[1];
+    pc.balanceB = module->colorBalance_[2];
 
     vkCmdPushConstants(worldCommandBuffer->vkCommandBuffer(), descriptorTable->vkPipelineLayout(),
                        VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
@@ -545,6 +832,15 @@ void ToneMappingModuleContext::render() {
             .buffer = module->exposureData_,
         }},
         {});
+
+    if (module->bloomEnabled_) {
+        module->recordBloom(worldCommandBuffer, context->frameIndex, mainQueueIndex);
+        // The bloom passes bound a pipeline layout of their own; push the tone mapping constants again so the draw
+        // below does not depend on what that did to them.
+        vkCmdPushConstants(worldCommandBuffer->vkCommandBuffer(), descriptorTable->vkPipelineLayout(),
+                           VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(ToneMappingModulePushConstant), &pc);
+    }
 
     worldCommandBuffer->beginRenderPass({
         .renderPass = module->renderPass_,

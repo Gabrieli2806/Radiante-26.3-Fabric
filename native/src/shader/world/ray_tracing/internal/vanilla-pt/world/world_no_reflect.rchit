@@ -157,11 +157,11 @@ void main() {
     glint = glint * glint;
 
     bool useOverlay = hasOverlay(m0.packedData);
-    vec3 tint = albedoValue.rgb * colorLayer + glint;
+    vec3 tint = vptSurfaceColour(albedoValue.rgb * colorLayer) + glint;
     if (useOverlay) {
         ivec2 overlayUV = m0.overlayUV;
         vec4 overlayColor = sampleTexture(textures[nonuniformEXT(worldUBO.overlayTextureID)], overlayUV, 0, false);
-        tint = mix(overlayColor.rgb, albedoValue.rgb * colorLayer, overlayColor.a) + glint;
+        tint = mix(overlayColor.rgb, vptSurfaceColour(albedoValue.rgb * colorLayer), overlayColor.a) + glint;
     }
 
     albedoValue = vec4(tint, albedoValue.a);

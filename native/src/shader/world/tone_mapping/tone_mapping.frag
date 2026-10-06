@@ -5,6 +5,8 @@
 #include "common/shared.hpp"
 
 layout(set = 0, binding = 0) uniform sampler2D HDR;
+// The bloom pyramid's result at half size (or the HDR image again when bloom is off; bloomIntensity is 0 then).
+layout(set = 0, binding = 3) uniform sampler2D BloomTexture;
 
 layout(set = 0, binding = 2) readonly buffer ExposureBuffer {
     float exposure;
@@ -36,8 +38,16 @@ layout(push_constant) uniform PushConstant {
     int exposureMeteringMode;
     float centerMeteringPercent;
     float padding0;
-    float padding1;
-    float padding2;
+    // The Bedrock-style grade (docs/bedrock-rtx-compat/BLOOM_AND_TONEMAPPING.md). The neutral values (bloom 0,
+    // contrast 1, shadow contrast 0, gamma 2.2, balance 1) leave the picture exactly as it was before they existed.
+    float bloomIntensity;
+    float contrast;
+    float shadowContrast;
+    float shadowContrastEnd;
+    float gamma;
+    float balanceR;
+    float balanceG;
+    float balanceB;
 }
 pc;
 
@@ -107,8 +117,18 @@ vec3 uncharted2ToneMap(vec3 color, float whitePoint) {
     return mapped * whiteScale;
 }
 
+// THE tone curve of the Bedrock-style mapper, and the only place it lives. Bedrock builds its curve from a histogram
+// into a lookup table (gToneCurve) whose response has not been measured yet, so this is a PROVISIONAL stand-in: the
+// extended Reinhard curve, which is monotonic, passes through the middle and rolls highlights off smoothly. When the
+// reference captures identify the real response, replace the body of this function and nothing else.
+// Status: UNKNOWN (the curve), see docs/bedrock-rtx-compat/PARAMETER_STATUS.md.
+vec3 bedrockToneCurve(vec3 color, float whitePoint) {
+    return reinhardWhitePointToneMap(color, whitePoint);
+}
+
 vec3 applyToneMapping(vec3 color) {
     switch (pc.toneMappingMethod) {
+        case 6: return bedrockToneCurve(color, pc.whitePoint);
         case 1: return reinhardToneMap(color);
         case 2: return reinhardWhitePointToneMap(color, pc.whitePoint);
         case 3: return acesFittedToneMap(color);
@@ -124,6 +144,23 @@ vec3 applySaturation(vec3 color, float saturation) {
     return mix(vec3(luma), color, saturation);
 }
 
+// The controls Bedrock's tone mapping material exposes (gToneMappingColorBalance, gToneMappingContrast,
+// gToneMappingShadowContrast, gToneMappingShadowContrastEnd). Their names are VERIFIED from the material; what each
+// does here is INFERRED from the names and APPROXIMATE until measured. All are neutral at their defaults.
+vec3 applyBedrockGrade(vec3 color) {
+    color *= vec3(pc.balanceR, pc.balanceG, pc.balanceB);
+    if (pc.contrast != 1.0) {
+        // Contrast about middle grey, in linear light.
+        color = pc.middleGrey * pow(max(color, vec3(0.0)) / pc.middleGrey, vec3(pc.contrast));
+    }
+    if (pc.shadowContrast != 0.0 && pc.shadowContrastEnd > 0.0) {
+        // Deepens (positive) or lifts (negative) everything darker than shadowContrastEnd; continuous at the end.
+        float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+        color *= pow(clamp(luma / pc.shadowContrastEnd, 1e-3, 1.0), pc.shadowContrast);
+    }
+    return color;
+}
+
 void main() {
     vec3 hdr = texture(HDR, texCoord).rgb;
 
@@ -132,10 +169,12 @@ void main() {
     exposure *= exp2(pc.exposureBias);
 
     vec3 expColor = max(hdr * max(exposure, 0.0), vec3(0.0));
+    if (pc.bloomIntensity > 0.0) { expColor += max(texture(BloomTexture, texCoord).rgb, vec3(0.0)) * pc.bloomIntensity; }
+    expColor = applyBedrockGrade(expColor);
     vec3 mapped = applyToneMapping(expColor);
     mapped = max(mapped, vec3(0.0));
     mapped = max(applySaturation(mapped, max(pc.saturation, 0.0)), vec3(0.0));
-    mapped = pow(mapped, vec3(1.0 / 2.2));
+    mapped = pow(mapped, vec3(1.0 / max(pc.gamma, 1e-3)));
     if (pc.clampOutput != 0) mapped = clamp(mapped, vec3(0.0), vec3(1.0));
 
     fragColor = vec4(mapped, 1.0);

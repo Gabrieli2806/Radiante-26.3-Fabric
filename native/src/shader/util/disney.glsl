@@ -144,6 +144,30 @@ float DielectricFresnel(float cosThetaI, float eta) {
     return 0.5f * (rs * rs + rp * rp);
 }
 
+// Reflectance of a glass or water interface, for the camera-visible glass/water transport (not the microfacet lobes).
+//
+// Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (pass: PrimaryCheckerboardRayGenInline) for the shape;
+// INFERRED for deriving the critical-angle cosine from the two indices (Bedrock reads it from a table whose values
+// were not extracted). Schlick's approximation with the incidence cosine remapped so that it reaches 1 exactly at the
+// critical angle, which keeps total internal reflection continuous. With eta = n_incident / n_transmitted:
+//   F0 = ((1 - eta) / (1 + eta))^2,   cc = sqrt(1 - 1/eta^2) when eta > 1 (else 0)
+//   t  = clamp(1 + (cos - 1) / (1 - cc), 0, 1),   F = F0 + (1 - F0) * (1 - t)^5
+// Model 0 is the exact dielectric Fresnel Radiante has always used.
+#ifndef VPT_FRESNEL_MODEL
+#    define VPT_FRESNEL_MODEL 0
+#endif
+float vptInterfaceFresnel(float cosThetaI, float eta) {
+#if VPT_FRESNEL_MODEL != 0
+    float f0 = (1.0 - eta) / (1.0 + eta);
+    f0 *= f0;
+    float cosCritical = eta > 1.0 ? sqrt(max(1.0 - 1.0 / (eta * eta), 0.0)) : 0.0;
+    float t = clamp(1.0 + (cosThetaI - 1.0) / max(1.0 - cosCritical, 1e-4), 0.0, 1.0);
+    return clamp(f0 + (1.0 - f0) * pow(1.0 - t, 5.0), 0.0, 1.0);
+#else
+    return DielectricFresnel(cosThetaI, eta);
+#endif
+}
+
 vec3 CosineSampleHemisphere(float r1, float r2) {
     vec3 dir;
     float r = sqrt(r1);

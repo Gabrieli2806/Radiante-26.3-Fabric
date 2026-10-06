@@ -951,7 +951,8 @@ public class RadianteOptionsScreen extends Screen {
                     this.pendingToneMethod = value;
                     refreshQualityLater();
                 });
-        addRows(style, method, tunable(Tunable.SATURATION, true), tunable(Tunable.EXPOSURE_ADAPTATION, false),
+        addRows(style, method, tunable(Tunable.SATURATION, true), tunable(Tunable.TEXTURE_CONTRAST, false),
+            tunable(Tunable.EXPOSURE_ADAPTATION, false),
             tunable(Tunable.EXPOSURE_SPEED, false), tunable(Tunable.EXPOSURE_BIAS, false),
             tunable(Tunable.LOW_LIGHT_BOOST, false), tunable(Tunable.FSR_SHARPNESS, false));
         addHdrOptions();

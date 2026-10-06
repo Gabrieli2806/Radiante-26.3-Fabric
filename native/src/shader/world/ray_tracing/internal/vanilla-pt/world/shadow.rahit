@@ -57,6 +57,10 @@ indexBuffer;
 layout(location = 1) rayPayloadInEXT ShadowRay shadowRay;
 hitAttributeEXT vec2 attribs;
 
+#ifndef VPT_SHADOW_TINT_MODEL
+#    define VPT_SHADOW_TINT_MODEL 0
+#endif
+
 void main() {
     if (VPT_LOD_COVERED(ubo)) {
         ignoreIntersectionEXT;
@@ -180,6 +184,18 @@ void main() {
             isWaterMaterial ? vec3(1.0) :
             mat.transmission > 0.0 ? clamp(glassTint(tint, alpha), vec3(0.0), vec3(1.0)) :
                                      clamp(mix(vec3(1.0), tint, alpha), vec3(0.0), vec3(1.0));
+#if VPT_SHADOW_TINT_MODEL != 0
+        // Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (passes: SunShadowRayGenInline and the bounce sun
+        // test of DiffuseRayGenCombinedInline; specification in docs/bedrock-rtx-compat/research/). Sunlight through a
+        // see-through surface is filtered by the colour of its texture as it is, not by its hue brought to full
+        // brightness, and by how little of the surface is opaque: the texture's alpha is first remapped so that
+        // the lower half of the range counts as clear, T = colour * (1 - saturate(2 alpha - 1)). The light is shadow
+        // once what is left carries almost nothing (the sum of its channels is at or under 0.01).
+        if (!isWaterMaterial) {
+            float opacity = clamp(alpha * 2.0 - 1.0, 0.0, 1.0);
+            shadowTransmission = clamp(tint * (1.0 - opacity), vec3(0.0), vec3(1.0));
+        }
+#endif
         // Sunlight reaching the bottom through the top of the water: absorbed on the way down, and gathered into
         // the moving caustic pattern the waves focus it into.
         if (isWaterMaterial) {
@@ -212,6 +228,13 @@ void main() {
             }
         }
         shadowRay.throughput *= shadowTransmission;
+#if VPT_SHADOW_TINT_MODEL != 0
+        if (dot(shadowRay.throughput, vec3(1.0)) <= 0.01) {
+            shadowRay.throughput = vec3(0.0);
+            terminateRayEXT;
+            return;
+        }
+#endif
         ignoreIntersectionEXT;
     } else {
         terminateRayEXT;

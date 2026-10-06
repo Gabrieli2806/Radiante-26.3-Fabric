@@ -330,6 +330,30 @@
             "define": "VPT_GLASS_REFLECTION"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.albedo_gamma",
+            "type": "float_range:1.0-2.4",
+            "default_value": "2.2",
+            "define": "VPT_ALBEDO_GAMMA"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.albedo_srgb_exact",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_ALBEDO_SRGB_EXACT"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_fresnel",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_FRESNEL_MODEL"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_shadow_tint",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_SHADOW_TINT_MODEL"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.sun_glow",
             "type": "float_range:0.0-1.0",
             "default_value": "0.08",

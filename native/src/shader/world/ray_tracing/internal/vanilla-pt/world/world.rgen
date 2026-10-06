@@ -195,6 +195,8 @@ const uint VPT_WORLD_NO_VOLUMETRIC_MISS_INDEX = 3u;
 // The colour of the glass (and sheets of water) the camera's ray passed straight through before what it shows; the
 // fog laid over the pixel afterwards lies mostly beyond that glass, so it is tinted by it as well.
 vec3 g_passThroughTint = vec3(1.0);
+// What that glass added on the way (its faint reflection of the sky, the streaks of a sheet of water).
+vec3 g_passThroughRadiance = vec3(0.0);
 
 void applyFog(vec3 radiance,
               float t,
@@ -927,6 +929,7 @@ void tracePrimary(vec3 eyePos,
         raySetCameraPath(rayState, cameraPath);
         // What the glass passed through so far lets through: the air past it is seen through it too.
         g_passThroughTint = rayState.throughput;
+        g_passThroughRadiance = rayState.radiance;
 
         float len;
         uint mask;
@@ -984,7 +987,7 @@ bool initTransparent(MainRay rayState,
     vec3 incident = normalize(incomingDirection);
     vec3 viewDir = -incident;
     float eta = dot(viewDir, normal) > 0.0 ? (1.0 / mat.ior) : mat.ior;
-    float fresnel = clamp(DielectricFresnel(abs(dot(viewDir, normal)), eta), 0.0, 1.0);
+    float fresnel = clamp(vptInterfaceFresnel(abs(dot(viewDir, normal)), eta), 0.0, 1.0);
 
     vec3 branchDirection = isReflection ? reflect(incident, normal) : refract(incident, normal, eta);
     if (dot(branchDirection, branchDirection) <= 1e-6) { return false; }
@@ -1006,7 +1009,9 @@ bool initTransparent(MainRay rayState,
     branchRay.origin = worldPos + (dot(branchDirection, normal) > 0.0 ? normal : -normal) * originBias;
     branchRay.direction = branchDirection;
     branchRay.radiance = vec3(0.0);
-    branchRay.throughput = branchThroughput;
+    // Seen through stained glass the water is coloured by it like everything else behind the pane. Starting the two
+    // branches afresh left ponds and the sea at full brightness in a view the glass had darkened.
+    branchRay.throughput = branchThroughput * clamp(g_passThroughTint, vec3(0.0), vec3(1.0));
     branchRay.hitT = 0.0;
     branchRay.seed = xxhash32(uvec3(rayState.seed, branchSalt, worldUBO.seed));
     raySetStop(branchRay, false);
@@ -1400,6 +1405,7 @@ void main() {
     FirstHitPayload worldFirstHit;
     tracePrimary(eyePos, orgDirection, rayFlags, 0, worldRay, worldFirstHit);
     vec3 worldPassThroughTint = g_passThroughTint;
+    vec3 worldPassThroughRadiance = g_passThroughRadiance;
 
 
     // Minecraft draws the hand with a fixed field of view of its own, so it keeps its size when the FOV setting
@@ -1417,16 +1423,19 @@ void main() {
     FirstHitPayload handFirstHit;
     tracePrimary(eyePos, handDirection, rayFlags, 1, handRay, handFirstHit);
     vec3 handPassThroughTint = g_passThroughTint;
+    vec3 handPassThroughRadiance = g_passThroughRadiance;
 
     int isHand = 0;
     FirstHitPayload selectedFirstHit = worldFirstHit;
     mainRay = worldRay;
     g_passThroughTint = worldPassThroughTint;
+    g_passThroughRadiance = worldPassThroughRadiance;
     if (handFirstHit.surfaceDepth != INF_DISTANCE) {
         isHand = 1;
         selectedFirstHit = handFirstHit;
         mainRay = handRay;
         g_passThroughTint = handPassThroughTint;
+        g_passThroughRadiance = handPassThroughRadiance;
     }
 
     bool hitSky = selectedFirstHit.hitSky;
@@ -1583,6 +1592,8 @@ void main() {
                         transparentReflectionRadiance = transparentReflectionRay.radiance;
                         hasTransparentReflection = true;
                     }
+                    // The two branches replace the ray's own radiance; what the glass in front added goes with them.
+                    transparentReflectionRadiance += g_passThroughRadiance;
 
                     MainRay transparentRefractionRay;
                     if (initTransparent(mainRay, firstHitMat, firstHitIncomingDirection, firstHitNormal,

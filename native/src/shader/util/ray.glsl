@@ -186,6 +186,29 @@ bool rayBlockLightSampled(MainRay ray) {
 // the camera sees off or through a surface - a reflection, a refraction - and not light gathered for one.
 const uint RAY_VIEW_BOUNCE_MARK = 1u;
 
+// Minecraft's textures and tints are stored for the screen (sRGB), not as how much light a surface returns. Lit as
+// they are stored, everything came out pale and flat: dark planks a light cream, grass a washed yellow-green, with
+// little difference between a dark block and a bright one. Raised to this power they are (close to) the linear
+// colour the lighting expects; 2.2 is the full conversion, 1.0 the stored value untouched.
+#ifndef VPT_ALBEDO_GAMMA
+#    define VPT_ALBEDO_GAMMA 2.2
+#endif
+// Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (pass: PrimaryCheckerboardRayGenInline). Bedrock RTX turns
+// the colour texture into linear light with the exact piecewise sRGB curve, not a power. Off by default (the power
+// above stays Radiante's own look); the Bedrock RTX profile switches it on.
+#ifndef VPT_ALBEDO_SRGB_EXACT
+#    define VPT_ALBEDO_SRGB_EXACT 0
+#endif
+vec3 vptSurfaceColour(vec3 stored) {
+    stored = max(stored, vec3(0.0));
+#if VPT_ALBEDO_SRGB_EXACT != 0
+    vec3 high = pow((stored + 0.055) / 1.055, vec3(2.4));
+    return mix(stored / 12.92, high, greaterThan(stored, vec3(0.04045)));
+#else
+    return pow(stored, vec3(VPT_ALBEDO_GAMMA));
+#endif
+}
+
 uint rayLobeType(MainRay ray) {
     return (ray.stateBits & rayLobeMask) >> rayLobeShift;
 }

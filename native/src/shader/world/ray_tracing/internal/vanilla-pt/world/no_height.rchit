@@ -199,10 +199,10 @@ void sampleSurfaceState(bool useTexture,
         }
     }
 
-    vec3 tint = albedoValue.rgb * colorLayer + glint;
+    vec3 tint = vptSurfaceColour(albedoValue.rgb * colorLayer) + glint;
     if (useOverlay) {
         vec4 overlayColor = sampleTexture(textures[nonuniformEXT(worldUBO.overlayTextureID)], overlayUV, 0, false);
-        tint = mix(overlayColor.rgb, albedoValue.rgb * colorLayer, overlayColor.a) + glint;
+        tint = mix(overlayColor.rgb, vptSurfaceColour(albedoValue.rgb * colorLayer), overlayColor.a) + glint;
     }
 
     albedoValue = vec4(tint, albedoValue.a);
@@ -1222,7 +1222,7 @@ void main() {
             vec3 waterNormal = currentSurface.shadingNormal;
             vec3 waterUpNormal = waterNormal.y >= 0.0 ? waterNormal : -waterNormal;
             float eta = dot(incident, waterUpNormal) < 0.0 ? (1.0 / currentSurface.mat.ior) : currentSurface.mat.ior;
-            float fresnel = clamp(DielectricFresnel(abs(dot(currentViewDir, waterNormal)), eta), 0.0, 1.0);
+            float fresnel = clamp(vptInterfaceFresnel(abs(dot(currentViewDir, waterNormal)), eta), 0.0, 1.0);
             vec3 refractionDir = refract(incident, waterNormal, eta);
             // Seen from under the water, the surface is let through everywhere with a light cyan tint and little
             // reflection, as in Bedrock RTX: physically only a circle overhead (Snell's window) shows the sky and

@@ -43,6 +43,9 @@ enum Tunable {
     // Reflections inside reflections allowed on top of the light bounces.
     MIRROR_BOUNCES(null, "render_pipeline.module.ray_tracing.attribute.mirror_extra_bounces", 1.0, 0, 64, 8,
         Format.NUMBER),
+    // How far the textures' stored colours are converted to linear light: 100% is the full conversion (2.2).
+    TEXTURE_CONTRAST(null, "render_pipeline.module.ray_tracing.attribute.albedo_gamma", 0.022, 46, 109, 100,
+        Format.PERCENT),
     // How much of the sky a window shows on top of what is behind it.
     GLASS_REFLECTIONS(null, "render_pipeline.module.ray_tracing.attribute.glass_reflection", 0.005, 0, 200, 100,
         Format.PERCENT),

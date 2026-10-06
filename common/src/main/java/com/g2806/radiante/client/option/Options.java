@@ -114,6 +114,9 @@ public class Options {
      */
     public static String cloudsBeforeDistantHorizons = "";
 
+    /** The renderer profile last applied (com.g2806.radiante.client.profile.RendererProfile), by name. */
+    public static String rendererProfile = "DEFAULT";
+
     /** The look and lighting settings back to a fresh install's; pipeline and restart-bound ones are the screen's. */
     public static void resetVisualDefaults() {
         blockLightSampling = true;
@@ -242,6 +245,7 @@ public class Options {
         bool("rayTracingEnabled", () -> rayTracingEnabled, v -> rayTracingEnabled = v),
         new Entry("cloudsBeforeDistantHorizons", () -> cloudsBeforeDistantHorizons,
             v -> cloudsBeforeDistantHorizons = v),
+        new Entry("rendererProfile", () -> rendererProfile, v -> rendererProfile = v),
         bool("useOpenGl", () -> useOpenGl, v -> useOpenGl = v),
         bool("frameGeneration", () -> frameGeneration, v -> frameGeneration = v),
         number("generatedFrames", () -> generatedFrames, v -> generatedFrames = v),

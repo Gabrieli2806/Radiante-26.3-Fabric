@@ -40,7 +40,7 @@ public final class BedrockPackConverter {
     /** Stored as the zip comment; a pack converted by another version of the converter is converted again. */
     /** Largest size a Bedrock texture set is converted at, in pixels per side; finer maps are averaged down to it. */
     private static final int MAX_DETAIL = 128;
-    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 11";
+    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 12";
     /** Resource pack format of Minecraft 26.3. */
     private static final int PACK_FORMAT = 97;
     /** Slope of normals built from a height map: height units per texel. */
@@ -61,6 +61,17 @@ public final class BedrockPackConverter {
      * ratio lands those at the top of LabPBR's range.
      */
     private static final int EMISSION_SCALE = 4;
+
+    /**
+     * Where the original MER(S) data of every converted texture is kept, one PNG per Java texture name at the
+     * authored resolution (a flat-value material is a 1 x 1 image), plus {@link #RAW_MER_INDEX}. Outside
+     * {@code textures/}, so the game's atlases do not pick them up as sprites. See {@link MaterialEncoding}.
+     */
+    public static final String RAW_MER_DIR = "assets/radiante/bedrock_mer/";
+    public static final String RAW_MER_INDEX = RAW_MER_DIR + "index.json";
+
+    /** The raw MER(S) textures written by the conversion in progress; conversions are serialised. */
+    private static JsonObject rawMerIndex = new JsonObject();
 
     private BedrockPackConverter() {
     }
@@ -126,6 +137,7 @@ public final class BedrockPackConverter {
     private static int convert(Path source, Path out, JsonObject textureMap) throws IOException {
         Path temp = out.resolveSibling(out.getFileName() + ".tmp");
         int converted = 0;
+        rawMerIndex = new JsonObject();
         try (ZipFile zip = new ZipFile(source.toFile());
              ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(temp))) {
             zos.setComment(CONVERTER_VERSION);
@@ -162,6 +174,13 @@ public final class BedrockPackConverter {
                 write(zos, "assets/minecraft/textures/block/grass_block_side.png",
                     png(grassSideBase(dirt, color(zip, root, "textures/blocks/grass_side"))));
             }
+
+            JsonObject rawIndex = new JsonObject();
+            rawIndex.addProperty("encoding", MaterialEncoding.BEDROCK_MER.name());
+            rawIndex.addProperty("channels", "R metalness, G emissive, B roughness, A subsurface (only when the "
+                + "texture's \"subsurface\" flag is true), all 0-255 as authored");
+            rawIndex.add("textures", rawMerIndex);
+            write(zos, RAW_MER_INDEX, rawIndex.toString().getBytes(StandardCharsets.UTF_8));
 
             byte[] fog = BedrockFog.convert(zip, root);
             if (fog != null) {
@@ -277,6 +296,7 @@ public final class BedrockPackConverter {
         }
 
         int[] merUniform = uniform(merSource);
+        keepRawMer(zos, javaName, mer, merUniform, hasSubsurface);
         if (mer != null || merUniform != null) {
             TgaReader.Image merImage = mer != null ? mer.averaged(width, heightPx) : null;
             int[] specular = new int[width * heightPx];
@@ -302,9 +322,60 @@ public final class BedrockPackConverter {
         if (normal != null) {
             write(zos, target + "_n.png", png(labPbrFromNormal(normal.averaged(width, heightPx))));
         } else if (height != null) {
+            if (!isGreyscale(height) && packedHeightWarnings++ < 5) {
+                RadianteClient.LOGGER.warn("Bedrock height map of {} is not greyscale: it may be the packed height "
+                    + "and edge-normal form, which is not decoded (it is read as a plain height), see "
+                    + "docs/bedrock-rtx-compat/MATERIAL_LOADER.md", bedrockPath);
+            }
             write(zos, target + "_n.png", png(labPbrFromHeight(height.averaged(width, heightPx))));
         }
         return true;
+    }
+
+    /** How many height maps that are not greyscale were reported; a pack of them would flood the log. */
+    private static int packedHeightWarnings;
+
+    /**
+     * True when the image carries one grey value per texel (red, green and blue equal), as every height map seen in
+     * Vanilla RTX and in Kelly's RTX pack does, even when stored as four channels. A map that is not is something
+     * else (Bedrock's engine also knows a height map packed together with edge normals); reading it as a height
+     * would give wrong normals, so the caller says so.
+     */
+    static boolean isGreyscale(TgaReader.Image image) {
+        for (int p : image.argb()) {
+            int r = p >> 16 & 0xFF;
+            int g = p >> 8 & 0xFF;
+            int b = p & 0xFF;
+            if (Math.abs(r - g) > 2 || Math.abs(g - b) > 2) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Keeps the texture's MER(S) data exactly as authored. The LabPBR maps made from it are approximations (emission
+     * is scaled and clamped, roughness and metalness are re-encoded); this copy is what a Bedrock-faithful profile
+     * must be able to read back.
+     */
+    private static void keepRawMer(ZipOutputStream zos, String javaName, TgaReader.Image mer, int[] uniform,
+        boolean subsurface) throws IOException {
+        TgaReader.Image raw;
+        JsonObject entry = new JsonObject();
+        if (mer != null) {
+            raw = mer;
+        } else if (uniform != null) {
+            int s = subsurface && uniform.length > 3 ? uniform[3] : 255;
+            raw = new TgaReader.Image(1, 1, new int[] {s << 24 | uniform[0] << 16 | uniform[1] << 8 | uniform[2]});
+            entry.addProperty("uniform", true);
+        } else {
+            return;
+        }
+        entry.addProperty("width", raw.width());
+        entry.addProperty("height", raw.height());
+        entry.addProperty("subsurface", subsurface);
+        rawMerIndex.add(javaName, entry);
+        write(zos, RAW_MER_DIR + javaName + ".png", png(raw));
     }
 
     /** LabPBR specular texel from Bedrock metalness, emission, roughness and subsurface (all 0-255). */
