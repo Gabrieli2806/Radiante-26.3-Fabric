@@ -7,6 +7,7 @@ import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.render.FrameGeneration;
 import com.g2806.radiante.client.pipeline.Pipeline;
 import com.g2806.radiante.client.pipeline.Presets;
+import com.g2806.radiante.client.profile.RendererProfile;
 import com.mojang.serialization.Codec;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,6 +72,8 @@ public class RadianteOptionsScreen extends Screen {
     /** Numeric pipeline settings, read once per screen; a setting the pipeline lacks has no entry. */
     private java.util.EnumMap<Tunable, Integer> pendingTunables;
     private PictureStyle.ToneMethod pendingToneMethod;
+    /** The renderer profile picked; applied last, so it wins over the individual settings changed in the same visit. */
+    private RendererProfile pendingProfile = RendererProfile.current();
     private boolean applied;
 
     /** The part of the settings shown; kept while the game runs, so the screen reopens where it was left. */
@@ -186,6 +189,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingReflex = previous.pendingReflex;
         this.pendingTunables = previous.pendingTunables;
         this.pendingToneMethod = previous.pendingToneMethod;
+        this.pendingProfile = previous.pendingProfile;
         this.scroll = previous.layout != null ? previous.layout.scroll() : previous.scroll;
         this.search = previous.layout != null ? previous.layout.searchText() : previous.search;
     }
@@ -951,7 +955,14 @@ public class RadianteOptionsScreen extends Screen {
                     this.pendingToneMethod = value;
                     refreshQualityLater();
                 });
-        addRows(style, method, tunable(Tunable.SATURATION, true), tunable(Tunable.TEXTURE_CONTRAST, false),
+        OptionInstance<RendererProfile> profile = new OptionInstance<>("options.radiante.renderer_profile",
+            tooltip("options.radiante.renderer_profile"),
+            (caption, value) -> Component.translatable("options.radiante.renderer_profile." + value.name().toLowerCase(java.util.Locale.ROOT)),
+            new OptionInstance.Enum<>(List.of(RendererProfile.DEFAULT, RendererProfile.BEDROCK_RTX),
+                Codec.STRING.xmap(RendererProfile::of, RendererProfile::name)),
+            this.pendingProfile == RendererProfile.RADIANTE_ENHANCED ? RendererProfile.DEFAULT : this.pendingProfile,
+            value -> this.pendingProfile = value);
+        addRows(profile, style, method, tunable(Tunable.SATURATION, true), tunable(Tunable.TEXTURE_CONTRAST, false),
             tunable(Tunable.EXPOSURE_ADAPTATION, false),
             tunable(Tunable.EXPOSURE_SPEED, false), tunable(Tunable.EXPOSURE_BIAS, false),
             tunable(Tunable.LOW_LIGHT_BOOST, false), tunable(Tunable.FSR_SHARPNESS, false));
@@ -1469,6 +1480,11 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (rebuild) {
             Pipeline.savePipeline();
+        }
+        RendererProfile chosen = this.pendingProfile == RendererProfile.RADIANTE_ENHANCED ? RendererProfile.DEFAULT
+            : this.pendingProfile;
+        if (chosen != RendererProfile.current()) {
+            rebuild |= chosen.apply();
         }
         return rebuild;
     }

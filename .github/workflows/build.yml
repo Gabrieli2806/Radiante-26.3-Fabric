@@ -4,7 +4,7 @@ name: Build
 
 on:
   push:
-    branches: [main, multiloader]
+    branches: [main, 'mc/**']
     paths-ignore: ['**.md', 'docs/**', 'screenshots/**']
   pull_request:
   workflow_dispatch:

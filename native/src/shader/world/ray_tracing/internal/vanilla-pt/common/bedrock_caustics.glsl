@@ -30,12 +30,24 @@ float bedrockCausticFrame(vec2 uv, float frame) {
                                                         BEDROCK_CAUSTICS_FRAMES)).r;
 }
 
+#ifndef VPT_CAUSTIC_MODEL
+#    define VPT_CAUSTIC_MODEL 0
+#endif
+
 // gameTime is the day's fraction (24000 ticks, 20 a second).
 float sampleBedrockCaustic(vec2 surfaceXZ, float gameTime, float waterDepth) {
     float frame = gameTime * 24000.0 / 20.0 * BEDROCK_CAUSTICS_FPS;
     vec2 uv = surfaceXZ / BEDROCK_CAUSTICS_TILE;
     float a = bedrockCausticFrame(uv, floor(frame));
     float b = bedrockCausticFrame(uv, floor(frame) + 1.0);
+#if VPT_CAUSTIC_MODEL != 0
+    // Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (pass: SunShadowRayGenInline). The caustics texture is
+    // not normalised and is not faded by a drift: the sunlight reaching a point under water is scaled by
+    // 1 + exp(-0.1 depth) * (7 c + 0.8 - 1), c the texture value, so the net is strong near the surface and fades to
+    // plain light with depth. (The size of one repeat of the pattern comes from run-time values; the tile above stays.)
+    float c = mix(a, b, fract(frame));
+    return max(1.0 + exp(-0.1 * waterDepth) * (7.0 * c - 0.2), 0.0);
+#endif
     float value = mix(a, b, fract(frame)) / BEDROCK_CAUSTICS_MEAN;
     // Faint, fading fast with depth, and not always there: a slow drift in strength (a minute or so) stands in for
     // the calm and choppy spells of the surface above, so the net comes and goes.

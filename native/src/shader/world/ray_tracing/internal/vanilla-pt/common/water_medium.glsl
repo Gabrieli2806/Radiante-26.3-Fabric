@@ -73,7 +73,16 @@ const float WATER_MEDIUM_HUE_DEPTH = 8.0;
 
 // What a stretch of water of the given length lets through, and the light it scatters into it on the way; density
 // scales the water (VPT_WATER_DENSITY for the camera's view, 1 for light).
+#ifndef VPT_MEDIUM_DISTANCE_CLAMP
+#    define VPT_MEDIUM_DISTANCE_CLAMP 0
+#endif
+
 void waterMediumSegment(float distance, float density, out vec3 transmittance, out vec3 inScatter) {
+#if VPT_MEDIUM_DISTANCE_CLAMP != 0
+    // Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (pass: PrimaryCheckerboardRayGenInline). The distance a
+    // ray is attenuated over inside a medium stops counting at 50 blocks.
+    distance = min(distance, 50.0);
+#endif
     vec3 sigmaT = waterMediumExtinction(density);
     transmittance = exp(-sigmaT * max(distance, 0.0));
     const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);

@@ -354,6 +354,18 @@
             "define": "VPT_SHADOW_TINT_MODEL"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_caustics",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_CAUSTIC_MODEL"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_medium_clamp",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_MEDIUM_DISTANCE_CLAMP"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.sun_glow",
             "type": "float_range:0.0-1.0",
             "default_value": "0.08",

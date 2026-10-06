@@ -83,6 +83,17 @@ public final class BedrockRtxProfile {
             "sunlight through a see-through surface = texture colour x (1 - saturate(2 alpha - 1)), shadow when the "
                 + "remainder is nearly nothing (research/SunShadowRayGenInline.md)"),
 
+        new CompatParameter("transmission", null, RT + "bedrock_caustics", TRUE, FALSE, ParameterStatus.VERIFIED_FROM_DXIL,
+            "sunlight under water is scaled by 1 + exp(-0.1 depth) (7 c + 0.8 - 1) (research/SunShadowRayGenInline.md); "
+                + "the repeat size of the pattern is a run-time value"),
+        new CompatParameter("transmission", null, RT + "bedrock_medium_clamp", TRUE, FALSE,
+            ParameterStatus.VERIFIED_FROM_DXIL,
+            "attenuation inside a medium counts at most 50 blocks of distance (research/PrimaryCheckerboardRayGenInline.md)"),
+        new CompatParameter("transmission", null, RT + "water_density", "1.0", "0.1", ParameterStatus.INFERRED,
+            "Bedrock attenuates the camera's view through water with the full extinction of the medium "
+                + "(VERIFIED_FROM_DXIL, no thinning factor); Radiante had thinned it to 0.1 by eye. Under water this "
+                + "gives the murky, distance-limited look. Needs checking against captures (scene J3)"),
+
         // ---- bloom
         new CompatParameter("bloom", TONE, A + "bloom_enable", TRUE, FALSE, ParameterStatus.INFERRED,
             "Bedrock RTX has a bloom stage (RTXPostFX.Bloom material); whether it is always on is not known"),
