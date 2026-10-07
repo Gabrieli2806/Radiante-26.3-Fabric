@@ -88,7 +88,7 @@ final class ApplyingSettingsScreen extends Screen {
         int shown = -1;
         try {
             while (worker.isAlive()) {
-                org.lwjgl.sdl.SDLEvents.SDL_PumpEvents();
+                org.lwjgl.glfw.GLFW.glfwPollEvents();
                 int percent = RendererProxy.rebuildProgress();
                 if (percent != shown) {
                     shown = percent;

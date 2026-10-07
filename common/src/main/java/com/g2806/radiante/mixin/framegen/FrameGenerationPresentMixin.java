@@ -2,8 +2,8 @@ package com.g2806.radiante.mixin.framegen;
 
 import com.g2806.radiante.client.proxy.vulkan.FrameGenerationProxy;
 import com.g2806.radiante.client.render.FrameGeneration;
-import com.mojang.renderpearl.api.device.SurfaceException;
-import com.mojang.renderpearl.backend.vulkan.VulkanGpuSurface;
+import com.mojang.blaze3d.systems.SurfaceException;
+import com.mojang.blaze3d.vulkan.VulkanGpuSurface;
 import it.unimi.dsi.fastutil.longs.LongList;
 import org.jspecify.annotations.Nullable;
 import org.lwjgl.vulkan.VkQueue;

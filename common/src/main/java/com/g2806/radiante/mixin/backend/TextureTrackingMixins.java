@@ -1,11 +1,11 @@
 package com.g2806.radiante.mixin.backend;
 
 import com.g2806.radiante.client.render.TextureTracker;
-import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
-import com.mojang.renderpearl.api.textures.GpuTexture;
-import com.mojang.renderpearl.backend.vulkan.VulkanCommandEncoder;
-import com.mojang.renderpearl.backend.vulkan.VulkanDevice;
-import com.mojang.renderpearl.backend.vulkan.VulkanGpuTexture;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.vulkan.VulkanCommandEncoder;
+import com.mojang.blaze3d.vulkan.VulkanDevice;
+import com.mojang.blaze3d.vulkan.VulkanGpuTexture;
 import java.nio.ByteBuffer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,7 +18,9 @@ public class TextureTrackingMixins {
     @Mixin(VulkanDevice.class)
     public static class DeviceMixin {
 
-        @Inject(method = "createTexture(Ljava/lang/String;ILcom/mojang/renderpearl/api/GpuFormat;IIII)Lcom/mojang/renderpearl/api/textures/GpuTexture;",
+        @Inject(method = {
+            "createTexture(Ljava/lang/String;ILcom/mojang/blaze3d/GpuFormat;IIII)Lcom/mojang/blaze3d/textures/GpuTexture;",
+            "createTexture(Ljava/util/function/Supplier;ILcom/mojang/blaze3d/GpuFormat;IIII)Lcom/mojang/blaze3d/textures/GpuTexture;"},
             at = @At("RETURN"))
         private void radiante$trackTexture(CallbackInfoReturnable<GpuTexture> cir) {
             TextureTracker.onCreated(cir.getReturnValue());
@@ -39,14 +41,14 @@ public class TextureTrackingMixins {
     @Mixin(VulkanCommandEncoder.class)
     public static class EncoderMixin {
 
-        @Inject(method = "writeToTexture(Lcom/mojang/renderpearl/api/textures/GpuTexture;Ljava/nio/ByteBuffer;IIIIII)V",
+        @Inject(method = "writeToTexture(Lcom/mojang/blaze3d/textures/GpuTexture;Ljava/nio/ByteBuffer;IIIIII)V",
             at = @At("HEAD"))
         private void radiante$mirrorWrite(GpuTexture destination, ByteBuffer source, int mipLevel, int depthOrLayer,
             int destX, int destY, int width, int height, CallbackInfo ci) {
             TextureTracker.onWrite(destination, source, mipLevel, destX, destY, width, height);
         }
 
-        @Inject(method = "copyBufferToTexture(Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;IIIILcom/mojang/renderpearl/api/textures/GpuTexture;IIIIII)V",
+        @Inject(method = "copyBufferToTexture(Lcom/mojang/blaze3d/buffers/GpuBufferSlice;IIIILcom/mojang/blaze3d/textures/GpuTexture;IIIIII)V",
             at = @At("HEAD"))
         private void radiante$mirrorBufferCopy(GpuBufferSlice source, int sourceX, int sourceY, int sourceWidth,
             int sourceHeight, GpuTexture destination, int destinationX, int destinationY, int copyWidth,

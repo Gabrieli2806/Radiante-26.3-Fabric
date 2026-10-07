@@ -1,7 +1,7 @@
 package com.g2806.radiante.api;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.blaze3d.textures.GpuTexture;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.client.renderer.SubmitNodeCollector;

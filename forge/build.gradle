@@ -15,7 +15,7 @@ minecraft {
 	runs {
 		configureEach {
 			// Shared with the other loaders' runs, so worlds and settings carry over.
-			workingDir = rootProject.layout.projectDirectory.dir('run')
+			workingDir = rootProject.layout.projectDirectory.dir('run-26.2')
 			args '-mixin.config=radiante.mixins.json'
 		}
 		register('client') {

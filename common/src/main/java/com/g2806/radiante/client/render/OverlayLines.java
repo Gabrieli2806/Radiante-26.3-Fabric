@@ -63,10 +63,6 @@ final class OverlayLines {
         for (SimpleGizmoCollector.GizmoInstance instance : instances) {
             instance.gizmo().emit(primitives, instance.getAlphaMultiplier(currentMillis));
         }
-        if (primitives.isEmpty()) {
-            return;
-        }
-
         COLLECTOR.reset();
         // onTop is vanilla's "ignore depth, always show through walls"; nothing here does that yet, both groups
         // are traced as ordinary depth-correct geometry.

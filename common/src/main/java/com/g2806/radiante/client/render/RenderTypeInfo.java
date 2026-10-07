@@ -4,7 +4,7 @@ import com.g2806.radiante.mixin.render.RenderTypeAccessors.RenderSetupAccessor;
 import com.g2806.radiante.mixin.render.RenderTypeAccessors.RenderTypeAccessor;
 import com.g2806.radiante.mixin.render.RenderTypeAccessors.TextureBindingAccessor;
 import java.util.Map;
-import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.blaze3d.GpuFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
@@ -99,7 +99,7 @@ public final class RenderTypeInfo {
             if (com.g2806.radiante.client.option.Options.debugLogging) {
                 AbstractTexture found = texture == null ? null
                     : Minecraft.getInstance().getTextureManager().getTexture(texture);
-                com.mojang.renderpearl.api.textures.GpuTexture gpu = found == null ? null
+                com.mojang.blaze3d.textures.GpuTexture gpu = found == null ? null
                     : TextureTracker.gpuTextureOrNull(found);
                 TextureTracker.reportUse("layer " + name + " blending=" + renderType.hasBlending() + " alphaMode="
                     + info.alphaMode() + " group=" + info.groupName() + " texture=" + texture
@@ -120,6 +120,11 @@ public final class RenderTypeInfo {
     /** Whether this layer is one of vanilla's glint render types (armor, item, trim, shield pattern). */
     public boolean isGlint() {
         return this.glintTexture != null;
+    }
+
+    /** One of 26.2's standalone glint passes, whose only texture is the glint itself. */
+    public boolean isGlintOverlayPass() {
+        return this.name.endsWith("glint") || this.name.equals("glint_translucent");
     }
 
     /** The renderer id of the glint texture this layer samples, or 0 when it is not a glint layer. */

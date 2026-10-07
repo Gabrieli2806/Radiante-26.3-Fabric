@@ -3,7 +3,7 @@ package com.g2806.radiante.mixin.framegen;
 import com.g2806.radiante.client.render.FrameGeneration;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.mojang.renderpearl.backend.vulkan.VulkanGpuSurface;
+import com.mojang.blaze3d.vulkan.VulkanGpuSurface;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,10 +33,11 @@ public class FrameGenerationMarkerMixins {
     public static class RenderMixin {
 
         @WrapMethod(method = "render")
-        private void radiante$markRenderSubmit(Operation<Void> original) {
+        private void radiante$markRenderSubmit(net.minecraft.client.DeltaTracker deltaTracker, boolean advanceGameTime,
+            Operation<Void> original) {
             FrameGeneration.marker(FrameGeneration.RENDER_SUBMIT_START);
             try {
-                original.call();
+                original.call(deltaTracker, advanceGameTime);
             } finally {
                 FrameGeneration.marker(FrameGeneration.RENDER_SUBMIT_END);
             }

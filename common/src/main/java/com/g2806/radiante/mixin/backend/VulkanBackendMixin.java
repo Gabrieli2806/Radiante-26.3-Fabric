@@ -1,11 +1,7 @@
 package com.g2806.radiante.mixin.backend;
 
 import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
-import com.mojang.renderpearl.api.device.BackendCreationException;
-import com.mojang.renderpearl.backend.vulkan.VulkanBackend;
-import com.mojang.renderpearl.backend.vulkan.init.FeatureSet;
-import java.util.List;
-import java.util.Set;
+import com.mojang.blaze3d.vulkan.VulkanBackend;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.vulkan.VkAllocationCallbacks;
 import org.lwjgl.vulkan.VkDeviceCreateInfo;
@@ -19,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(VulkanBackend.class)
 public class VulkanBackendMixin {
 
-    @Redirect(method = "createDevice(Lcom/mojang/renderpearl/backend/vulkan/init/FeatureSet;Lcom/mojang/renderpearl/backend/vulkan/VulkanPhysicalDevice;)Lorg/lwjgl/vulkan/VkDevice;",
+    @Redirect(method = "createDevice(Ljava/util/Collection;Lcom/mojang/blaze3d/vulkan/VulkanPhysicalDevice;Ljava/util/Set;)Lorg/lwjgl/vulkan/VkDevice;",
         at = @At(value = "INVOKE",
             target = "Lorg/lwjgl/vulkan/VK12;vkCreateDevice(Lorg/lwjgl/vulkan/VkPhysicalDevice;Lorg/lwjgl/vulkan/VkDeviceCreateInfo;Lorg/lwjgl/vulkan/VkAllocationCallbacks;Lorg/lwjgl/PointerBuffer;)I"))
     private static int radiante$createMergedDevice(VkPhysicalDevice physicalDevice, VkDeviceCreateInfo createInfo,
@@ -29,12 +25,10 @@ public class VulkanBackendMixin {
     }
 
     /** Devices without hardware ray tracing are rejected so a capable GPU gets picked. */
-    @Inject(method = "checkDeviceSuitability", at = @At("RETURN"), cancellable = true)
-    private static void radiante$requireRayTracing(VkPhysicalDevice device, Set<FeatureSet> required,
-        Set<FeatureSet> requiredIfAvailable, CallbackInfoReturnable<BackendCreationException> cir) {
-        if (cir.getReturnValue() == null && !RendererProxy.isRayTracingCapable(device.address())) {
-            cir.setReturnValue(new BackendCreationException("Device does not support hardware ray tracing",
-                BackendCreationException.Reason.VULKAN_MISSING_EXTENSION, List.of("VK_KHR_ray_tracing_pipeline")));
+    @Inject(method = "isDeviceSuitable", at = @At("RETURN"), cancellable = true)
+    private static void radiante$requireRayTracing(VkPhysicalDevice device, CallbackInfoReturnable<Boolean> cir) {
+        if (cir.getReturnValueZ() && !RendererProxy.isRayTracingCapable(device.address())) {
+            cir.setReturnValue(false);
         }
     }
 }

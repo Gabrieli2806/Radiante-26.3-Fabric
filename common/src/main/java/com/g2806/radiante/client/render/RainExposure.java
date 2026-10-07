@@ -2,8 +2,8 @@ package com.g2806.radiante.client.render;
 
 import com.g2806.radiante.client.option.Options;
 import com.g2806.radiante.client.proxy.vulkan.TextureProxy;
-import com.mojang.renderpearl.api.GpuFormat;
-import com.mojang.renderpearl.backend.vulkan.VulkanConst;
+import com.mojang.blaze3d.GpuFormat;
+import com.mojang.blaze3d.vulkan.VulkanConst;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import net.minecraft.client.Minecraft;

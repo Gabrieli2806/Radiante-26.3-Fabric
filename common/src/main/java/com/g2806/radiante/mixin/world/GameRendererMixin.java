@@ -62,15 +62,15 @@ public abstract class GameRendererMixin {
         // In front of everything, as in vanilla, where the hand pass starts from a cleared depth.
         com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder()
             .clearDepthTexture(this.mainRenderTarget.getDepthTexture(), 0.0);
-        this.debugCrosshairRenderer.render(cameraState, state.windowRenderState.guiScale,
-            this.mainRenderTarget.getColorTextureView(), this.mainRenderTarget.getDepthTextureView());
+        this.debugCrosshairRenderer.render(cameraState, state.windowRenderState.guiScale);
     }
 
     @WrapOperation(method = "render", at = @At(value = "INVOKE",
-        target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel()V"))
-    private void radiante$renderLevel(GameRenderer gameRenderer, Operation<Void> original) {
+        target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel(Lnet/minecraft/client/DeltaTracker;)V"))
+    private void radiante$renderLevel(GameRenderer gameRenderer, net.minecraft.client.DeltaTracker deltaTracker,
+        Operation<Void> original) {
         if (!RadianteRenderer.isRayTracingEnabled()) {
-            original.call(gameRenderer);
+            original.call(gameRenderer, deltaTracker);
             return;
         }
 
@@ -80,7 +80,7 @@ public abstract class GameRendererMixin {
         // of which the tracer draws instead.
         RadianteRenderer.setTracingLevel(true);
         try {
-            original.call(gameRenderer);
+            original.call(gameRenderer, deltaTracker);
         } finally {
             RadianteRenderer.setTracingLevel(false);
         }
@@ -92,25 +92,28 @@ public abstract class GameRendererMixin {
         }
     }
 
+    /**
+     * 26.2 draws the hand from renderLevel itself; the hand is traced, so vanilla's pass is skipped while tracing.
+     * The world fog is ended by renderLevel right after, and the F3 crosshair axes are drawn there too.
+     */
     @WrapOperation(method = "renderLevel", at = @At(value = "INVOKE",
-        target = "Lnet/minecraft/client/renderer/GameRenderer;render3dHud(Lnet/minecraft/client/renderer/state/level/CameraRenderState;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;Lnet/minecraft/client/renderer/state/OptionsRenderState;Z)V"))
-    private void radiante$skipHudWhenTracing(GameRenderer gameRenderer,
-        net.minecraft.client.renderer.state.level.CameraRenderState cameraState,
-        net.minecraft.client.renderer.state.level.PlayerRenderState playerState,
-        net.minecraft.client.renderer.state.OptionsRenderState optionsState, boolean consistentDepthRequired,
-        Operation<Void> original) {
+        target = "Lnet/minecraft/client/renderer/GameRenderer;renderItemInHand(Lnet/minecraft/client/renderer/state/level/CameraRenderState;FLorg/joml/Matrix4fc;)V"))
+    private void radiante$skipHandWhenTracing(GameRenderer gameRenderer,
+        net.minecraft.client.renderer.state.level.CameraRenderState cameraState, float partialTicks,
+        org.joml.Matrix4fc modelView, Operation<Void> original) {
         if (!RadianteRenderer.isTracingLevel()) {
-            original.call(gameRenderer, cameraState, playerState, optionsState, consistentDepthRequired);
-        } else {
-            // What this pass does besides drawing: it ends the world fog. Minecraft level render switches that fog
-            // on when it runs over the traced picture, and left on it reached the screens drawn afterwards - item
-            // icons in an inventory came out as flat shapes in the fog colour.
-            com.mojang.blaze3d.systems.RenderSystem.setShaderFog(this.fogRenderer.getBuffer(
-                net.minecraft.client.renderer.fog.FogRenderer.FogMode.NONE));
-            if (RadianteRenderer.wasFrameTraced()) {
-                // The traced picture is already in the target; without the overlay pass it is not yet (see above).
-                radiante$debugCrosshair();
-            }
+            original.call(gameRenderer, cameraState, partialTicks, modelView);
+        }
+    }
+
+    /** The screen overlays (fire, water, a block in the face) are traced too. */
+    @WrapOperation(method = "renderLevel", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/renderer/ScreenEffectRenderer;submit(ZZFLnet/minecraft/client/renderer/SubmitNodeCollector;Z)V"))
+    private void radiante$skipScreenEffectsWhenTracing(net.minecraft.client.renderer.ScreenEffectRenderer renderer,
+        boolean a, boolean b, float partialTicks, net.minecraft.client.renderer.SubmitNodeCollector collector,
+        boolean c, Operation<Void> original) {
+        if (!RadianteRenderer.isTracingLevel()) {
+            original.call(renderer, a, b, partialTicks, collector, c);
         }
     }
 

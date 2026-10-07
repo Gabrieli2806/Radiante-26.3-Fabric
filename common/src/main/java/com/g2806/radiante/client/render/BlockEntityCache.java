@@ -11,7 +11,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.LidBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
-import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.world.level.block.entity.SkullBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.lwjgl.system.MemoryUtil;
@@ -151,7 +150,7 @@ final class BlockEntityCache {
         }
         // A sign's text objects are replaced, never edited, so the same two objects mean the same writing.
         if (blockEntity instanceof SignBlockEntity sign
-            && (sign.getText(SignTextSlot.FRONT) != entry.frontText || sign.getText(SignTextSlot.BACK) != entry.backText)) {
+            && (sign.getFrontText() != entry.frontText || sign.getBackText() != entry.backText)) {
             return false;
         }
         // A chest about to open: its lid has to be followed from the first frame.
@@ -169,8 +168,8 @@ final class BlockEntityCache {
         Entry entry = store(pos.immutable(), blockEntity, limit, pos.asLong(), collected, arenaBase);
         entry.blockState = blockEntity.getBlockState();
         if (blockEntity instanceof SignBlockEntity sign) {
-            entry.frontText = sign.getText(SignTextSlot.FRONT);
-            entry.backText = sign.getText(SignTextSlot.BACK);
+            entry.frontText = sign.getFrontText();
+            entry.backText = sign.getBackText();
         }
     }
 

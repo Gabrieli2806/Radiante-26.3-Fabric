@@ -3,8 +3,8 @@ package com.g2806.radiante.mixin.backend;
 import com.g2806.radiante.client.render.RadianteRenderer;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.mojang.renderpearl.backend.vulkan.VulkanGpuSurface;
-import com.mojang.renderpearl.backend.vulkan.VulkanQueue;
+import com.mojang.blaze3d.vulkan.VulkanGpuSurface;
+import com.mojang.blaze3d.vulkan.VulkanQueue;
 import org.spongepowered.asm.mixin.Mixin;
 
 /** Minecraft's queue operations take the same lock the native renderer uses for its submissions. */

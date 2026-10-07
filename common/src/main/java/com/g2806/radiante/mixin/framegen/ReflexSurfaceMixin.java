@@ -1,8 +1,8 @@
 package com.g2806.radiante.mixin.framegen;
 
 import com.g2806.radiante.client.proxy.vulkan.RendererProxy;
-import com.mojang.renderpearl.api.device.GpuSurface;
-import com.mojang.renderpearl.backend.vulkan.VulkanGpuSurface;
+import com.mojang.blaze3d.systems.GpuSurface;
+import com.mojang.blaze3d.vulkan.VulkanGpuSurface;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 import org.spongepowered.asm.mixin.Mixin;

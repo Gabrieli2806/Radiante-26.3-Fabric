@@ -52,12 +52,6 @@ class VertexConsumerWrapper implements VertexConsumer {
     }
 
     @Override
-    public VertexConsumer setUv3(float u, float v) {
-        this.delegate.setUv3(u, v);
-        return this;
-    }
-
-    @Override
     public VertexConsumer setNormal(float x, float y, float z) {
         this.delegate.setNormal(x, y, z);
         return this;

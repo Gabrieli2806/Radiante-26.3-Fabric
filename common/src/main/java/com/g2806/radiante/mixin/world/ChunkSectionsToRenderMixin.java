@@ -21,11 +21,4 @@ public class ChunkSectionsToRenderMixin {
             ci.cancel();
         }
     }
-
-    @Inject(method = "renderOit", at = @At("HEAD"), cancellable = true)
-    private void radiante$noTranslucentTerrainOverTrace(CallbackInfo ci) {
-        if (RadianteRenderer.isOverlayFrame()) {
-            ci.cancel();
-        }
-    }
 }

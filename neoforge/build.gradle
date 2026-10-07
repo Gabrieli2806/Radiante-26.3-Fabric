@@ -18,7 +18,7 @@ neoForge {
 		client {
 			client()
 			// Shared with the other loaders' runs, so worlds and settings carry over.
-			gameDirectory = rootProject.file('run')
+			gameDirectory = rootProject.file('run-26.2')
 			programArguments.addAll('--width', '1280', '--height', '720')
 		}
 	}
