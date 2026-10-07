@@ -384,10 +384,6 @@ public final class DevAutomation {
             } catch (ReflectiveOperationException | RuntimeException e) {
                 RadianteClient.LOGGER.warn("[dev] option {} not set", action, e);
             }
-        } else if (action.startsWith("pixel=")) {
-            com.g2806.radiante.client.option.Options.pixelLighting = Boolean.parseBoolean(action.substring(6));
-            RadianteClient.LOGGER.info("[dev] pixel lighting {}",
-                com.g2806.radiante.client.option.Options.pixelLighting);
         } else if (action.startsWith("packs=")) {
             String value = action.substring(6);
             // The options list is only read at startup; the repository's selection is what a reload applies.

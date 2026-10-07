@@ -56,6 +56,17 @@ public final class Showcase {
         String action = parts.length > 2 ? parts[2] : "build";
         BlockPos playerPos = minecraft.player.blockPosition();
         var dimension = minecraft.player.level().dimension();
+        if (action.equals("blocks")) {
+            var categories = BlockGallery.collect(minecraft);
+            server.execute(() -> {
+                ServerLevel level = server.getLevel(dimension);
+                if (level != null) {
+                    run(server, level, BlockGallery.build(level, playerPos, categories));
+                    minecraft.execute(() -> say(minecraft, "message.radiante.showcase.blocks"));
+                }
+            });
+            return true;
+        }
         server.execute(() -> {
             ServerLevel level = server.getLevel(dimension);
             if (level != null) {

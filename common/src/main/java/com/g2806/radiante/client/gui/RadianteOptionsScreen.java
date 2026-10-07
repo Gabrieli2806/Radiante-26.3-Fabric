@@ -728,7 +728,6 @@ public class RadianteOptionsScreen extends Screen {
         stage("rainWetness", true);
         stage("blockOutline", false);
         stage("parallaxTransparentEdges", false);
-        stage("pixelLighting", false);
         stage("dayBrightness", 25);
         stage("nightBrightness", 35);
         stage("emissionBrightness", 12);
@@ -1007,8 +1006,6 @@ public class RadianteOptionsScreen extends Screen {
                 value -> stage("heldItemLight", value)),
             slider("options.radiante.entity_light_reach", 8, 256, staged("entityLightReach", Options.entityLightReach),
                 value -> stage("entityLightReach", value)),
-            OptionInstance.createBoolean("options.radiante.pixel_lighting",
-                tooltip("options.radiante.pixel_lighting"), staged("pixelLighting", Options.pixelLighting), value -> stage("pixelLighting", value)),
             OptionInstance.createBoolean("options.radiante.first_person_shadow",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.first_person_shadow.tooltip")),
                 this.pendingFirstPersonShadow, value -> this.pendingFirstPersonShadow = value));

@@ -39,8 +39,8 @@ public final class SettingsCode {
     private static final Map<String, int[]> OPTIONS = new LinkedHashMap<>();
 
     static {
-        for (String key : new String[] {"biomeFog", "firstPersonShadow", "heldItemLight", "rainWetness", "pixelLighting",
-            "vanillaSunPath", "vanillaCelestialOrientation", "blockLightSampling"}) {
+        for (String key : new String[] {"biomeFog", "firstPersonShadow", "heldItemLight", "rainWetness", "vanillaSunPath",
+            "vanillaCelestialOrientation", "blockLightSampling"}) {
             OPTIONS.put(key, null);
         }
         for (String key : new String[] {"volumetricFogStrength", "biomeFogStrength", "dayBrightness", "nightBrightness",

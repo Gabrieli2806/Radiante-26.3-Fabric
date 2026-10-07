@@ -71,8 +71,6 @@ public class Options {
     public static boolean textBackgrounds = true;
     /** Carved (parallax) resource pack faces are see-through at the outer edges of their block. */
     public static boolean parallaxTransparentEdges = false;
-    /** Light and shadow snap to the texture's pixels, a retro blocky look. Off: smooth, as vanilla-like. */
-    public static boolean pixelLighting = false;
     /** Brightness of sunlight and the daytime sky, in percent of the shader pack's own. */
     /** The Pipeline.SETTINGS_DEFAULTS_VERSION the stored pipeline settings were written under; 0 for none. */
     public static int settingsDefaultsVersion = 0;
@@ -124,7 +122,6 @@ public class Options {
         rainWetness = true;
         blockOutline = false;
         parallaxTransparentEdges = false;
-        pixelLighting = false;
         dayBrightness = 25;
         nightBrightness = 35;
         emissionBrightness = 12;
@@ -233,7 +230,6 @@ public class Options {
         bool("modOverlays", () -> modOverlays, v -> modOverlays = v),
         bool("textBackgrounds", () -> textBackgrounds, v -> textBackgrounds = v),
         bool("parallaxTransparentEdges", () -> parallaxTransparentEdges, v -> parallaxTransparentEdges = v),
-        bool("pixelLighting", () -> pixelLighting, v -> pixelLighting = v),
         number("dayBrightness", () -> dayBrightness, v -> dayBrightness = v),
         number("nightBrightness", () -> nightBrightness, v -> nightBrightness = v),
         number("emissionBrightness", () -> emissionBrightness, v -> emissionBrightness = v),

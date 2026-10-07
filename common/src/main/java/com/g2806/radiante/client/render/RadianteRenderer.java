@@ -414,7 +414,7 @@ public final class RadianteRenderer {
             heldLightPosition(minecraft, cameraState, net.minecraft.world.InteractionHand.OFF_HAND),
             heldLightColor(minecraft, net.minecraft.world.InteractionHand.OFF_HAND),
             Options.parallaxTransparentEdges, Options.dayBrightness / 100.0f, Options.nightBrightness / 100.0f,
-            Options.emissionBrightness / 100.0f, Options.pixelLighting,
+            Options.emissionBrightness / 100.0f, false,
             EntityManager.rainFallPerFrame(levelRenderState), farReach, Options.heldLightBrightness / 100.0f));
 
         SkyRenderState sky = levelRenderState.skyRenderState;
