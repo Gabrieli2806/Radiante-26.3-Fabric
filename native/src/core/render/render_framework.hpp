@@ -84,7 +84,11 @@ class Framework : public SharedObject<Framework> {
     void acquireContext();
     // Records uploads, the world pipeline and the blit into `target`, ends the command buffers and
     // returns them in execution order. The next slot is opened before returning.
-    std::vector<VkCommandBuffer> renderFrame(VkImage target, uint32_t width, uint32_t height, VkFormat format);
+    // width x height is the target's size; the world is traced at traceWidth x traceHeight and scaled into it. The
+    // two differ for the extra views some mods draw between the main ones (Vivecraft's handheld camera, telescopes),
+    // which would otherwise rebuild the whole pipeline every time they alternate with the main view.
+    std::vector<VkCommandBuffer> renderFrame(VkImage target, uint32_t width, uint32_t height, uint32_t traceWidth,
+                                             uint32_t traceHeight, VkFormat format);
     void markSubmitted(VkSemaphore timeline, uint64_t value);
     // Minecraft's depth texture for the next renderFrame to fill with the traced world's depth (McDepthWriter), or
     // VK_NULL_HANDLE for none. Asked for again every frame.

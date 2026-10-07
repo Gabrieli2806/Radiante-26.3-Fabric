@@ -4,36 +4,45 @@
 #include "core/render/renderer.hpp"
 
 void McDepthWriter::reset() {
-    width_ = 0;
-    height_ = 0;
-    deviceDepth_ = nullptr;
-    transfer_ = nullptr;
-    tables_.clear();
+    sized_.clear();
+    current_ = nullptr;
     pipeline_ = nullptr;
 }
 
 void McDepthWriter::ensure(std::shared_ptr<Framework> framework, uint32_t width, uint32_t height, uint32_t frameCount) {
-    if (deviceDepth_ != nullptr && width_ == width && height_ == height && tables_.size() == frameCount) return;
-
-    auto &retainer = framework->frameResourceRetainer();
-    if (deviceDepth_ != nullptr) retainer.retain(deviceDepth_);
-    if (transfer_ != nullptr) retainer.retain(transfer_);
-    for (auto &table : tables_) {
-        if (table != nullptr) retainer.retain(table);
+    for (auto &entry : sized_) {
+        if (entry.width == width && entry.height == height && entry.tables.size() == frameCount) {
+            current_ = &entry;
+            return;
+        }
     }
 
-    width_ = width;
-    height_ = height;
-    deviceDepth_ = vk::DeviceLocalImage::create(
+    // Least recently added out first; whatever a frame in flight still uses is kept until it completes.
+    auto &retainer = framework->frameResourceRetainer();
+    if (sized_.size() >= MAX_SIZES) {
+        Sized &old = sized_.front();
+        retainer.retain(old.deviceDepth);
+        retainer.retain(old.transfer);
+        for (auto &table : old.tables) retainer.retain(table);
+        sized_.erase(sized_.begin());
+    }
+    sized_.reserve(MAX_SIZES);
+    sized_.emplace_back();
+    Sized &entry = sized_.back();
+    current_ = &entry;
+
+    entry.width = width;
+    entry.height = height;
+    entry.deviceDepth = vk::DeviceLocalImage::create(
         framework->device(), framework->vma(), false, width, height, 1, VK_FORMAT_R32_SFLOAT,
         VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-    transfer_ = vk::DeviceLocalBuffer::create(framework->vma(), framework->device(), false,
+    entry.transfer = vk::DeviceLocalBuffer::create(framework->vma(), framework->device(), false,
                                               static_cast<size_t>(width) * height * sizeof(float),
                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
-    tables_.assign(frameCount, nullptr);
+    entry.tables.assign(frameCount, nullptr);
     for (uint32_t i = 0; i < frameCount; i++) {
-        tables_[i] = vk::DescriptorTableBuilder{}
+        entry.tables[i] = vk::DescriptorTableBuilder{}
                          .beginDescriptorLayoutSet()
                          .beginDescriptorLayoutSetBinding()
                          .defineDescriptorLayoutSetBinding({
@@ -62,7 +71,7 @@ void McDepthWriter::ensure(std::shared_ptr<Framework> framework, uint32_t width,
                                          (Renderer::folderPath / "shaders/world/overlay/mc_depth_comp.spv").string());
         pipeline_ = vk::ComputePipelineBuilder{}
                         .defineShader(shader)
-                        .definePipelineLayout(tables_[0])
+                        .definePipelineLayout(entry.tables[0])
                         .build(framework->device());
     }
 }
@@ -82,7 +91,9 @@ void McDepthWriter::write(std::shared_ptr<Framework> framework,
 
     auto mainQueueIndex = framework->physicalDevice()->mainQueueIndex();
     VkCommandBuffer cmd = commandBuffer->vkCommandBuffer();
-    auto table = tables_[frameIndex];
+    auto table = current_->tables[frameIndex];
+    auto deviceDepth = current_->deviceDepth;
+    auto transfer = current_->transfer;
 
     commandBuffer->barriersBufferImage(
         {},
@@ -100,17 +111,17 @@ void McDepthWriter::write(std::shared_ptr<Framework> framework,
           .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
           .dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
           .dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
-          .oldLayout = deviceDepth_->imageLayout(),
+          .oldLayout = deviceDepth->imageLayout(),
           .newLayout = VK_IMAGE_LAYOUT_GENERAL,
           .srcQueueFamilyIndex = mainQueueIndex,
           .dstQueueFamilyIndex = mainQueueIndex,
-          .image = deviceDepth_,
+          .image = deviceDepth,
           .subresourceRange = vk::wholeColorSubresourceRange}});
     linearDepth->imageLayout() = VK_IMAGE_LAYOUT_GENERAL;
-    deviceDepth_->imageLayout() = VK_IMAGE_LAYOUT_GENERAL;
+    deviceDepth->imageLayout() = VK_IMAGE_LAYOUT_GENERAL;
 
     table->bindImage(linearDepth, VK_IMAGE_LAYOUT_GENERAL, 0, 0);
-    table->bindImage(deviceDepth_, VK_IMAGE_LAYOUT_GENERAL, 0, 1);
+    table->bindImage(deviceDepth, VK_IMAGE_LAYOUT_GENERAL, 0, 1);
 
     PushConstants pushConstants{
         target.projection[0], target.projection[1], target.projection[2], target.projection[3],
@@ -136,14 +147,14 @@ void McDepthWriter::write(std::shared_ptr<Framework> framework,
     VkBufferImageCopy region{};
     region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.imageExtent = {width, height, 1};
-    vkCmdCopyImageToBuffer(cmd, deviceDepth_->vkImage(), VK_IMAGE_LAYOUT_GENERAL, transfer_->vkBuffer(), 1, &region);
+    vkCmdCopyImageToBuffer(cmd, deviceDepth->vkImage(), VK_IMAGE_LAYOUT_GENERAL, transfer->vkBuffer(), 1, &region);
 
     barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT);
 
     // Minecraft keeps its textures in GENERAL layout for their whole lifetime.
     region.imageSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
-    vkCmdCopyBufferToImage(cmd, transfer_->vkBuffer(), target.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+    vkCmdCopyBufferToImage(cmd, transfer->vkBuffer(), target.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
 
     barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |

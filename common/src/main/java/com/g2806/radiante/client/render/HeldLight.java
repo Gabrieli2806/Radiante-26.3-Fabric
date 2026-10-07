@@ -60,6 +60,12 @@ public final class HeldLight {
 
     /** Where the hand holding an item is, in the world. */
     private static Vec3 handPosition(Minecraft minecraft, LocalPlayer player, boolean mainHand, float partialTicks) {
+        // In VR the item is in the controller's hand, wherever that is.
+        Vec3 vrHand = com.g2806.radiante.client.compat.vivecraft.VivecraftCompat.handPosition(
+            mainHand ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND);
+        if (vrHand != null) {
+            return vrHand;
+        }
         boolean rightArm = (player.getMainArm() == HumanoidArm.RIGHT) == mainHand;
         double side = rightArm ? 1.0 : -1.0;
         Vec3 eye = player.getEyePosition(partialTicks);

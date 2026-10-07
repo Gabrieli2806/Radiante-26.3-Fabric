@@ -284,6 +284,10 @@ public final class RadianteRenderer {
         DevProfiler.endFrame();
     }
 
+    /** The size the eyes were last traced at in VR; see record. */
+    private static int eyeTraceWidth;
+    private static int eyeTraceHeight;
+
     private static boolean record(GameRenderer gameRenderer, LevelRenderState levelRenderState, boolean withDepth) {
         Minecraft minecraft = Minecraft.getInstance();
         CameraRenderState cameraState = levelRenderState.cameraRenderState;
@@ -336,8 +340,21 @@ public final class RadianteRenderer {
 
         long image = ((VulkanGpuTexture) colorTexture).vkImage();
         int format = VulkanConst.toVk(colorTexture.getFormat());
-        int count = RendererProxy.renderFrame(image, mainTarget.width, mainTarget.height, format,
-            commandBufferHandles);
+        // Vivecraft's extra views (handheld camera, telescopes, mirror) come between the eyes at sizes of their own;
+        // they are traced at the eyes' size and scaled, so the pipeline is not rebuilt each time they alternate.
+        int traceWidth = mainTarget.width;
+        int traceHeight = mainTarget.height;
+        if (com.g2806.radiante.client.compat.vivecraft.VivecraftCompat.isVrActive()) {
+            if (com.g2806.radiante.client.compat.vivecraft.VivecraftCompat.isEyePass() || eyeTraceWidth <= 0) {
+                eyeTraceWidth = traceWidth;
+                eyeTraceHeight = traceHeight;
+            } else {
+                traceWidth = eyeTraceWidth;
+                traceHeight = eyeTraceHeight;
+            }
+        }
+        int count = RendererProxy.renderFrame(image, mainTarget.width, mainTarget.height, traceWidth, traceHeight,
+            format, commandBufferHandles);
         DevProfiler.mark(5);
         if (count <= 0) {
             DevProfiler.endFrame();

@@ -852,7 +852,9 @@ public final class EntityManager {
         PlayerRenderState playerState = levelRenderState.playerRenderState;
         if (!playerState.hasPlayer || minecraft.gameRenderer.gameRenderState().guiRenderState.isHudHidden || !minecraft.options.getCameraType().isFirstPerson()
             || cameraState.entityRenderState.isSleeping
-            || minecraft.gameMode == null || minecraft.gameMode.getPlayerMode() == GameType.SPECTATOR) {
+            || minecraft.gameMode == null || minecraft.gameMode.getPlayerMode() == GameType.SPECTATOR
+            // In VR, Vivecraft draws the hands at the controllers; vanilla's would sit in front of the face.
+            || com.g2806.radiante.client.compat.vivecraft.VivecraftCompat.isVrActive()) {
             return;
         }
 

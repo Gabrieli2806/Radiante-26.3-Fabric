@@ -20,8 +20,8 @@ public class RendererProxy {
      * Records this frame's world rendering into {@code targetImage} and writes the resulting command buffer
      * handles, in execution order, into {@code outCommandBuffers}. Returns how many were written.
      */
-    public static native int renderFrame(long targetImage, int width, int height, int vkFormat,
-        long[] outCommandBuffers);
+    public static native int renderFrame(long targetImage, int width, int height, int traceWidth, int traceHeight,
+        int vkFormat, long[] outCommandBuffers);
 
     /** Records the Minecraft submit these command buffers belong to, then opens the next frame slot. */
     public static native void markSubmitted(long timelineSemaphore, long timelineValue);

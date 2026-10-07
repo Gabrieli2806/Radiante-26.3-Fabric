@@ -54,6 +54,7 @@ public final class RadianteClient {
     public static void init() {
         ensureNativeLoaded();
         com.g2806.radiante.client.compat.physicsmod.PhysicsModCompat.init();
+        com.g2806.radiante.client.compat.vivecraft.VivecraftCompat.init();
         com.g2806.radiante.client.compat.journeymap.JourneyMapCompat.init();
         com.g2806.radiante.client.compat.litematica.LitematicaCompat.init();
         com.g2806.radiante.client.compat.distanthorizons.DistantHorizonsCompat.init();

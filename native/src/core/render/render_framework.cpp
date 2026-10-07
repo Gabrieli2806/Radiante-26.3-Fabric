@@ -187,15 +187,16 @@ double devMs(std::chrono::steady_clock::time_point from, std::chrono::steady_clo
 }
 } // namespace
 
-std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t width, uint32_t height, VkFormat format) {
+std::vector<VkCommandBuffer> Framework::renderFrame(VkImage target, uint32_t width, uint32_t height, uint32_t traceWidth,
+                                                   uint32_t traceHeight, VkFormat format) {
     std::unique_lock<std::recursive_mutex> lck(recreateMtx_);
     auto devT0 = std::chrono::steady_clock::now();
     if (!running_) return {};
 
     auto extent = swapchain_->vkExtent();
-    if (extent.width != width || extent.height != height || pipeline_->isRecreationNeeded ||
+    if (extent.width != traceWidth || extent.height != traceHeight || pipeline_->isRecreationNeeded ||
         Renderer::options.needRecreate) {
-        swapchain_->reconstruct(width, height);
+        swapchain_->reconstruct(traceWidth, traceHeight);
         recreate();
     }
 

@@ -45,10 +45,18 @@ class McDepthWriter {
         uint32_t dstHeight;
     };
 
-    uint32_t width_ = 0;
-    uint32_t height_ = 0;
-    std::shared_ptr<vk::DeviceLocalImage> deviceDepth_;
-    std::shared_ptr<vk::DeviceLocalBuffer> transfer_;
-    std::vector<std::shared_ptr<vk::DescriptorTable>> tables_;
+    // One set per target size. Some mods draw extra views between the main ones at a size of their own every few
+    // frames (Vivecraft's handheld camera); recreating these on each switch would churn allocations every frame.
+    struct Sized {
+        uint32_t width = 0;
+        uint32_t height = 0;
+        std::shared_ptr<vk::DeviceLocalImage> deviceDepth;
+        std::shared_ptr<vk::DeviceLocalBuffer> transfer;
+        std::vector<std::shared_ptr<vk::DescriptorTable>> tables;
+    };
+    static constexpr size_t MAX_SIZES = 4;
+
+    std::vector<Sized> sized_;
+    Sized *current_ = nullptr;
     std::shared_ptr<vk::ComputePipeline> pipeline_;
 };

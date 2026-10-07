@@ -50,10 +50,10 @@ JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererP
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy
  * Method:    renderFrame
- * Signature: (JIII[J)I
+ * Signature: (JIIIII[J)I
  */
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_renderFrame
-  (JNIEnv *, jclass, jlong, jint, jint, jint, jlongArray);
+  (JNIEnv *, jclass, jlong, jint, jint, jint, jint, jint, jlongArray);
 
 /*
  * Class:     com_g2806_radiante_client_proxy_vulkan_RendererProxy

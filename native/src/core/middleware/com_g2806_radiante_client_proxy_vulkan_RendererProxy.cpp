@@ -112,7 +112,8 @@ JNIEXPORT jboolean JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererP
 }
 
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_renderFrame(
-    JNIEnv *env, jclass, jlong target, jint width, jint height, jint format, jlongArray outCommandBuffers) {
+    JNIEnv *env, jclass, jlong target, jint width, jint height, jint traceWidth, jint traceHeight, jint format,
+    jlongArray outCommandBuffers) {
     if (!Renderer::is_initialized()) return 0;
     auto framework = Renderer::instance().framework();
     if (framework == nullptr) return 0;
@@ -121,7 +122,8 @@ JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy
         "renderFrame",
         [&]() {
             return framework->renderFrame(reinterpret_cast<VkImage>(target), static_cast<uint32_t>(width),
-                                          static_cast<uint32_t>(height), static_cast<VkFormat>(format));
+                                          static_cast<uint32_t>(height), static_cast<uint32_t>(std::max(traceWidth, 1)),
+                                          static_cast<uint32_t>(std::max(traceHeight, 1)), static_cast<VkFormat>(format));
         },
         std::vector<VkCommandBuffer>{});
 
