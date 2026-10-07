@@ -309,7 +309,7 @@ public final class BiomeAmbiance {
         rainScale /= samples;
         float exposure = 1.0f;
         if (overworld) {
-            density *= Mth.lerp(Mth.clamp(rain, 0.0f, 1.0f), 1.0f, rainScale);
+            density *= Mth.lerp(Math.clamp(rain, 0.0f, 1.0f), 1.0f, rainScale);
             exposure = level.getBrightness(LightLayer.SKY, pos.set(cx, cy, cz)) / 15.0f;
         } else {
             float fogR = vanillaFogColor.x();

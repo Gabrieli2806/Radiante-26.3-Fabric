@@ -28,11 +28,12 @@ public class TextureTrackingMixins {
     @Mixin(VulkanGpuTexture.class)
     public static class TextureMixin {
 
-        @Inject(method = "close", at = @At("HEAD"))
+        // Since 26.4, close() releases the owner's reference while texture views can keep the image alive.
+        // In particular, OverlayTexture closes its owner immediately. Recycling that id here would replace
+        // the neutral entity overlay with an unrelated texture (often black). Wait for the final destruction.
+        @Inject(method = "destroy", at = @At("HEAD"))
         private void radiante$untrackTexture(CallbackInfo ci) {
-            if (!((VulkanGpuTexture) (Object) this).isClosed()) {
-                TextureTracker.onClosed((GpuTexture) (Object) this);
-            }
+            TextureTracker.onClosed((GpuTexture) (Object) this);
         }
     }
 

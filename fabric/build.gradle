@@ -24,9 +24,9 @@ dependencies {
 
 loom {
 	runs {
-		// Shared with the other loaders' runs, so worlds and settings carry over.
+		// Keep snapshot test worlds separate from the stable 26.3 run directory.
 		client {
-			runDir = "../run"
+			runDir = "../run-26.4"
 		}
 	}
 }
@@ -34,11 +34,13 @@ loom {
 processResources {
 	def version = project.version
 	def mcVersion = rootProject.minecraft_version
+	def mcDependencyVersion = providers.gradleProperty('minecraft_dependency_version').orElse(mcVersion).get()
 	inputs.property "version", version
 	inputs.property "minecraft_version", mcVersion
+	inputs.property "minecraft_dependency_version", mcDependencyVersion
 
 	filesMatching("fabric.mod.json") {
-		expand "version": version, "minecraft_version": mcVersion
+		expand "version": version, "minecraft_version": mcDependencyVersion
 	}
 }
 

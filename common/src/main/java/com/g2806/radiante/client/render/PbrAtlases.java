@@ -64,9 +64,9 @@ public final class PbrAtlases {
             return 0;
         }
 
-        int width = atlas.getTexture().getWidth(0);
-        int height = atlas.getTexture().getHeight(0);
-        int mipLevels = atlas.getTexture().getMipLevels();
+        int width = atlas.getTexture().texture().getWidth(0);
+        int height = atlas.getTexture().texture().getHeight(0);
+        int mipLevels = atlas.getTexture().texture().getMipLevels();
         ResourceManager resources = minecraft.getResourceManager();
 
         // Emission Radiante derived from the albedo comes in as the seed, so a block whose map nobody authored -

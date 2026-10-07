@@ -405,10 +405,10 @@ public final class RadianteRenderer {
 
 
         TextureAtlas celestials = minecraft.getAtlasManager().getAtlasOrThrow(AtlasIds.CELESTIALS);
-        int celestialsId = TextureTracker.idOf(celestials.getTexture());
+        int celestialsId = TextureTracker.idOf(celestials.getTexture().texture());
 
         BufferProxy.updateSkyUniform(new BufferProxy.SkyUniform(skyColor, horizonColor, sunDirection, skyType,
-            Mth.sin(sky.sunAngle) >= 0.0f && horizonColor.w() > 0.0f, sky.shouldRenderDarkDisc,
+            Mth.sin(sky.sunAngle) >= 0.0f && horizonColor.w() > 0.0f, sky.hasSkyOccluder,
             mobEffect.x() > 0.0f, submersionTypeOf(cameraState.fogType),
             sky.moonPhase.ordinal(), 1.0f - sky.rainBrightness, celestialsId, celestialsId,
             spriteRect(celestials, SUN_SPRITE),
@@ -440,7 +440,7 @@ public final class RadianteRenderer {
         if (blind != null) {
             blindness = blind.isInfiniteDuration() ? 1.0f : Math.min(1.0f, blind.getDuration() / 20.0f);
         }
-        return new Vector4f(Math.max(darkness, blindness), Mth.clamp(darknessEffectScale / 0.45f, 0.0f, 1.0f),
+        return new Vector4f(Math.max(darkness, blindness), Math.clamp(darknessEffectScale / 0.45f, 0.0f, 1.0f),
             com.g2806.radiante.client.option.Options.volumetricFogStrength / 100.0f, 0.0f);
     }
 

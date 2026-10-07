@@ -21,4 +21,11 @@ rootProject.name = 'radiante'
 
 // common: everything that is plain Minecraft. Each loader module compiles those sources together with its own
 // entrypoint and a RadiantePlatform implementation.
-include 'common', 'fabric', 'neoforge', 'forge'
+def enabledLoaders = providers.gradleProperty('enabled_loaders')
+	.orElse('fabric,neoforge,forge').get().split(',').collect { it.trim() }
+def unknownLoaders = enabledLoaders.findAll { !(it in ['fabric', 'neoforge', 'forge']) }
+if (!unknownLoaders.isEmpty()) {
+	throw new GradleException("Unknown enabled_loaders: ${unknownLoaders.join(', ')}")
+}
+include 'common'
+enabledLoaders.each { include it }

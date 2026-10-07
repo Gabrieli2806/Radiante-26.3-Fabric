@@ -66,8 +66,8 @@ public final class AnimationMirror {
         int maxMipLevel) {
         SpriteContents contents = sprite.contents();
         ByteBuffer[] mips = ((SpriteContentsAccess) contents).radiante$mipImages();
-        int atlasWidth = atlas.getTexture().getWidth(0);
-        int atlasHeight = atlas.getTexture().getHeight(0);
+        int atlasWidth = atlas.getTexture().texture().getWidth(0);
+        int atlasHeight = atlas.getTexture().texture().getHeight(0);
         int paddingX = Math.round(sprite.getU0() * atlasWidth) - sprite.getX();
         int paddingY = Math.round(sprite.getV0() * atlasHeight) - sprite.getY();
         int levels = Math.min(maxMipLevel + 1, mips.length);
@@ -80,7 +80,7 @@ public final class AnimationMirror {
             int width = Math.max(1, contents.width() >> level);
             int height = Math.max(1, contents.height() >> level);
             int rowPixels = Math.max(1, ((SpriteContentsAccess) contents).radiante$mipWidth(level));
-            TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, frameX * width, frameY * height,
+            TextureTracker.uploadRegion(atlas.getTexture().texture(), pixels, rowPixels, frameX * width, frameY * height,
                 (sprite.getX() + paddingX) >> level, (sprite.getY() + paddingY) >> level, width, height, level);
         }
     }

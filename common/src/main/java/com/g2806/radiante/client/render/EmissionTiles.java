@@ -107,16 +107,16 @@ public final class EmissionTiles {
             return;
         }
 
-        int atlasId = TextureTracker.idOf(atlas.getTexture());
+        int atlasId = TextureTracker.idOf(atlas.getTexture().texture());
         if (atlasId == 0) {
             return;
         }
         registeredFor = key;
 
         Map<TextureAtlasSprite, Integer> emitters = collectEmissiveSprites(minecraft, atlas);
-        int atlasWidth = atlas.getTexture().getWidth(0);
-        int atlasHeight = atlas.getTexture().getHeight(0);
-        int mipLevels = atlas.getTexture().getMipLevels();
+        int atlasWidth = atlas.getTexture().texture().getWidth(0);
+        int atlasHeight = atlas.getTexture().texture().getHeight(0);
+        int mipLevels = atlas.getTexture().texture().getMipLevels();
         // The emission worked out from the albedo is written first and the authored maps go over it, so a pack
         // that covers some blocks and not others - Radiante's own built in maps are exactly that - leaves the rest
         // glowing instead of turning the derived emission off everywhere. A lit redstone lamp has no built in map

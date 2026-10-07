@@ -20,8 +20,8 @@ public final class AtlasMirror {
             return;
         }
 
-        int atlasWidth = atlas.getTexture().getWidth(0);
-        int atlasHeight = atlas.getTexture().getHeight(0);
+        int atlasWidth = atlas.getTexture().texture().getWidth(0);
+        int atlasHeight = atlas.getTexture().texture().getHeight(0);
 
         for (TextureAtlasSprite sprite : sprites) {
             SpriteContents contents = sprite.contents();
@@ -43,7 +43,7 @@ public final class AtlasMirror {
                 int rowPixels = Math.max(1, ((SpriteContentsAccess) contents).radiante$mipWidth(level));
                 int x = (sprite.getX() + paddingX) >> level;
                 int y = (sprite.getY() + paddingY) >> level;
-                TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, 0, x, y, width, height, level);
+                TextureTracker.uploadRegion(atlas.getTexture().texture(), pixels, rowPixels, 0, 0, x, y, width, height, level);
 
                 // The border the stitcher leaves round a sprite repeats the sprite's edge in Minecraft's atlas.
                 // Left empty here, a ray hitting a face on its very edge sampled it - and on a cut out texture
@@ -53,21 +53,21 @@ public final class AtlasMirror {
                 int levelHeight = Math.max(1, atlasHeight >> level);
                 if (paddingY >> level > 0 || level == 0 && paddingY > 0) {
                     if (y > 0) {
-                        TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, 0, x, y - 1, width, 1,
+                        TextureTracker.uploadRegion(atlas.getTexture().texture(), pixels, rowPixels, 0, 0, x, y - 1, width, 1,
                             level);
                     }
                     if (y + height < levelHeight) {
-                        TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, height - 1, x,
+                        TextureTracker.uploadRegion(atlas.getTexture().texture(), pixels, rowPixels, 0, height - 1, x,
                             y + height, width, 1, level);
                     }
                 }
                 if (paddingX >> level > 0 || level == 0 && paddingX > 0) {
                     if (x > 0) {
-                        TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, 0, 0, x - 1, y, 1, height,
+                        TextureTracker.uploadRegion(atlas.getTexture().texture(), pixels, rowPixels, 0, 0, x - 1, y, 1, height,
                             level);
                     }
                     if (x + width < levelWidth) {
-                        TextureTracker.uploadRegion(atlas.getTexture(), pixels, rowPixels, width - 1, 0, x + width, y,
+                        TextureTracker.uploadRegion(atlas.getTexture().texture(), pixels, rowPixels, width - 1, 0, x + width, y,
                             1, height, level);
                     }
                 }

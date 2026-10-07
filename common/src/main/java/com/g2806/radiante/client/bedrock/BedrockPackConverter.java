@@ -41,8 +41,8 @@ public final class BedrockPackConverter {
     /** Largest size a Bedrock texture set is converted at, in pixels per side; finer maps are averaged down to it. */
     private static final int MAX_DETAIL = 128;
     private static final String CONVERTER_VERSION = "radiante-bedrock-converter 12";
-    /** Resource pack format of Minecraft 26.3. */
-    private static final int PACK_FORMAT = 97;
+    /** Resource pack format of Minecraft 26.4 Snapshot 3. */
+    private static final int PACK_FORMAT = 100;
     /** Slope of normals built from a height map: height units per texel. */
     private static final float HEIGHT_TO_NORMAL = 2.0f;
     /**

@@ -3,7 +3,6 @@ package com.g2806.radiante.mixin.world;
 import com.g2806.radiante.client.render.ChunkManager;
 import com.g2806.radiante.client.render.LevelRendererGizmoAccess;
 import com.g2806.radiante.client.render.RadianteRenderer;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.SkyRenderer;
 import net.minecraft.client.renderer.texture.TextureManager;
@@ -34,10 +33,6 @@ public class LevelRendererMixin implements LevelRendererGizmoAccess {
 
     @Shadow
     @Final
-    private GameRenderer gameRenderer;
-
-    @Shadow
-    @Final
     private SimpleGizmoCollector renderThreadGizmos;
 
     @Override
@@ -61,8 +56,7 @@ public class LevelRendererMixin implements LevelRendererGizmoAccess {
     @Inject(method = "skyRenderer", at = @At("HEAD"), cancellable = true)
     private void radiante$ensureSkyRenderer(CallbackInfoReturnable<SkyRenderer> cir) {
         if (RadianteRenderer.isActive() && this.skyRenderer == null) {
-            this.skyRenderer = new SkyRenderer(this.textureManager, this.atlasManager,
-                this.gameRenderer.mainRenderTarget());
+            this.skyRenderer = new SkyRenderer(this.textureManager, this.atlasManager);
             cir.setReturnValue(this.skyRenderer);
         }
     }

@@ -13,7 +13,7 @@ import java.nio.ByteBuffer;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.TextureHandle;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -222,18 +222,23 @@ public final class TextureTracker {
     }
 
     public static int idOf(Identifier location) {
-        AbstractTexture texture = Minecraft.getInstance().getTextureManager().getTexture(location);
+        TextureHandle texture = Minecraft.getInstance().getTextureManager().getTexture(location);
         GpuTexture gpuTexture = texture == null ? null : gpuTextureOrNull(texture);
         return gpuTexture == null ? 0 : idOf(gpuTexture);
     }
 
     /**
-     * The texture's GPU image, or null before it has one. {@code getTexture} throws in that case rather than
-     * returning null, and on NeoForge atlases are ticked while resources are still loading, before that point.
+     * The atlas's GPU image, or null while its resources are still loading.
      */
-    public static GpuTexture gpuTextureOrNull(AbstractTexture texture) {
+    public static GpuTexture gpuTextureOrNull(net.minecraft.client.renderer.texture.TextureAtlas atlas) {
+        var resources = atlas.getTexture();
+        return resources == null ? null : resources.texture();
+    }
+
+    public static GpuTexture gpuTextureOrNull(TextureHandle texture) {
         try {
-            return texture.getTexture();
+            var view = texture.textureView();
+            return view == null ? null : view.texture();
         } catch (IllegalStateException notCreatedYet) {
             return null;
         }

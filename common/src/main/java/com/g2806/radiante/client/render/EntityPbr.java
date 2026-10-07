@@ -179,9 +179,9 @@ public final class EntityPbr {
             return true;
         }
 
-        int width = atlas.getTexture().getWidth(0);
-        int height = atlas.getTexture().getHeight(0);
-        int mipLevels = atlas.getTexture().getMipLevels();
+        int width = atlas.getTexture().texture().getWidth(0);
+        int height = atlas.getTexture().texture().getHeight(0);
+        int mipLevels = atlas.getTexture().texture().getMipLevels();
         int specular = -1;
         int normal = -1;
         if (anySpecular) {

@@ -5,9 +5,14 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
 import com.mojang.blaze3d.framegraph.FramePass;
-import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.function.Supplier;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LevelTargetBundle;
@@ -20,14 +25,15 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.ChunkLoadingRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.state.level.ParticlesRenderState;
-import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * While Radiante traces the world, LevelRenderer.render is still called every frame (GameRendererMixin), so that the
@@ -58,9 +64,7 @@ public class LevelRendererSkipMixin {
     private LevelTargetBundle targets;
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void radiante$skipWhenTracing(GraphicsResourceAllocator resourceAllocator, boolean renderOutline,
-        CameraRenderState cameraState, GpuBufferSlice terrainFog, Vector4f fogColor, boolean shouldRenderSky,
-        boolean consistentDepthRequired, CallbackInfo ci) {
+    private void radiante$skipWhenTracing(CallbackInfo ci) {
         if (!RadianteRenderer.isTracingLevel()) {
             return;
         }
@@ -84,9 +88,23 @@ public class LevelRendererSkipMixin {
     }
 
     /** No sky of Minecraft's: it would be drawn over the traced one. */
-    @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true, ordinal = 1)
-    private boolean radiante$noSkyOverTrace(boolean shouldRenderSky) {
-        return RadianteRenderer.isOverlayFrame() ? false : shouldRenderSky;
+    @Inject(method = "shouldRenderSky", at = @At("HEAD"), cancellable = true)
+    private void radiante$noSkyOverTrace(CallbackInfoReturnable<Boolean> cir) {
+        if (RadianteRenderer.isOverlayFrame()) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    /** 26.4 clears inside the main render pass, after the traced frame was submitted. Keep its color and depth. */
+    @WrapOperation(method = "lambda$addMainPass$0", at = @At(value = "INVOKE",
+        target = "Lcom/mojang/renderpearl/api/commands/CommandEncoder;createRenderPass(Ljava/util/function/Supplier;Lcom/mojang/renderpearl/api/textures/GpuTextureView;Ljava/util/Optional;Lcom/mojang/renderpearl/api/textures/GpuTextureView;Ljava/util/OptionalDouble;)Lcom/mojang/renderpearl/api/commands/RenderPass;"))
+    private RenderPass radiante$preserveTracedFrame(CommandEncoder encoder, Supplier<String> label,
+        GpuTextureView color, Optional<Vector4f> clearColor, GpuTextureView depth, OptionalDouble clearDepth,
+        Operation<RenderPass> original) {
+        if (RadianteRenderer.isOverlayFrame()) {
+            return original.call(encoder, label, color, Optional.empty(), depth, OptionalDouble.empty());
+        }
+        return original.call(encoder, label, color, clearColor, depth, clearDepth);
     }
 
     /**

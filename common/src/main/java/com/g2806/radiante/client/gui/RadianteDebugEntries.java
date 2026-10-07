@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.debug.DebugScreenDisplayer;
+import net.minecraft.client.gui.components.debug.DebugGroups;
 import net.minecraft.client.gui.components.debug.DebugScreenEntry;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
@@ -37,7 +38,7 @@ public final class RadianteDebugEntries {
         DebugScreenEntriesInvoker.radiante$register(UPSCALER, new Entry() {
             @Override
             void lines(DebugScreenDisplayer displayer) {
-                displayer.addLine("Upscaler: " + Pipeline.describeUpscaler());
+                displayer.addToGroup(DebugGroups.MISC, "Upscaler: " + Pipeline.describeUpscaler());
             }
         });
         DebugScreenEntriesInvoker.radiante$register(REFLEX, new Entry() {
@@ -49,7 +50,7 @@ public final class RadianteDebugEntries {
                 } else {
                     reflex = Options.reflex ? "On" : "Off";
                 }
-                displayer.addLine("NVIDIA Reflex: " + reflex);
+                displayer.addToGroup(DebugGroups.MISC, "NVIDIA Reflex: " + reflex);
             }
         });
         DebugScreenEntriesInvoker.radiante$register(HDR, new Entry() {
@@ -58,7 +59,7 @@ public final class RadianteDebugEntries {
                 if (!Options.hdrOutput) {
                     return;
                 }
-                displayer.addLine(com.g2806.radiante.client.hdr.HdrDisplay.isActive()
+                displayer.addToGroup(DebugGroups.MISC, com.g2806.radiante.client.hdr.HdrDisplay.isActive()
                     ? String.format(Locale.ROOT, "HDR: on (scRGB), peak %d nits, paper white %d nits%s",
                         Options.hdrPeakNits, Options.hdrPaperWhiteNits, Options.hdrDebugView ? ", debug view" : "")
                     : "HDR: not running (restart, and check HDR is on in Windows)");
@@ -75,7 +76,7 @@ public final class RadianteDebugEntries {
                 }
                 int rendered = Minecraft.getInstance().getFps();
                 int generated = Math.max(0, presented - rendered);
-                displayer.addLine(String.format(Locale.ROOT, "%d fps on screen (%d generated, %dx)", presented,
+                displayer.addToGroup(DebugGroups.MISC, String.format(Locale.ROOT, "%d fps on screen (%d generated, %dx)", presented,
                     generated, FrameGeneration.multiplier()));
             }
         });
