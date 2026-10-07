@@ -41,6 +41,13 @@ public final class BedrockRtxProfile {
         // ---- exposure
         new CompatParameter("exposure", TONE, A + "enable_auto_exposure", TRUE, TRUE, ParameterStatus.VERIFIED,
             "Bedrock builds its exposure from a luminance histogram"),
+        new CompatParameter("exposure", TONE, A + "exposure_adaptation", "1.0", "0.5", ParameterStatus.INFERRED,
+            "the eye adapts fully: a room lit through a window is brought up to a readable level, as Bedrock does; "
+                + "Radiante's default adapts half way and keeps interiors dark"),
+        new CompatParameter("exposure", TONE, A + "max_exposure", "32.0", "2.0", ParameterStatus.INFERRED,
+            "how far the eye may open in the dark: four stops above Radiante's default, so a room lit through a "
+                + "window comes up about as bright as in Bedrock (compared side by side); the real limit is a "
+                + "run-time value"),
         new CompatParameter("exposure", TONE, A + "exposure_metering_mode", A + "exposure_metering_mode.light_meter",
             A + "exposure_metering_mode.center", ParameterStatus.INFERRED,
             "Bedrock's light meter: power mean of 16 x 16 samples, brightest channel, white surface to 0.75 "

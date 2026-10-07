@@ -34,7 +34,7 @@ attributeConfigs:
     type: "float_range:0.0-8.0"
     value: "0.01"
   - name: "render_pipeline.module.tone_mapping.attribute.max_exposure"
-    type: "float_range:0.0-8.0"
+    type: "float_range:0.0-64.0"
     value: "2.0"
   - name: "render_pipeline.module.tone_mapping.attribute.enable_auto_exposure"
     type: "bool"
