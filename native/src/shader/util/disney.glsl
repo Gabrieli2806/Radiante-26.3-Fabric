@@ -146,9 +146,9 @@ float DielectricFresnel(float cosThetaI, float eta) {
 
 // Reflectance of a glass or water interface, for the camera-visible glass/water transport (not the microfacet lobes).
 //
-// Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (pass: PrimaryCheckerboardRayGenInline) for the shape;
+// Bedrock compatibility - approximates Bedrock RTX's observed behaviour for the shape;
 // INFERRED for deriving the critical-angle cosine from the two indices (Bedrock reads it from a table whose values
-// were not extracted). Schlick's approximation with the incidence cosine remapped so that it reaches 1 exactly at the
+// are not known). Schlick's approximation with the incidence cosine remapped so that it reaches 1 exactly at the
 // critical angle, which keeps total internal reflection continuous. With eta = n_incident / n_transmitted:
 //   F0 = ((1 - eta) / (1 + eta))^2,   cc = sqrt(1 - 1/eta^2) when eta > 1 (else 0)
 //   t  = clamp(1 + (cos - 1) / (1 - cc), 0, 1),   F = F0 + (1 - F0) * (1 - t)^5

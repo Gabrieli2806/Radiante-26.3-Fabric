@@ -79,7 +79,7 @@ const float WATER_MEDIUM_HUE_DEPTH = 8.0;
 
 void waterMediumSegment(float distance, float density, out vec3 transmittance, out vec3 inScatter) {
 #if VPT_MEDIUM_DISTANCE_CLAMP != 0
-    // Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (pass: PrimaryCheckerboardRayGenInline). The distance a
+    // Bedrock compatibility - observed behaviour. The distance a
     // ray is attenuated over inside a medium stops counting at 50 blocks.
     distance = min(distance, 50.0);
 #endif

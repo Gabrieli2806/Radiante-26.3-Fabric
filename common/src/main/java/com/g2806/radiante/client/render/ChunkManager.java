@@ -57,6 +57,11 @@ public final class ChunkManager {
 
 
 
+    /** Grass, ferns, flowers, bushes and the like: what the tracer may leave out far away (foliage culling). */
+    private static boolean isPlant(BlockState state) {
+        return state.getBlock() instanceof net.minecraft.world.level.block.VegetationBlock;
+    }
+
     private static final int VERTEX_FORMAT_PBR = 12;
     public static final int GEOMETRY_TYPE_WORLD_SOLID = 1;
     public static final int GEOMETRY_TYPE_WORLD_TRANSPARENT = 2;
@@ -521,15 +526,18 @@ public final class ChunkManager {
                 continue;
             }
             scratch.blockIsGlass = isGlass(blockState);
+            scratch.blockIsPlant = isPlant(blockState);
 
 
             FluidState fluidState = blockState.getFluidState();
             if (!fluidState.isEmpty()) {
                 scratch.blockIsGlass = false;
+                scratch.blockIsPlant = false;
                 scratch.fluidIsWater = fluidState.is(net.minecraft.tags.FluidTags.WATER);
                 scratch.fluidIsLava = fluidState.is(net.minecraft.tags.FluidTags.LAVA);
                 fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
                 scratch.blockIsGlass = isGlass(blockState);
+                scratch.blockIsPlant = isPlant(blockState);
                 // Water with water or solid blocks on every side draws no face, and never asks for a writer: when
                 // that is the first fluid of the section there is none yet, and the whole section failed to build.
                 if (scratch.currentWriter() != null) {
@@ -797,6 +805,7 @@ public final class ChunkManager {
         private boolean fluidIsLava;
         /** The block being written is glass or a glass pane; see PBRVertexWriter.glass. */
         private boolean blockIsGlass;
+        private boolean blockIsPlant;
         private final List<BakedQuad> panelQuads = new ArrayList<>();
 
         void reset() {
@@ -830,7 +839,7 @@ public final class ChunkManager {
                 writer = new PBRVertexWriter(4096);
                 this.writers.put(layer, writer);
             }
-            writer.textureId(atlasId).alphaMode(alphaModeOf(layer)).coordinate(0).water(false).glass(this.blockIsGlass);
+            writer.textureId(atlasId).alphaMode(alphaModeOf(layer)).coordinate(0).water(false).glass(this.blockIsGlass).plant(this.blockIsPlant);
             this.current = writer;
             return writer;
         }

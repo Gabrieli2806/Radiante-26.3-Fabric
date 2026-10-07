@@ -30,13 +30,15 @@ enum ToneMappingMethod : int32_t {
     TONE_MAPPING_METHOD_ACES_FITTED = 3,
     TONE_MAPPING_METHOD_ACES_FITTED_WHITE_POINT = 4,
     TONE_MAPPING_METHOD_UNCHARTED2 = 5,
-    // The Bedrock-style mapper: its curve is a placeholder until measured (see tone_mapping.frag bedrockToneCurve).
+    // The Bedrock-style mapper: histogram-built tone curve (bedrock_hist.comp, bedrock_curve.comp) and Bedrock's grade.
     TONE_MAPPING_METHOD_BEDROCK_PROVISIONAL = 6,
 };
 
 enum ToneMappingExposureMeteringMode : int32_t {
     TONE_MAPPING_EXPOSURE_METERING_MODE_GLOBAL = 0,
     TONE_MAPPING_EXPOSURE_METERING_MODE_CENTER = 1,
+    // Bedrock-style light meter: power mean over a 16 x 16 grid (exposure.comp).
+    TONE_MAPPING_EXPOSURE_METERING_MODE_LIGHT_METER = 2,
 };
 
 struct ToneMappingModulePushConstant {
@@ -70,8 +72,26 @@ struct ToneMappingModulePushConstant {
     float balanceR;
     float balanceG;
     float balanceB;
+    float filmicSaturation;
 };
 static_assert(sizeof(ToneMappingModulePushConstant) <= 128, "push constants must fit the guaranteed 128 bytes");
+
+// Push constants of the Bedrock-style tone curve passes (bedrock_hist.comp, bedrock_curve.comp). Pushed over the
+// same range as ToneMappingModulePushConstant, which is pushed again before the draw.
+struct ToneMappingBedrockCurvePushConstant {
+    float dynamicRange;
+    float curveShift;
+    float maxExposureIncrease;
+    float shadowMinSlope;
+    float shadowContrast;
+    float shadowContrastEnd;
+    int32_t needsReset;
+    int32_t autoExposure;
+    float manualExposure;
+    float exposureBias;
+};
+static_assert(sizeof(ToneMappingBedrockCurvePushConstant) <= sizeof(ToneMappingModulePushConstant),
+              "the curve passes push within the tone mapping range");
 
 // Push constants of one bloom pass (bloom_down.frag / bloom_up.frag).
 struct ToneMappingBloomPushConstant {
@@ -147,8 +167,7 @@ class ToneMappingModule : public WorldModule, public SharedObject<ToneMappingMod
     void recordBloom(std::shared_ptr<vk::CommandBuffer> commandBuffer, uint32_t frameIndex, uint32_t queueFamily);
 
   public:
-    // Bedrock's bloom runs one uniform downscale, four Gaussian downscales and four upscales (the pass names and
-    // their repeat counts, see docs/bedrock-rtx-compat/BLOOM_AND_TONEMAPPING.md). Levels below are the downscaled
+    // Bedrock's bloom runs one uniform downscale, four Gaussian downscales and four upscales. Levels below are the downscaled
     // images (half, 1/4, 1/8, 1/16, 1/32 of the HDR image) and the combined upscaled ones (1/16 .. 1/2).
     static constexpr uint32_t BLOOM_DOWN_LEVELS = 5;
     static constexpr uint32_t BLOOM_UP_LEVELS = 4;
@@ -170,6 +189,19 @@ class ToneMappingModule : public WorldModule, public SharedObject<ToneMappingMod
     std::shared_ptr<vk::Shader> exposureShader_;
     std::shared_ptr<vk::ComputePipeline> exposurePipeline_;
 
+    // Bedrock-style tone curve: one histogram (uint[256]) and curve (float[256]) shared by all frames, the curve
+    // carried from frame to frame.
+    std::shared_ptr<vk::DeviceLocalBuffer> bedrockCurveData_;
+    std::shared_ptr<vk::Shader> bedrockHistShader_;
+    std::shared_ptr<vk::ComputePipeline> bedrockHistPipeline_;
+    std::shared_ptr<vk::Shader> bedrockCurveShader_;
+    std::shared_ptr<vk::ComputePipeline> bedrockCurvePipeline_;
+    bool bedrockCurveNeedsReset_ = true;
+    float curveDynamicRange_ = 8.0f;
+    float curveShift_ = 0.0f;
+    float curveMaxExposureIncrease_ = 2.0f;
+    float curveShadowMinSlope_ = 0.0f;
+    float filmicSaturation_ = 0.0f;
     std::shared_ptr<vk::Shader> vertShader_;
     std::shared_ptr<vk::Shader> fragShader_;
     std::shared_ptr<vk::RenderPass> renderPass_;

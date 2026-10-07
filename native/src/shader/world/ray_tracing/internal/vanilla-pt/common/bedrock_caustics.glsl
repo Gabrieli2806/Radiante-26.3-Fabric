@@ -41,7 +41,7 @@ float sampleBedrockCaustic(vec2 surfaceXZ, float gameTime, float waterDepth) {
     float a = bedrockCausticFrame(uv, floor(frame));
     float b = bedrockCausticFrame(uv, floor(frame) + 1.0);
 #if VPT_CAUSTIC_MODEL != 0
-    // Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (pass: SunShadowRayGenInline). The caustics texture is
+    // Bedrock compatibility - observed behaviour. The caustics texture is
     // not normalised and is not faded by a drift: the sunlight reaching a point under water is scaled by
     // 1 + exp(-0.1 depth) * (7 c + 0.8 - 1), c the texture value, so the net is strong near the surface and fades to
     // plain light with depth. (The size of one repeat of the pattern comes from run-time values; the tile above stays.)

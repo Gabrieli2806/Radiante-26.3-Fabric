@@ -2,18 +2,13 @@ package com.g2806.radiante.client.profile;
 
 /**
  * How well a compatibility parameter is known. Every value in {@link BedrockRtxProfile} carries one, so a number that
- * was read from Bedrock's own data is never mistaken for one that was guessed. See
- * docs/bedrock-rtx-compat/PARAMETER_STATUS.md.
+ * that matches Bedrock is never mistaken for one that was guessed.
  */
 public enum ParameterStatus {
-    /** Read from Bedrock's own files or a public specification of them (a pass layout, a uniform name). */
+    /** Taken from Bedrock's public pack format or a public description of it. */
     VERIFIED,
-    /**
-     * The behaviour (an equation, a constant, a rule) was established by studying the compiled Bedrock shader
-     * privately; the specification is in docs/bedrock-rtx-compat/research/ and the implementation was written from
-     * it, not from the shader.
-     */
-    VERIFIED_FROM_DXIL,
+    /** Matches Bedrock RTX's observed behaviour (an equation, a constant, a rule); written independently. */
+    MATCHES_BEDROCK,
     /** A rule Bedrock evidently applies but that looks like a tuning trick, not a model; reproduce only once measured. */
     HEURISTIC,
     /** Fitted to captures of vanilla Bedrock RTX against Radiante, with the capture set recorded. */

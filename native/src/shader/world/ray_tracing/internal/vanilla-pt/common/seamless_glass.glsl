@@ -56,12 +56,16 @@ vec2 seamlessGlassUV(vec2 uv, vec3 objectPos, vec3 dposdu, vec3 dposdv) {
 // The thin tops and bottoms of panes: between two panes stacked they stay inside the glass, and through its clear
 // front they showed as a line along every join. With seamless glass they are left out, so a wall of panes is one
 // clear sheet. A pane's upright thin faces stay: a pane standing on its own is only those.
-bool seamlessGlassHidesFace(vec2 uvMin, vec2 uvMax, ivec2 atlasSize, vec3 faceNormal) {
+// Told apart by their size in the world (under 3/16 of a block across), not in texels: a pack whose pane texture is
+// finer than 16 px (Bedrock RTX packs, upscaled for their detail maps) made the strip too many texels wide, and every
+// join between stacked panes showed as a dark line.
+bool seamlessGlassHidesFace(vec3 p0, vec3 p1, vec3 p2) {
 #if VPT_SEAMLESS_GLASS != 0
-    vec2 extent = (uvMax - uvMin) * vec2(max(atlasSize, ivec2(1)));
+    vec3 faceNormal = cross(p1 - p0, p2 - p0);
     float normalLength = length(faceNormal);
     bool horizontal = normalLength > 0.0 && abs(faceNormal.y) > 0.9 * normalLength;
-    return horizontal && min(extent.x, extent.y) < 3.0;
+    vec2 extent = max(p0.xz, max(p1.xz, p2.xz)) - min(p0.xz, min(p1.xz, p2.xz));
+    return horizontal && min(extent.x, extent.y) < 3.0 / 16.0;
 #else
     return false;
 #endif

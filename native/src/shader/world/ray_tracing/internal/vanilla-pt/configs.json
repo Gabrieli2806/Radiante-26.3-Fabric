@@ -148,6 +148,18 @@
             "define": "VPT_VOLUMETRIC_CLOUD_LIGHT_STEPS"
         },
         {
+            "name": "render_pipeline.module.ray_tracing.attribute.foliage_culling",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_FOLIAGE_CULLING"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.foliage_distance",
+            "type": "float_range:16-128",
+            "default_value": "48.0",
+            "define": "VPT_FOLIAGE_DISTANCE"
+        },
+        {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_cast_shadow",
             "type": "bool",
             "default_value": "render_pipeline.false",
@@ -185,7 +197,7 @@
         },
         {
             "name": "render_pipeline.module.ray_tracing.attribute.water_surface_mode",
-            "type": "enum:render_pipeline.module.ray_tracing.attribute.water_surface_mode.vanilla-render_pipeline.module.ray_tracing.attribute.water_surface_mode.realistic",
+            "type": "enum:render_pipeline.module.ray_tracing.attribute.water_surface_mode.vanilla-render_pipeline.module.ray_tracing.attribute.water_surface_mode.realistic-render_pipeline.module.ray_tracing.attribute.water_surface_mode.bedrock",
             "default_value": "render_pipeline.module.ray_tracing.attribute.water_surface_mode.realistic",
             "define": {
                 "VPT_WATER_SURFACE_MODE": "uint(X)"
@@ -196,6 +208,18 @@
             "type": "enum:render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.vanilla-render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.volumetric",
             "default_value": "render_pipeline.module.ray_tracing.attribute.volumetric_light_mode.vanilla",
             "define": "VPT_VOLUMETRIC_LIGHT_MODE"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_one_bounce",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_BEDROCK_ONE_BOUNCE"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.transparent_checkerboard",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_TRANSPARENT_CHECKERBOARD"
         },
         {
             "name": "render_pipeline.module.ray_tracing.attribute.cache_deep_bounces",
@@ -220,6 +244,18 @@
             "type": "bool",
             "default_value": "render_pipeline.true",
             "define": "VPT_FROXEL_FOG"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_volumetric_fog",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_BEDROCK_FOG"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_fog_anisotropy",
+            "type": "float_range:-0.9-0.95",
+            "default_value": "0.6",
+            "define": "VPT_BEDROCK_FOG_G"
         },
         {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_light_samples",
@@ -312,18 +348,6 @@
             "define": "VPT_SKY_LIGHT_BOOST"
         },
         {
-            "name": "render_pipeline.module.ray_tracing.attribute.far_bounce_distance",
-            "type": "int_range:0-512",
-            "default_value": "0",
-            "define": "VPT_FAR_BOUNCE_DISTANCE"
-        },
-        {
-            "name": "render_pipeline.module.ray_tracing.attribute.far_bounces",
-            "type": "int_range:1-8",
-            "default_value": "1",
-            "define": "VPT_FAR_BOUNCES"
-        },
-        {
             "name": "render_pipeline.module.ray_tracing.attribute.glass_reflection",
             "type": "float_range:0.0-1.0",
             "default_value": "0.5",
@@ -352,6 +376,18 @@
             "type": "bool",
             "default_value": "render_pipeline.false",
             "define": "VPT_SHADOW_TINT_MODEL"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_glass_tint",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_GLASS_TINT_MODEL"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.bedrock_emission",
+            "type": "bool",
+            "default_value": "render_pipeline.false",
+            "define": "VPT_EMISSION_MODEL"
         },
         {
             "name": "render_pipeline.module.ray_tracing.attribute.bedrock_caustics",
@@ -678,6 +714,18 @@
             "sampled_binding": 37,
             "filter": "linear",
             "address_mode": "clamp_to_edge"
+        },
+        {
+            "name": "bedrock_water_normals",
+            "type": "file",
+            "path": "textures/caustics_fallback.png",
+            "external_paths": [
+                "radiante/bedrock/water_n.tga",
+                "C:/XboxGames/Minecraft for Windows/Content/data/ray_tracing/water_n.tga"
+            ],
+            "sampled_binding": 44,
+            "filter": "linear",
+            "address_mode": "repeat"
         },
         {
             "name": "bedrock_luts",

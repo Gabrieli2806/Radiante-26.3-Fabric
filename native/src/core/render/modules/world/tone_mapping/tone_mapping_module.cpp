@@ -51,6 +51,8 @@ int parseExposureMeteringModeValue(const std::string &value, int fallback) {
         return TONE_MAPPING_EXPOSURE_METERING_MODE_GLOBAL;
     if (value == "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.center")
         return TONE_MAPPING_EXPOSURE_METERING_MODE_CENTER;
+    if (value == "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.light_meter")
+        return TONE_MAPPING_EXPOSURE_METERING_MODE_LIGHT_METER;
     return fallback;
 }
 
@@ -167,7 +169,17 @@ void ToneMappingModule::setAttributes(int attributeCount, std::vector<std::strin
         } else if (key == "render_pipeline.module.tone_mapping.attribute.shadow_contrast_end") {
             if (tryParseFloat(value, floatValue)) shadowContrastEnd_ = std::clamp(floatValue, 1e-3f, 4.0f);
         } else if (key == "render_pipeline.module.tone_mapping.attribute.gamma") {
-            if (tryParseFloat(value, floatValue)) gamma_ = std::clamp(floatValue, 1.0f, 3.0f);
+            if (tryParseFloat(value, floatValue)) gamma_ = std::clamp(floatValue, 0.5f, 3.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.curve_dynamic_range") {
+            if (tryParseFloat(value, floatValue)) curveDynamicRange_ = std::clamp(floatValue, 2.6f, 20.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.curve_shift") {
+            if (tryParseFloat(value, floatValue)) curveShift_ = std::clamp(floatValue, -4.0f, 4.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.curve_max_exposure_increase") {
+            if (tryParseFloat(value, floatValue)) curveMaxExposureIncrease_ = std::clamp(floatValue, 0.0f, 16.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.curve_shadow_min_slope") {
+            if (tryParseFloat(value, floatValue)) curveShadowMinSlope_ = std::clamp(floatValue, 0.0f, 1.0f);
+        } else if (key == "render_pipeline.module.tone_mapping.attribute.filmic_saturation") {
+            if (tryParseFloat(value, floatValue)) filmicSaturation_ = std::clamp(floatValue, 0.0f, 2.0f);
         } else if (key == "render_pipeline.module.tone_mapping.attribute.color_balance_r") {
             if (tryParseFloat(value, floatValue)) colorBalance_[0] = std::clamp(floatValue, 0.0f, 4.0f);
         } else if (key == "render_pipeline.module.tone_mapping.attribute.color_balance_g") {
@@ -246,6 +258,12 @@ void ToneMappingModule::initDescriptorTables() {
                                        .descriptorCount = 1,
                                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                    })
+                                   .defineDescriptorLayoutSetBinding({
+                                       .binding = 4, // the Bedrock-style histogram and tone curve
+                                       .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                       .descriptorCount = 1,
+                                       .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                                   })
                                    .endDescriptorLayoutSetBinding()
                                    .endDescriptorLayoutSet()
                                    .definePushConstant(VkPushConstantRange{
@@ -281,7 +299,13 @@ void ToneMappingModule::initBuffers() {
         vk::DeviceLocalBuffer::create(vma, device, sizeof(ToneMappingModuleExposureData),
                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
+    bedrockCurveData_ = vk::DeviceLocalBuffer::create(vma, device, 2 * histSize * sizeof(uint32_t),
+                                                      VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    bedrockCurveNeedsReset_ = true;
+
     for (int i = 0; i < size; i++) {
+        descriptorTables_[i]->bindBuffer(bedrockCurveData_, 0, 4);
         histBuffers_[i] =
             vk::DeviceLocalBuffer::create(vma, device, histSize * sizeof(uint32_t),
                                           VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -357,6 +381,19 @@ void ToneMappingModule::initPipeline() {
                             .definePipelineLayout(descriptorTables_[0])
                             .build(device);
 
+    bedrockHistShader_ =
+        vk::Shader::create(framework->device(), (shaderPath / "world/tone_mapping/bedrock_hist_comp.spv").string());
+    bedrockHistPipeline_ = vk::ComputePipelineBuilder{}
+                               .defineShader(bedrockHistShader_)
+                               .definePipelineLayout(descriptorTables_[0])
+                               .build(device);
+    bedrockCurveShader_ =
+        vk::Shader::create(framework->device(), (shaderPath / "world/tone_mapping/bedrock_curve_comp.spv").string());
+    bedrockCurvePipeline_ = vk::ComputePipelineBuilder{}
+                                .defineShader(bedrockCurveShader_)
+                                .definePipelineLayout(descriptorTables_[0])
+                                .build(device);
+
     vertShader_ =
         vk::Shader::create(framework->device(), (shaderPath / "world/tone_mapping/tone_mapping_vert.spv").string());
     fragShader_ =
@@ -399,8 +436,7 @@ void ToneMappingModule::initPipeline() {
                     .build(device);
 }
 
-// Bloom. What is Bedrock structure and what is a placeholder is written down in
-// docs/bedrock-rtx-compat/BLOOM_AND_TONEMAPPING.md.
+// Bloom: Bedrock's pass layout; every filter shape and weight is a placeholder.
 void ToneMappingModule::initBloom() {
     auto framework = framework_.lock();
     auto device = framework->device();
@@ -781,7 +817,7 @@ void ToneMappingModuleContext::render() {
     pc.clampOutput = module->shouldClampOutput_ ? 1 : 0;
     pc.exposureMeteringMode =
         std::clamp(module->exposureMeteringMode_, static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_GLOBAL),
-                   static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_CENTER));
+                   static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_LIGHT_METER));
     pc.centerMeteringPercent = sanitizedCenterMeteringPercent;
     pc.adaptation = std::clamp(module->adaptation_, 0.0f, 1.0f);
     pc.bloomIntensity = module->bloomEnabled_ ? module->bloomIntensity_ : 0.0f;
@@ -792,6 +828,7 @@ void ToneMappingModuleContext::render() {
     pc.balanceR = module->colorBalance_[0];
     pc.balanceG = module->colorBalance_[1];
     pc.balanceB = module->colorBalance_[2];
+    pc.filmicSaturation = module->filmicSaturation_;
 
     vkCmdPushConstants(worldCommandBuffer->vkCommandBuffer(), descriptorTable->vkPipelineLayout(),
                        VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
@@ -832,6 +869,54 @@ void ToneMappingModuleContext::render() {
             .buffer = module->exposureData_,
         }},
         {});
+
+    if (pc.toneMappingMethod == TONE_MAPPING_METHOD_BEDROCK_PROVISIONAL) {
+        auto curveBarrier = [&]() {
+            worldCommandBuffer->barriersBufferImage(
+                {{
+                    .srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                    .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                    .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                    VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                    .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                    .srcQueueFamilyIndex = mainQueueIndex,
+                    .dstQueueFamilyIndex = mainQueueIndex,
+                    .buffer = module->bedrockCurveData_,
+                }},
+                {});
+        };
+        if (module->bedrockCurveNeedsReset_) {
+            vkCmdFillBuffer(worldCommandBuffer->vkCommandBuffer(), module->bedrockCurveData_->vkBuffer(), 0,
+                            VK_WHOLE_SIZE, 0);
+            curveBarrier();
+        }
+
+        ToneMappingBedrockCurvePushConstant curvePc{};
+        curvePc.dynamicRange = module->curveDynamicRange_;
+        curvePc.curveShift = module->curveShift_;
+        curvePc.maxExposureIncrease = module->curveMaxExposureIncrease_;
+        curvePc.shadowMinSlope = module->curveShadowMinSlope_;
+        curvePc.shadowContrast = module->shadowContrast_;
+        curvePc.shadowContrastEnd = module->shadowContrastEnd_;
+        curvePc.needsReset = module->bedrockCurveNeedsReset_ ? 1 : 0;
+        curvePc.autoExposure = pc.autoExposure;
+        curvePc.manualExposure = pc.manualExposure;
+        curvePc.exposureBias = pc.exposureBias;
+        module->bedrockCurveNeedsReset_ = false;
+        vkCmdPushConstants(worldCommandBuffer->vkCommandBuffer(), descriptorTable->vkPipelineLayout(),
+                           VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(curvePc), &curvePc);
+
+        worldCommandBuffer->bindComputePipeline(module->bedrockHistPipeline_);
+        vkCmdDispatch(worldCommandBuffer->vkCommandBuffer(), groupX, groupY, 1);
+        curveBarrier();
+        worldCommandBuffer->bindComputePipeline(module->bedrockCurvePipeline_);
+        vkCmdDispatch(worldCommandBuffer->vkCommandBuffer(), 1, 1, 1);
+        curveBarrier();
+
+        vkCmdPushConstants(worldCommandBuffer->vkCommandBuffer(), descriptorTable->vkPipelineLayout(),
+                           VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(ToneMappingModulePushConstant), &pc);
+    }
 
     if (module->bloomEnabled_) {
         module->recordBloom(worldCommandBuffer, context->frameIndex, mainQueueIndex);

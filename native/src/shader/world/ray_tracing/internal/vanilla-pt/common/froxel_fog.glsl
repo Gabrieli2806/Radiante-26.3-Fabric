@@ -17,11 +17,25 @@
 #    define VPT_VOLUMETRIC_LIGHT_MAX_DISTANCE 128.0
 #endif
 
+#ifndef VPT_BEDROCK_FOG
+#    define VPT_BEDROCK_FOG 0
+#endif
+#ifndef VPT_BEDROCK_FOG_G
+#    define VPT_BEDROCK_FOG_G 0.6
+#endif
+
 const ivec3 FROXEL_EXTENT = ivec3(160, 90, 64);
 const float FROXEL_SLICE_CURVATURE = 10.0;
+// Bedrock RTX's volume reaches 50 blocks, its slices at 5 * (11^w - 1): the same spacing as below with this range
+// (observed).
+const float BEDROCK_FOG_RANGE = 50.0;
 
 float froxelRange() {
+#if VPT_BEDROCK_FOG != 0
+    return BEDROCK_FOG_RANGE;
+#else
     return clamp(VPT_VOLUMETRIC_LIGHT_MAX_DISTANCE, 48.0, 192.0);
+#endif
 }
 
 // Slices are thin near the camera, where shafts are sharp, and thicker further out.
@@ -95,6 +109,15 @@ vec3 froxelCellCenter(ivec3 cell, out vec3 rayDir) {
 // The medium's extinction per block at a world height, as the per-pixel march has it (volumetricAirMedium and the
 // biome fog in world.rgen), as one luminance.
 float froxelExtinction(float worldY) {
+#if VPT_BEDROCK_FOG != 0
+    // The pack's air: extinction per channel scaled by the height profile (full below max_density_height, none
+    // from zero_density_height up), as one luminance for the integral.
+    vec2 fogHeights = skyUBO.biomeFogHeights.xy;
+    float height = clamp((fogHeights.y - worldY) / max(fogHeights.y - fogHeights.x, 1.0), 0.0, 1.0);
+    float density = worldUBO.skyType == 1 ? max(skyUBO.biomeFog.a, 0.0) : 0.0;
+    vec3 sigmaT = max(skyUBO.biomeFogChroma.rgb, vec3(0.0)) * density * height;
+    return max(dot(sigmaT, vec3(0.2126, 0.7152, 0.0722)), 1e-6);
+#endif
     float sunHeight = abs(normalize(skyUBO.sunDirection).y);
     float airDensity = mix(1.0, 0.7, smoothstep(0.05, 0.35, sunHeight));
     vec3 betaR = VPT_ATMOSPHERE_BETA_R * 18.0;

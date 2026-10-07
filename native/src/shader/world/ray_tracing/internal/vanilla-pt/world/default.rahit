@@ -41,6 +41,34 @@ indexBuffer;
 #include "common/lod_coverage.glsl"
 #include "common/seamless_glass.glsl"
 
+#ifndef VPT_FOLIAGE_CULLING
+#    define VPT_FOLIAGE_CULLING 0
+#endif
+#ifndef VPT_FOLIAGE_DISTANCE
+#    define VPT_FOLIAGE_DISTANCE 48.0
+#endif
+
+// Foliage culling, as Bedrock RTX does: small plants past a distance from the camera are left out, appearing a few
+// triangles at a time over the last 8 blocks as the camera comes closer. Positions are camera-relative.
+bool foliageCulled(uint packedData) {
+#if VPT_FOLIAGE_CULLING != 0
+    if (!isPlantSurface(packedData)) { return false; }
+    vec3 hit = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+    const float fade = 8.0;
+    float start = VPT_FOLIAGE_DISTANCE - fade;
+    float d = length(hit.xz);
+    if (d < start) { return false; }
+    uint h = (uint(gl_PrimitiveID) >> 2u) * 747796405u + gl_InstanceCustomIndexEXT * 2891336453u +
+             uint(gl_GeometryIndexEXT) * 277803737u;
+    h ^= h >> 16u;
+    h *= 2246822519u;
+    h ^= h >> 13u;
+    return (d - start) / fade > float(h & 0xFFFFu) / 65535.0;
+#else
+    return false;
+#endif
+}
+
 layout(location = 0) rayPayloadInEXT MainRay mainRay;
 hitAttributeEXT vec2 attribs;
 
@@ -62,6 +90,10 @@ void main() {
     uint packedData = m0.packedData;
     uint textureID = m0.textureID;
     uint alphaMode = getAlphaMode(packedData);
+    if (foliageCulled(packedData)) {
+        ignoreIntersectionEXT;
+        return;
+    }
 
     float alpha = hasColorLayer(packedData) ?
                       (baryCoords.x * m0.colorLayer + baryCoords.y * m1.colorLayer + baryCoords.z * m2.colorLayer).a :
@@ -73,10 +105,7 @@ void main() {
         PositionVertex p0, p1, p2;
         loadTrianglePositions(geometryBufferIndex, i0, i1, i2, p0, p1, p2);
         if (isGlassSurface(packedData)) {
-            vec2 glassUvMin = min(m0.textureUV, min(m1.textureUV, m2.textureUV));
-            vec2 glassUvMax = max(m0.textureUV, max(m1.textureUV, m2.textureUV));
-            ivec2 atlasSize = textureSize(textures[nonuniformEXT(textureID)], 0);
-            if (seamlessGlassHidesFace(glassUvMin, glassUvMax, atlasSize, cross(p1.pos - p0.pos, p2.pos - p0.pos))) {
+            if (seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos)) {
                 ignoreIntersectionEXT;
                 return;
             }

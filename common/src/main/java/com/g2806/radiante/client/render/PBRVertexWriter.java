@@ -18,6 +18,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private static final int HELD_FLAG = 0x40;
     /** Glass blocks and panes; see glass(). */
     private static final int GLASS_FLAG = 0x80;
+    /** Small plants (grass, flowers, bushes); see plant(). */
+    private static final int PLANT_FLAG = 0x100;
 
     public static final int ALPHA_MODE_OPAQUE = 0;
     public static final int ALPHA_MODE_CUTOUT = 1;
@@ -78,6 +80,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
      */
     private float layerOffset;
     private boolean glass;
+    private boolean plant;
     private boolean computeQuadNormals;
     private boolean overlayEnabled;
     private boolean glintEnabled;
@@ -166,6 +169,12 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     /** Marks what follows as a glass block or pane, whose see-through texels are clear glass, not holes. */
     public PBRVertexWriter glass(boolean glass) {
         this.glass = glass;
+        return this;
+    }
+
+    /** Marks what follows as a small plant, which the tracer may leave out far from the camera. */
+    public PBRVertexWriter plant(boolean plant) {
+        this.plant = plant;
         return this;
     }
 
@@ -294,7 +303,8 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         MemoryUtil.memPutInt(v + OFF_COORDINATE, this.coordinate);
         MemoryUtil.memPutFloat(v + OFF_ALBEDO_EMISSION, this.albedoEmission);
         MemoryUtil.memPutInt(v + OFF_ALPHA_MODE,
-            this.alphaMode | (this.water ? WATER_FLAG : 0) | (this.rain ? RAIN_FLAG : 0) | (this.held ? HELD_FLAG : 0) | (this.glass ? GLASS_FLAG : 0));
+            this.alphaMode | (this.water ? WATER_FLAG : 0) | (this.rain ? RAIN_FLAG : 0) | (this.held ? HELD_FLAG : 0) | (this.glass ? GLASS_FLAG : 0)
+                | (this.plant ? PLANT_FLAG : 0));
         if (this.colorOverride != 0) {
             setColor(255, 255, 255, 255);
         }

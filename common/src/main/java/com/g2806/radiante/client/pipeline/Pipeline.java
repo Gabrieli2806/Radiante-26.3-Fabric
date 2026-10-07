@@ -292,6 +292,7 @@ public class Pipeline {
             }
             AttributeConfig attribute = findAttribute(module, DLSS_MODE_ATTRIBUTE);
             if (attribute != null && !Objects.equals(attribute.value, mode)) {
+                logSettingChange(DLSS_MODE_ATTRIBUTE, attribute.value, mode);
                 attribute.value = mode;
                 changed = true;
             }
@@ -409,6 +410,12 @@ public class Pipeline {
     /** Past the first bounce, diffuse light taken from the radiance cache instead of traced further. */
     public static final String CACHE_DEEP_BOUNCES_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.cache_deep_bounces";
+    /** One bounce traced everywhere, the rest of the light from the radiance cache, as Bedrock RTX does. */
+    public static final String BEDROCK_ONE_BOUNCE_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.bedrock_one_bounce";
+    /** Water and glass trace their reflection or their refraction per pixel on a checkerboard, not both. */
+    public static final String TRANSPARENT_CHECKERBOARD_ATTRIBUTE =
+        "render_pipeline.module.ray_tracing.attribute.transparent_checkerboard";
     /** Glass blocks without the frame vanilla draws around each one, so neighbours join into one sheet. */
     public static final String SEAMLESS_GLASS_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.seamless_glass";
@@ -420,6 +427,8 @@ public class Pipeline {
     /** Volumetric clouds shade the ground under them (only with Volumetric clouds). */
     public static final String CLOUD_SHADOWS_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_cast_shadow";
+    /** Grass, flowers and bushes far from the camera are left out of the trace, as Bedrock RTX does. */
+    public static final String FOLIAGE_CULLING_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.foliage_culling";
 
     /**
      * Switches one of the shader pack's on/off attributes, such as motion blur or depth of field. They are compiled
@@ -431,6 +440,7 @@ public class Pipeline {
         if (attribute == null || Objects.equals(attribute.value, value)) {
             return false;
         }
+        logSettingChange(attributeName, attribute.value, value);
         attribute.value = value;
         return true;
     }
@@ -446,9 +456,6 @@ public class Pipeline {
     public static final String PARALLAX_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.enable_parallax";
     public static final String BEDROCK_ATMOSPHERE_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.bedrock_atmosphere";
-    public static final String FAR_BOUNCE_DISTANCE_ATTRIBUTE =
-        "render_pipeline.module.ray_tracing.attribute.far_bounce_distance";
-    public static final String FAR_BOUNCES_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.far_bounces";
     /** Steps the volumetric fog is marched in along each ray. */
     public static final String VOLUMETRIC_SAMPLES_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.volumetric_light_samples";
@@ -465,8 +472,16 @@ public class Pipeline {
         if (attribute == null || Objects.equals(attribute.value, value)) {
             return false;
         }
+        logSettingChange(attributeName, attribute.value, value);
         attribute.value = value;
         return true;
+    }
+
+    /** With debug logging, which setting asked for a rebuild: a value written over a different one. */
+    private static void logSettingChange(String attribute, String from, String to) {
+        if (Options.debugLogging) {
+            RadianteClient.LOGGER.info("[settings] {}: {} -> {}", attribute, from, to);
+        }
     }
 
     /** Every attribute of a module of the active pipeline and its value, in order; empty without that module. */
@@ -514,6 +529,7 @@ public class Pipeline {
                 if (attribute == null || Objects.equals(attribute.value, value)) {
                     return false;
                 }
+                logSettingChange(attributeName, attribute.value, value);
                 attribute.value = value;
                 return true;
             }

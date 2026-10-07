@@ -44,6 +44,29 @@ vec3 glassTint(vec3 colour, float alpha) {
     return mix(vec3(1.0), hue, smoothstep(0.0, 0.3, alpha));
 }
 
+#ifndef VPT_GLASS_TINT_MODEL
+#    define VPT_GLASS_TINT_MODEL 0
+#endif
+
+// The colour a view ray takes through one see-through surface. Bedrock compatibility (VPT_GLASS_TINT_MODEL): the
+// rule its sun shadow applies to the same surfaces (observed; that camera rays are filtered
+// alike is INFERRED): the texture colour as it is, times how clear the surface is with the lower half of the alpha
+// range counting as fully clear, colour * (1 - saturate(2 alpha - 1)).
+vec3 viewGlassTintBedrock(vec3 colour, float alpha) {
+    // A texel with no coverage at all carries no colour of its own (Java textures leave it black or arbitrary where
+    // Bedrock's are authored): it is clear.
+    if (alpha <= 1.0 / 255.0) { return vec3(1.0); }
+    return colour * (1.0 - clamp(alpha * 2.0 - 1.0, 0.0, 1.0));
+}
+
+vec3 viewGlassTint(vec3 colour, float alpha) {
+#if VPT_GLASS_TINT_MODEL != 0
+    return viewGlassTintBedrock(colour, alpha);
+#else
+    return glassTint(colour, alpha);
+#endif
+}
+
 LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal) {
     LabPBRMat mat;
 
@@ -66,6 +89,13 @@ LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal
         mat.emission = 0;
     } else {
         mat.emission = intEmission / 254.0;
+#if defined(VPT_EMISSION_MODEL) && VPT_EMISSION_MODEL != 0
+        // Bedrock compatibility (observed: emission = MER green squared). Converted Bedrock packs store
+        // 4 x green, capped at the top of LabPBR's range, so squaring the stored value restores Bedrock's square law
+        // exactly up to green 0.25 and keeps brighter sources at full strength (the multiplier above that is a
+        // run-time value, not known).
+        mat.emission *= mat.emission;
+#endif
     }
 
     if (metalIdx < 230) {

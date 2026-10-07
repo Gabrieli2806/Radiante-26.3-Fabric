@@ -1,0 +1,126 @@
+#version 460
+// The Bedrock-style tone curve, built each frame from the histogram of bedrock_hist.comp. Independent
+// approximation of its observed behaviour:
+//
+//  * every bin gets a slope (output bins per input bin); the bins are split at log2 luminance -2.45 into a shadow
+//    range and a highlight range, and each range gets a fixed output budget: the highlights 2.47 stops, the shadows
+//    the rest of the dynamic range. Within a range the budget goes to the bins in proportion to how much of the
+//    picture they hold, never more than 1 per bin, by water filling (16 refinements);
+//  * the curve is the running sum of the slopes, anchored so the brightest bin maps to white (log2 0);
+//  * then shadows below shadowContrastEnd are deepened, the curve may not lift any luminance by more than
+//    maxExposureIncrease stops, it is smoothed over 25 bins, shifted by curveShift and blended over time.
+//
+// One workgroup of 256 invocations, one per bin. Output: bedrock.curve[i] = log2 of the displayed luminance for
+// input log2 luminance -24 + i * 28 / 256.
+#define NUM_BINS 256
+const float LOG2_MIN = -24.0;
+const float BIN_STOPS = 28.0 / 256.0;
+const uint SPLIT_BIN = 197u;
+const float HIGHLIGHT_STOPS = 2.473931;
+const float MIN_DYNAMIC_RANGE = 2.556393;
+const float WEIGHT_STEPS = 64.0;
+const uint SMOOTH_RADIUS = 12u;
+const float HISTORY_KEEP = 0.9323938;
+
+layout(std430, set = 0, binding = 4) buffer BedrockCurveBuffer {
+    uint histogram[NUM_BINS];
+    float curve[NUM_BINS];
+}
+bedrock;
+
+layout(push_constant) uniform PushConstant {
+    float dynamicRange;
+    float curveShift;
+    float maxExposureIncrease;
+    float shadowMinSlope;
+    float shadowContrast;
+    float shadowContrastEnd;
+    int needsReset;
+    int autoExposure;
+    float manualExposure;
+    float exposureBias;
+}
+pc;
+
+layout(local_size_x = NUM_BINS, local_size_y = 1, local_size_z = 1) in;
+
+shared float sData[NUM_BINS];
+
+float workgroupSum(float value) {
+    uint i = gl_LocalInvocationIndex;
+    sData[i] = value;
+    barrier();
+    for (uint stride = NUM_BINS / 2u; stride > 0u; stride >>= 1u) {
+        if (i < stride) { sData[i] += sData[i + stride]; }
+        barrier();
+    }
+    float total = sData[0];
+    barrier();
+    return total;
+}
+
+// Inclusive running sum over the bins (Hillis-Steele).
+float workgroupInclusiveScan(float value) {
+    uint i = gl_LocalInvocationIndex;
+    sData[i] = value;
+    barrier();
+    for (uint offset = 1u; offset < NUM_BINS; offset <<= 1u) {
+        float add = i >= offset ? sData[i - offset] : 0.0;
+        barrier();
+        sData[i] += add;
+        barrier();
+    }
+    return sData[i];
+}
+
+// Slope of this bin within its range: the range's budget (in bins) shared out by water filling. weight is this
+// bin's share of the picture (0 outside the range).
+float rangeSlope(float weight, float budget) {
+    float share = weight / workgroupSum(weight);
+    float invShare = share > 0.0 ? 1.0 / share : 0.0;
+    float level = 1e-16;
+    for (int iteration = 0; iteration < 16; iteration++) {
+        float above = share < level ? 0.0 : 1.0;
+        float aboveCount = workgroupSum(above);
+        float aboveInverse = workgroupSum(above * invShare);
+        level = (aboveCount - budget) / aboveInverse;
+    }
+    float above = share < level ? 0.0 : 1.0;
+    float aboveCount = workgroupSum(above);
+    float aboveInverse = workgroupSum(above * invShare);
+    return above * (1.0 + (budget - aboveCount) * invShare / aboveInverse);
+}
+
+void main() {
+    uint i = gl_LocalInvocationIndex;
+    float x = LOG2_MIN + float(i) * BIN_STOPS;
+    // Every bin holds at least a little, so an empty range still gets a curve.
+    float weight = float(bedrock.histogram[i]) / WEIGHT_STEPS + 1.0;
+
+    float range = max(pc.dynamicRange, MIN_DYNAMIC_RANGE);
+    float shadowBudget = (range - HIGHLIGHT_STOPS) / BIN_STOPS;
+    float highlightBudget = HIGHLIGHT_STOPS / BIN_STOPS;
+
+    bool shadowBin = i < SPLIT_BIN;
+    float shadowSlope = rangeSlope(shadowBin ? weight : 0.0, shadowBudget);
+    float highlightSlope = rangeSlope(shadowBin ? 0.0 : weight, highlightBudget);
+    float slope = shadowBin ? max(shadowSlope, pc.shadowMinSlope) : highlightSlope;
+
+    float inclusive = workgroupInclusiveScan(slope);
+    float total = sData[NUM_BINS - 1u];
+    barrier();
+    float y = (inclusive - slope - total) * BIN_STOPS;
+    y -= max(pc.shadowContrastEnd - x, 0.0) * pc.shadowContrast;
+    y = min(y, x + pc.maxExposureIncrease);
+
+    // Box smoothing over the neighbouring bins, from the running sum.
+    float runningSum = workgroupInclusiveScan(y);
+    uint hi = min(i + SMOOTH_RADIUS, NUM_BINS - 1u);
+    uint lo = uint(max(int(i) - int(SMOOTH_RADIUS) - 1, 0));
+    float smoothed = (sData[hi] - sData[lo]) / float(hi - lo) + pc.curveShift;
+
+    float previous = bedrock.curve[i];
+    bool keepHistory = pc.needsReset == 0 && !isnan(previous) && !isinf(previous);
+    bedrock.curve[i] = keepHistory ? smoothed + (previous - smoothed) * HISTORY_KEEP : smoothed;
+    bedrock.histogram[i] = 0u;
+}

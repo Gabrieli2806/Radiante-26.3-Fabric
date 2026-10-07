@@ -47,6 +47,10 @@ float biomeFogSkyReach(vec3 rayDir) {
 }
 
 bool biomeHazeActive() {
+#if defined(VPT_BEDROCK_FOG) && VPT_BEDROCK_FOG != 0
+    // Bedrock's volumetric fog (froxel_fog.glsl) is the only fog of the air.
+    return false;
+#endif
     return skyUBO.biomeFog.a > 0.0 && skyUBO.cameraSubmersionType == 3 && skyUBO.hasBlindnessOrDarkness == 0;
 }
 

@@ -38,8 +38,6 @@ public class RadianteOptionsScreen extends Screen {
     private Integer pendingRenderScale;
     /** Entry of the mode lists that stands for the Custom mode; it is never written to the pipeline. */
     private static final String CUSTOM_MODE = "options.radiante.upscaler_mode.custom";
-    private Integer pendingFarBounceDistance;
-    private Integer pendingFarBounces;
     private int pendingGeneratedFrames = Options.frameGeneration ? Options.generatedFrames : 0;
     private int pendingFrameGenerationBackend = Options.frameGenerationBackend;
     private String pendingCloudMode;
@@ -55,6 +53,7 @@ public class RadianteOptionsScreen extends Screen {
     private Boolean pendingVolumetricFog;
     private Boolean pendingMotionBlur;
     private Boolean pendingCloudShadows;
+    private Boolean pendingFoliageCulling;
     private Boolean pendingRestir;
     private Boolean pendingSer;
     private Boolean pendingFroxelFog;
@@ -157,8 +156,6 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingRenderScale = previous.pendingRenderScale;
         this.pendingCustomScale = previous.pendingCustomScale;
         this.pendingAdvanced = previous.pendingAdvanced;
-        this.pendingFarBounceDistance = previous.pendingFarBounceDistance;
-        this.pendingFarBounces = previous.pendingFarBounces;
         this.pendingGeneratedFrames = previous.pendingGeneratedFrames;
         this.pendingCloudMode = previous.pendingCloudMode;
         this.pendingChunkThreads = previous.pendingChunkThreads;
@@ -173,6 +170,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingVolumetricFog = previous.pendingVolumetricFog;
         this.pendingMotionBlur = previous.pendingMotionBlur;
         this.pendingCloudShadows = previous.pendingCloudShadows;
+        this.pendingFoliageCulling = previous.pendingFoliageCulling;
         this.pendingRestir = previous.pendingRestir;
         this.pendingSer = previous.pendingSer;
         this.pendingFroxelFog = previous.pendingFroxelFog;
@@ -756,6 +754,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingVolumetricFog = Pipeline.supportsVolumetricFog() ? Boolean.FALSE : null;
         this.pendingMotionBlur = Boolean.FALSE;
         this.pendingCloudShadows = Boolean.FALSE;
+        this.pendingFoliageCulling = Boolean.FALSE;
         this.pendingRestir = Boolean.TRUE;
         this.pendingSer = Boolean.FALSE;
         this.pendingFroxelFog = Pipeline.supportsShaderPackToggle(Pipeline.FROXEL_FOG_ATTRIBUTE) ? Boolean.TRUE : null;
@@ -780,8 +779,6 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingCustomScale = false;
         this.pendingRenderScale = null;
         this.pendingAdvanced.clear();
-        this.pendingFarBounceDistance = this.pendingFarBounceDistance == null ? null : 0;
-        this.pendingFarBounces = this.pendingFarBounces == null ? null : 1;
         if (this.pendingTunables != null) {
             this.pendingTunables.replaceAll((tunable, value) -> tunable.defaultSteps);
         }
@@ -1034,7 +1031,9 @@ public class RadianteOptionsScreen extends Screen {
                     this.pendingVolumetricFog = value;
                     refreshQualityLater();
                 });
-            if (Pipeline.supportsShaderPackToggle(Pipeline.FROXEL_FOG_ATTRIBUTE)) {
+            // The Bedrock RTX profile's fog is Bedrock's froxel volume; the other style has no Bedrock fog at all.
+            if (Pipeline.supportsShaderPackToggle(Pipeline.FROXEL_FOG_ATTRIBUTE)
+                && this.pendingProfile != RendererProfile.BEDROCK_RTX) {
                 if (this.pendingFroxelFog == null) {
                     this.pendingFroxelFog = Pipeline.isShaderPackToggleOn(Pipeline.FROXEL_FOG_ATTRIBUTE);
                 }
@@ -1055,6 +1054,15 @@ public class RadianteOptionsScreen extends Screen {
                 tooltip("options.radiante.cloud_shadows"), this.pendingCloudShadows,
                 value -> this.pendingCloudShadows = value);
         }
+        OptionInstance<Boolean> foliageCulling = null;
+        if (Pipeline.supportsShaderPackToggle(Pipeline.FOLIAGE_CULLING_ATTRIBUTE)) {
+            if (this.pendingFoliageCulling == null) {
+                this.pendingFoliageCulling = Pipeline.isShaderPackToggleOn(Pipeline.FOLIAGE_CULLING_ATTRIBUTE);
+            }
+            foliageCulling = OptionInstance.createBoolean("options.radiante.foliage_culling",
+                tooltip("options.radiante.foliage_culling"), this.pendingFoliageCulling,
+                value -> this.pendingFoliageCulling = value);
+        }
         OptionInstance<Boolean> rainRefraction = null;
         if (Pipeline.supportsShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE)) {
             if (this.pendingRainRefraction == null) {
@@ -1073,7 +1081,7 @@ public class RadianteOptionsScreen extends Screen {
                 tooltip("options.radiante.seamless_glass"), this.pendingSeamlessGlass,
                 value -> this.pendingSeamlessGlass = value);
         }
-        addRows(atmosphere, clouds, cloudShadows, tunable(Tunable.CLOUD_COVERAGE, false),
+        addRows(atmosphere, clouds, cloudShadows, foliageCulling, tunable(Tunable.CLOUD_COVERAGE, false),
             tunable(Tunable.CLOUD_DENSITY, false), tunable(Tunable.CLOUD_QUALITY, false), tunable(Tunable.STARS, false),
             tunable(Tunable.SUN_GLOW, false),
             tunable(Tunable.LIGHT_SHAFTS, false),
@@ -1127,25 +1135,11 @@ public class RadianteOptionsScreen extends Screen {
                 this.pendingFogSamples = value;
                 refreshQualityLater();
             });
-        if (this.pendingFarBounceDistance == null
-            && Pipeline.getShaderPackValue(Pipeline.FAR_BOUNCE_DISTANCE_ATTRIBUTE) != null) {
-            this.pendingFarBounceDistance = Pipeline.getShaderPackInt(Pipeline.FAR_BOUNCE_DISTANCE_ATTRIBUTE, 0);
-            this.pendingFarBounces = Pipeline.getShaderPackInt(Pipeline.FAR_BOUNCES_ATTRIBUTE, 1);
-        }
-        OptionInstance<Integer> farDistance = this.pendingFarBounceDistance == null ? null
-            : new OptionInstance<Integer>("options.radiante.far_bounce_distance",
-                tooltip("options.radiante.far_bounce_distance"),
-                (caption, value) -> value == 0 ? Component.translatable("options.generic_value", caption,
-                    Component.translatable("options.off"))
-                    : Component.translatable("options.radiante.chunks_value", caption, value),
-                new OptionInstance.IntRange(0, 32, false), this.pendingFarBounceDistance / 16,
-                value -> this.pendingFarBounceDistance = value * 16);
-        OptionInstance<Integer> farBounces = this.pendingFarBounces == null ? null
-            : slider("options.radiante.far_bounces", 1, 4, this.pendingFarBounces,
-                value -> this.pendingFarBounces = value);
         addRows(bounces, tunable(Tunable.MIRROR_BOUNCES, false), tunable(Tunable.GLASS_REFLECTIONS, false),
             packToggle(Pipeline.CACHE_DEEP_BOUNCES_ATTRIBUTE, "options.radiante.cache_deep_bounces"),
-            parallax, farDistance, farBounces, fogSamples,
+            packToggle(Pipeline.BEDROCK_ONE_BOUNCE_ATTRIBUTE, "options.radiante.bedrock_one_bounce"),
+            packToggle(Pipeline.TRANSPARENT_CHECKERBOARD_ATTRIBUTE, "options.radiante.transparent_checkerboard"),
+            parallax, fogSamples,
             OptionInstance.createBoolean("options.radiante.chunk_building_auto",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.chunk_building_auto.tooltip",
                     Runtime.getRuntime().availableProcessors(), Options.autoChunkBuilding()[0],
@@ -1398,6 +1392,10 @@ public class RadianteOptionsScreen extends Screen {
         }
         if (this.pendingPreset != null
             && !Objects.equals(this.pendingPreset.key, Pipeline.INSTANCE.getActivePresetName())) {
+            if (Options.debugLogging) {
+                RadianteClient.LOGGER.info("[settings] preset: {} -> {}", Pipeline.INSTANCE.getActivePresetName(),
+                    this.pendingPreset.key);
+            }
             Pipeline.switchToPresetMode(this.pendingPreset.key, false);
             rebuild = true;
         }
@@ -1450,6 +1448,9 @@ public class RadianteOptionsScreen extends Screen {
         if (this.pendingCloudShadows != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.CLOUD_SHADOWS_ATTRIBUTE, this.pendingCloudShadows);
         }
+        if (this.pendingFoliageCulling != null) {
+            rebuild |= Pipeline.setShaderPackToggle(Pipeline.FOLIAGE_CULLING_ATTRIBUTE, this.pendingFoliageCulling);
+        }
         if (this.pendingDepthOfField != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE, this.pendingDepthOfField);
         }
@@ -1472,11 +1473,6 @@ public class RadianteOptionsScreen extends Screen {
         if (this.pendingRenderScale != null && renderScale != null) {
             rebuild |= Pipeline.setModuleValue(renderScale[0], renderScale[1],
                 this.pendingCustomScale ? this.pendingRenderScale + ".0" : "0.0");
-        }
-        if (this.pendingFarBounceDistance != null) {
-            rebuild |= Pipeline.setShaderPackValue(Pipeline.FAR_BOUNCE_DISTANCE_ATTRIBUTE,
-                String.valueOf(this.pendingFarBounceDistance));
-            rebuild |= Pipeline.setShaderPackValue(Pipeline.FAR_BOUNCES_ATTRIBUTE, String.valueOf(this.pendingFarBounces));
         }
         if (rebuild) {
             Pipeline.savePipeline();

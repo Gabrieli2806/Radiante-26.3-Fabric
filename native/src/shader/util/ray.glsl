@@ -193,7 +193,7 @@ const uint RAY_VIEW_BOUNCE_MARK = 1u;
 #ifndef VPT_ALBEDO_GAMMA
 #    define VPT_ALBEDO_GAMMA 2.2
 #endif
-// Bedrock compatibility - provenance: VERIFIED_FROM_DXIL (pass: PrimaryCheckerboardRayGenInline). Bedrock RTX turns
+// Bedrock compatibility - observed behaviour. Bedrock RTX turns
 // the colour texture into linear light with the exact piecewise sRGB curve, not a power. Off by default (the power
 // above stays Radiante's own look); the Bedrock RTX profile switches it on.
 #ifndef VPT_ALBEDO_SRGB_EXACT

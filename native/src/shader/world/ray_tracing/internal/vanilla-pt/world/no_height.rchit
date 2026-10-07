@@ -74,6 +74,7 @@ indexBuffer;
 #include "common/water_medium.glsl"
 #include "common/rain_wetness.glsl"
 #include "common/seamless_glass.glsl"
+#include "common/bedrock_water.glsl"
 
 #ifndef VPT_BOUNCE_LIGHT_BOOST
 #    define VPT_BOUNCE_LIGHT_BOOST 1.0
@@ -243,6 +244,10 @@ void sampleSurfaceState(bool useTexture,
                 normalize(vec3(vec2(-waterSample.slope.x, waterSample.slope.y) * VPT_WATER_WAVE_STRENGTH, 1.0));
             mat.roughness = clamp(0.005 + 0.012 * min(length(waterSample.slope), 0.45), 0.005, 0.022);
             shadingNormal = applyNormalMapToBasis(localWaterNormal, tangent, bitangent, baseGeoNormal, viewDir);
+        } else if (VPT_WATER_SURFACE_MODE == 2u && bedrockWaterAvailable() && abs(baseGeoNormal.y) > 0.75) {
+            float footprint = mainRay.coneWidth + gl_HitTEXT * mainRay.coneSpread;
+            shadingNormal = bedrockWaterNormal(worldPos + vec3(worldUBO.cameraPos.xyz), baseGeoNormal, viewDir,
+                                               footprint, baseGeoNormal.y < 0.0);
         }
     }
 
@@ -860,15 +865,20 @@ bool loadPreviousScenePos(uint geometryBufferIndex, uint primitiveID, vec3 baryC
 // How much of a sheet of water seen side on is its texture, the rest seen through.
 const float WATER_SHEET_OPACITY = 0.45;
 
-// How open to the sky the water is straight up from here: the light the water scatters comes from the sky and the
-// sun above it, so water under a roof or in a cave stays dark instead of glowing with the open sky's light.
-float waterSkyVisibility(vec3 position) {
+// How much of the open sky is seen from here along a direction: 0 under a roof or behind a wall.
+float skyVisibilityAlong(vec3 position, vec3 direction) {
     shadowRay.radiance = vec3(0.0);
     shadowRay.throughput = vec3(1.0);
     shadowRay.insideBoat = 0u;
     shadowRay.pad0 = BLOCK_LIGHT_QUERY;
-    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS, WORLD_MASK, 0, 0, 0, position, 0.01, vec3(0.0, 1.0, 0.0), 256.0, 1);
+    traceRayEXT(topLevelAS, VPT_SHADOW_RAY_FLAGS, WORLD_MASK, 0, 0, 0, position, 0.01, direction, 256.0, 1);
     return clamp(dot(shadowRay.radiance, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+}
+
+// How open to the sky the water is straight up from here: the light the water scatters comes from the sky and the
+// sun above it, so water under a roof or in a cave stays dark instead of glowing with the open sky's light.
+float waterSkyVisibility(vec3 position) {
+    return skyVisibilityAlong(position, vec3(0.0, 1.0, 0.0));
 }
 
 void main() {
@@ -1015,29 +1025,54 @@ void main() {
             // The texture's own alpha, not the alpha mode's: stained glass is drawn as a stochastic surface, which rounds
             // every texel to fully opaque, and it then never let the view through.
             float glassAlpha = clamp(glassTexel.a * colorLayerValue.a, 0.0, 1.0);
+            // The thin top of a pane between two stacked panes (seamless glass) is inside the sheet: seen through as
+            // if it were not there. Opaque glass geometry never reaches the any-hit shader that leaves it out.
+            bool hiddenPaneTop = seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos);
             // Tinted glass is nearly opaque in its texture but still a window: seen through, darkened.
-            if (glassAlpha < 0.9 || glassDarkness(glassTexel.rgb * colorLayer) > 0.5) {
+            if (hiddenPaneTop || glassAlpha < 0.9 || glassDarkness(glassTexel.rgb * colorLayer) > 0.5) {
                 vec3 incident = normalize(gl_WorldRayDirectionEXT);
                 float cosTheta = clamp(abs(dot(incident, baseGeoNormal)), 0.0, 1.0);
                 // Capped: at a grazing angle the full Fresnel term turned the edges of every window into bright rims of
                 // sky, glowing at night as if the glass gave off light.
+#if VPT_FRESNEL_MODEL != 0
+                // Bedrock: the glass face's own Fresnel, air into glass (n 1.5), uncapped.
+                float fresnel = vptInterfaceFresnel(cosTheta, 1.0 / 1.5);
+#else
                 float fresnel = min(0.04 + 0.96 * pow(1.0 - cosTheta, 5.0), 0.25);
+#endif
+                if (hiddenPaneTop) { fresnel = 0.0; }
                 // Only the sky above reflects: what the glass reflects below the horizon is the ground, not the bright
                 // haze at the bottom of the sky.
                 vec3 reflected = reflect(incident, baseGeoNormal);
                 // And the sky well above the horizon at that: a level view reflects level, and the haze along the
                 // horizon is the brightest stretch of the whole sky - it lay as a pale band at eye height across
                 // every window, over whatever was behind the glass.
-                vec3 skyReflection = texture(skyFull, normalize(vec3(reflected.x, max(reflected.y, 0.45), reflected.z))).rgb *
-                                     smoothstep(-0.3, 0.1, reflected.y);
+                vec3 skyDirection = normalize(vec3(reflected.x, max(reflected.y, 0.45), reflected.z));
+                vec3 skyReflection = texture(skyFull, skyDirection).rgb * smoothstep(-0.3, 0.1, reflected.y);
+                // Only where that sky is really open: a window inside a room, seen level or from below, reflected
+                // the bright sky through the ceiling and glowed as a pale blue sheet.
+                if (!hiddenPaneTop && max(skyReflection.r, max(skyReflection.g, skyReflection.b)) > 0.0) {
+                    vec3 glassPos = gl_WorldRayOriginEXT + incident * gl_HitTEXT;
+                    skyReflection *= skyVisibilityAlong(glassPos - incident * 0.01, skyDirection);
+                }
                 mainRay.radiance += mainRay.throughput * fresnel * skyReflection * clamp(VPT_GLASS_REFLECTION, 0.0, 1.0);
-                vec3 filterColour = glassTint(glassTexel.rgb * colorLayer, glassAlpha);
+                vec3 filterColour = hiddenPaneTop ? vec3(1.0) : viewGlassTint(glassTexel.rgb * colorLayer, glassAlpha);
                 // Dark (tinted) glass shows its own texture lit by the sky, as a dark pane does, not only a dimmed view.
-                float tintedness = glassDarkness(glassTexel.rgb * colorLayer);
+                float tintedness = hiddenPaneTop ? 0.0 : glassDarkness(glassTexel.rgb * colorLayer);
+#if VPT_GLASS_TINT_MODEL == 0
                 mainRay.radiance += mainRay.throughput * (1.0 - fresnel) * tintedness * 0.35 * glassTexel.rgb *
                                     texture(skyFull, vec3(0.0, 1.0, 0.0)).rgb;
+#endif
                 // Squared: light crossing a stained pane is coloured as deeply as the pane looks, not washed out.
+#if VPT_GLASS_TINT_MODEL != 0
+                // Bedrock colours what is seen through a glass block or pane once (it shows a single layer of
+                // translucency), by the colour as it is (see viewGlassTint). A block or pane is crossed through two
+                // faces, so each takes the square root: filtering fully at both left a stained window a dark,
+                // saturated slab that hid the room behind it.
+                mainRay.throughput *= sqrt(clamp(filterColour, 0.0, 1.0)) * (1.0 - fresnel);
+#else
                 mainRay.throughput *= pow(clamp(filterColour, 0.0, 1.0), vec3(2.0)) * (1.0 - fresnel);
+#endif
                 mainRay.hitT = gl_HitTEXT;
                 mainRay.coneWidth += mainRay.hitT * mainRay.coneSpread;
                 mainRay.origin = gl_WorldRayOriginEXT + incident * (gl_HitTEXT + 0.002);

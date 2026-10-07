@@ -2,7 +2,7 @@
 
 // Bloom, upscale half of the pyramid: this level's downscaled image plus the smaller level above it, spread back
 // out. Structure (four of these) is INFERRED from the pass layout of Bedrock's bloom material; the 3x3 tent and the
-// scatter weight are APPROXIMATE. See docs/bedrock-rtx-compat/BLOOM_AND_TONEMAPPING.md.
+// scatter weight are APPROXIMATE.
 
 layout(set = 0, binding = 0) uniform sampler2D srcA; // the smaller (coarser) level, already combined
 layout(set = 0, binding = 1) uniform sampler2D srcB; // this level as downscaled

@@ -599,8 +599,33 @@ vec3 froxelBlockLight(vec3 position, inout uint seed) {
     return VPT_INDIRECT_LIGHT_STRENGTH * worldUBO.emissionBrightness * estimate * visibility;
 }
 
+#if VPT_BEDROCK_FOG != 0
+// Bedrock RTX's volumetric fog (observed
+// structure): the pack's air medium, lit by the sun through a shadow ray with Henyey-Greenstein scattering normalised
+// by 1/pi, and by the sky; the sunlit part scales with the square of the height profile, the sky part with it once.
+// The anisotropy g is a run-time value in Bedrock (UNKNOWN; VPT_BEDROCK_FOG_G).
+vec3 shadeBedrockFogCell(vec3 position, vec3 rayDir) {
+    vec3 lightDir = celestialSunDirection();
+    if (lightDir.y < 0.0) { lightDir = -lightDir; }
+    float worldY = position.y + float(worldUBO.cameraPos.y);
+    float height = biomeFogHeightProfile(worldY);
+    vec3 sigmaS = biomeFogChroma() * biomeFogDensity() * clamp(skyUBO.biomeFog.rgb, vec3(0.0), vec3(1.0));
+    if (height <= 0.0 || max(sigmaS.r, max(sigmaS.g, sigmaS.b)) <= 0.0) { return vec3(0.0); }
+
+    float g = clamp(VPT_BEDROCK_FOG_G, -0.95, 0.95);
+    float cosTheta = clamp(dot(rayDir, lightDir), -1.0, 1.0);
+    float phase = (1.0 - g * g) / pow(abs(1.0 + g * g - 2.0 * g * cosTheta), 1.5) / PI;
+    vec3 sun = sampleVolumetricDirectionalLight(position, lightDir, false) * phase;
+    vec3 sky = biomeFogAmbient(rayDir) * volumetricSkyVisibility(position, false) / PI;
+    return sigmaS * (height * height * sun + height * sky);
+}
+#endif
+
 // The light one cell scatters towards the camera per block, from the same medium as the per-pixel march (integrateVolumetricFog): the air, its light shafts and the biome's fog.
 vec3 shadeFroxelCell(vec3 position, vec3 rayDir, float distance, inout uint seed) {
+#if VPT_BEDROCK_FOG != 0
+    return shadeBedrockFogCell(position, rayDir);
+#endif
     vec3 lightDir = celestialSunDirection();
     if (lightDir.y < 0.0) { lightDir = -lightDir; }
     float cosTheta = clamp(dot(rayDir, lightDir), -1.0, 1.0);
@@ -697,7 +722,8 @@ void froxelFog(vec3 origin, vec3 rayDir, vec2 uv, float endDistance, float biome
     radiance = max(integral.rgb, vec3(0.0));
     float t = clamp(integral.a, 0.0, 1.0);
 
-    float tail = max(max(endDistance, biomeReach) - range, 0.0);
+    // Bedrock's fog stops at its volume's far edge: past it a ray is fogged as much as the volume's last slice.
+    float tail = VPT_BEDROCK_FOG != 0 ? 0.0 : max(max(endDistance, biomeReach) - range, 0.0);
     if (tail > 0.0 && t > 1e-3) {
         // Bilinear by hand (the grid is a storage image here): nearest cells showed as blocks across the sky.
         vec2 texelPosition = uv * vec2(FROXEL_EXTENT.xy) - 0.5;
@@ -987,20 +1013,25 @@ bool initTransparent(MainRay rayState,
     vec3 incident = normalize(incomingDirection);
     vec3 viewDir = -incident;
     float eta = dot(viewDir, normal) > 0.0 ? (1.0 / mat.ior) : mat.ior;
-    float fresnel = clamp(vptInterfaceFresnel(abs(dot(viewDir, normal)), eta), 0.0, 1.0);
-
-    vec3 branchDirection = isReflection ? reflect(incident, normal) : refract(incident, normal, eta);
-    if (dot(branchDirection, branchDirection) <= 1e-6) { return false; }
-    branchDirection = normalize(branchDirection);
-
     vec2 branchAux = rayLoadAux(rayState);
     bool isWaterSurface = branchAux.y > 0.5;
+    // Bedrock compatibility: a glass block is seen straight through, undistorted, with a Fresnel reflection of the
+    // world on its face (as Bedrock RTX shows it); the view behind goes on as a camera view, through the far face
+    // as through a pane (default.rchit). Water keeps its refraction.
+    bool bedrockGlass = VPT_FRESNEL_MODEL != 0 && !isWaterSurface;
+    if (bedrockGlass) { eta = 1.0 / mat.ior; }
+    float fresnel = clamp(vptInterfaceFresnel(abs(dot(viewDir, normal)), eta), 0.0, 1.0);
+
+    vec3 branchDirection = isReflection ? reflect(incident, normal) :
+                           (bedrockGlass ? incident : refract(incident, normal, eta));
+    if (dot(branchDirection, branchDirection) <= 1e-6) { return false; }
+    branchDirection = normalize(branchDirection);
 
     // Water is coloured by its medium on the way through (see default.rchit), so its surface lets light through
     // untinted; glass takes its colour here.
     vec3 refractionTint = isWaterSurface && waterMediumActive() ?
                               vec3(1.0) :
-                              clamp(glassTint(mat.albedoValue.rgb, mat.albedoValue.a), vec3(0.0), vec3(1.0));
+                              clamp(viewGlassTint(mat.albedoValue.rgb, mat.albedoValue.a), vec3(0.0), vec3(1.0));
     vec3 branchThroughput = isReflection ? vec3(fresnel) : refractionTint * (1.0 - fresnel);
     if (max(branchThroughput.r, max(branchThroughput.g, branchThroughput.b)) <= 1e-6) { return false; }
     float originBias = isWaterSurface ? max(branchAux.x, 0.0002) : 0.0001;
@@ -1021,6 +1052,7 @@ bool initTransparent(MainRay rayState,
     branchRay.hasPrevScenePos = 0u;
     branchRay.normal = vec3(0.0);
     raySetLobeType(branchRay, isReflection ? 1u : 2u);
+    if (bedrockGlass && !isReflection) { raySetCameraPath(branchRay, true); }
     raySetIgnoreWaterSelf(branchRay, isWaterSurface);
     // The same rule as a water hit's own bounce (see default.rchit): off the top by direction, through a side by swap.
     if (isWaterSurface) {
@@ -1041,21 +1073,17 @@ bool initTransparent(MainRay rayState,
 #endif
 const int MIRROR_EXTRA_BOUNCES = VPT_MIRROR_EXTRA_BOUNCES;
 
-#ifndef VPT_FAR_BOUNCE_DISTANCE
-#    define VPT_FAR_BOUNCE_DISTANCE 0
+#ifndef VPT_BEDROCK_ONE_BOUNCE
+#    define VPT_BEDROCK_ONE_BOUNCE 0
 #endif
-#ifndef VPT_FAR_BOUNCES
-#    define VPT_FAR_BOUNCES 1
+#ifndef VPT_TRANSPARENT_CHECKERBOARD
+#    define VPT_TRANSPARENT_CHECKERBOARD 0
 #endif
 
-// Bounces for a path whose first surface is this far from the camera: past VPT_FAR_BOUNCE_DISTANCE blocks (0: off)
-// only VPT_FAR_BOUNCES, as Bedrock RTX lights far terrain more cheaply. Distant detail is small on screen and the
-// denoiser hides the difference.
-int bounceBudget(vec3 firstHit) {
-    if (VPT_FAR_BOUNCE_DISTANCE > 0 && length(firstHit) > float(VPT_FAR_BOUNCE_DISTANCE)) {
-        return min(VPT_NUM_RAY_BOUNCES, max(VPT_FAR_BOUNCES, 1));
-    }
-    return VPT_NUM_RAY_BOUNCES;
+// One of the two cells of a checkerboard that swaps every frame: half the pixels do a piece of work this frame, the
+// other half the next, as Bedrock RTX splits its frame. The denoiser fills in the half left out.
+bool checkerboardCell(ivec2 pixel) {
+    return ((pixel.x + pixel.y + int(worldUBO.frameCounter & 1u)) & 1) == 0;
 }
 
 void traceSecondary(inout MainRay rayState,
@@ -1077,7 +1105,10 @@ void traceSecondary(inout MainRay rayState,
     // mirror came out black.
     int extraBounces = 0;
     bool viewChain = false;
-    int budget = bounceBudget(rayState.origin);
+    int budget = VPT_NUM_RAY_BOUNCES;
+    // Bedrock RTX's budget everywhere (VPT_BEDROCK_ONE_BOUNCE): one bounce traced past the first surface, the rest of
+    // the light from the radiance cache where it lands (below). Mirrors and clear glass still get their extra bounces.
+    if (VPT_BEDROCK_ONE_BOUNCE != 0) { budget = min(budget, startBounce + 1); }
     for (int b = startBounce; b < budget + extraBounces; b++) {
         if (rayShouldStop(rayState)) break;
 
@@ -1124,8 +1155,12 @@ void traceSecondary(inout MainRay rayState,
             vec3 hitWorldPos = tracedOrigin + tracedDirection * rayState.hitT;
 #if SHARC_QUERY && USE_SHARC
             vec3 positionWorld = hitWorldPos + vec3(worldUBO.cameraPos.xyz);
-            if (sharcAllowQuery(isPrimaryCameraPath, VPT_CACHE_DEEP_BOUNCES != 0 && b > startBounce, rayState.hitT, hitMat.roughness, rayLobeType(rayState), sharcParameters,
-                                positionWorld)) {
+            // With one bounce (VPT_BEDROCK_ONE_BOUNCE) a diffuse bounce off the first surface already lands where the
+            // camera does not look: the cache answers there, as Bedrock's irradiance cache does.
+            bool cacheFirstBounce = VPT_BEDROCK_ONE_BOUNCE != 0 && b == startBounce && leavingLobeType == 0u;
+            if (sharcAllowQuery(isPrimaryCameraPath && !cacheFirstBounce,
+                                (VPT_CACHE_DEEP_BOUNCES != 0 && b > startBounce) || cacheFirstBounce, rayState.hitT,
+                                hitMat.roughness, rayLobeType(rayState), sharcParameters, positionWorld)) {
                 SharcHitData sharcHitData;
                 sharcHitData.positionWorld = positionWorld;
                 sharcHitData.normalWorld = rayState.normal;
@@ -1581,9 +1616,24 @@ void main() {
                                       firstHitMat.transmission > 0.95;
 
                 if (useTransparentSplit) {
+                    // Checkerboard (VPT_TRANSPARENT_CHECKERBOARD): one cell traces the reflection, the other the
+                    // refraction, swapping every frame, each at twice its weight - one ray per pixel instead of two,
+                    // as Bedrock RTX does for water and glass. The branch left out counts as traced and black.
+                    bool traceReflection = true;
+                    bool traceRefraction = true;
+                    float branchWeight = 1.0;
+                    if (VPT_TRANSPARENT_CHECKERBOARD != 0 && isHand == 0) {
+                        traceReflection = checkerboardCell(pixel);
+                        traceRefraction = !traceReflection;
+                        branchWeight = 2.0;
+                        hasTransparentReflection = !traceReflection;
+                        hasTransparentRefraction = !traceRefraction;
+                    }
                     MainRay transparentReflectionRay;
-                    if (initTransparent(mainRay, firstHitMat, firstHitIncomingDirection, firstHitNormal,
+                    if (traceReflection &&
+                        initTransparent(mainRay, firstHitMat, firstHitIncomingDirection, firstHitNormal,
                                         firstHitWorldPos, 0x9E3779B9u, true, transparentReflectionRay)) {
+                        transparentReflectionRay.throughput *= branchWeight;
                         traceTransparent(transparentReflectionRay, startBounce, isHand,
 #    if SHARC_QUERY && USE_SHARC
                                          sharcParameters, sharcDebugBounceCount, sharcDebugCacheHit,
@@ -1596,8 +1646,10 @@ void main() {
                     transparentReflectionRadiance += g_passThroughRadiance;
 
                     MainRay transparentRefractionRay;
-                    if (initTransparent(mainRay, firstHitMat, firstHitIncomingDirection, firstHitNormal,
+                    if (traceRefraction &&
+                        initTransparent(mainRay, firstHitMat, firstHitIncomingDirection, firstHitNormal,
                                         firstHitWorldPos, 0x3C6EF372u, false, transparentRefractionRay)) {
+                        transparentRefractionRay.throughput *= branchWeight;
                         bool hasTransparentRefractionSecondHit = false;
                         float transparentRefractionSecondHitDistance = 0.0;
                         traceTransparent(transparentRefractionRay, startBounce, isHand,
@@ -1792,7 +1844,7 @@ void main() {
         // times alpha was nearly black for clear glass and panes (alpha 0 where they are clear), and DLSS Ray
         // Reconstruction, dividing the picture by that guide, drew everything seen through them dark.
         imageStore(diffuseAlbedoImage, pixel,
-                   vec4(clamp(glassTint(firstHitMat.albedoValue.rgb, firstHitMat.albedoValue.a), 0.0, 1.0), 0.0));
+                   vec4(clamp(viewGlassTint(firstHitMat.albedoValue.rgb, firstHitMat.albedoValue.a), 0.0, 1.0), 0.0));
         firstHitEmission += transparentFogAdditive;
         mainRay.radiance = transparentReflectionRadiance + transparentRefractionRadiance + firstHitEmission;
         composeFogAdditive = vec3(0.0);

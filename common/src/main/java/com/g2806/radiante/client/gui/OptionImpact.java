@@ -44,11 +44,10 @@ enum OptionImpact {
         Map.entry("options.radiante.tunable.water_god_rays", LOW),
         Map.entry("options.radiante.chunk_building_threads", VARIES),
         Map.entry("options.radiante.hdr_output", LOW),
-        Map.entry("options.radiante.upscaler_mode", HIGH),
-        Map.entry("options.radiante.far_bounce_distance", MEDIUM),
-        Map.entry("options.radiante.far_bounces", MEDIUM));
+        Map.entry("options.radiante.upscaler_mode", HIGH));
 
     static OptionImpact of(String optionKey) {
-        return BY_OPTION.get(optionKey);
+        // Advanced rows without a translation have a literal caption and so no key.
+        return optionKey == null ? null : BY_OPTION.get(optionKey);
     }
 }

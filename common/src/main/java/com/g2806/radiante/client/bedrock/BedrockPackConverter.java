@@ -40,7 +40,7 @@ public final class BedrockPackConverter {
     /** Stored as the zip comment; a pack converted by another version of the converter is converted again. */
     /** Largest size a Bedrock texture set is converted at, in pixels per side; finer maps are averaged down to it. */
     private static final int MAX_DETAIL = 128;
-    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 12";
+    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 13";
     /** Resource pack format of Minecraft 26.3. */
     private static final int PACK_FORMAT = 97;
     /** Slope of normals built from a height map: height units per texel. */
@@ -324,8 +324,7 @@ public final class BedrockPackConverter {
         } else if (height != null) {
             if (!isGreyscale(height) && packedHeightWarnings++ < 5) {
                 RadianteClient.LOGGER.warn("Bedrock height map of {} is not greyscale: it may be the packed height "
-                    + "and edge-normal form, which is not decoded (it is read as a plain height), see "
-                    + "docs/bedrock-rtx-compat/MATERIAL_LOADER.md", bedrockPath);
+                    + "and edge-normal form, which is not decoded (it is read as a plain height)", bedrockPath);
             }
             write(zos, target + "_n.png", png(labPbrFromHeight(height.averaged(width, heightPx))));
         }
@@ -380,8 +379,10 @@ public final class BedrockPackConverter {
 
     /** LabPBR specular texel from Bedrock metalness, emission, roughness and subsurface (all 0-255). */
     static int labPbrSpecular(int metalness, int emission, int roughness, int subsurface) {
-        // Bedrock roughness is perceptual, LabPBR stores perceptual smoothness.
-        int smoothness = 255 - roughness;
+        // Bedrock shades with GGX alpha = roughness^2. LabPBR's roughness is (1 - smoothness)^2 and the shading
+        // squares it again, so smoothness = 1 - sqrt(roughness) gives Bedrock's alpha exactly. Stored as
+        // 1 - roughness, every surface came out far glossier than in Bedrock: leaves sparkled, stone shone.
+        int smoothness = 255 - (int) Math.round(Math.sqrt(roughness / 255.0) * 255.0);
         // LabPBR has no partial metals. Almost none is a 4 % dielectric and almost full reflects its colour; in
         // between goes to 238-254, which LabPBR leaves unused and Radiante's shaders read as partly metallic
         // ((value - 237) / 18), as Bedrock blends it. Gems are painted around half metal.

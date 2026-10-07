@@ -1,6 +1,6 @@
 #version 460
 
-// Bloom, downscale half of the pyramid. See docs/bedrock-rtx-compat/BLOOM_AND_TONEMAPPING.md for what is Bedrock
+// Bloom, downscale half of the pyramid. Bedrock
 // structure (the pass layout) and what is a placeholder (every filter shape and weight in this file).
 //
 //   firstPass != 0 : the "uniform" downscale from the HDR image to half size. The source is multiplied by the same

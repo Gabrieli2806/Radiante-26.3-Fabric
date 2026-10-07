@@ -37,6 +37,9 @@ struct Vertex {
     // And for glass blocks and panes, whose see-through texels are clear glass rather than holes.
     static constexpr uint32_t alphaModeGlassFlag = 0x80u;
     static constexpr uint32_t glassSurfaceBit = 1u << 20u;
+    // And for small plants, which the tracer may leave out far away.
+    static constexpr uint32_t alphaModePlantFlag = 0x100u;
+    static constexpr uint32_t plantSurfaceBit = 1u << 21u;
 
     template <typename T>
     static VertexLayoutInfo initVertexLayout(std::vector<VertexAttribute> &attributes);

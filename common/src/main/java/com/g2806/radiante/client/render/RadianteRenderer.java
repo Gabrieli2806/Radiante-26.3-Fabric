@@ -129,13 +129,6 @@ public final class RadianteRenderer {
         return active && Options.rayTracingEnabled;
     }
 
-    /** Why ray tracing is unavailable on this machine, or null when it is available. */
-    public static String unsupportedReason() {
-        return unsupportedReason;
-    }
-
-    private static String unsupportedReason;
-
     public static void lockQueue() {
         if (active) {
             RendererProxy.lockQueue();
@@ -172,7 +165,6 @@ public final class RadianteRenderer {
             LOGGER.error("Radiante: the Vulkan device has no hardware ray tracing; ray tracing stays off. On "
                 + "Linux this usually means the GPU driver is not visible to the game (Flatpak launchers need the "
                 + "matching org.freedesktop.Platform.GL.nvidia runtime).");
-            unsupportedReason = "options.radiante.unsupported.reason";
             return;
         }
 
@@ -195,7 +187,6 @@ public final class RadianteRenderer {
 
         if (!ok[0]) {
             LOGGER.error("Radiante native renderer failed to initialise; ray tracing stays off");
-            unsupportedReason = "options.radiante.unsupported.reason";
             return;
         }
 

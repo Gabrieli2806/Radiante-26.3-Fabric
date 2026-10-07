@@ -22,6 +22,8 @@ const uint HELD_SURFACE_BIT = 1u << 19u;
 // Glass blocks and panes: their see-through texels are a clear pane that reflects and refracts, as in Bedrock RTX,
 // not holes the ray passes through untouched.
 const uint GLASS_SURFACE_BIT = 1u << 20u;
+// Grass, flowers, bushes: left out far from the camera with foliage culling.
+const uint PLANT_SURFACE_BIT = 1u << 21u;
 
 #ifndef CONST_ONLY
 layout(set = 1, binding = 4) readonly buffer PositionBufferAddr {
@@ -122,6 +124,10 @@ bool isHeldSurface(uint packedData) {
 
 bool isRainSurface(uint packedData) {
     return (packedData & RAIN_SURFACE_BIT) != 0u;
+}
+
+bool isPlantSurface(uint packedData) {
+    return (packedData & PLANT_SURFACE_BIT) != 0u;
 }
 
 bool isGlassSurface(uint packedData) {

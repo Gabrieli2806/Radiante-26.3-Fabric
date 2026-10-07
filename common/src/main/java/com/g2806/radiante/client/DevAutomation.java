@@ -303,6 +303,9 @@ public final class DevAutomation {
             };
             mapping.setDown(down);
             RadianteClient.LOGGER.info("[dev] {} {}", down ? "hold" : "release", key);
+        } else if (action.equals("close")) {
+            // Closes whatever screen is open (a controller mod can open the inventory in a capture run).
+            minecraft.gui.setScreen(null);
         } else if (action.startsWith("press=")) {
             // Presses the first button on the open screen whose label contains the text.
             if (minecraft.gui.screen() != null) {
