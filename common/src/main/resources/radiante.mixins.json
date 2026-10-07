@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "compat.ClientShutdownWatchdogMixin",
+    "compat.VivecraftHandsMixin",
     "compat.DistantHorizonsCloudsMixin",
     "compat.DistantHorizonsRenderBuildMixin",
     "compat.DistantHorizonsRenderSkipMixin",

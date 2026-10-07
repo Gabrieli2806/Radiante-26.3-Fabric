@@ -30,32 +30,23 @@ public final class HeldLight {
     }
 
     /**
-     * Camera-relative position (xyz) and reach (w); zero when nothing lit is held. The light sits where the item
-     * is: in first person where vanilla draws the hand holding it, lower right or lower left of the view; seen
-     * from outside, at that hand beside the player's body.
+     * Camera-relative position (xyz) and reach (w) of the light held in one hand; zero when that hand holds nothing
+     * lit. Each hand is its own light, so a torch in each hand lights both sides. The light sits where the item is:
+     * in first person where vanilla draws the hand holding it, lower right or lower left of the view; seen from
+     * outside, at that hand beside the player's body; in VR, at the controller.
      */
-    public static Vector4f position(Minecraft minecraft, Vec3 camera, float partialTicks) {
+    public static Vector4f position(Minecraft minecraft, Vec3 camera, float partialTicks, InteractionHand hand) {
         LocalPlayer player = minecraft.player;
         if (player == null) {
             return NONE;
         }
-        int mainLevel = levelOf(player.getItemInHand(InteractionHand.MAIN_HAND));
-        int offLevel = levelOf(player.getItemInHand(InteractionHand.OFF_HAND));
-        if (mainLevel <= 0 && offLevel <= 0) {
+        int level = levelOf(player.getItemInHand(hand));
+        if (level <= 0) {
             return NONE;
         }
-        // A light in each hand: the renderer traces one held light, so it goes between the two hands, weighted
-        // toward the brighter, carrying both (see color). Both sides of the player are lit, not just one.
-        Vec3 at = Vec3.ZERO;
-        if (mainLevel > 0) {
-            at = at.add(handPosition(minecraft, player, true, partialTicks).scale(mainLevel));
-        }
-        if (offLevel > 0) {
-            at = at.add(handPosition(minecraft, player, false, partialTicks).scale(offLevel));
-        }
-        at = at.scale(1.0 / (mainLevel + offLevel));
+        Vec3 at = handPosition(minecraft, player, hand == InteractionHand.MAIN_HAND, partialTicks);
         return new Vector4f((float) (at.x - camera.x), (float) (at.y - camera.y), (float) (at.z - camera.z),
-            REACH * Math.max(mainLevel, offLevel) / 15.0f);
+            REACH * level / 15.0f);
     }
 
     /** Where the hand holding an item is, in the world. */
@@ -90,24 +81,18 @@ public final class HeldLight {
 
     private static final Vec3 UP = new Vec3(0.0, 1.0, 0.0);
 
-    /** Radiance (rgb) and 1 in w while a lit item is held, all zero otherwise. */
-    public static Vector4f color(Minecraft minecraft) {
+    /** Radiance (rgb) and 1 in w while the hand holds a lit item, all zero otherwise. */
+    public static Vector4f color(Minecraft minecraft, InteractionHand hand) {
         LocalPlayer player = minecraft.player;
         if (player == null) {
             return NONE;
         }
-        Vector3f radiance = new Vector3f();
-        for (InteractionHand hand : InteractionHand.values()) {
-            ItemStack stack = player.getItemInHand(hand);
-            int level = levelOf(stack);
-            if (level > 0) {
-                radiance.add(tintOf(stack).mul(STRENGTH * level / 15.0f));
-            }
-        }
-        if (radiance.lengthSquared() <= 0.0f) {
+        ItemStack stack = player.getItemInHand(hand);
+        int level = levelOf(stack);
+        if (level <= 0) {
             return NONE;
         }
-        return new Vector4f(radiance, 1.0f);
+        return new Vector4f(tintOf(stack).mul(STRENGTH * level / 15.0f), 1.0f);
     }
 
     private static int levelOf(ItemStack stack) {

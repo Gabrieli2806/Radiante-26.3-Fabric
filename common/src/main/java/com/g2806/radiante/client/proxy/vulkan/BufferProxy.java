@@ -14,7 +14,9 @@ import org.lwjgl.system.MemoryStack;
 public class BufferProxy {
 
     // The last fields (frameCounter and the entity lights) are written natively.
-    private static final int WORLD_UBO_SIZE = 704; // at least sizeof(WorldUBO) natively (696), rounded up to 16
+    private static final int WORLD_UBO_SIZE = 736; // sizeof(WorldUBO) natively
+    /** Where WorldUBO.offHandLightPos starts; offHandLightColor follows it. */
+    private static final int OFF_HAND_LIGHT_OFFSET = 704;
     private static final int SKY_UBO_SIZE = 240;
     private static final int TEXTURE_MAPPING_ENTRIES = 4096;
 
@@ -43,6 +45,8 @@ public class BufferProxy {
                                boolean blockLightSampling,
                                Vector4fc heldLightPos,
                                Vector4fc heldLightColor,
+                               Vector4fc offHandLightPos,
+                               Vector4fc offHandLightColor,
                                boolean parallaxTransparentEdges,
                                float sunBrightness,
                                float moonBrightness,
@@ -138,6 +142,10 @@ public class BufferProxy {
             bb.putFloat(offset, uniform.rainFallPerFrame());
             offset += Float.BYTES;
             bb.putFloat(offset, uniform.heldLightBrightness());
+
+            // After the natively filled tail (frameCounter ... lodCoveragePad1): the off hand's light.
+            uniform.offHandLightPos().get(OFF_HAND_LIGHT_OFFSET, bb);
+            uniform.offHandLightColor().get(OFF_HAND_LIGHT_OFFSET + Float.BYTES * 4, bb);
             updateWorldUniform(addr);
         }
     }

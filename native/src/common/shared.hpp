@@ -319,6 +319,13 @@ namespace Data {
         T_UINT lodCoverageAddressHi;
         T_UINT lodCoveragePad0;
         T_UINT lodCoveragePad1;
+        T_UINT heldLightPad0;
+        T_UINT heldLightPad1;
+
+        // The off hand's held light, like heldLightPos/heldLightColor (those are the main hand's): each hand is a
+        // light of its own, so a torch in each hand lights both sides.
+        T_VEC4 offHandLightPos;
+        T_VEC4 offHandLightColor;
     };
 
     struct SkyUBO {

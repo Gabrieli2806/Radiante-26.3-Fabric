@@ -393,15 +393,16 @@ vec3 sampleBlockLightAt(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal,
  * by the world but not by the player's own model or hands. Its reach fades the light out smoothly instead of
  * letting the inverse square law carry it across the whole scene. Already multiplied by the path throughput.
  */
-vec3 sampleHeldLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, LabPBRMat mat) {
-    if (worldUBO.heldLightColor.w <= 0.0) { return vec3(0.0); }
+vec3 sampleOneHeldLight(vec4 heldPos, vec4 heldColor, vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal,
+                        LabPBRMat mat) {
+    if (heldColor.w <= 0.0) { return vec3(0.0); }
     float diffuseWeight = vptBlockLightDiffuseWeight(mat);
     if (diffuseWeight <= 1e-4) { return vec3(0.0); }
 
-    float reach = worldUBO.heldLightPos.w;
+    float reach = heldPos.w;
     // A 0.1 block sphere: soft enough shadow edges without looking like a big lamp.
     vec3 jitter = normalize(vec3(rand(mainRay.seed), rand(mainRay.seed), rand(mainRay.seed)) * 2.0 - 1.0 + 1e-4);
-    vec3 lightPos = worldUBO.heldLightPos.xyz + jitter * 0.1;
+    vec3 lightPos = heldPos.xyz + jitter * 0.1;
     vec3 toLight = lightPos - worldPos;
     float distance2 = max(dot(toLight, toLight), 0.04);
     float lightDistance = sqrt(distance2);
@@ -414,7 +415,7 @@ vec3 sampleHeldLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, La
     float fade = 1.0 - pow(lightDistance / reach, 4.0);
     fade *= fade;
     vec3 contribution =
-        worldUBO.heldLightColor.rgb * mat.albedo * (diffuseWeight / PI) * cosSurface * fade / distance2;
+        heldColor.rgb * mat.albedo * (diffuseWeight / PI) * cosSurface * fade / distance2;
     if (dot(contribution, vec3(1.0)) <= 1e-8) { return vec3(0.0); }
 
     shadowRay.radiance = vec3(0.0);
@@ -428,6 +429,14 @@ vec3 sampleHeldLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, La
     vec3 visibility = shadowRay.radiance * shadowRay.throughput;
 
     return VPT_INDIRECT_LIGHT_STRENGTH * worldUBO.heldLightBrightness * contribution * visibility * mainRay.throughput;
+}
+
+// One light per hand: worldUBO.heldLight* is the main hand's, offHandLight* the off hand's.
+vec3 sampleHeldLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, LabPBRMat mat) {
+    return sampleOneHeldLight(worldUBO.heldLightPos, worldUBO.heldLightColor, worldPos, geometricNormal,
+                              shadingNormal, mat) +
+           sampleOneHeldLight(worldUBO.offHandLightPos, worldUBO.offHandLightColor, worldPos, geometricNormal,
+                              shadingNormal, mat);
 }
 
 #endif

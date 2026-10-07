@@ -386,7 +386,7 @@ void Buffers::buildAndUploadOverlayUniformBuffer() {
 }
 
 // BufferProxy.WORLD_UBO_SIZE on the Java side allocates this much; the two must move together.
-static_assert(sizeof(vk::Data::WorldUBO) == 696);
+static_assert(sizeof(vk::Data::WorldUBO) == 736);
 
 static size_t sequenceIndex = 0;
 

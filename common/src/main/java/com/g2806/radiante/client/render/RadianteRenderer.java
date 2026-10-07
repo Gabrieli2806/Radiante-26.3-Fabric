@@ -284,6 +284,23 @@ public final class RadianteRenderer {
         DevProfiler.endFrame();
     }
 
+    private static Vector4f heldLightPosition(Minecraft minecraft, CameraRenderState cameraState,
+        net.minecraft.world.InteractionHand hand) {
+        return Options.heldItemLight ? HeldLight.position(minecraft, cameraState.pos,
+            minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false), hand) : new Vector4f(0.0f);
+    }
+
+    private static Vector4f heldLightColor(Minecraft minecraft, net.minecraft.world.InteractionHand hand) {
+        return Options.heldItemLight ? HeldLight.color(minecraft, hand) : new Vector4f(0.0f);
+    }
+
+    private static net.minecraft.world.phys.Vec3 lastCameraPos = net.minecraft.world.phys.Vec3.ZERO;
+
+    /** Where the camera of the view traced last stood. */
+    public static net.minecraft.world.phys.Vec3 lastCameraPos() {
+        return lastCameraPos;
+    }
+
     /** The size the eyes were last traced at in VR; see record. */
     private static int eyeTraceWidth;
     private static int eyeTraceHeight;
@@ -300,6 +317,7 @@ public final class RadianteRenderer {
         LEVEL_FRAMES.incrementAndGet();
         DevProfiler.begin();
         PlayerProxy.setCameraPos(cameraState.pos.x(), cameraState.pos.y(), cameraState.pos.z());
+        lastCameraPos = cameraState.pos;
         RendererProxy.shouldRenderWorld(true);
 
         updateUniforms(minecraft, gameRenderer, levelRenderState);
@@ -400,9 +418,10 @@ public final class RadianteRenderer {
             TextureTracker.idOf(gameRenderer.levelLightmap().texture()), handFovScale(cameraState, projection),
             levelRenderState.entityRenderStates.stream().anyMatch(net.minecraft.client.renderer.entity.state.EntityRenderState::appearsGlowing),
             Options.blockLightSampling && Options.collectChunkEmission,
-            Options.heldItemLight ? HeldLight.position(minecraft, cameraState.pos,
-                minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false)) : new Vector4f(0.0f),
-            Options.heldItemLight ? HeldLight.color(minecraft) : new Vector4f(0.0f),
+            heldLightPosition(minecraft, cameraState, net.minecraft.world.InteractionHand.MAIN_HAND),
+            heldLightColor(minecraft, net.minecraft.world.InteractionHand.MAIN_HAND),
+            heldLightPosition(minecraft, cameraState, net.minecraft.world.InteractionHand.OFF_HAND),
+            heldLightColor(minecraft, net.minecraft.world.InteractionHand.OFF_HAND),
             Options.parallaxTransparentEdges, Options.dayBrightness / 100.0f, Options.nightBrightness / 100.0f,
             Options.emissionBrightness / 100.0f, Options.pixelLighting,
             EntityManager.rainFallPerFrame(levelRenderState), farReach, Options.heldLightBrightness / 100.0f));

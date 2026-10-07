@@ -32,6 +32,18 @@ public final class EntityManager {
 
     static final EntityCollector COLLECTOR =
         com.g2806.radiante.platform.RadiantePlatform.INSTANCE.createEntityCollector();
+    /**
+     * Vivecraft's hands and what they hold (VivecraftHandsMixin). Vivecraft submits them during Minecraft's level
+     * render, after the frame has been traced, so they are kept here and traced with the next frame - the other
+     * eye's, in VR - at the world position they were drawn at.
+     */
+    private static final EntityCollector VR_HANDS =
+        com.g2806.radiante.platform.RadiantePlatform.INSTANCE.createEntityCollector();
+    private static final int VR_HANDS_ID = "radiante:vr_hands".hashCode();
+    private static boolean vrHandsCaptured;
+    private static double vrHandsX;
+    private static double vrHandsY;
+    private static double vrHandsZ;
     private static final PoseStack POSE_STACK = new PoseStack();
     static final List<PendingEntity> PENDING = new ArrayList<>();
     private static boolean queued;
@@ -171,6 +183,7 @@ public final class EntityManager {
         OverlayLines.collectBlockOutline(levelRenderState, cameraState);
         collectClouds(minecraft, levelRenderState, cameraState);
         collectHands(minecraft, levelRenderState, cameraState);
+        collectVrHands();
         Vec3 eye = cameraState.pos;
         PENDING.removeIf(entity -> isBlockText(entity) && (entity.x() - eye.x()) * (entity.x() - eye.x())
             + (entity.y() - eye.y()) * (entity.y() - eye.y()) + (entity.z() - eye.z()) * (entity.z() - eye.z())
@@ -847,6 +860,37 @@ public final class EntityManager {
         addPending(PLAYER_SHADOW_ID, state.x, state.y, state.z, RAY_TRACING_PLAYER);
     }
 
+    /**
+     * The collector Vivecraft's hands go into instead of Minecraft's, while the frame is traced; Minecraft's own
+     * then draws none of them over the traced picture. Null when Radiante is not tracing this view.
+     */
+    public static EntityCollector beginVrHands() {
+        if (!RadianteRenderer.isOverlayFrame()) {
+            return null;
+        }
+        VR_HANDS.reset();
+        vrHandsCaptured = false;
+        return VR_HANDS;
+    }
+
+    /** Vivecraft's hands were submitted camera-relative for the view being drawn, whose camera is at x, y, z. */
+    public static void endVrHands(double x, double y, double z) {
+        vrHandsX = x;
+        vrHandsY = y;
+        vrHandsZ = z;
+        vrHandsCaptured = true;
+    }
+
+    private static void collectVrHands() {
+        if (!vrHandsCaptured || !com.g2806.radiante.client.compat.vivecraft.VivecraftCompat.isVrActive()) {
+            vrHandsCaptured = false;
+            return;
+        }
+        // Seen by camera rays and the first bounce (reflections), but not by shadow rays: the held light sits
+        // inside the held item, which would otherwise shade it out.
+        addPending(VR_HANDS, VR_HANDS_ID, vrHandsX, vrHandsY, vrHandsZ, RAY_TRACING_PARTICLE, false);
+    }
+
     private static void collectHands(Minecraft minecraft, LevelRenderState levelRenderState,
         CameraRenderState cameraState) {
         PlayerRenderState playerState = levelRenderState.playerRenderState;
@@ -908,6 +952,11 @@ public final class EntityManager {
     }
 
     private static void addPending(int id, double x, double y, double z, int rayTracingFlag, boolean cacheable) {
+        addPending(COLLECTOR, id, x, y, z, rayTracingFlag, cacheable);
+    }
+
+    private static void addPending(EntityCollector collector, int id, double x, double y, double z,
+        int rayTracingFlag, boolean cacheable) {
         // An entity whose origin is not a real point in the world - a block-attached one that lost its support
         // block reports exactly that - would place its whole model outside anything the tracer can build.
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
@@ -917,7 +966,7 @@ public final class EntityManager {
         List<PendingLayer> layers = new ArrayList<>();
         List<PendingLayer> nameTagLayers = new ArrayList<>();
         int profiledVertices = 0;
-        for (Map.Entry<RenderType, PBRVertexWriter> entry : COLLECTOR.layers().entrySet()) {
+        for (Map.Entry<RenderType, PBRVertexWriter> entry : collector.layers().entrySet()) {
             PBRVertexWriter writer = entry.getValue();
             writer.finish();
             if (writer.vertexCount() == 0 || writer.vertexCount() % 4 != 0) {
@@ -941,7 +990,7 @@ public final class EntityManager {
             profiledVertices += writer.vertexCount();
             // Text casts no shadow, as in vanilla: the letters of a sign stand a hair off its board, and their
             // shadow on it read as a second, darker line of text behind the first.
-            boolean overlay = COLLECTOR.isNameTagLayer(entry.getKey()) || info.groupName().startsWith("text");
+            boolean overlay = collector.isNameTagLayer(entry.getKey()) || info.groupName().startsWith("text");
             (overlay ? nameTagLayers : layers).add(layer);
         }
         DevProfiler.count(layers.size() + nameTagLayers.size(), profiledVertices);
