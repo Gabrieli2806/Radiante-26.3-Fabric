@@ -243,7 +243,9 @@ void sampleSurfaceState(bool useTexture,
                                        maxDepthWorld, viewDir);
     }
 
-    if (!isFftWaterSurface && !localHit.sideWall && !useWaterMaterial) {
+    // Glass keeps its face's own normal: the bevel a pack's normal map gives the frame, seen from inside the block
+    // through the clear part, faced away from the view and went black along every join.
+    if (!isFftWaterSurface && !localHit.sideWall && !useWaterMaterial && !g_hitIsGlass) {
         vec3 tangent, bitangent;
         tangent = normalizeF(dPduWorld - geometricNormal * dot(geometricNormal, dPduWorld),
                              abs(geometricNormal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0));
@@ -953,6 +955,10 @@ void main() {
         if (isGlassSurface(packedData) && !isHeldSurface(packedData)) {
             textureUV = seamlessGlassUV(textureUV, baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos,
                                         dposdu, dposdv, packedData);
+            // Kept half a texel inside the sprite: on the frame's last column the filtered lookups of the material
+            // maps reached into the next sprite of the atlas, and that column came out black in places.
+            vec2 halfTexel = 0.5 / vec2(textureSize(textures[nonuniformEXT(textureID)], 0));
+            textureUV = clamp(textureUV, atlasUvMin + halfTexel, max(atlasUvMax - halfTexel, atlasUvMin + halfTexel));
         }
         lod = lodWithCone(textures[nonuniformEXT(textureID)], textureUV, coneRadiusWorld, dposdu, dposdv);
 
@@ -1012,7 +1018,9 @@ void main() {
             // if it were not there. Opaque glass geometry never reaches the any-hit shader that leaves it out.
             bool hiddenPaneTop = !isHeldSurface(packedData) && seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos, packedData);
             // Tinted glass is nearly opaque in its texture but still a window: seen through, darkened.
-            if (hiddenPaneTop || glassAlpha < 0.9 || glassDarkness(glassTexel.rgb * colorLayer) > 0.5) {
+            // Only texels that are see-through: the opaque dark pixels along a glass texture's frame, let through as
+            // if tinted, came out as black dashes along the joins (an opaque texel's tint lets nothing through).
+            if (hiddenPaneTop || glassAlpha < 0.9) {
                 vec3 incident = normalize(gl_WorldRayDirectionEXT);
                 float cosTheta = clamp(abs(dot(incident, baseGeoNormal)), 0.0, 1.0);
                 // Capped: at a grazing angle the full Fresnel term turned the edges of every window into bright rims of
@@ -1092,6 +1100,8 @@ void main() {
         dPdvWorld = objectToWorld * dposdv;
     }
     if (dot(baseGeoNormal, baseViewDir) < 0.0) { baseGeoNormal = -baseGeoNormal; }
+    // Glass is flat: carving its frame by a height map put dark side walls along the joins between glass blocks.
+    if (g_hitIsGlass) { hasHeightMapSurface = false; }
     vec3 cameraOrigin = vec3(worldUBO.cameraEffectedViewMatInv * vec4(0.0, 0.0, 0.0, 1.0));
     bool traceLocalHeight =
         hasHeightMapSurface && (lod == 0.0 || distance(planeHitWorldPos, cameraOrigin) <= VPT_PARALLAX_CLOSE_DISTANCE) &&

@@ -120,6 +120,10 @@ void main() {
             float darkness = clamp(lightMeter.daylight.y, 0.05, 1.0);
             targetExposure *= darkness;
             maxExposure *= darkness;
+            // Under the meter's level: nearly half the light off by day, a quarter at night.
+            float dim = mix(0.75, 0.55, day);
+            targetExposure *= dim;
+            maxExposure *= dim;
         }
         float anchor = clamp(pc.manualExposure, pc.minExposure, maxExposure);
         targetExposure = exp2(mix(log2(anchor), log2(max(targetExposure, 1e-6)), clamp(pc.adaptation, 0.0, 1.0)));

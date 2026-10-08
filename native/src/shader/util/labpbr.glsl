@@ -96,6 +96,8 @@ LabPBRMat convertLabPBRMaterial(vec4 texAlbedo, vec4 texSpecular, vec4 texNormal
         // run-time value, not known).
         mat.emission *= mat.emission;
 #endif
+        // Lamps, torches and glowstone a little softer than the texture says: they lit rooms too strongly at night.
+        mat.emission *= 0.65;
     }
 
     if (metalIdx < 230) {
