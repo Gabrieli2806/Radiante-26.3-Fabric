@@ -761,11 +761,13 @@ vec3 sampleSurfaceDirectLight(SampledSurface surface,
                               int normalTextureID,
                               float maxDepthWorld,
                               bool isFftWaterSurface) {
-    if (worldUBO.skyType != 1) { return vec3(0.0); }
+    // The overworld's sun or moon, or the End's flash while it lasts (shadow.rmiss gives its light).
+    bool endFlash = worldUBO.skyType == 2 && endFlashIntensity() > 1e-3;
+    if (worldUBO.skyType != 1 && !endFlash) { return vec3(0.0); }
 
     bool isOpaqueSurface = surface.mat.transmission <= EPS;
     vec3 lightDir = celestialSunDirection();
-    if (lightDir.y < 0.0) { lightDir = -lightDir; }
+    if (lightDir.y < 0.0 && !endFlash) { lightDir = -lightDir; }
 
     vec3 sampledLightDir = SampleVMF(mainRay.seed, lightDir, 3000.0);
     float sampledLightNoL = dot(sampledLightDir, surface.geometricNormal);

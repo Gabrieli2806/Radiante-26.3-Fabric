@@ -39,6 +39,11 @@ void main() {
         shadowRay.radiance = vec3(1.0);
         return;
     }
+    if (worldUBO.skyType == 2) {
+        // The End: lit only by its flash.
+        shadowRay.radiance += END_FLASH_RADIANCE * endFlashIntensity() * shadowRay.throughput;
+        return;
+    }
     vec3 toSun = celestialSunDirection();
     vec3 radiance;
 

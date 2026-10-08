@@ -67,7 +67,13 @@ public final class BiomeAmbiance {
     private static final float OVERWORLD_ZERO_AT = 256.0f;
 
     private static Haze overworld(float r, float g, float b, float density) {
-        return new Haze(r, g, b, density, 1.0f, 1.0f, 1.0f, OVERWORLD_FULL_BELOW, OVERWORLD_ZERO_AT,
+        return overworld(r, g, b, density, 1.0f, 1.0f, 1.0f);
+    }
+
+    /** With extinction per channel relative to density: a dusty haze that takes more blue than red turns warm. */
+    private static Haze overworld(float r, float g, float b, float density, float chromaR, float chromaG,
+        float chromaB) {
+        return new Haze(r, g, b, density, chromaR, chromaG, chromaB, OVERWORLD_FULL_BELOW, OVERWORLD_ZERO_AT,
             1.0f + RAIN_THICKENING);
     }
 
@@ -78,25 +84,29 @@ public final class BiomeAmbiance {
     /** Written into converted Bedrock packs; the topmost pack that has one decides the fog. */
     private static final Identifier PACK_FOG = Identifier.fromNamespaceAndPath("radiante", "bedrock_fog.json");
 
-    private static final Haze DEFAULT = overworld(0.92f, 0.96f, 1.00f, 0.0030f);
-    private static final Haze CLEAR = overworld(0.92f, 0.96f, 1.02f, 0.0018f);
+    // Radiante's own fog, for when no Bedrock pack brings one: colour is the fog's scattering colour (albedo) and the
+    // last value its extinction per block, both in the range Bedrock RTX packs use (Vanilla RTX: a plain about
+    // 0.0012, a swamp or dark forest about 0.014 with an albedo near 0.1, a dark, absorbing murk; a desert's haze takes
+    // blue about five times as fast as red).
+    private static final Haze DEFAULT = overworld(0.92f, 0.96f, 1.00f, 0.0015f);
+    private static final Haze CLEAR = overworld(0.92f, 0.96f, 1.02f, 0.0010f);
     private static final Haze NONE = new Haze(1.0f, 1.0f, 1.0f, 0.0f);
-    private static final Haze DESERT = overworld(1.00f, 0.78f, 0.52f, 0.0120f);
-    private static final Haze BADLANDS = overworld(1.00f, 0.66f, 0.44f, 0.0110f);
-    private static final Haze SAVANNA = overworld(1.00f, 0.86f, 0.62f, 0.0080f);
-    private static final Haze SWAMP = overworld(0.66f, 0.80f, 0.52f, 0.0260f);
-    private static final Haze MANGROVE = overworld(0.68f, 0.84f, 0.58f, 0.0280f);
-    private static final Haze JUNGLE = overworld(0.78f, 1.00f, 0.78f, 0.0150f);
-    private static final Haze SPARSE_JUNGLE = overworld(0.84f, 1.00f, 0.84f, 0.0100f);
-    private static final Haze DARK_FOREST = overworld(0.76f, 0.84f, 0.76f, 0.0170f);
-    private static final Haze PALE_GARDEN = overworld(0.90f, 0.90f, 0.90f, 0.0300f);
-    private static final Haze SNOWY = overworld(0.84f, 0.92f, 1.08f, 0.0090f);
-    private static final Haze TAIGA = overworld(0.84f, 0.92f, 0.96f, 0.0070f);
-    private static final Haze CHERRY = overworld(1.00f, 0.84f, 0.92f, 0.0070f);
-    private static final Haze MUSHROOM = overworld(0.90f, 0.78f, 1.00f, 0.0100f);
-    private static final Haze OCEAN = overworld(0.80f, 0.92f, 1.08f, 0.0050f);
-    private static final Haze WARM_OCEAN = overworld(0.78f, 0.96f, 1.02f, 0.0050f);
-    private static final Haze RIVER = overworld(0.90f, 0.95f, 1.00f, 0.0040f);
+    private static final Haze DESERT = overworld(1.00f, 0.70f, 0.50f, 0.0060f, 0.33f, 1.00f, 1.77f);
+    private static final Haze BADLANDS = overworld(1.00f, 0.62f, 0.42f, 0.0060f, 0.36f, 1.00f, 1.58f);
+    private static final Haze SAVANNA = overworld(1.00f, 0.85f, 0.62f, 0.0040f);
+    private static final Haze SWAMP = overworld(0.12f, 0.17f, 0.13f, 0.0130f);
+    private static final Haze MANGROVE = overworld(0.16f, 0.42f, 0.32f, 0.0090f);
+    private static final Haze JUNGLE = overworld(0.18f, 0.24f, 0.22f, 0.0090f);
+    private static final Haze SPARSE_JUNGLE = overworld(0.35f, 0.45f, 0.40f, 0.0060f);
+    private static final Haze DARK_FOREST = overworld(0.12f, 0.16f, 0.14f, 0.0110f);
+    private static final Haze PALE_GARDEN = overworld(0.22f, 0.22f, 0.25f, 0.0200f);
+    private static final Haze SNOWY = overworld(0.90f, 0.95f, 1.05f, 0.0045f);
+    private static final Haze TAIGA = overworld(0.80f, 0.90f, 0.95f, 0.0035f);
+    private static final Haze CHERRY = overworld(1.00f, 0.82f, 0.92f, 0.0045f);
+    private static final Haze MUSHROOM = overworld(0.85f, 0.72f, 1.00f, 0.0060f);
+    private static final Haze OCEAN = overworld(0.80f, 0.90f, 1.05f, 0.0025f);
+    private static final Haze WARM_OCEAN = overworld(0.78f, 0.95f, 1.00f, 0.0025f);
+    private static final Haze RIVER = overworld(0.90f, 0.95f, 1.00f, 0.0020f);
 
     // Nether and End: rgb multiplies the biome's vanilla fog colour, which already carries each biome's hue (red in
     // the crimson forest, teal in the warped forest, and so on) and is what the haze is drawn in.
@@ -404,8 +414,13 @@ public final class BiomeAmbiance {
     private static final float VANILLA_WATER_ABSORPTION = 0.22f;
     /** Floor of the extinction, so even the palest water fades with depth. */
     private static final float VANILLA_WATER_MIN_EXTINCTION = 0.02f;
-    /** How much of the vanilla water's extinction scatters back in its own colour. */
-    private static final float VANILLA_WATER_SCATTER = 0.45f;
+    /**
+     * How much of the vanilla water's extinction scatters back, times its colour squared: water mostly absorbs, and
+     * what little it scatters is in its own colour. At 0.45 times the colour it scattered a sixth to a half of what
+     * it took, five to ten times a Bedrock pack's water (albedo 0.01 to 0.2, bluest of all), and a lake glowed milky
+     * white as if it gave off light.
+     */
+    private static final float VANILLA_WATER_SCATTER = 0.2f;
 
     /**
      * How much of a Bedrock pack's own water extinction is kept. Bedrock RTX's water reads far clearer than its
@@ -416,9 +431,10 @@ public final class BiomeAmbiance {
     private static final float WATER_COLOUR_DEPTH = 6.0f;
     /**
      * Bedrock RTX's water light is turquoise whatever the biome's own water colour (a deep blue for most oceans); the
-     * colour taken is this far towards that.
+     * colour taken is this far towards that. Not further: at 0.7 every biome's water came out the same turquoise,
+     * a swamp's as a warm ocean's.
      */
-    private static final float WATER_TURQUOISE_SHARE = 0.7f;
+    private static final float WATER_TURQUOISE_SHARE = 0.35f;
     private static final float[] WATER_TURQUOISE = {0.25f, 0.85f, 0.9f};
     /** Floor of each channel of the water colour, so no colour is absorbed outright. */
     private static final float WATER_COLOUR_FLOOR = 0.12f;
@@ -447,7 +463,7 @@ public final class BiomeAmbiance {
         return new Water(VANILLA_WATER_MIN_EXTINCTION + (1.0f - r) * VANILLA_WATER_ABSORPTION,
             VANILLA_WATER_MIN_EXTINCTION + (1.0f - g) * VANILLA_WATER_ABSORPTION,
             VANILLA_WATER_MIN_EXTINCTION + (1.0f - b) * VANILLA_WATER_ABSORPTION,
-            r * VANILLA_WATER_SCATTER, g * VANILLA_WATER_SCATTER, b * VANILLA_WATER_SCATTER);
+            r * r * VANILLA_WATER_SCATTER, g * g * VANILLA_WATER_SCATTER, b * b * VANILLA_WATER_SCATTER);
     }
 
     private static Haze hazeOf(Holder<Biome> biome) {

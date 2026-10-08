@@ -220,6 +220,19 @@ const uint VPT_WORLD_NO_VOLUMETRIC_MISS_INDEX = 3u;
 vec3 g_passThroughTint = vec3(1.0);
 // What that glass added on the way (its faint reflection of the sky, the streaks of a sheet of water).
 vec3 g_passThroughRadiance = vec3(0.0);
+// How far along the camera's ray that glass is. Only the fog beyond it is seen through it: the fog between the camera
+// and a far window is not, and tinting all of it left distant stained and clear glass standing out of the haze,
+// dark and coloured, instead of fading into it like the blocks around.
+float g_passThroughDistance = 0.0;
+
+// The tint of the glass the camera looked through, for fog that reaches fogDistance along the ray: the share of the
+// fog in front of the glass is left untinted.
+vec3 fogGlassTint(float fogDistance) {
+    vec3 tint = clamp(g_passThroughTint, vec3(0.0), vec3(1.0));
+    if (g_passThroughDistance <= 0.0 || fogDistance >= INF_DISTANCE * 0.5) { return tint; }
+    float inFront = clamp(g_passThroughDistance / max(fogDistance, 1e-3), 0.0, 1.0);
+    return mix(tint, vec3(1.0), inFront);
+}
 // The first glass the camera's ray passed through asks for its reflection of the world (Bedrock Fresnel): where it
 // starts, which way it goes, and how much of it is seen. Traced after the view behind (glassReflection).
 bool g_glassReflection = false;
@@ -247,7 +260,7 @@ void applyFog(vec3 radiance,
     }
 
     transmittance = exp(-opticalDepth);
-    additiveRadiance = fogRadiance * (1.0 - transmittance) * clamp(g_passThroughTint, vec3(0.0), vec3(1.0));
+    additiveRadiance = fogRadiance * (1.0 - transmittance) * fogGlassTint(t);
     foggedRadiance = radiance * transmittance + additiveRadiance;
 }
 
@@ -985,6 +998,7 @@ void tracePrimary(vec3 eyePos,
         // What the glass passed through so far lets through: the air past it is seen through it too.
         g_passThroughTint = rayState.throughput;
         g_passThroughRadiance = rayState.radiance;
+        g_passThroughDistance = firstHit.tracedDistance;
 
         float len;
         uint mask;
@@ -1480,6 +1494,7 @@ void main() {
     bool worldGlassReflection = g_glassReflection;
     vec3 worldPassThroughTint = g_passThroughTint;
     vec3 worldPassThroughRadiance = g_passThroughRadiance;
+    float worldPassThroughDistance = g_passThroughDistance;
 
 
     // Minecraft draws the hand with a fixed field of view of its own, so it keeps its size when the FOV setting
@@ -1498,6 +1513,7 @@ void main() {
     tracePrimary(eyePos, handDirection, rayFlags, 1, handRay, handFirstHit);
     vec3 handPassThroughTint = g_passThroughTint;
     vec3 handPassThroughRadiance = g_passThroughRadiance;
+    float handPassThroughDistance = g_passThroughDistance;
 
     int isHand = 0;
     g_glassReflection = worldGlassReflection;
@@ -1505,12 +1521,14 @@ void main() {
     mainRay = worldRay;
     g_passThroughTint = worldPassThroughTint;
     g_passThroughRadiance = worldPassThroughRadiance;
+    g_passThroughDistance = worldPassThroughDistance;
     if (handFirstHit.surfaceDepth != INF_DISTANCE) {
         isHand = 1;
         selectedFirstHit = handFirstHit;
         mainRay = handRay;
         g_passThroughTint = handPassThroughTint;
         g_passThroughRadiance = handPassThroughRadiance;
+        g_passThroughDistance = handPassThroughDistance;
     }
 
     // The glass's reflection of the world, traced from where the camera's ray met it (see default.rchit). Added to
@@ -1919,7 +1937,7 @@ void main() {
         bool hazeHitSky = surfaceDepth == INF_DISTANCE;
         biomeHaze(orgDirection, hazeHitSky, hazeHitSky ? 0.0 : surfaceDepth, hazeTransmittance,
                   hazeAdditive);
-        hazeAdditive *= clamp(g_passThroughTint, vec3(0.0), vec3(1.0));
+        hazeAdditive *= fogGlassTint(hazeHitSky ? INF_DISTANCE : surfaceDepth);
         if (useTransparentSplit) {
             transparentReflectionRadiance *= hazeTransmittance;
             transparentRefractionRadiance *= hazeTransmittance;
@@ -2054,7 +2072,7 @@ void main() {
         integrateVolumetricFog(eyePos, orgDirection, volumetricDistance, biomeReach, rayInsideBoat(mainRay),
                                volumetricTransmittance, volumetricLight);
 #endif
-        volumetricLight *= clamp(g_passThroughTint, vec3(0.0), vec3(1.0));
+        volumetricLight *= fogGlassTint(volumetricDistance);
         mainRay.radiance = mainRay.radiance * volumetricTransmittance + volumetricLight;
         if (!useTransparentSplit) {
             // Folded into whatever fog is already composed (the biome haze) rather than replacing it.

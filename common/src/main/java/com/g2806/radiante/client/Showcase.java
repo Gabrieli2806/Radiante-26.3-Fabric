@@ -44,6 +44,15 @@ public final class Showcase {
             return false;
         }
         Minecraft minecraft = Minecraft.getInstance();
+        if (parts.length >= 2 && parts[1].equals("biome")) {
+            MinecraftServer server = minecraft.getSingleplayerServer();
+            if (server == null || minecraft.player == null) {
+                say(minecraft, "message.radiante.showcase.singleplayer");
+                return true;
+            }
+            BiomeTour.handle(minecraft, server, java.util.Arrays.copyOfRange(parts, 2, parts.length));
+            return true;
+        }
         if (parts.length < 2 || !parts[1].equals("showcase")) {
             say(minecraft, "message.radiante.showcase.usage");
             return true;

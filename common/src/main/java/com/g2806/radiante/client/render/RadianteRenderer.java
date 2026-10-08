@@ -426,6 +426,16 @@ public final class RadianteRenderer {
             : new Vector4f(sky.sunriseAndSunsetColor);
         Matrix4f celestial = com.g2806.radiante.api.RadianteApi.celestialTransform(sky.sunAngle);
         Vector3f sunDirection = celestial.transformDirection(new Vector3f(0.0f, 1.0f, 0.0f)).normalize();
+        if (skyType == 2) {
+            // The End has no sun: its flash takes the sun's place, its direction as vanilla draws it (SkyRenderer:
+            // turned about y by 180 - yAngle, then about x by -90 - xAngle), scaled by its intensity, zero between
+            // flashes. Off with the "Hide Lightning Flashes" accessibility option, as vanilla's lighting of it is.
+            float flash = minecraft.options.hideLightningFlash().get() ? 0.0f : sky.endFlashIntensity;
+            sunDirection = new Matrix4f()
+                .rotateY((float) Math.toRadians(180.0f - sky.endFlashYAngle))
+                .rotateX((float) Math.toRadians(-90.0f - sky.endFlashXAngle))
+                .transformDirection(new Vector3f(0.0f, 1.0f, 0.0f)).normalize().mul(Math.max(flash, 0.0f));
+        }
         // Vanilla's sun and moon quads lie along the transform's local x and z, so their edges stay lined up with
         // the path; x is the axis the sky turns around.
         Vector3f celestialAxis = celestial.transformDirection(new Vector3f(1.0f, 0.0f, 0.0f)).normalize();

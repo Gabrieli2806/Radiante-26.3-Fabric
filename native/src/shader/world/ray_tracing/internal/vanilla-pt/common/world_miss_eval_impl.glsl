@@ -181,6 +181,13 @@ vec3 endSkyRadiance(vec3 dir, bool seen) {
     float up = clamp(dir.y, -1.0, 1.0);
     // Brightest along the horizon, a third of that straight up and down.
     vec3 sky = fog * mix(0.35, 1.0, pow(1.0 - abs(up), 3.0));
+    // The End flash: a violet glare round its direction and a faint glow over the whole sky while it lasts, seen
+    // and lighting the islands alike (they also take its direct light, with shadows: shadow.rmiss).
+    float flash = endFlashIntensity();
+    if (flash > 0.0) {
+        float towards = max(dot(dir, celestialSunDirection()), 0.0);
+        sky += END_FLASH_RADIANCE * flash * (0.04 + 0.35 * pow(towards, 8.0) + 3.0 * pow(towards, 400.0));
+    }
     if (seen) {
         // Seen, the void is much darker than the light it gives the islands, as in vanilla: a near-black violet
         // the lit end stone stands out against, not a pale haze brighter than the ground.

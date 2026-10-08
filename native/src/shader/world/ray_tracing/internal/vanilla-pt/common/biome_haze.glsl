@@ -59,14 +59,24 @@ void biomeHaze(vec3 rayDir, bool hitSky, float hitDistance, out float transmitta
     float skyDistance = overworld ? biomeFogSkyReach(rayDir) : BIOME_HAZE_MAX_DISTANCE;
     float hazeDistance = hitSky ? skyDistance : min(hitDistance, BIOME_HAZE_MAX_DISTANCE);
     float density = skyUBO.biomeFog.a * biomeFogHeightProfile(float(worldUBO.cameraPos.y));
-    transmittance = exp(-density * max(hazeDistance, 0.0));
+    // Per channel, as the biome's fog absorbs (a desert's haze takes more blue than red, so the distance turns warm);
+    // handed on as one transmittance for the picture behind, and the colour it keeps goes into what the fog adds.
+    vec3 chroma = biomeFogChroma();
+    if (dot(chroma, chroma) <= 0.0) { chroma = vec3(1.0); }
+    vec3 transmittance3 = exp(-density * chroma * max(hazeDistance, 0.0));
+    transmittance = dot(transmittance3, vec3(0.2126, 0.7152, 0.0722));
+    vec3 fogAmount = 1.0 - transmittance3;
 
     vec3 hazeRadiance = skyUBO.biomeFog.rgb;
     if (overworld) {
+        // The fog's scattering colour (its albedo): a swamp's or a dark forest's fog mostly absorbs and reads as a
+        // dim, coloured murk, a desert's scatters warm, a plain's is near white. Drawn as sky-lit grey, every biome's
+        // fog was the same bright white haze. Lifted a little (power 0.6): the darkest albedos read as near black.
+        vec3 albedo = pow(clamp(skyUBO.biomeFog.rgb, 0.0, 1.5), vec3(0.6));
         vec3 horizonDir = normalize(vec3(rayDir.x, 0.12, rayDir.z));
         vec3 skyLight = texture(skyFull, horizonDir).rgb;
         float skyLuma = dot(skyLight, vec3(0.2126, 0.7152, 0.0722));
-        hazeRadiance = mix(vec3(skyLuma), skyLuma * skyUBO.biomeFog.rgb, 0.2);
+        hazeRadiance = mix(vec3(skyLuma), skyLight, 0.5) * albedo;
         // The sun or moon lights the haze too, most of all looking towards it: the pale glow a low sun sits in
         // through Bedrock RTX's fog. Unshadowed; the volumetric mode traces that.
         vec3 lightDir = celestialSunDirection();
@@ -81,13 +91,9 @@ void biomeHaze(vec3 rayDir, bool hitSky, float hitDistance, out float transmitta
                       bedrockSunlight(lightDir.y) :
                       sampleCloudAtmosphereTransmittance(VPT_ATMOSPHERE_RG + float(worldUBO.cameraPos.y) + 70.0, lightDir.y)) *
                  biomeFogLightTransmittance(float(worldUBO.cameraPos.y), lightDir);
-        // A fifth of the fog's own colour: lit straight by the sun, Bedrock's haze reads cream rather than the deep
-        // colour its albedo alone gives.
-        vec3 albedo = clamp(skyUBO.biomeFog.rgb, 0.0, 1.5);
-        albedo = mix(albedo, vec3(dot(albedo, vec3(0.2126, 0.7152, 0.0722))), 0.8);
         hazeRadiance += light * phase * max(VPT_BIOME_FOG_SCATTERING, 0.0) * albedo;
     }
-    additive = hazeRadiance * (1.0 - transmittance);
+    additive = hazeRadiance * fogAmount;
 }
 
 #endif
