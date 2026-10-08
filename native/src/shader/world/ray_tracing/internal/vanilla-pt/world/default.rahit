@@ -104,7 +104,8 @@ void main() {
         uv = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
         PositionVertex p0, p1, p2;
         loadTrianglePositions(geometryBufferIndex, i0, i1, i2, p0, p1, p2);
-        if (isGlassSurface(packedData)) {
+        // Seamless glass works from the block grid; a held block is not on it.
+        if (isGlassSurface(packedData) && !isHeldSurface(packedData)) {
             if (seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos)) {
                 ignoreIntersectionEXT;
                 return;
@@ -114,7 +115,7 @@ void main() {
         float coneRadiusWorld = mainRay.coneWidth + gl_HitTEXT * mainRay.coneSpread;
         vec3 dposdu, dposdv;
         computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, dposdu, dposdv);
-        if (isGlassSurface(packedData)) {
+        if (isGlassSurface(packedData) && !isHeldSurface(packedData)) {
             vec3 objectPos = baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos;
             uv = seamlessGlassUV(uv, objectPos, dposdu, dposdv);
         }

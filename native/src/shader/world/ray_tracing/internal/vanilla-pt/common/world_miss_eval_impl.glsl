@@ -164,6 +164,45 @@ vec4 evalMoonBillboard(vec3 rayDir) {
     return moon;
 }
 
+#ifndef END_VOID_TINT
+// Violet of about the brightness of white (luminance near 1); also in world.rgen.
+#    define END_VOID_TINT vec3(1.3, 0.8, 1.85)
+#endif
+// How bright the void looks to the camera against the light it casts; also in world.rgen (the islands' fog).
+#ifndef END_VOID_SEEN
+#    define END_VOID_SEEN 0.15
+#endif
+
+// The End's sky (see main). Its colour is the dimension's fog colour turned violet, as world.rgen fogs the islands,
+// so distant ones fade into it seamlessly.
+vec3 endSkyRadiance(vec3 dir, bool seen) {
+    // Vanilla's End fog is nearly grey; the void reads as violet, as in Bedrock, at the same brightness.
+    vec3 fog = dot(max(worldUBO.fogColor.rgb, vec3(0.0)), vec3(0.2126, 0.7152, 0.0722)) * END_VOID_TINT;
+    float up = clamp(dir.y, -1.0, 1.0);
+    // Brightest along the horizon, a third of that straight up and down.
+    vec3 sky = fog * mix(0.35, 1.0, pow(1.0 - abs(up), 3.0));
+    if (seen) {
+        // Seen, the void is much darker than the light it gives the islands, as in vanilla: a near-black violet
+        // the lit end stone stands out against, not a pale haze brighter than the ground.
+        sky *= END_VOID_SEEN;
+        // Sparse stars, fixed to the sky: one candidate per cell of a grid on the direction.
+        vec3 cell = floor(dir * 260.0);
+        uvec3 h3 = uvec3(ivec3(cell) + ivec3(1 << 20));
+        uint h = h3.x * 73856093u ^ h3.y * 19349663u ^ h3.z * 83492791u;
+        h ^= h >> 15u;
+        h *= 2246822519u;
+        h ^= h >> 13u;
+        float r = float(h & 0xFFFFu) / 65535.0;
+        if (r > 0.9975) {
+            vec3 centre = (cell + 0.5) / 260.0;
+            float d = length(dir - normalize(centre)) * 260.0;
+            float twinkle = float((h >> 16u) & 0xFFu) / 255.0;
+            sky += vec3(0.85, 0.8, 1.0) * (0.6 + 0.8 * twinkle) * smoothstep(0.45, 0.0, d) * 0.08;
+        }
+    }
+    return sky;
+}
+
 void main() {
     mainRay.directLightRadiance.x = 1.0;
 
@@ -174,8 +213,17 @@ void main() {
     }
 
     switch (worldUBO.skyType) {
-        case 0:
         case 2:
+            // The End: a deep violet void, its own fog colour at the horizon darkening overhead, with faint stars
+            // where the camera looks. Rays bouncing off the islands gather it as a dim, cool ambient light, so the
+            // end stone is softly lit from above instead of flat.
+            mainRay.radiance += endSkyRadiance(normalize(gl_WorldRayDirectionEXT),
+                                               rayBounce(mainRay) == 0u || rayCameraPath(mainRay)) *
+                                mainRay.throughput;
+            raySetStop(mainRay, true);
+            mainRay.hitT = INF_DISTANCE;
+            return;
+        case 0:
             raySetStop(mainRay, true);
             mainRay.hitT = INF_DISTANCE;
             return;

@@ -1,5 +1,6 @@
 #include "core/render/modules/world/tone_mapping/tone_mapping_module.hpp"
 
+#include "core/render/buffers.hpp"
 #include "core/render/pipeline.hpp"
 #include "core/render/render_framework.hpp"
 #include "core/render/renderer.hpp"
@@ -53,6 +54,8 @@ int parseExposureMeteringModeValue(const std::string &value, int fallback) {
         return TONE_MAPPING_EXPOSURE_METERING_MODE_CENTER;
     if (value == "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.light_meter")
         return TONE_MAPPING_EXPOSURE_METERING_MODE_LIGHT_METER;
+    if (value == "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.incident")
+        return TONE_MAPPING_EXPOSURE_METERING_MODE_INCIDENT;
     return fallback;
 }
 
@@ -264,6 +267,12 @@ void ToneMappingModule::initDescriptorTables() {
                                        .descriptorCount = 1,
                                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
                                    })
+                                   .defineDescriptorLayoutSetBinding({
+                                       .binding = 5, // the incident light meter, written by the ray tracer
+                                       .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                       .descriptorCount = 1,
+                                       .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                                   })
                                    .endDescriptorLayoutSetBinding()
                                    .endDescriptorLayoutSet()
                                    .definePushConstant(VkPushConstantRange{
@@ -312,6 +321,7 @@ void ToneMappingModule::initBuffers() {
         descriptorTables_[i]->bindBuffer(histBuffers_[i], 0, 1);
 
         descriptorTables_[i]->bindBuffer(exposureData_, 0, 2);
+        descriptorTables_[i]->bindBuffer(Renderer::instance().buffers()->lightMeterBuffer(), 0, 5);
     }
 }
 
@@ -817,7 +827,7 @@ void ToneMappingModuleContext::render() {
     pc.clampOutput = module->shouldClampOutput_ ? 1 : 0;
     pc.exposureMeteringMode =
         std::clamp(module->exposureMeteringMode_, static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_GLOBAL),
-                   static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_LIGHT_METER));
+                   static_cast<int>(TONE_MAPPING_EXPOSURE_METERING_MODE_INCIDENT));
     pc.centerMeteringPercent = sanitizedCenterMeteringPercent;
     pc.adaptation = std::clamp(module->adaptation_, 0.0f, 1.0f);
     pc.bloomIntensity = module->bloomEnabled_ ? module->bloomIntensity_ : 0.0f;
@@ -854,6 +864,18 @@ void ToneMappingModuleContext::render() {
         }},
         {});
 
+    // The light meter samples were written by this frame's ray tracing.
+    worldCommandBuffer->barriersBufferImage(
+        {{
+            .srcStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
+            .srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+            .dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT,
+            .srcQueueFamilyIndex = mainQueueIndex,
+            .dstQueueFamilyIndex = mainQueueIndex,
+            .buffer = Renderer::instance().buffers()->lightMeterBuffer(),
+        }},
+        {});
     worldCommandBuffer->bindComputePipeline(module->exposurePipeline_);
     vkCmdDispatch(worldCommandBuffer->vkCommandBuffer(), 1, 1, 1);
 

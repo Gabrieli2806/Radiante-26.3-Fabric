@@ -51,6 +51,9 @@ class Buffers : public SharedObject<Buffers> {
     std::shared_ptr<vk::HostVisibleBuffer> skyUniformBuffer();
     std::shared_ptr<vk::HostVisibleBuffer> textureMappingBuffer();
     std::shared_ptr<vk::HostVisibleBuffer> exposureDataBuffer();
+    // The incident light meter: the ray generation shader writes one sample per cell of a 16 x 16 grid each frame,
+    // tone mapping's exposure pass reads them (metering mode "incident"). Shared by both modules, made on first use.
+    std::shared_ptr<vk::DeviceLocalBuffer> lightMeterBuffer();
 
     void setUseJitter(bool useJitter);
 
@@ -84,6 +87,7 @@ class Buffers : public SharedObject<Buffers> {
     std::vector<std::shared_ptr<vk::HostVisibleBuffer>> skyUniformBuffer_;
     std::vector<std::shared_ptr<vk::HostVisibleBuffer>> textureMappingBuffer_;
     std::vector<std::shared_ptr<vk::HostVisibleBuffer>> exposureDataBuffer_;
+    std::shared_ptr<vk::DeviceLocalBuffer> lightMeterBuffer_;
 
     std::shared_ptr<std::vector<std::shared_ptr<vk::DeviceLocalBuffer>>> importantIndexVertexBuffer_;
 

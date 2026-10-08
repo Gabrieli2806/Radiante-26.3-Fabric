@@ -48,11 +48,11 @@ public final class BedrockRtxProfile {
             "how far the eye may open in the dark: four stops above Radiante's default, so a room lit through a "
                 + "window comes up about as bright as in Bedrock (compared side by side); the real limit is a "
                 + "run-time value"),
-        new CompatParameter("exposure", TONE, A + "exposure_metering_mode", A + "exposure_metering_mode.light_meter",
-            A + "exposure_metering_mode.center", ParameterStatus.INFERRED,
-            "Bedrock's light meter: power mean of 16 x 16 samples, brightest channel, white surface to 0.75 "
-                + "(observed); Radiante meters the picture, not incident light, "
-                + "so it aims at middle grey (INFERRED)"),
+        new CompatParameter("exposure", TONE, A + "exposure_metering_mode", A + "exposure_metering_mode.incident",
+            A + "exposure_metering_mode.incident", ParameterStatus.MATCHES_BEDROCK,
+            "Bedrock's light meter: the light reaching the surfaces in view on a 16 x 16 grid (their colour divided "
+                + "out, the sky and far surfaces left out), power mean, brightest channel, white surface to 0.75 "
+                + "(observed); the distance fade is a run-time value, 32 to 128 blocks here"),
 
         // ---- tone mapping
         new CompatParameter("toneMapping", TONE, A + "method", A + "method.bedrock_provisional",

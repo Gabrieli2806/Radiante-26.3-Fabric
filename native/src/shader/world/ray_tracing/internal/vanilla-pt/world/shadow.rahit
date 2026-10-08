@@ -121,7 +121,8 @@ void main() {
 
     if (hasTexture(packedData)) {
         textureUV = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
-        if (isGlassSurface(packedData)) {
+        // Seamless glass works from the block grid; a held block is not on it.
+        if (isGlassSurface(packedData) && !isHeldSurface(packedData)) {
             if (seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos)) {
                 ignoreIntersectionEXT;
                 return;

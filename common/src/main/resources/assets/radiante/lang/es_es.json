@@ -73,6 +73,7 @@
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.global": "Global",
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.center": "Centro",
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.light_meter": "Fotómetro de Bedrock",
+  "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.incident": "Luz incidente (Bedrock)",
   "render_pipeline.module.tone_mapping.attribute.exposure_adaptation": "Adaptación de Exposición",
   "render_pipeline.module.tone_mapping.attribute.center_metering_percent": "Porcentaje de Medición Central",
   "render_pipeline.module.tone_mapping.attribute.manual_exposure": "Exposición Manual",

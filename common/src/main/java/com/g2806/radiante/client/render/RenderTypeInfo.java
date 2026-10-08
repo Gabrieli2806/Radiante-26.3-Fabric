@@ -178,6 +178,11 @@ public final class RenderTypeInfo {
             && texture.getTexture().getFormat() == GpuFormat.R8_UNORM;
     }
 
+    /** True when this layer samples the block atlas: a block drawn as an item, not a skin or a model texture. */
+    public boolean isBlockAtlas() {
+        return this.texture != null && this.texture.getPath().equals("textures/atlas/blocks.png");
+    }
+
     /** The renderer id of the texture this render type samples, or 0 when it has none. */
     public int textureId() {
         if (this.texture == null) {

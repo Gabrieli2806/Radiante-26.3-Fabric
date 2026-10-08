@@ -73,6 +73,7 @@
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.global": "全局",
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.center": "中心",
   "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.light_meter": "基岩版测光",
+  "render_pipeline.module.tone_mapping.attribute.exposure_metering_mode.incident": "入射光（基岩版）",
   "render_pipeline.module.tone_mapping.attribute.exposure_adaptation": "曝光适应",
   "render_pipeline.module.tone_mapping.attribute.center_metering_percent": "中心测光百分比",
   "render_pipeline.module.tone_mapping.attribute.manual_exposure": "手动曝光",

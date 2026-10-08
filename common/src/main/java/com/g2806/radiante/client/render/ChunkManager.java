@@ -46,7 +46,7 @@ public final class ChunkManager {
      * Glass blocks (plain, stained, tinted) and glass panes. Their see-through texels are clear glass for the tracer,
      * as Bedrock RTX renders them: a surface that reflects and refracts, not a hole. Iron bars share the pane class.
      */
-    private static boolean isGlass(BlockState state) {
+    static boolean isGlass(BlockState state) {
         net.minecraft.world.level.block.Block block = state.getBlock();
         // Tinted glass too: seen through like the rest, only darkened by its own deep tint.
         return block instanceof net.minecraft.world.level.block.TransparentBlock

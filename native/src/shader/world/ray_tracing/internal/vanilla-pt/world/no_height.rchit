@@ -950,7 +950,7 @@ void main() {
 
         float coneRadiusWorld = mainRay.coneWidth + gl_HitTEXT * mainRay.coneSpread;
         computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, dposdu, dposdv);
-        if (isGlassSurface(packedData)) {
+        if (isGlassSurface(packedData) && !isHeldSurface(packedData)) {
             textureUV = seamlessGlassUV(textureUV, baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos,
                                         dposdu, dposdv);
         }
@@ -1010,7 +1010,7 @@ void main() {
             float glassAlpha = clamp(glassTexel.a * colorLayerValue.a, 0.0, 1.0);
             // The thin top of a pane between two stacked panes (seamless glass) is inside the sheet: seen through as
             // if it were not there. Opaque glass geometry never reaches the any-hit shader that leaves it out.
-            bool hiddenPaneTop = seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos);
+            bool hiddenPaneTop = !isHeldSurface(packedData) && seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos);
             // Tinted glass is nearly opaque in its texture but still a window: seen through, darkened.
             if (hiddenPaneTop || glassAlpha < 0.9 || glassDarkness(glassTexel.rgb * colorLayer) > 0.5) {
                 vec3 incident = normalize(gl_WorldRayDirectionEXT);
@@ -1038,7 +1038,14 @@ void main() {
                     vec3 glassPos = gl_WorldRayOriginEXT + incident * gl_HitTEXT;
                     skyReflection *= skyVisibilityAlong(glassPos - incident * 0.01, skyDirection);
                 }
+#if VPT_FRESNEL_MODEL != 0
+                // Bedrock: the glass reflects the world, not only the sky. The ray generation shader traces that
+                // reflection once the view behind is done; it is asked for through the normal and the direct light
+                // fields, unused on a pass-through hit (the reflected direction and its weight).
+                vec3 glassReflectionWeight = mainRay.throughput * fresnel * clamp(VPT_GLASS_REFLECTION, 0.0, 1.0);
+#else
                 mainRay.radiance += mainRay.throughput * fresnel * skyReflection * clamp(VPT_GLASS_REFLECTION, 0.0, 1.0);
+#endif
                 vec3 filterColour = hiddenPaneTop ? vec3(1.0) : viewGlassTint(glassTexel.rgb * colorLayer, glassAlpha);
                 // Dark (tinted) glass shows its own texture lit by the sky, as a dark pane does, not only a dimmed view.
                 float tintedness = hiddenPaneTop ? 0.0 : glassDarkness(glassTexel.rgb * colorLayer);
@@ -1061,6 +1068,10 @@ void main() {
                 mainRay.origin = gl_WorldRayOriginEXT + incident * (gl_HitTEXT + 0.002);
                 mainRay.normal = vec3(0.0);
                 mainRay.directLightRadiance = vec3(0.0);
+#if VPT_FRESNEL_MODEL != 0
+                mainRay.normal = reflected;
+                mainRay.directLightRadiance = glassReflectionWeight;
+#endif
                 mainRay.hasPrevScenePos = 0u;
                 rayStoreMaterial(mainRay, vec4(1.0), vec3(0.04), 1.0, 0.0, 1.0, 1.0, 0.0);
                 raySetNoisy(mainRay, false);

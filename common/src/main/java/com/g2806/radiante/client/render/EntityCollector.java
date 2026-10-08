@@ -71,6 +71,7 @@ public class EntityCollector implements SubmitNodeCollector {
     private int colorOverride;
     private int colorTint = 0xFFFFFF;
     private boolean held;
+    private boolean heldGlass;
     private final List<QuadParticleRenderState> particleGroups = new ArrayList<>();
     /** Debug gizmo groups (F3+B hitboxes, F3+G chunk borders, ...) since the last drain; see drainGizmoGroups. */
     private final List<DrawableGizmoPrimitives.Group> gizmoGroups = new ArrayList<>();
@@ -98,11 +99,20 @@ public class EntityCollector implements SubmitNodeCollector {
         this.colorOverride = 0;
         this.colorTint = 0xFFFFFF;
         this.held = false;
+        this.heldGlass = false;
     }
 
     /** Marks everything collected from here on as held by the player; see PBRVertexWriter.held. */
     public void held(boolean held) {
         this.held = held;
+    }
+
+    /**
+     * The player holds glass or a pane: its see-through layer is drawn as glass (seen through and tinted, as placed
+     * glass is) instead of hit or missed at random by its alpha, which left a held pane full of noise.
+     */
+    public void heldGlass(boolean heldGlass) {
+        this.heldGlass = heldGlass;
     }
 
     /** Multiplies the colour of everything collected from here on, and so the light it gives off. */
@@ -165,6 +175,11 @@ public class EntityCollector implements SubmitNodeCollector {
             .colorOverride(this.colorOverride)
             .colorTint(this.colorTint)
             .held(this.held)
+            // Only the held block itself: the arm in the other hand is see-through too (its skin layer), and was
+            // drawn as glass with it.
+            .glass(this.held && this.heldGlass && info.isBlockAtlas()
+                && (info.alphaMode() == PBRVertexWriter.ALPHA_MODE_TRANSPARENT
+                    || info.alphaMode() == PBRVertexWriter.ALPHA_MODE_STOCHASTIC))
             .uvOffset(info.uOffset(), info.vOffset());
         this.writers.put(renderType, writer);
         return writer;

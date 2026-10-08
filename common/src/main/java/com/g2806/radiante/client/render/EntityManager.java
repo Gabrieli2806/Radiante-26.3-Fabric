@@ -907,6 +907,10 @@ public final class EntityManager {
         // Minecraft poses the hands in its view space; rotate them into world orientation around the camera.
         POSE_STACK.mulPose(new Matrix4f(cameraState.viewRotationMatrix).invert());
         COLLECTOR.held(true);
+        if (minecraft.player != null) {
+            COLLECTOR.heldGlass(isGlassItem(minecraft.player.getMainHandItem())
+                || isGlassItem(minecraft.player.getOffhandItem()));
+        }
 
         try {
             minecraft.gameRenderer.firstPersonHandsAndItemsRenderer.submitHandsWithItems(
@@ -917,6 +921,12 @@ public final class EntityManager {
         }
 
         addPending(HAND_ID, cameraState.pos.x(), cameraState.pos.y(), cameraState.pos.z(), RAY_TRACING_HAND);
+    }
+
+    /** Glass blocks and panes, as items: drawn as glass when held (see EntityCollector.heldGlass). */
+    private static boolean isGlassItem(net.minecraft.world.item.ItemStack stack) {
+        return stack.getItem() instanceof net.minecraft.world.item.BlockItem item
+            && ChunkManager.isGlass(item.getBlock().defaultBlockState());
     }
 
     /**

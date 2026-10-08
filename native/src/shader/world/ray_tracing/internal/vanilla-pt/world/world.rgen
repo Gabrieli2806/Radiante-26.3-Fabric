@@ -121,6 +121,17 @@ layout(set = 2, binding = 1) uniform LastWorldUniform {
     WorldUBO lastWorldUBO;
 };
 
+#ifndef END_EXPOSURE_SCALE
+#    define END_EXPOSURE_SCALE 0.4
+#endif
+
+// The incident light meter (tone mapping's metering mode "incident"): one sample per cell of a 16 x 16 grid.
+layout(set = 2, binding = 3) buffer LightMeterBuffer {
+    vec4 samples[256];
+    vec4 daylight;
+}
+lightMeter;
+
 layout(set = 2, binding = 2) uniform SkyUniform {
     SkyUBO skyUBO;
 };
@@ -197,6 +208,12 @@ const uint VPT_WORLD_NO_VOLUMETRIC_MISS_INDEX = 3u;
 vec3 g_passThroughTint = vec3(1.0);
 // What that glass added on the way (its faint reflection of the sky, the streaks of a sheet of water).
 vec3 g_passThroughRadiance = vec3(0.0);
+// The first glass the camera's ray passed through asks for its reflection of the world (Bedrock Fresnel): where it
+// starts, which way it goes, and how much of it is seen. Traced after the view behind (glassReflection).
+bool g_glassReflection = false;
+vec3 g_glassReflectionOrigin = vec3(0.0);
+vec3 g_glassReflectionDirection = vec3(0.0);
+vec3 g_glassReflectionWeight = vec3(0.0);
 
 void applyFog(vec3 radiance,
               float t,
@@ -967,6 +984,14 @@ void tracePrimary(vec3 eyePos,
         mainRay = rayState;
         VPT_TRACE_PATH(rayFlags, mask, 1, 1, missId, mainRay.origin, 0.0001, mainRay.direction, len);
         rayState = mainRay;
+        if (rayIsPassThrough(rayState) && !g_glassReflection &&
+            max(rayState.directLightRadiance.r, max(rayState.directLightRadiance.g, rayState.directLightRadiance.b)) >
+                1e-4 && dot(rayState.normal, rayState.normal) > 0.5) {
+            g_glassReflection = true;
+            g_glassReflectionOrigin = tracedOrigin + tracedDirection * rayState.hitT;
+            g_glassReflectionDirection = normalize(rayState.normal);
+            g_glassReflectionWeight = rayState.directLightRadiance;
+        }
         cameraPath = cameraPath && rayIsPassThrough(rayState);
         raySetCameraPath(rayState, false);
 
@@ -1438,7 +1463,9 @@ void main() {
     MainRay worldRay;
     initMainRay(origin, direction, worldUBO.seed, coneSpreadFromFov(fovY, fovX, resolution), worldRay);
     FirstHitPayload worldFirstHit;
+    g_glassReflection = false;
     tracePrimary(eyePos, orgDirection, rayFlags, 0, worldRay, worldFirstHit);
+    bool worldGlassReflection = g_glassReflection;
     vec3 worldPassThroughTint = g_passThroughTint;
     vec3 worldPassThroughRadiance = g_passThroughRadiance;
 
@@ -1461,6 +1488,7 @@ void main() {
     vec3 handPassThroughRadiance = g_passThroughRadiance;
 
     int isHand = 0;
+    g_glassReflection = worldGlassReflection;
     FirstHitPayload selectedFirstHit = worldFirstHit;
     mainRay = worldRay;
     g_passThroughTint = worldPassThroughTint;
@@ -1471,6 +1499,35 @@ void main() {
         mainRay = handRay;
         g_passThroughTint = handPassThroughTint;
         g_passThroughRadiance = handPassThroughRadiance;
+    }
+
+    // The glass's reflection of the world, traced from where the camera's ray met it (see default.rchit). Added to
+    // the picture and, as it is not part of the surface behind, to the channel the denoiser leaves as it is.
+    vec3 glassReflectionRadiance = vec3(0.0);
+    if (g_glassReflection && isHand == 0) {
+        MainRay saved = mainRay;
+        MainRay reflection = mainRay;
+        resetMainRay(reflection, selectedFirstHit.startBounce);
+        reflection.origin = g_glassReflectionOrigin + g_glassReflectionDirection * 0.002;
+        reflection.direction = g_glassReflectionDirection;
+        reflection.radiance = vec3(0.0);
+        reflection.throughput = g_glassReflectionWeight;
+        reflection.seed = xxhash32(uvec3(saved.seed, 0x51ED27u, worldUBO.seed));
+        raySetLobeType(reflection, 1u);
+        raySetCameraPath(reflection, false);
+        raySetIgnoreWaterSelf(reflection, false);
+        bool reflectionHit;
+        float reflectionDistance;
+        traceSecondary(reflection, selectedFirstHit.startBounce, 0,
+#    if SHARC_QUERY && USE_SHARC
+                      sharcParameters, sharcDebugBounceCount, sharcDebugCacheHit,
+#    endif
+                      reflectionHit, reflectionDistance);
+        glassReflectionRadiance = mainRay.radiance;
+        if (any(isnan(glassReflectionRadiance)) || any(isinf(glassReflectionRadiance))) {
+            glassReflectionRadiance = vec3(0.0);
+        }
+        mainRay = saved;
     }
 
     bool hitSky = selectedFirstHit.hitSky;
@@ -1491,6 +1548,7 @@ void main() {
     mat4 prevRelativeMVP = lastWorldUBO.cameraProjMat * lastWorldUBO.cameraEffectedViewMat;
 
     if (hitSky) {
+        mainRay.radiance += glassReflectionRadiance;
         imageStore(outputImage, pixel, vec4(mainRay.radiance, 1.0));
         // The sky's albedo guide is its colour, and what the denoiser takes for the light on it is the picture
         // divided by that guide. Tone mapped, the guide made that light at least 1 however dark the sky was, and at
@@ -1688,6 +1746,7 @@ void main() {
         }
     }
 
+    if (!hitSky) { mainRay.radiance += glassReflectionRadiance; }
     if (isnan(mainRay.radiance.r) || isinf(mainRay.radiance.r)) { mainRay.radiance = vec3(0.0, 0.0, 0.0); }
     if (isnan(mainRay.radiance.g) || isinf(mainRay.radiance.g)) { mainRay.radiance = vec3(0.0, 0.0, 0.0); }
     if (isnan(mainRay.radiance.b) || isinf(mainRay.radiance.b)) { mainRay.radiance = vec3(0.0, 0.0, 0.0); }
@@ -1795,16 +1854,20 @@ void main() {
                                  mainRay.radiance, composeFogTransmittance, composeFogAdditive);
                     }
                 }
-            } else if (worldUBO.skyType == 2) {
+            } else if (worldUBO.skyType == 2 && surfaceDepth != INF_DISTANCE) {
+                // The End's sky is its fog colour already (see the miss shader); fogging it again washed its
+                // stars and gradient out to a flat sheet. The islands fade into the same violet.
+                vec3 endFog = dot(max(worldUBO.fogColor.rgb, vec3(0.0)), vec3(0.2126, 0.7152, 0.0722)) *
+                              vec3(1.3, 0.8, 1.85) * 0.15;
                 if (useTransparentSplit) {
                     applyFog(mainRay.radiance, surfaceDepth, worldUBO.fogStart, densityAir, densityFog,
-                             worldUBO.fogColor.rgb, mainRay.radiance, transparentFogTransmittance,
+                             endFog, mainRay.radiance, transparentFogTransmittance,
                              transparentFogAdditive);
                     transparentReflectionRadiance *= transparentFogTransmittance;
                     transparentRefractionRadiance *= transparentFogTransmittance;
                 } else {
                     applyFog(mainRay.radiance, surfaceDepth, worldUBO.fogStart, densityAir, densityFog,
-                             worldUBO.fogColor.rgb, mainRay.radiance, composeFogTransmittance, composeFogAdditive);
+                             endFog, mainRay.radiance, composeFogTransmittance, composeFogAdditive);
                 }
             }
         }
@@ -1886,6 +1949,37 @@ void main() {
         imageStore(firstHitRefractionImage, ivec2(pixel), vec4(vec3(0.0), 0.0));
     }
 
+    // Incident light meter, as Bedrock RTX meters: at the centre of each cell of a 16 x 16 grid, the light reaching
+    // the surface seen there, as the brightness a white diffuse surface would have under it (the surface's own
+    // colour divided out). Stored as the cube root per channel, for the power mean the exposure pass takes, and a
+    // weight that fades distant surfaces out; the sky, glass, water and the hand count nothing.
+    {
+        ivec2 meterCell = max(ivec2(gl_LaunchSizeEXT.xy) / 16, ivec2(1));
+        ivec2 meterIndex = pixel / meterCell;
+        if (all(lessThan(meterIndex, ivec2(16))) && all(equal(pixel, meterIndex * meterCell + meterCell / 2))) {
+            vec4 meterSample = vec4(0.0);
+            if (!psrHitSky && isFirstHitDiffuse && isHand == 0) {
+                vec3 albedo = max(firstHitMat.albedoValue.rgb * firstHitMat.albedoValue.a, vec3(0.04));
+                vec3 white = max((firstHitDirectRadiance + firstHitIndirectRadiance) / albedo, vec3(0.0));
+                vec3 root = exp2(log2(max(white, vec3(1e-12))) / 3.0);
+                float weight = 1.0 - clamp((surfaceDepth - 32.0) / 96.0, 0.0, 1.0);
+                if (!any(isnan(root)) && !any(isinf(root))) { meterSample = vec4(root, weight); }
+            }
+            lightMeter.samples[meterIndex.y * 16 + meterIndex.x] = meterSample;
+        }
+        // How much of a day it is, by the sun's height: the eye may open far by day (a room, a cave) but not at
+        // night, which is meant to stay dark. Other dimensions have no night.
+        if (all(equal(pixel, ivec2(0)))) {
+            // The End is a dark place by design: the eye stays as at night there, or its dim void was opened up to
+            // a pale pink glare.
+            float day = worldUBO.skyType == 1 ? smoothstep(-0.05, 0.15, celestialSunDirection().y)
+                      : (worldUBO.skyType == 2 ? 0.0 : 1.0);
+            // And how dark the place is meant to look: the End is kept well below what the meter would bring it
+            // to, a dim world against a near-black void as in vanilla.
+            lightMeter.daylight = vec4(day, worldUBO.skyType == 2 ? END_EXPOSURE_SCALE : 1.0, 0.0, 0.0);
+        }
+    }
+
     // Night vision brightens Minecraft's lightmap, and a path tracer reads no lightmap, so the effect did nothing
     // at all: a cave stayed as black with it as without. The surface the camera sees gets a flat term of its own
     // colour instead, which is how the lightmap's floor reads in vanilla - everything visible, washed out, no
@@ -1901,6 +1995,7 @@ void main() {
         // The emission channel skips the fog above; without this, glowing blocks shone through the dark.
         firstHitEmission *= composeFogTransmittance;
     }
+    if (!psrHitSky) { firstHitEmission += glassReflectionRadiance; }
     imageStore(firstHitBaseEmissionImage, ivec2(pixel), vec4(firstHitEmission, 1.0));
     bool applyVolumetricCompose =
         useVolumetricFog && !raySkipFog(mainRay) && skyUBO.cameraSubmersionType != 1 && worldUBO.skyType == 1 &&

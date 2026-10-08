@@ -16,6 +16,14 @@ layout(set = 0, binding = 2) buffer ExposureBuffer {
 }
 expData;
 
+// The incident light meter written by the ray tracer: per sample the cube root of a white surface's brightness under
+// the light there, and the sample's weight.
+layout(set = 0, binding = 5) buffer LightMeterBuffer {
+    vec4 samples[256];
+    vec4 daylight;
+}
+lightMeter;
+
 layout(push_constant) uniform PushConstant {
     float log2Min;
     float log2Max;
@@ -68,6 +76,27 @@ float meterLevel() {
     return max(level.r, max(level.g, level.b));
 }
 
+// Metering mode "incident": the power mean (p = 1/3) of the light reaching the surfaces in view, the brightest channel
+// of it, and an exposure that brings a white surface under that light to 0.75 - Bedrock RTX's rule. The sky and the
+// colour of the blocks do not move it, so a bright window or a dark wall in view leaves a room's exposure alone.
+// Returns false when too few surfaces were seen (open sky), and the exposure is then kept.
+bool incidentExposure(out float target) {
+    vec3 sum = vec3(0.0);
+    float weight = 0.0;
+    for (uint i = 0u; i < 256u; i++) {
+        vec4 s = lightMeter.samples[i];
+        sum += s.rgb * s.a;
+        weight += s.a;
+    }
+    target = 0.0;
+    if (weight < 4.0) { return false; }
+    vec3 level = pow(sum / weight, vec3(3.0));
+    float m = max(level.r, max(level.g, level.b));
+    // 0.75 for white, on the scale the other modes use for middle grey (0.18 by default).
+    target = 0.75 * (pc.middleGrey / 0.18) / max(m, 1e-6);
+    return true;
+}
+
 void main() {
     uint total = 0u;
     for (uint i = 0u; i < NUM_BINS; ++i) total += gHist.bins[i];
@@ -75,15 +104,29 @@ void main() {
     float prev = expData.exposure;
     if (isnan(prev) || isinf(prev) || prev <= 0.0) { prev = clamp(pc.manualExposure, pc.minExposure, pc.maxExposure); }
 
-    if (pc.exposureMeteringMode == 2) {
+    if (pc.exposureMeteringMode == 2 || pc.exposureMeteringMode == 3) {
         float level = meterLevel();
         float targetExposure = pc.middleGrey / max(level, 1e-6);
-        float anchor = clamp(pc.manualExposure, pc.minExposure, pc.maxExposure);
+        // Incident light when enough surfaces are in view; the picture's own level otherwise (open sky).
+        float incidentTarget;
+        if (pc.exposureMeteringMode == 3 && incidentExposure(incidentTarget)) { targetExposure = incidentTarget; }
+        // The eye opens far only by day: at night it stops at the old limit (2), so the night stays dark however
+        // high the day's limit is set.
+        float maxExposure = pc.maxExposure;
+        if (pc.exposureMeteringMode == 3) {
+            float day = clamp(lightMeter.daylight.x, 0.0, 1.0);
+            maxExposure = exp2(mix(log2(min(pc.maxExposure, 2.0)), log2(max(pc.maxExposure, 1e-6)), day));
+            // A dimension meant to look darker than the meter would make it (the End).
+            float darkness = clamp(lightMeter.daylight.y, 0.05, 1.0);
+            targetExposure *= darkness;
+            maxExposure *= darkness;
+        }
+        float anchor = clamp(pc.manualExposure, pc.minExposure, maxExposure);
         targetExposure = exp2(mix(log2(anchor), log2(max(targetExposure, 1e-6)), clamp(pc.adaptation, 0.0, 1.0)));
         float speed = (targetExposure > prev) ? pc.speedUp : pc.speedDown;
         float k = 1.0 - exp(-pc.dt * speed);
         expData.avgLogLum = log2(max(level, 1e-12));
-        expData.exposure = clamp(mix(prev, targetExposure, clamp(k, 0.0, 1.0)), pc.minExposure, pc.maxExposure);
+        expData.exposure = clamp(mix(prev, targetExposure, clamp(k, 0.0, 1.0)), pc.minExposure, maxExposure);
         return;
     }
 

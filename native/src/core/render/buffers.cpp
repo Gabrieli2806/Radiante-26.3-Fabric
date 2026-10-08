@@ -628,6 +628,19 @@ std::shared_ptr<vk::HostVisibleBuffer> Buffers::textureMappingBuffer() {
     }
 }
 
+std::shared_ptr<vk::DeviceLocalBuffer> Buffers::lightMeterBuffer() {
+    std::unique_lock<std::recursive_mutex> lck(mtx_);
+    if (lightMeterBuffer_ == nullptr) {
+        auto framework = Renderer::instance().framework();
+        // 256 samples of vec4: the cube root of the incident light per channel, and the sample's weight; then one
+        // more holding how much of a day it is (1 by day, 0 at night).
+        lightMeterBuffer_ = vk::DeviceLocalBuffer::create(framework->vma(), framework->device(), 257 * 4 * sizeof(float),
+                                                          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                              VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+    }
+    return lightMeterBuffer_;
+}
+
 std::shared_ptr<vk::HostVisibleBuffer> Buffers::exposureDataBuffer() {
     auto context = Renderer::instance().framework()->safeAcquireCurrentContext();
 

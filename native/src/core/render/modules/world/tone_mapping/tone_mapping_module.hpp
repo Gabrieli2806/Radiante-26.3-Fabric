@@ -39,6 +39,9 @@ enum ToneMappingExposureMeteringMode : int32_t {
     TONE_MAPPING_EXPOSURE_METERING_MODE_CENTER = 1,
     // Bedrock-style light meter: power mean over a 16 x 16 grid (exposure.comp).
     TONE_MAPPING_EXPOSURE_METERING_MODE_LIGHT_METER = 2,
+    // Incident light, as Bedrock RTX meters it: the light reaching the surfaces the camera sees, sampled by the ray
+    // tracer (Buffers::lightMeterBuffer), without their colour and without the sky.
+    TONE_MAPPING_EXPOSURE_METERING_MODE_INCIDENT = 3,
 };
 
 struct ToneMappingModulePushConstant {
