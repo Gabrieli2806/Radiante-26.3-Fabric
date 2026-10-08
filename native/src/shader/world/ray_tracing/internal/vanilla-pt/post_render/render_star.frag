@@ -34,6 +34,7 @@ void main() {
     float cloudTransmittance = clamp(texture(postStarCloudTransmittance, transmittanceUv).r, 0.0, 1.0);
     if (cloudTransmittance < 0.99) { discard; }
 
-    fragColor = color;
+    // Brighter than vanilla's faint dots, as Bedrock's stars stand out on its dark night sky.
+    fragColor = vec4(min(color.rgb * 1.6, vec3(1.0)), min(color.a * 1.8, 1.0));
     gl_FragDepth = 0.999999;
 }

@@ -1211,18 +1211,25 @@ void main() {
     vec3 currentViewDir = viewDir;
     bool storedLobeType = false;
     for (int localBounce = 0; localBounce < 1; ++localBounce) {
-        // A glowing surface is seen at the strength its light is cast with (VPT_INDIRECT_LIGHT_STRENGTH is 16):
-        // at 1x a torch flame or glowstone lit the room around it while looking switched off itself.
+        // A glowing surface is seen brighter than the light it casts (Bedrock keeps the two apart): glowstone and
+        // lamps read as glowing whole, as there, while the room they light stays as it was. At 16x (the strength
+        // the light is cast with) glowstone showed its bright specks on a near-black block.
         float emissionFactor =
-            (bounce == 0u && localBounce == 0) ? 16.0 * VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
+            (bounce == 0u && localBounce == 0) ? 24.0 * VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
+        // Seen, a texel glows in proportion to its emissive value, not its square: the dim parts of glowstone
+        // between its bright specks glow too instead of going near black. The light cast keeps the square law.
+        float seenEmission = currentSurface.mat.emission;
+#if defined(VPT_EMISSION_MODEL) && VPT_EMISSION_MODEL != 0
+        if (bounce == 0u && localBounce == 0) { seenEmission = sqrt(max(seenEmission, 0.0)); }
+#endif
         float blockEmissionWeight =
             (localBounce == 0 && bounce > 0u && vptBlockLightAlreadyCounted(gl_WorldRayOriginEXT, currentSurface.worldPos)) ?
                 0.0 : 1.0;
         vec3 emissionRadiance =
             blockEmissionWeight * emissionFactor *
             worldUBO.emissionBrightness *
-            currentSurface.tint *
-            currentSurface.mat.emission * mainRay.throughput;
+            vptEmissiveColour(currentSurface.tint) *
+            seenEmission * mainRay.throughput;
         emissionRadiance += currentSurface.tint * albedoEmission * mainRay.throughput;
         mainRay.radiance += emissionRadiance;
 

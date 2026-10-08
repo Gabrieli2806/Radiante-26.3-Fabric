@@ -130,6 +130,23 @@ The CMake install step copies the shaders and modules into `common/src/main/reso
 built `core.dll` goes into the same folder. `./gradlew.bat :fabric:runClient`, `:neoforge:runClient` or
 `:forge:runClient` launches a development client; all three share the `run/` folder.
 
+#### Which build a change needs
+
+Gradle does **not** rebuild the native part. Shaders are packed into
+`radiante-native/shaders/world/ray_tracing/vanilla-pt.zip` (and the other shader folders) only by the CMake
+install step, so a change under `native/` that is followed by Gradle alone builds a jar with the **old** shaders,
+and the change never shows in game.
+
+| What changed | Run |
+| --- | --- |
+| Java only (`common/`, `fabric/`, `neoforge/`, `forge/`) | Gradle |
+| Shaders (`native/src/shader/**`: `.glsl`, `.rgen`, `.rchit`, `.rahit`, `.comp`, `configs.json`, `lang/`) | native build (step 1, or `nativeuild-windows.bat`), then Gradle |
+| Native C++ (`native/src/core/**`, `native/include/**`) | native build, then Gradle |
+
+To check a shader change made it in, the timestamp of
+`common/src/main/resources/radiante-native/shaders/world/ray_tracing/vanilla-pt.zip` must be newer than the edit.
+Restart the game after installing the new jar: shaders are loaded once at start.
+
 On Linux the native renderer is `libcore.so`, installed into `radiante-native/linux-x64/`:
 
 ```sh

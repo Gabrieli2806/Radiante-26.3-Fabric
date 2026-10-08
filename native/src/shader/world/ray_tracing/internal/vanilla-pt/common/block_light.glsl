@@ -24,6 +24,16 @@
 
 #include "common/block_light_data.glsl"
 
+// Bedrock compatibility: the colour of emitted light is partly desaturated (it has an emissive desaturation
+// setting; the amount is INFERRED by eye from glowstone and torches, which light their surroundings a warm white
+// there, not orange). Applied to the light seen on the glowing surface and the light it casts alike.
+const float VPT_EMISSIVE_DESATURATION = 0.5;
+
+vec3 vptEmissiveColour(vec3 colour) {
+    float luminance = dot(colour, vec3(0.2126, 0.7152, 0.0722));
+    return mix(colour, vec3(luminance), VPT_EMISSIVE_DESATURATION);
+}
+
 /**
  * A light the ray just hit that the surface it came from already sampled directly. Its emission is left out here,
  * or the light would be counted twice.
@@ -88,7 +98,7 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
         float cosLight = dot(light.normal.xyz, -dir);
         if (cosSurface <= 0.0 || cosLight <= 0.0) { continue; }
 
-        vec3 contribution = light.radiance.rgb * diffuse * (cosSurface * cosLight / distance2);
+        vec3 contribution = vptEmissiveColour(light.radiance.rgb) * diffuse * (cosSurface * cosLight / distance2);
         float target = dot(contribution, vec3(0.2126, 0.7152, 0.0722));
         if (target <= 1e-10) { continue; }
         float sourcePdf = 1.0 / (choices * area);
@@ -187,7 +197,7 @@ bool vptRestirLight(int slot, uint index, vec2 xi, out vec3 point, out vec3 norm
     if (light.p0Area.w <= 1e-8) { return false; }
     point = vptSampleTrianglePoint(light.p0Area.xyz, light.p1.xyz, light.p2.xyz, xi) - vec3(worldUBO.cameraPos.xyz);
     normal = light.normal.xyz;
-    radiance = light.radiance.rgb;
+    radiance = vptEmissiveColour(light.radiance.rgb);
     return true;
 }
 

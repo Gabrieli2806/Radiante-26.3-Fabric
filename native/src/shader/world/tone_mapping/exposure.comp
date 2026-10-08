@@ -110,12 +110,12 @@ void main() {
         // Incident light when enough surfaces are in view; the picture's own level otherwise (open sky).
         float incidentTarget;
         if (pc.exposureMeteringMode == 3 && incidentExposure(incidentTarget)) { targetExposure = incidentTarget; }
-        // The eye opens far only by day: at night it stops at the old limit (2), so the night stays dark however
+        // The eye opens far only by day: at night it stops at 0.6, a night about as dark as Bedrock RTX's, however
         // high the day's limit is set.
         float maxExposure = pc.maxExposure;
         if (pc.exposureMeteringMode == 3) {
             float day = clamp(lightMeter.daylight.x, 0.0, 1.0);
-            maxExposure = exp2(mix(log2(min(pc.maxExposure, 2.0)), log2(max(pc.maxExposure, 1e-6)), day));
+            maxExposure = exp2(mix(log2(min(pc.maxExposure, 0.6)), log2(max(pc.maxExposure, 1e-6)), day));
             // A dimension meant to look darker than the meter would make it (the End).
             float darkness = clamp(lightMeter.daylight.y, 0.05, 1.0);
             targetExposure *= darkness;
