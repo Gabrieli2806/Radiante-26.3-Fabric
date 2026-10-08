@@ -48,6 +48,8 @@ public final class EmissionTiles {
     private static final float BRIGHT_EMITTER_RELATIVE = 0.65f;
     /** Texels at least this saturated count as the coloured, glowing part of a texture. */
     private static final float MIN_GLOW_SATURATION = 0.35f;
+    /** For lights with a white core, how bright a texel has to be next to the brightest one to glow. */
+    private static final float WHITE_CORE_RELATIVE = 0.85f;
     private static final int CELL_BYTES = 8 * Float.BYTES;
     /**
      * Light a fully lit face of a light level 15 block casts on its surroundings. A block's radiance is divided by
@@ -163,6 +165,12 @@ public final class EmissionTiles {
             }
 
             int extra = EXTRA_EMISSION.getOrDefault(block, 0);
+            // The sprites of this block's lit states and of its dark ones. A lit furnace, smoker, blast furnace or
+            // campfire draws one sprite of its own (the glowing front, the burning logs) next to sprites its unlit
+            // state draws too (the sides and top, the plain logs): those stay dark, or the whole block glowed on
+            // every face. A block whose lit and dark states draw the same sprites (redstone ore) keeps them all.
+            Map<TextureAtlasSprite, Integer> litSprites = new IdentityHashMap<>();
+            Set<TextureAtlasSprite> darkSprites = Collections.newSetFromMap(new IdentityHashMap<>());
             for (BlockState state : block.getStateDefinition().getPossibleStates()) {
                 int level = Math.max(state.getLightEmission(), extra);
                 BlockStateModel model = minecraft.getModelManager().getBlockStateModelSet().get(state);
@@ -171,12 +179,18 @@ public final class EmissionTiles {
                 model.collectParts(random, parts);
                 for (BlockStateModelPart part : parts) {
                     for (Direction direction : Direction.values()) {
-                        addSprites(part.getQuads(direction), level, emitsSomewhere || extra > 0, emitters,
-                            sharedWithDarkBlocks);
+                        addSprites(part.getQuads(direction), level, emitsSomewhere || extra > 0, litSprites,
+                            sharedWithDarkBlocks, darkSprites);
                     }
-                    addSprites(part.getQuads(null), level, emitsSomewhere || extra > 0, emitters,
-                        sharedWithDarkBlocks);
+                    addSprites(part.getQuads(null), level, emitsSomewhere || extra > 0, litSprites,
+                        sharedWithDarkBlocks, darkSprites);
                 }
+            }
+            if (!darkSprites.isEmpty() && !darkSprites.containsAll(litSprites.keySet())) {
+                litSprites.keySet().removeAll(darkSprites);
+            }
+            for (Map.Entry<TextureAtlasSprite, Integer> lit : litSprites.entrySet()) {
+                emitters.merge(lit.getKey(), lit.getValue(), Math::max);
             }
         }
 
@@ -204,13 +218,16 @@ public final class EmissionTiles {
     }
 
     private static void addSprites(List<BakedQuad> quads, int level, boolean blockEmitsSomewhere,
-        Map<TextureAtlasSprite, Integer> emitters, Set<TextureAtlasSprite> sharedWithDarkBlocks) {
+        Map<TextureAtlasSprite, Integer> emitters, Set<TextureAtlasSprite> sharedWithDarkBlocks,
+        Set<TextureAtlasSprite> darkSprites) {
         for (BakedQuad quad : quads) {
             TextureAtlasSprite sprite = quad.materialInfo().sprite();
             if (level > 0) {
                 emitters.merge(sprite, level, Math::max);
             } else if (!blockEmitsSomewhere) {
                 sharedWithDarkBlocks.add(sprite);
+            } else {
+                darkSprites.add(sprite);
             }
         }
     }
@@ -240,6 +257,13 @@ public final class EmissionTiles {
         boolean coloured = hasSaturatedTexels(pixels, width, height, rowPixels, threshold);
         // Lava glows all over at full strength, dark crust included; cutting it to its brightest texels, or
         // weighting texels by brightness, left it a dull grey-brown instead of the molten orange it should be.
+        // A light whose core is white or pale (the beacon's centre, the copper lantern's green-white flame) inside a
+        // brightly coloured body (the beacon's cyan, the lantern's copper frame): the saturation rule lit the body
+        // and left the core dark. Only its brightest texels glow instead.
+        if (hasWhiteCore(sprite)) {
+            threshold = Math.max(threshold, brightest * WHITE_CORE_RELATIVE);
+            coloured = false;
+        }
         boolean lava = isLava(sprite);
         if (lava) {
             threshold = 0.0f;
@@ -322,6 +346,11 @@ public final class EmissionTiles {
         } finally {
             MemoryUtil.nmemFree(address);
         }
+    }
+
+    private static boolean hasWhiteCore(TextureAtlasSprite sprite) {
+        Identifier name = sprite.contents().name();
+        return name.getPath().equals("block/beacon") || name.getPath().endsWith("copper_lantern");
     }
 
     private static boolean isLava(TextureAtlasSprite sprite) {

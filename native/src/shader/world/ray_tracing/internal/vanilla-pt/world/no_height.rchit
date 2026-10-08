@@ -1213,7 +1213,7 @@ void main() {
     for (int localBounce = 0; localBounce < 1; ++localBounce) {
         // Seen brighter than the light it casts, as in default.rchit.
         float emissionFactor =
-            (bounce == 0u && localBounce == 0) ? 24.0 * VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
+            (bounce == 0u && localBounce == 0) ? 14.0 * VPT_DIRECT_LIGHT_STRENGTH : VPT_INDIRECT_LIGHT_STRENGTH;
         // Seen, a texel glows in proportion to its emissive value, not its square: the dim parts of glowstone
         // between its bright specks glow too instead of going near black. The light cast keeps the square law.
         float seenEmission = currentSurface.mat.emission;
@@ -1226,7 +1226,7 @@ void main() {
         vec3 emissionRadiance =
             blockEmissionWeight * emissionFactor *
             worldUBO.emissionBrightness *
-            vptEmissiveColour(currentSurface.tint) *
+            ((bounce == 0u && localBounce == 0) ? currentSurface.tint : vptEmissiveColour(currentSurface.tint)) *
             seenEmission * mainRay.throughput;
         emissionRadiance += currentSurface.tint * albedoEmission * mainRay.throughput;
         mainRay.radiance += emissionRadiance;

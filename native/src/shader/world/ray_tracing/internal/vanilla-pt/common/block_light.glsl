@@ -24,14 +24,22 @@
 
 #include "common/block_light_data.glsl"
 
-// Bedrock compatibility: the colour of emitted light is partly desaturated (it has an emissive desaturation
-// setting; the amount is INFERRED by eye from glowstone and torches, which light their surroundings a warm white
-// there, not orange). Applied to the light seen on the glowing surface and the light it casts alike.
-const float VPT_EMISSIVE_DESATURATION = 0.5;
+// Bedrock compatibility: the colour of the light a block casts is a little desaturated (it has an emissive
+// desaturation setting; the amount is INFERRED by eye). Kept light: at a half, lava and fire looked white and a
+// redstone torch cast almost no red. The glowing surface itself keeps its texture's colour.
+const float VPT_EMISSIVE_DESATURATION = 0.15;
 
 vec3 vptEmissiveColour(vec3 colour) {
     float luminance = dot(colour, vec3(0.2126, 0.7152, 0.0722));
     return mix(colour, vec3(luminance), VPT_EMISSIVE_DESATURATION);
+}
+
+// Small lights (torches, lanterns, candles, fire) are a few small faces, so they cast far less than a glowing block
+// whose faces are whole: they lit their surroundings weakly next to glowstone. Lights under half a block face
+// (a triangle of a full face) are strengthened, up to 5x, toward the light a full block would cast.
+vec3 vptCastLight(vec3 radiance, float area) {
+    float boost = clamp(sqrt(0.5 / max(area, 1e-4)), 1.0, 5.0);
+    return vptEmissiveColour(radiance) * boost;
 }
 
 /**
@@ -98,7 +106,7 @@ vec3 sampleBlockLight(vec3 worldPos, vec3 geometricNormal, vec3 shadingNormal, L
         float cosLight = dot(light.normal.xyz, -dir);
         if (cosSurface <= 0.0 || cosLight <= 0.0) { continue; }
 
-        vec3 contribution = vptEmissiveColour(light.radiance.rgb) * diffuse * (cosSurface * cosLight / distance2);
+        vec3 contribution = vptCastLight(light.radiance.rgb, light.p0Area.w) * diffuse * (cosSurface * cosLight / distance2);
         float target = dot(contribution, vec3(0.2126, 0.7152, 0.0722));
         if (target <= 1e-10) { continue; }
         float sourcePdf = 1.0 / (choices * area);
@@ -197,7 +205,7 @@ bool vptRestirLight(int slot, uint index, vec2 xi, out vec3 point, out vec3 norm
     if (light.p0Area.w <= 1e-8) { return false; }
     point = vptSampleTrianglePoint(light.p0Area.xyz, light.p1.xyz, light.p2.xyz, xi) - vec3(worldUBO.cameraPos.xyz);
     normal = light.normal.xyz;
-    radiance = vptEmissiveColour(light.radiance.rgb);
+    radiance = vptCastLight(light.radiance.rgb, light.p0Area.w);
     return true;
 }
 
