@@ -52,8 +52,9 @@ public class RadianteOptionsScreen extends Screen {
     private int pendingBiomeFogStrength = Options.biomeFogStrength;
     private Boolean pendingVolumetricFog;
     private Boolean pendingMotionBlur;
+    private static final String SEAMLESS_SCOPE = "render_pipeline.module.ray_tracing.attribute.seamless_glass_scope";
     private Boolean pendingCloudShadows;
-    private Boolean pendingFoliageCulling;
+    private String pendingSeamlessScope;
     private Boolean pendingRestir;
     private Boolean pendingSer;
     private Boolean pendingFroxelFog;
@@ -170,7 +171,7 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingVolumetricFog = previous.pendingVolumetricFog;
         this.pendingMotionBlur = previous.pendingMotionBlur;
         this.pendingCloudShadows = previous.pendingCloudShadows;
-        this.pendingFoliageCulling = previous.pendingFoliageCulling;
+        this.pendingSeamlessScope = previous.pendingSeamlessScope;
         this.pendingRestir = previous.pendingRestir;
         this.pendingSer = previous.pendingSer;
         this.pendingFroxelFog = previous.pendingFroxelFog;
@@ -753,7 +754,6 @@ public class RadianteOptionsScreen extends Screen {
         this.pendingVolumetricFog = Pipeline.supportsVolumetricFog() ? Boolean.FALSE : null;
         this.pendingMotionBlur = Boolean.FALSE;
         this.pendingCloudShadows = Boolean.FALSE;
-        this.pendingFoliageCulling = Boolean.FALSE;
         this.pendingRestir = Boolean.TRUE;
         this.pendingSer = Boolean.FALSE;
         this.pendingFroxelFog = Pipeline.supportsShaderPackToggle(Pipeline.FROXEL_FOG_ATTRIBUTE) ? Boolean.TRUE : null;
@@ -1051,15 +1051,6 @@ public class RadianteOptionsScreen extends Screen {
                 tooltip("options.radiante.cloud_shadows"), this.pendingCloudShadows,
                 value -> this.pendingCloudShadows = value);
         }
-        OptionInstance<Boolean> foliageCulling = null;
-        if (Pipeline.supportsShaderPackToggle(Pipeline.FOLIAGE_CULLING_ATTRIBUTE)) {
-            if (this.pendingFoliageCulling == null) {
-                this.pendingFoliageCulling = Pipeline.isShaderPackToggleOn(Pipeline.FOLIAGE_CULLING_ATTRIBUTE);
-            }
-            foliageCulling = OptionInstance.createBoolean("options.radiante.foliage_culling",
-                tooltip("options.radiante.foliage_culling"), this.pendingFoliageCulling,
-                value -> this.pendingFoliageCulling = value);
-        }
         OptionInstance<Boolean> rainRefraction = null;
         if (Pipeline.supportsShaderPackToggle(Pipeline.RAIN_REFRACTION_ATTRIBUTE)) {
             if (this.pendingRainRefraction == null) {
@@ -1078,7 +1069,21 @@ public class RadianteOptionsScreen extends Screen {
                 tooltip("options.radiante.seamless_glass"), this.pendingSeamlessGlass,
                 value -> this.pendingSeamlessGlass = value);
         }
-        addRows(atmosphere, clouds, cloudShadows, foliageCulling, tunable(Tunable.CLOUD_COVERAGE, false),
+        // Which glass seamless glass joins: blocks and panes, blocks only or panes only.
+        OptionInstance<String> seamlessScope = null;
+        String scopeValue = Pipeline.getShaderPackValue(SEAMLESS_SCOPE);
+        if (scopeValue != null) {
+            if (this.pendingSeamlessScope == null) {
+                this.pendingSeamlessScope = scopeValue;
+            }
+            seamlessScope = new OptionInstance<>(SEAMLESS_SCOPE, OptionInstance.noTooltip(),
+                (caption, value) -> Component.translatable("options.generic_value", caption,
+                    Component.translatable(value)),
+                new OptionInstance.Enum<>(List.of(SEAMLESS_SCOPE + ".both", SEAMLESS_SCOPE + ".blocks",
+                    SEAMLESS_SCOPE + ".panes"), com.mojang.serialization.Codec.STRING),
+                this.pendingSeamlessScope, value -> this.pendingSeamlessScope = value);
+        }
+        addRows(atmosphere, clouds, cloudShadows, tunable(Tunable.CLOUD_COVERAGE, false),
             tunable(Tunable.CLOUD_DENSITY, false), tunable(Tunable.CLOUD_QUALITY, false), tunable(Tunable.STARS, false),
             tunable(Tunable.SUN_GLOW, false),
             tunable(Tunable.LIGHT_SHAFTS, false),
@@ -1092,7 +1097,7 @@ public class RadianteOptionsScreen extends Screen {
             OptionInstance.createBoolean("options.radiante.rain_wetness",
                 tooltip("options.radiante.rain_wetness"), staged("rainWetness", Options.rainWetness),
                 value -> stage("rainWetness", value)),
-            rainRefraction, seamlessGlass,
+            rainRefraction, seamlessGlass, seamlessScope,
             OptionInstance.createBoolean("options.radiante.biome_fog",
                 OptionInstance.cachedConstantTooltip(Component.translatable("options.radiante.biome_fog.tooltip")),
                 this.pendingBiomeFog, value -> this.pendingBiomeFog = value),
@@ -1442,11 +1447,11 @@ public class RadianteOptionsScreen extends Screen {
         if (this.pendingRestir != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.RESTIR_ATTRIBUTE, this.pendingRestir);
         }
+        if (this.pendingSeamlessScope != null) {
+            rebuild |= Pipeline.setShaderPackValue(SEAMLESS_SCOPE, this.pendingSeamlessScope);
+        }
         if (this.pendingCloudShadows != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.CLOUD_SHADOWS_ATTRIBUTE, this.pendingCloudShadows);
-        }
-        if (this.pendingFoliageCulling != null) {
-            rebuild |= Pipeline.setShaderPackToggle(Pipeline.FOLIAGE_CULLING_ATTRIBUTE, this.pendingFoliageCulling);
         }
         if (this.pendingDepthOfField != null) {
             rebuild |= Pipeline.setShaderPackToggle(Pipeline.DEPTH_OF_FIELD_ATTRIBUTE, this.pendingDepthOfField);

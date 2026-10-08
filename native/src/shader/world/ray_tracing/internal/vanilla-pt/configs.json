@@ -148,18 +148,6 @@
             "define": "VPT_VOLUMETRIC_CLOUD_LIGHT_STEPS"
         },
         {
-            "name": "render_pipeline.module.ray_tracing.attribute.foliage_culling",
-            "type": "bool",
-            "default_value": "render_pipeline.false",
-            "define": "VPT_FOLIAGE_CULLING"
-        },
-        {
-            "name": "render_pipeline.module.ray_tracing.attribute.foliage_distance",
-            "type": "float_range:16-128",
-            "default_value": "48.0",
-            "define": "VPT_FOLIAGE_DISTANCE"
-        },
-        {
             "name": "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_cast_shadow",
             "type": "bool",
             "default_value": "render_pipeline.false",
@@ -232,6 +220,14 @@
             "type": "bool",
             "default_value": "render_pipeline.true",
             "define": "VPT_SEAMLESS_GLASS"
+        },
+        {
+            "name": "render_pipeline.module.ray_tracing.attribute.seamless_glass_scope",
+            "type": "enum:render_pipeline.module.ray_tracing.attribute.seamless_glass_scope.both-render_pipeline.module.ray_tracing.attribute.seamless_glass_scope.blocks-render_pipeline.module.ray_tracing.attribute.seamless_glass_scope.panes",
+            "default_value": "render_pipeline.module.ray_tracing.attribute.seamless_glass_scope.both",
+            "define": {
+                "VPT_SEAMLESS_GLASS_SCOPE": "uint(X)"
+            }
         },
         {
             "name": "render_pipeline.module.ray_tracing.attribute.rain_refraction",

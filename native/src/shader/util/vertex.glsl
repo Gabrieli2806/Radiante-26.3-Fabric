@@ -24,6 +24,10 @@ const uint HELD_SURFACE_BIT = 1u << 19u;
 const uint GLASS_SURFACE_BIT = 1u << 20u;
 // Grass, flowers, bushes: left out far from the camera with foliage culling.
 const uint PLANT_SURFACE_BIT = 1u << 21u;
+// Glass panes, and whether their top and bottom caps are open to air (see common/seamless_glass.glsl).
+const uint PANE_SURFACE_BIT = 1u << 22u;
+const uint PANE_CAP_UP_BIT = 1u << 23u;
+const uint PANE_CAP_DOWN_BIT = 1u << 24u;
 
 #ifndef CONST_ONLY
 layout(set = 1, binding = 4) readonly buffer PositionBufferAddr {
@@ -124,6 +128,10 @@ bool isHeldSurface(uint packedData) {
 
 bool isRainSurface(uint packedData) {
     return (packedData & RAIN_SURFACE_BIT) != 0u;
+}
+
+bool isPaneSurface(uint packedData) {
+    return (packedData & PANE_SURFACE_BIT) != 0u;
 }
 
 bool isPlantSurface(uint packedData) {

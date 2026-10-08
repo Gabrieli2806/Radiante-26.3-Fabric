@@ -427,8 +427,6 @@ public class Pipeline {
     /** Volumetric clouds shade the ground under them (only with Volumetric clouds). */
     public static final String CLOUD_SHADOWS_ATTRIBUTE =
         "render_pipeline.module.ray_tracing.attribute.volumetric_cloud_cast_shadow";
-    /** Grass, flowers and bushes far from the camera are left out of the trace, as Bedrock RTX does. */
-    public static final String FOLIAGE_CULLING_ATTRIBUTE = "render_pipeline.module.ray_tracing.attribute.foliage_culling";
 
     /**
      * Switches one of the shader pack's on/off attributes, such as motion blur or depth of field. They are compiled
@@ -725,6 +723,10 @@ public class Pipeline {
 
     private static void buildInternal() {
         fallbackUnavailableShaderPacks();
+        // The chosen renderer profile's values hold on every build: a preset switch, a reset or a pipeline file
+        // written by an older session put them back to defaults, and Bedrock RTX's eye adaptation and the rest
+        // silently went away while the profile still read Bedrock RTX.
+        com.g2806.radiante.client.profile.RendererProfile.current().enforce();
         getModuleAttributes();
 
         Map<ImageConfig, ImageConfig> dstTosrcMap = new HashMap<>();

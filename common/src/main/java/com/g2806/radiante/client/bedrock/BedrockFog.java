@@ -58,6 +58,7 @@ final class BedrockFog {
     static byte[] convert(ZipFile zip, String root) throws IOException {
         Map<String, JsonObject> fogsById = new HashMap<>();
         Map<String, String> fogIdByBiome = new HashMap<>();
+        Map<String, Integer> waterColourByBiome = new HashMap<>();
         for (var entries = zip.entries(); entries.hasMoreElements(); ) {
             ZipEntry entry = entries.nextElement();
             String name = entry.getName();
@@ -75,9 +76,17 @@ final class BedrockFog {
                     JsonObject biome = read(zip, entry).getAsJsonObject("minecraft:client_biome");
                     JsonObject fog = biome == null ? null
                         : biome.getAsJsonObject("components").getAsJsonObject("minecraft:fog_appearance");
+                    String id = biome == null ? null
+                        : biome.getAsJsonObject("description").get("identifier").getAsString();
                     if (fog != null) {
-                        String id = biome.getAsJsonObject("description").get("identifier").getAsString();
                         fogIdByBiome.put(id.substring(id.indexOf(':') + 1), fog.get("fog_identifier").getAsString());
+                    }
+                    JsonObject water = biome == null ? null
+                        : biome.getAsJsonObject("components").getAsJsonObject("minecraft:water_appearance");
+                    if (water != null && water.has("surface_color")
+                        && water.get("surface_color").getAsString().startsWith("#")) {
+                        waterColourByBiome.put(id.substring(id.indexOf(':') + 1),
+                            Integer.parseInt(water.get("surface_color").getAsString().substring(1, 7), 16));
                     }
                 }
             } catch (RuntimeException e) {
@@ -97,6 +106,16 @@ final class BedrockFog {
             if (!biomes.has("minecraft:" + javaName) || entry.getKey().equals(javaName)) {
                 biomes.add("minecraft:" + javaName, haze);
             }
+        }
+        // The pack's water colour per biome, Bedrock's surface_color: what tints the water's volume.
+        for (Map.Entry<String, Integer> entry : waterColourByBiome.entrySet()) {
+            String javaName = JAVA_NAMES.getOrDefault(entry.getKey(), entry.getKey());
+            String key = "minecraft:" + javaName;
+            JsonObject biome = biomes.has(key) ? biomes.getAsJsonObject(key) : new JsonObject();
+            if (!biome.has("water_color") || entry.getKey().equals(javaName)) {
+                biome.addProperty("water_color", entry.getValue());
+            }
+            biomes.add(key, biome);
         }
         if (biomes.isEmpty()) {
             return null;

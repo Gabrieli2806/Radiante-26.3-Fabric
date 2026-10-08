@@ -11,14 +11,25 @@
 #ifndef VPT_SEAMLESS_GLASS
 #    define VPT_SEAMLESS_GLASS 1
 #endif
+// Which glass is joined: 0 blocks and panes, 1 glass blocks only, 2 panes only.
+#ifndef VPT_SEAMLESS_GLASS_SCOPE
+#    define VPT_SEAMLESS_GLASS_SCOPE 0u
+#endif
+
+bool seamlessGlassApplies(uint packedData) {
+    bool pane = isPaneSurface(packedData);
+    return VPT_SEAMLESS_GLASS_SCOPE == 0u || (VPT_SEAMLESS_GLASS_SCOPE == 1u && !pane) ||
+           (VPT_SEAMLESS_GLASS_SCOPE == 2u && pane);
+}
 
 // Frame width, as a share of a block (one texel of a 16 pixel texture), and where a point inside it is moved to.
 const float SEAMLESS_GLASS_FRAME = 1.5 / 16.0;
 
 // uv at objectPos (block-aligned geometry space) on a face whose texture runs along dposdu and dposdv, moved off
 // the frame along the block's edges.
-vec2 seamlessGlassUV(vec2 uv, vec3 objectPos, vec3 dposdu, vec3 dposdv) {
+vec2 seamlessGlassUV(vec2 uv, vec3 objectPos, vec3 dposdu, vec3 dposdv, uint packedData) {
 #if VPT_SEAMLESS_GLASS != 0
+    if (!seamlessGlassApplies(packedData)) { return uv; }
     vec3 faceNormal = cross(dposdu, dposdv);
     float normalLength = length(faceNormal);
     if (normalLength <= 1e-8) { return uv; }
@@ -59,13 +70,18 @@ vec2 seamlessGlassUV(vec2 uv, vec3 objectPos, vec3 dposdu, vec3 dposdv) {
 // Told apart by their size in the world (under 3/16 of a block across), not in texels: a pack whose pane texture is
 // finer than 16 px (Bedrock RTX packs, upscaled for their detail maps) made the strip too many texels wide, and every
 // join between stacked panes showed as a dark line.
-bool seamlessGlassHidesFace(vec3 p0, vec3 p1, vec3 p2) {
+bool seamlessGlassHidesFace(vec3 p0, vec3 p1, vec3 p2, uint packedData) {
 #if VPT_SEAMLESS_GLASS != 0
+    if (!seamlessGlassApplies(packedData)) { return false; }
     vec3 faceNormal = cross(p1 - p0, p2 - p0);
     float normalLength = length(faceNormal);
     bool horizontal = normalLength > 0.0 && abs(faceNormal.y) > 0.9 * normalLength;
     vec2 extent = max(p0.xz, max(p1.xz, p2.xz)) - min(p0.xz, min(p1.xz, p2.xz));
-    return horizontal && min(extent.x, extent.y) < 3.0 / 16.0;
+    if (!horizontal || min(extent.x, extent.y) >= 3.0 / 16.0) { return false; }
+    // Only a cap with glass on the other side: the top of the highest pane and the bottom of the lowest stay, or a
+    // window seen from above or below had a hollow edge. (Vanilla winds faces outward, so the normal says which.)
+    bool up = faceNormal.y > 0.0;
+    return up ? (packedData & PANE_CAP_UP_BIT) == 0u : (packedData & PANE_CAP_DOWN_BIT) == 0u;
 #else
     return false;
 #endif

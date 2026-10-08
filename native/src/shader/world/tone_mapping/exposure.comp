@@ -124,6 +124,14 @@ void main() {
         float anchor = clamp(pc.manualExposure, pc.minExposure, maxExposure);
         targetExposure = exp2(mix(log2(anchor), log2(max(targetExposure, 1e-6)), clamp(pc.adaptation, 0.0, 1.0)));
         float speed = (targetExposure > prev) ? pc.speedUp : pc.speedDown;
+        if (pc.exposureMeteringMode == 3) {
+            // The incident meter reads 256 one-sample points of the path tracer's light, noisy from frame to frame:
+            // followed at full speed the picture's brightness shimmered. Changes under a tenth of a stop are left
+            // alone, and larger ones are followed at a third of the speed - an eye still, a scene change still felt.
+            float stops = log2(max(targetExposure, 1e-6)) - log2(max(prev, 1e-6));
+            if (abs(stops) < 0.1) { targetExposure = prev; }
+            speed *= 0.35;
+        }
         float k = 1.0 - exp(-pc.dt * speed);
         expData.avgLogLum = log2(max(level, 1e-12));
         expData.exposure = clamp(mix(prev, targetExposure, clamp(k, 0.0, 1.0)), pc.minExposure, maxExposure);

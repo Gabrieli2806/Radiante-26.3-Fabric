@@ -20,6 +20,11 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private static final int GLASS_FLAG = 0x80;
     /** Small plants (grass, flowers, bushes); see plant(). */
     private static final int PLANT_FLAG = 0x100;
+    /** A glass pane (not a glass block); see glassPane(). */
+    private static final int PANE_FLAG = 0x200;
+    /** The pane's top or bottom is open (no glass above or below), so its cap stays; see glassPane(). */
+    private static final int CAP_UP_FLAG = 0x400;
+    private static final int CAP_DOWN_FLAG = 0x800;
 
     public static final int ALPHA_MODE_OPAQUE = 0;
     public static final int ALPHA_MODE_CUTOUT = 1;
@@ -81,6 +86,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     private float layerOffset;
     private boolean glass;
     private boolean plant;
+    private int paneFlags;
     private boolean computeQuadNormals;
     private boolean overlayEnabled;
     private boolean glintEnabled;
@@ -173,6 +179,16 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
     }
 
     /** Marks what follows as a small plant, which the tracer may leave out far from the camera. */
+    /**
+     * Marks what follows as a glass pane, and whether its top and bottom caps are open to air: seamless glass hides
+     * the caps between stacked panes, but the top of the highest pane (and the bottom of the lowest) must stay, or
+     * a window seen from above had a hole along its edge.
+     */
+    public PBRVertexWriter glassPane(boolean pane, boolean capUp, boolean capDown) {
+        this.paneFlags = pane ? PANE_FLAG | (capUp ? CAP_UP_FLAG : 0) | (capDown ? CAP_DOWN_FLAG : 0) : 0;
+        return this;
+    }
+
     public PBRVertexWriter plant(boolean plant) {
         this.plant = plant;
         return this;
@@ -304,7 +320,7 @@ public final class PBRVertexWriter implements VertexConsumer, AutoCloseable {
         MemoryUtil.memPutFloat(v + OFF_ALBEDO_EMISSION, this.albedoEmission);
         MemoryUtil.memPutInt(v + OFF_ALPHA_MODE,
             this.alphaMode | (this.water ? WATER_FLAG : 0) | (this.rain ? RAIN_FLAG : 0) | (this.held ? HELD_FLAG : 0) | (this.glass ? GLASS_FLAG : 0)
-                | (this.plant ? PLANT_FLAG : 0));
+                | (this.plant ? PLANT_FLAG : 0) | this.paneFlags);
         if (this.colorOverride != 0) {
             setColor(255, 255, 255, 255);
         }

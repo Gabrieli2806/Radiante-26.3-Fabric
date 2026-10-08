@@ -121,6 +121,18 @@ layout(set = 2, binding = 1) uniform LastWorldUniform {
     WorldUBO lastWorldUBO;
 };
 
+// Under water: the distance (blocks) over which the view fades to about a third, and how bright the water fog is
+// against the sky's light.
+#ifndef UNDERWATER_VISIBILITY
+#    define UNDERWATER_VISIBILITY 22.0
+#endif
+#ifndef UNDERWATER_FOG_TINT
+#    define UNDERWATER_FOG_TINT vec3(0.03, 0.2, 0.42)
+#endif
+#ifndef UNDERWATER_FOG_LIGHT
+#    define UNDERWATER_FOG_LIGHT 0.35
+#endif
+
 #ifndef END_EXPOSURE_SCALE
 #    define END_EXPOSURE_SCALE 0.4
 #endif
@@ -1805,6 +1817,29 @@ void main() {
                 composeFogTransmittance = waterComposeTransmittance;
                 composeFogAdditive = waterScatter;
             }
+        }
+        if (skyUBO.cameraSubmersionType == 1) {
+            // How far one sees under water: past a few dozen blocks everything fades into the water's own colour
+            // (a sea blue), lit as the water around the camera is. Without it a clear ocean
+            // showed its floor and the shore far away, as if through air.
+            float seen = surfaceDepth == INF_DISTANCE || surfaceDepth <= 0.0 ? UNDERWATER_VISIBILITY * 4.0 : surfaceDepth;
+            float clearness = exp(-seen / UNDERWATER_VISIBILITY);
+            vec3 fogTint = UNDERWATER_FOG_TINT; // a clear sea blue (vanilla's water fog is nearly navy)
+            float ambient = dot(texture(skyFull, vec3(0.0, 1.0, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722)) *
+                            mix(0.2, 1.0, volumetricSkyVisibility(eyePos, false));
+            vec3 fogLight = fogTint * ambient * UNDERWATER_FOG_LIGHT;
+            if (useTransparentSplit) {
+                transparentReflectionRadiance *= clearness;
+                transparentRefractionRadiance *= clearness;
+                transparentFogAdditive = transparentFogAdditive * clearness + fogLight * (1.0 - clearness);
+                transparentFogTransmittance *= clearness;
+            } else {
+                mainRay.radiance = mainRay.radiance * clearness + fogLight * (1.0 - clearness);
+                composeFogAdditive = composeFogAdditive * clearness + fogLight * (1.0 - clearness);
+                composeFogTransmittance = (composeFogTransmittance < 0.0 ? 1.0 : composeFogTransmittance) * clearness;
+            }
+        }
+        if (skyUBO.cameraSubmersionType == 1 && waterMediumActive()) {
         } else if (skyUBO.cameraSubmersionType == 1) {
             vec3 waterColor = vec3(0.0, 0.48, 0.65);
             vec3 preFogRadiance = mainRay.radiance * waterColor;
@@ -1965,7 +2000,11 @@ void main() {
                 float weight = 1.0 - clamp((surfaceDepth - 32.0) / 96.0, 0.0, 1.0);
                 if (!any(isnan(root)) && !any(isinf(root))) { meterSample = vec4(root, weight); }
             }
-            lightMeter.samples[meterIndex.y * 16 + meterIndex.x] = meterSample;
+            // Averaged over frames: each sample is one noisy path, and the meter shimmered with it.
+            uint meterSlot = uint(meterIndex.y * 16 + meterIndex.x);
+            vec4 previousSample = lightMeter.samples[meterSlot];
+            bool usable = !any(isnan(previousSample)) && !any(isinf(previousSample));
+            lightMeter.samples[meterSlot] = usable ? mix(previousSample, meterSample, 0.2) : meterSample;
         }
         // How much of a day it is, by the sun's height: the eye may open far by day (a room, a cave) but not at
         // night, which is meant to stay dark. Other dimensions have no night.

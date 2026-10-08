@@ -40,7 +40,7 @@ public final class BedrockPackConverter {
     /** Stored as the zip comment; a pack converted by another version of the converter is converted again. */
     /** Largest size a Bedrock texture set is converted at, in pixels per side; finer maps are averaged down to it. */
     private static final int MAX_DETAIL = 128;
-    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 13";
+    private static final String CONVERTER_VERSION = "radiante-bedrock-converter 14";
     /** Resource pack format of Minecraft 26.3. */
     private static final int PACK_FORMAT = 97;
     /** Slope of normals built from a height map: height units per texel. */
@@ -326,7 +326,10 @@ public final class BedrockPackConverter {
                 RadianteClient.LOGGER.warn("Bedrock height map of {} is not greyscale: it may be the packed height "
                     + "and edge-normal form, which is not decoded (it is read as a plain height)", bedrockPath);
             }
-            write(zos, target + "_n.png", png(labPbrFromHeight(height.averaged(width, heightPx))));
+            // The colour's holes (alpha 0) carry no height of their own: leaves are painted black there, and the
+            // cliff from a leaf down to a hole made every leaf texel's edge a steep normal that sparkled.
+            TgaReader.Image coverage = color != null && color.width() == width && color.height() == heightPx ? color : null;
+            write(zos, target + "_n.png", png(labPbrFromHeight(height.averaged(width, heightPx), coverage)));
         }
         return true;
     }
@@ -401,18 +404,33 @@ public final class BedrockPackConverter {
 
     /** LabPBR normal map from a Bedrock height map: normal in red and green, full AO in blue, flat height in alpha. */
     static TgaReader.Image labPbrFromHeight(TgaReader.Image height) {
+        return labPbrFromHeight(height, null);
+    }
+
+    /** As above; a neighbour where {@code coverage} is transparent counts as level with the texel itself. */
+    static TgaReader.Image labPbrFromHeight(TgaReader.Image height, TgaReader.Image coverage) {
         int w = height.width();
         int h = height.height();
         int[] out = new int[w * h];
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                float du = (grey(height.get(x + 1, y)) - grey(height.get(x - 1, y))) * 0.5f;
+                float centre = grey(height.get(x, y));
+                float du = (heightOrCentre(height, coverage, x + 1, y, centre)
+                    - heightOrCentre(height, coverage, x - 1, y, centre)) * 0.5f;
                 // Texture v runs up, image rows run down.
-                float dv = (grey(height.get(x, y - 1)) - grey(height.get(x, y + 1))) * 0.5f;
+                float dv = (heightOrCentre(height, coverage, x, y - 1, centre)
+                    - heightOrCentre(height, coverage, x, y + 1, centre)) * 0.5f;
                 out[y * w + x] = encodeNormal(-du * HEIGHT_TO_NORMAL, -dv * HEIGHT_TO_NORMAL, 1.0f);
             }
         }
         return new TgaReader.Image(w, h, out);
+    }
+
+    private static float heightOrCentre(TgaReader.Image height, TgaReader.Image coverage, int x, int y, float centre) {
+        if (coverage != null && (coverage.get(x, y) >>> 24) == 0) {
+            return centre;
+        }
+        return grey(height.get(x, y));
     }
 
     /** A Bedrock normal map re-encoded for LabPBR. */

@@ -163,6 +163,7 @@ public final class BiomeAmbiance {
     /** A converted Bedrock pack's fog by biome id, empty without one. */
     private static final Map<String, Haze> PACK_BY_BIOME = new HashMap<>();
     private static final Map<String, Water> PACK_WATER_BY_BIOME = new HashMap<>();
+    private static final Map<String, Integer> PACK_WATER_COLOUR_BY_BIOME = new HashMap<>();
     private static final Vector4f waterExtinction = new Vector4f();
     private static final Vector4f waterAlbedo = new Vector4f();
     private static Object packFogLoadedFor;
@@ -209,6 +210,7 @@ public final class BiomeAmbiance {
         packFogLoadedFor = key;
         PACK_BY_BIOME.clear();
         PACK_WATER_BY_BIOME.clear();
+        PACK_WATER_COLOUR_BY_BIOME.clear();
         hasCurrent = false;
         Optional<Resource> resource = minecraft.getResourceManager().getResource(PACK_FOG);
         if (resource.isEmpty()) {
@@ -218,7 +220,12 @@ public final class BiomeAmbiance {
             JsonObject biomes = JsonParser.parseReader(reader).getAsJsonObject().getAsJsonObject("biomes");
             for (Map.Entry<String, JsonElement> entry : biomes.entrySet()) {
                 JsonObject biome = entry.getValue().getAsJsonObject();
-                PACK_BY_BIOME.put(entry.getKey(), packHaze(biome));
+                if (biome.has("albedo")) {
+                    PACK_BY_BIOME.put(entry.getKey(), packHaze(biome));
+                }
+                if (biome.has("water_color")) {
+                    PACK_WATER_COLOUR_BY_BIOME.put(entry.getKey(), biome.get("water_color").getAsInt());
+                }
                 if (biome.has("water")) {
                     JsonObject water = biome.getAsJsonObject("water");
                     float[] extinction = vec3(water.getAsJsonArray("extinction"));
@@ -373,10 +380,14 @@ public final class BiomeAmbiance {
                 Holder<Biome> biome = level.getBiome(pos);
                 Water water = biome.unwrapKey()
                     .map(key -> PACK_WATER_BY_BIOME.get(key.identifier().toString())).orElse(null);
+                // A Bedrock pack's own water colour for the biome where it gives one, as Bedrock tints its water.
+                int colour = biome.unwrapKey()
+                    .map(key -> PACK_WATER_COLOUR_BY_BIOME.get(key.identifier().toString()))
+                    .orElse(biome.value().getWaterColor());
                 if (water == null) {
-                    water = vanillaWater(biome.value().getWaterColor());
+                    water = vanillaWater(colour);
                 } else {
-                    water = coloured(water, biome.value().getWaterColor());
+                    water = coloured(water, colour);
                 }
                 waterExtinction.add(water.extinctionR(), water.extinctionG(), water.extinctionB(), 0.0f);
                 waterAlbedo.add(water.albedoR(), water.albedoG(), water.albedoB(), 0.0f);

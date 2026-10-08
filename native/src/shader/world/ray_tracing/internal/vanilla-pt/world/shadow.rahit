@@ -54,33 +54,6 @@ indexBuffer;
 #include "common/lod_coverage.glsl"
 #include "common/seamless_glass.glsl"
 
-#ifndef VPT_FOLIAGE_CULLING
-#    define VPT_FOLIAGE_CULLING 0
-#endif
-#ifndef VPT_FOLIAGE_DISTANCE
-#    define VPT_FOLIAGE_DISTANCE 48.0
-#endif
-
-// Foliage culling, as Bedrock RTX does: small plants past a distance from the camera are left out, appearing a few
-// triangles at a time over the last 8 blocks as the camera comes closer. Positions are camera-relative.
-bool foliageCulled(uint packedData) {
-#if VPT_FOLIAGE_CULLING != 0
-    if (!isPlantSurface(packedData)) { return false; }
-    vec3 hit = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-    const float fade = 8.0;
-    float start = VPT_FOLIAGE_DISTANCE - fade;
-    float d = length(hit.xz);
-    if (d < start) { return false; }
-    uint h = (uint(gl_PrimitiveID) >> 2u) * 747796405u + gl_InstanceCustomIndexEXT * 2891336453u +
-             uint(gl_GeometryIndexEXT) * 277803737u;
-    h ^= h >> 16u;
-    h *= 2246822519u;
-    h ^= h >> 13u;
-    return (d - start) / fade > float(h & 0xFFFFu) / 65535.0;
-#else
-    return false;
-#endif
-}
 
 layout(location = 1) rayPayloadInEXT ShadowRay shadowRay;
 hitAttributeEXT vec2 attribs;
@@ -106,10 +79,6 @@ void main() {
     uint packedData = m0.packedData;
     uint textureID = m0.textureID;
     uint alphaMode = getAlphaMode(packedData);
-    if (foliageCulled(packedData)) {
-        ignoreIntersectionEXT;
-        return;
-    }
 
     vec4 colorLayer =
         hasColorLayer(packedData) ?
@@ -123,14 +92,14 @@ void main() {
         textureUV = baryCoords.x * m0.textureUV + baryCoords.y * m1.textureUV + baryCoords.z * m2.textureUV;
         // Seamless glass works from the block grid; a held block is not on it.
         if (isGlassSurface(packedData) && !isHeldSurface(packedData)) {
-            if (seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos)) {
+            if (seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos, packedData)) {
                 ignoreIntersectionEXT;
                 return;
             }
             vec3 glassDposdu, glassDposdv;
             computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, glassDposdu, glassDposdv);
             textureUV = seamlessGlassUV(textureUV, baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos,
-                                        glassDposdu, glassDposdv);
+                                        glassDposdu, glassDposdv, packedData);
         }
         albedo = sampleTexture(textures[nonuniformEXT(textureID)], textureUV, false);
     }

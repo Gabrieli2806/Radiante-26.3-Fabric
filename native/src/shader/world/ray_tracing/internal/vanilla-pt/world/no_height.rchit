@@ -952,7 +952,7 @@ void main() {
         computedposduDv(p0.pos, p1.pos, p2.pos, m0.textureUV, m1.textureUV, m2.textureUV, dposdu, dposdv);
         if (isGlassSurface(packedData) && !isHeldSurface(packedData)) {
             textureUV = seamlessGlassUV(textureUV, baryCoords.x * p0.pos + baryCoords.y * p1.pos + baryCoords.z * p2.pos,
-                                        dposdu, dposdv);
+                                        dposdu, dposdv, packedData);
         }
         lod = lodWithCone(textures[nonuniformEXT(textureID)], textureUV, coneRadiusWorld, dposdu, dposdv);
 
@@ -1010,7 +1010,7 @@ void main() {
             float glassAlpha = clamp(glassTexel.a * colorLayerValue.a, 0.0, 1.0);
             // The thin top of a pane between two stacked panes (seamless glass) is inside the sheet: seen through as
             // if it were not there. Opaque glass geometry never reaches the any-hit shader that leaves it out.
-            bool hiddenPaneTop = !isHeldSurface(packedData) && seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos);
+            bool hiddenPaneTop = !isHeldSurface(packedData) && seamlessGlassHidesFace(p0.pos, p1.pos, p2.pos, packedData);
             // Tinted glass is nearly opaque in its texture but still a window: seen through, darkened.
             if (hiddenPaneTop || glassAlpha < 0.9 || glassDarkness(glassTexel.rgb * colorLayer) > 0.5) {
                 vec3 incident = normalize(gl_WorldRayDirectionEXT);

@@ -37,9 +37,14 @@ final class BlockGallery {
     /** Put down as they are: no neighbour updates, no shape updates, no onPlace (falling, fluid ticks). */
     private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE;
 
-    private static final List<ResourceKey<CreativeModeTab>> TABS = List.of(CreativeModeTabs.BUILDING_BLOCKS,
-        CreativeModeTabs.COLORED_BLOCKS, CreativeModeTabs.NATURAL_BLOCKS, CreativeModeTabs.FUNCTIONAL_BLOCKS,
-        CreativeModeTabs.REDSTONE_BLOCKS);
+    // By id: the CreativeModeTabs constants are private in vanilla (only Fabric's access widener opens them).
+    private static final List<ResourceKey<CreativeModeTab>> TABS = List.of(tab("building_blocks"),
+        tab("colored_blocks"), tab("natural_blocks"), tab("functional_blocks"), tab("redstone_blocks"));
+
+    private static ResourceKey<CreativeModeTab> tab(String name) {
+        return ResourceKey.create(net.minecraft.core.registries.Registries.CREATIVE_MODE_TAB,
+            net.minecraft.resources.Identifier.withDefaultNamespace(name));
+    }
 
     private BlockGallery() {
     }

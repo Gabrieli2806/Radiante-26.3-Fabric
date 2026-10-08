@@ -40,6 +40,13 @@ struct Vertex {
     // And for small plants, which the tracer may leave out far away.
     static constexpr uint32_t alphaModePlantFlag = 0x100u;
     static constexpr uint32_t plantSurfaceBit = 1u << 21u;
+    // Glass panes, and whether their top and bottom caps are open to air (seamless glass).
+    static constexpr uint32_t alphaModePaneFlag = 0x200u;
+    static constexpr uint32_t alphaModeCapUpFlag = 0x400u;
+    static constexpr uint32_t alphaModeCapDownFlag = 0x800u;
+    static constexpr uint32_t paneSurfaceBit = 1u << 22u;
+    static constexpr uint32_t paneCapUpBit = 1u << 23u;
+    static constexpr uint32_t paneCapDownBit = 1u << 24u;
 
     template <typename T>
     static VertexLayoutInfo initVertexLayout(std::vector<VertexAttribute> &attributes);

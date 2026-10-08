@@ -45,6 +45,20 @@ public enum RendererProfile {
      * Writes this profile's attributes into the pipeline and saves the choice. Returns true when the pipeline has to be
      * rebuilt for it to show ({@code Pipeline.build()}, or the applying screen).
      */
+    /** Writes this profile's values into the pipeline without saving or logging; see Pipeline.buildInternal. */
+    public void enforce() {
+        if (this != BEDROCK_RTX) {
+            return;
+        }
+        for (CompatParameter parameter : BedrockRtxProfile.PARAMETERS) {
+            if (parameter.module() == null) {
+                Pipeline.setShaderPackValue(parameter.attribute(), parameter.bedrockValue());
+            } else {
+                Pipeline.setModuleValue(parameter.module(), parameter.attribute(), parameter.bedrockValue());
+            }
+        }
+    }
+
     public boolean apply() {
         boolean rebuild = false;
         for (CompatParameter parameter : BedrockRtxProfile.PARAMETERS) {
