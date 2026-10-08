@@ -8,7 +8,9 @@
 #include "core/vulkan/physical_device.hpp"
 #include "core/vulkan/queue_lock.hpp"
 
+#include <chrono>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <list>
 #include <unordered_set>
@@ -487,8 +489,86 @@ vk::Device::Device(std::shared_ptr<Instance> instance,
     installQueueLockHooks();
 }
 
+std::filesystem::path vk::Device::pipelineCacheFile_;
+
+void vk::Device::setPipelineCacheFile(const std::filesystem::path &file) {
+    pipelineCacheFile_ = file;
+}
+
+VkPipelineCache vk::Device::pipelineCache() {
+    std::lock_guard<std::mutex> lock(pipelineCacheMutex_);
+    if (pipelineCache_ != VK_NULL_HANDLE) { return pipelineCache_; }
+
+    std::vector<char> data;
+    if (!pipelineCacheFile_.empty()) {
+        std::ifstream in(pipelineCacheFile_, std::ios::binary | std::ios::ate);
+        if (in) {
+            std::streamsize size = in.tellg();
+            if (size > 0) {
+                data.resize(static_cast<size_t>(size));
+                in.seekg(0);
+                if (!in.read(data.data(), size)) { data.clear(); }
+            }
+        }
+    }
+
+    VkPipelineCacheCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+    info.initialDataSize = data.size();
+    info.pInitialData = data.empty() ? nullptr : data.data();
+    VkResult result = vkCreatePipelineCache(device_, &info, nullptr, &pipelineCache_);
+    if (result != VK_SUCCESS && !data.empty()) {
+        // Unusable data (another driver, a damaged file): start empty.
+        info.initialDataSize = 0;
+        info.pInitialData = nullptr;
+        result = vkCreatePipelineCache(device_, &info, nullptr, &pipelineCache_);
+    }
+    if (result != VK_SUCCESS) {
+        deviceCerr() << "cannot create the pipeline cache (" << result << "); pipelines are built without one"
+                     << std::endl;
+        pipelineCache_ = VK_NULL_HANDLE;
+    } else {
+        deviceCout() << "pipeline cache loaded: " << data.size() / 1024 << " KiB" << std::endl;
+    }
+    return pipelineCache_;
+}
+
+void vk::Device::savePipelineCache() {
+    VkPipelineCache cache;
+    {
+        std::lock_guard<std::mutex> lock(pipelineCacheMutex_);
+        cache = pipelineCache_;
+    }
+    if (cache == VK_NULL_HANDLE || pipelineCacheFile_.empty()) { return; }
+
+    size_t size = 0;
+    if (vkGetPipelineCacheData(device_, cache, &size, nullptr) != VK_SUCCESS || size == 0) { return; }
+    std::vector<char> data(size);
+    if (vkGetPipelineCacheData(device_, cache, &size, data.data()) != VK_SUCCESS) { return; }
+    data.resize(size);
+
+    // Written beside the file and moved over it, so a crash mid-write leaves the old cache.
+    std::error_code ec;
+    std::filesystem::create_directories(pipelineCacheFile_.parent_path(), ec);
+    std::filesystem::path temp = pipelineCacheFile_;
+    temp += ".tmp";
+    {
+        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+        if (!out) { return; }
+        out.write(data.data(), static_cast<std::streamsize>(data.size()));
+        if (!out) { return; }
+    }
+    std::filesystem::rename(temp, pipelineCacheFile_, ec);
+    if (ec) { std::filesystem::remove(temp, ec); }
+}
+
 vk::Device::~Device() {
-    // Owned by Minecraft's backend.
+    // The device itself is owned by Minecraft's backend; the cache is ours.
+    savePipelineCache();
+    if (pipelineCache_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineCache(device_, pipelineCache_, nullptr);
+        pipelineCache_ = VK_NULL_HANDLE;
+    }
 }
 
 VkDevice &vk::Device::vkDevice() {

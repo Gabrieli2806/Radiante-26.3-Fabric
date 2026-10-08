@@ -51,7 +51,7 @@ class ShaderSpirvCache {
         std::unordered_map<std::string, std::optional<uint64_t>> &hashCache,
         std::unordered_set<std::string> &visitingPaths);
 
-    static void trimCacheDirectory(const std::filesystem::path &cacheDir, size_t maxFiles = 500);
+    static void trimCacheDirectory(const std::filesystem::path &cacheDir, size_t maxFiles = 1500);
 };
 
 class ShaderIncluder : public shaderc::CompileOptions::IncluderInterface {

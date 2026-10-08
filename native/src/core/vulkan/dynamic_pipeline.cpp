@@ -143,8 +143,8 @@ std::shared_ptr<vk::DynamicGraphicsPipeline> vk::DynamicGraphicsPipelineBuilder:
     pipelineCreateInfo.basePipelineIndex = -1;
 
     VkPipeline pipeline;
-    if (vkCreateGraphicsPipelines(device->vkDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &pipeline) !=
-        VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device->vkDevice(), device->pipelineCache(), 1, &pipelineCreateInfo, nullptr,
+                                  &pipeline) != VK_SUCCESS) {
         dynamicGraphicsPipelineCerr() << "failed to create graphics pipeline" << std::endl;
         exit(EXIT_FAILURE);
     } else {

@@ -5,6 +5,7 @@
 #include "core/vulkan/render_pass.hpp"
 #include "core/vulkan/shader.hpp"
 
+#include <chrono>
 #include <iostream>
 #include <vector>
 #include "core/util/logging.hpp"
@@ -261,8 +262,8 @@ std::shared_ptr<vk::GraphicsPipeline> vk::GraphicsPipelineBuilder::build(std::sh
     pipelineCreateInfo.basePipelineIndex = -1;
 
     VkPipeline pipeline;
-    if (vkCreateGraphicsPipelines(device->vkDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &pipeline) !=
-        VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device->vkDevice(), device->pipelineCache(), 1, &pipelineCreateInfo, nullptr,
+                                  &pipeline) != VK_SUCCESS) {
         graphicsPipelineCerr() << "failed to create graphics pipeline" << std::endl;
         exit(EXIT_FAILURE);
     } else {
@@ -346,11 +347,16 @@ std::shared_ptr<vk::RayTracingPipeline> vk::RayTracingPipelineBuilder::build(std
     pipelineInfo.maxPipelineRayRecursionDepth = 3;
 
     VkPipeline rayTracingPipeline;
-    if (vkCreateRayTracingPipelinesKHR(device->vkDevice(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-                                        &rayTracingPipeline) != VK_SUCCESS) {
+    auto started = std::chrono::steady_clock::now();
+    if (vkCreateRayTracingPipelinesKHR(device->vkDevice(), VK_NULL_HANDLE, device->pipelineCache(), 1, &pipelineInfo,
+                                        nullptr, &rayTracingPipeline) != VK_SUCCESS) {
         radiante::err() << "Cannot build ray tracing pipeline" << std::endl;
         exit(EXIT_FAILURE);
     }
+    radiante::out() << "[Pipeline] ray tracing pipeline of " << pipelineInfo.stageCount << " stages built in "
+                    << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started)
+                           .count()
+                    << " ms" << std::endl;
 
     return RayTracingPipeline::create(device, rayTracingPipeline);
 }
@@ -376,7 +382,7 @@ std::shared_ptr<vk::ComputePipeline> vk::ComputePipelineBuilder::build(std::shar
     computePipelineCreateInfo.layout = pipelineLayout_;
 
     VkPipeline compPipeline;
-    if (vkCreateComputePipelines(device->vkDevice(), VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr,
+    if (vkCreateComputePipelines(device->vkDevice(), device->pipelineCache(), 1, &computePipelineCreateInfo, nullptr,
                                  &compPipeline) != VK_SUCCESS) {
         radiante::err() << "Cannot build compute pipeline" << std::endl;
         exit(EXIT_FAILURE);

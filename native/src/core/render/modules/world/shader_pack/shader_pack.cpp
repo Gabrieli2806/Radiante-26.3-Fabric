@@ -8,6 +8,8 @@
 #include "mz_strm.h"
 #include "mz_zip.h"
 #include "mz_zip_rw.h"
+#include "core/util/logging.hpp"
+#include <chrono>
 #include <tinyexpr.h>
 
 #include <nlohmann/json.hpp>
@@ -2250,6 +2252,7 @@ ShaderPack::createShaders(std::shared_ptr<vk::Device> device,
 
     std::vector<vk::Shader::CompileResult> compileResults(uniqueIndices.size());
     Pipeline::rebuildShadersTotal.fetch_add(static_cast<uint32_t>(uniqueIndices.size()));
+    auto compileStarted = std::chrono::steady_clock::now();
     mcvr::parallelFor(uniqueIndices.size(), [&](size_t ui) {
         const size_t requestIndex = uniqueIndices[ui];
         const auto &request = requests[requestIndex];
@@ -2259,6 +2262,11 @@ ShaderPack::createShaders(std::shared_ptr<vk::Device> device,
             shaderPack_.includeDirectories, executionSources[requestIndex], cacheDir);
         Pipeline::rebuildShadersDone.fetch_add(1);
     });
+    radiante::out() << "[ShaderPack] " << uniqueIndices.size() << " shaders to SPIR-V in "
+                    << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() -
+                                                                               compileStarted)
+                           .count()
+                    << " ms" << std::endl;
 
 #ifdef DEBUG
     if (stats != nullptr) {

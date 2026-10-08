@@ -413,6 +413,8 @@ vk::Shader::compileGlslToSpv(std::string sourcePath,
         if (std::filesystem::is_regular_file(cacheFile, errorCode)) {
             std::vector<uint32_t> cachedSpirv = vk::ShaderSpirvCache::readCachedSpirv(cacheFile);
             if (!cachedSpirv.empty()) {
+                // Used now: the trim removes what has gone longest unused, not what was written longest ago.
+                std::filesystem::last_write_time(cacheFile, std::filesystem::file_time_type::clock::now(), errorCode);
                 return {
                     .sourcePath = std::move(sourcePath),
                     .stage = stage,

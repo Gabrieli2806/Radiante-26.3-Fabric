@@ -371,6 +371,8 @@ void Framework::recreate() {
         Renderer::instance().textures()->bindAllTextures();
         acquireContext();
 
+        // What the driver compiled for this build is kept for the next one (see Device::pipelineCache).
+        device()->savePipelineCache();
         if (reportNativeProgress) { Pipeline::endNativeRebuild(); }
     } catch (...) {
         if (reportNativeProgress) { Pipeline::endNativeRebuild(); }

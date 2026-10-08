@@ -46,6 +46,7 @@ JNIEXPORT void JNICALL
 Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_initFolderPath(JNIEnv *env, jclass, jstring folderPath) {
     if (folderPath == nullptr) return;
     Renderer::folderPath = toU16(env, folderPath);
+    vk::Device::setPipelineCacheFile(Renderer::folderPath / "cache" / "pipeline_cache.bin");
 }
 
 JNIEXPORT jint JNICALL Java_com_g2806_radiante_client_proxy_vulkan_RendererProxy_createInstance(

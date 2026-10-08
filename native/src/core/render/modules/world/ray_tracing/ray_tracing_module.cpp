@@ -10,6 +10,7 @@
 #include "core/render/world.hpp"
 #include "core/util/parallel.hpp"
 
+#include <future>
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -1200,8 +1201,16 @@ void RayTracingModule::buildRayTracingPassPipelines(
     }
     shaderOffset += pass.rayGenRequestCount_;
 
-    pass.queryPipeline = buildRtPipeline(pass.rayGenQueryShader);
-    pass.updatePipeline = pass.isSharcUpdatePass ? buildRtPipeline(pass.rayGenUpdateShader) : pass.queryPipeline;
+    // The query and the update pipeline share every other shader and take as long each: built side by side, the
+    // driver compiles them on two threads.
+    if (pass.isSharcUpdatePass) {
+        auto updateFuture = std::async(std::launch::async, [&] { return buildRtPipeline(pass.rayGenUpdateShader); });
+        pass.queryPipeline = buildRtPipeline(pass.rayGenQueryShader);
+        pass.updatePipeline = updateFuture.get();
+    } else {
+        pass.queryPipeline = buildRtPipeline(pass.rayGenQueryShader);
+        pass.updatePipeline = pass.queryPipeline;
+    }
 
     if (pass.isSharcUpdatePass && pass.sharcRequestCount_ > 0) {
         pass.sharcResolveCompShader = compiledShaders[shaderOffset];
